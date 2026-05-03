@@ -62,3 +62,27 @@ jobs:
           npx cdk deploy --all
           --context environment=staging
           --require-approval never
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Build and publish fan SPA (staging)
+        env:
+          STACK_NAME: RiffSyncStatic-staging
+        run: |
+          set -euo pipefail
+          ORIGIN_HOST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text)"
+          echo "Staging CloudFront host: ${ORIGIN_HOST}"
+          cd "${GITHUB_WORKSPACE}/apps/web"
+          npm ci
+          VITE_PUBLIC_ORIGIN="https://${ORIGIN_HOST}" npm run build
+          BUCKET="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)"
+          DIST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)"
+          aws s3 sync ./dist/ "s3://${BUCKET}/" --delete
+          aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"

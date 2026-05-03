@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'infra/cdk/**'
+      - 'apps/web/**'
       - '.github/workflows/ci.yml'
       - '.github/workflows/deploy-staging.yml'
       - '.github/workflows/deploy-prod.yml'
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - 'infra/cdk/**'
+      - 'apps/web/**'
       - '.github/workflows/ci.yml'
       - '.github/workflows/deploy-staging.yml'
       - '.github/workflows/deploy-prod.yml'
@@ -50,3 +52,19 @@ jobs:
             exit 1
           fi
           cfn-lint "${files[@]}"
+
+  web-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
