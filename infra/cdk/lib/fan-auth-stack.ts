@@ -102,6 +102,8 @@ export class FanAuthStack extends cdk.Stack {
       'http://127.0.0.1:5173/callback',
       'http://localhost:3000/',
       'http://localhost:3000/callback',
+      'https://localhost:5173/',
+      'https://localhost:5173/callback',
     ];
     const prodCallbackLogoutBase = ['https://riffsync.tv/', 'https://riffsync.tv/callback'];
 
