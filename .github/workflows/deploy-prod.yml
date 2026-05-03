@@ -20,9 +20,6 @@ concurrency:
 jobs:
   validate-and-deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra/cdk
     env:
       PROD_FAN_WEB_HOSTNAME: ${{ vars.PROD_FAN_WEB_HOSTNAME }}
       PROD_FAN_WEB_CERTIFICATE_ARN: ${{ vars.PROD_FAN_WEB_CERTIFICATE_ARN }}
@@ -66,9 +63,12 @@ jobs:
           cache-dependency-path: infra/cdk/package-lock.json
 
       - run: npm ci
+        working-directory: infra/cdk
       - run: npm run build
+        working-directory: infra/cdk
 
       - name: Deploy prod stack(s)
+        working-directory: infra/cdk
         run: |
           set -euo pipefail
           ARGS=(--context environment=prod)
@@ -83,6 +83,7 @@ jobs:
           npx cdk deploy --all "${ARGS[@]}" --require-approval never
 
       - name: Point API CORS + Cognito OAuth at public production site URL
+        working-directory: infra/cdk
         run: |
           set -euo pipefail
           ARGS=(--context environment=prod)
