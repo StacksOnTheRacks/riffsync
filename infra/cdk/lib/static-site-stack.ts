@@ -197,16 +197,15 @@ export class StaticSiteStack extends cdk.Stack {
       cfDomainNames.forEach((hostname) => {
         const recordName = recordNameUnderZone(hostname, fanWebZoneName);
         const idSuffix = dnsRecordConstructSuffix(hostname);
-        const alias = new route53.ARecord(this, `FanWebDnsAlias${idSuffix}`, {
+        new route53.ARecord(this, `FanWebDnsAlias${idSuffix}`, {
           zone,
           recordName,
           target: route53.RecordTarget.fromAlias(
             new route53Targets.CloudFrontTarget(this.distribution),
           ),
         });
-        // Explicit edge ordering: alias records should not race ahead of the distribution
-        // deployment that attaches these hostnames (CloudFront can take 15–45+ minutes).
-        alias.node.addDependency(this.distribution);
+        // Implicit dependency via AliasTarget → distribution is enough. Do not add
+        // `node.addDependency(distribution)` or churn construct ids: see README § Route 53.
       });
     }
 

@@ -104,13 +104,21 @@ With a **wildcard** ACM cert (**`*.riffsync.tv`**), a single name like **`stagin
 
 CORS and Cognito callback allowlists include **`https://www.riffsync.tv`** and **`https://www-staging.riffsync.tv`** by default; **`fanWebAlternateDomainNames`** still adds any other names on the cert. If your **Meta (Facebook) app** restricts **Valid OAuth redirect URIs**, add the **`www`** URLs there as needed.
 
-### Route 53 + CloudFormation: why you see `DELETE_IN_PROGRESS`
+### Route 53 + CloudFormation: `DELETE_IN_PROGRESS` and when **both** apex + `www` disappear
 
-CDK manages **alias A** records as **`AWS::Route53::RecordSet`** resources. When the **construct id** for a record changes (for example from an older `FanWebDnsAlias0`-style id to **`FanWebDnsAlias` + hostname suffix**), CloudFormation treats that as **replacing** the resource: it creates records for the **new** logical ids and **deletes** the **old** ones at the end of the update. Events like **`FanWebDnsAlias046A299B5`** / **`FanWebDnsAlias14F058A65`** in **`DELETE_IN_PROGRESS`** are almost always those **superseded** resources—not a mysterious second pass that “undoes” DNS by itself.
+CDK creates one **`AWS::Route53::RecordSet`** per hostname. **Avoid renaming** the CDK construct id for these records after go-live, or use the **two-phase** recovery below.
 
-**Do not delete the same A records manually** while a stack update is running. That **drifts** the stack from the template: CloudFormation may still run the planned **delete** steps for the **old** logical resources (often a no-op if the record is already gone) while the **new** records can fail or be rolled back, leaving the zone empty or inconsistent.
+- **`DELETE_IN_PROGRESS` on old-looking logical ids** is usually CloudFormation removing **superseded** resources after a construct / logical id change.
+- **Both records vanish after one deploy:** old and new logical resources target the **same** DNS names (`riffsync.tv`, `www.riffsync.tv`). CloudFormation **creates** the new `RecordSet` entries (you see records appear), then **deletes** the **old** logical resources. Each delete removes that **name** in Route 53. Because old and new share the **same** name, deleting the **old** logical resource often **wipes** the row the **new** resource just upserted — so you can see apex created, then **both** gone.
 
-**Recovery if names are missing:** run **`cdk deploy`** again for **`RiffSyncStatic-{staging|prod}`** with the same **`fanWeb*`** and **`RIFFSYNC_ROUTE53_*`** context as usual, then confirm in the stack’s **Resources** tab that the current **`FanWebDnsAlias…`** records (hostname-based suffix) are **`CREATE_COMPLETE`**. Optionally: **`aws route53 list-resource-record-sets --hosted-zone-id …`** and filter for **`staging.`** / **`www-staging.`** (or prod equivalents).
+**This repo:** keep stable **`FanWebDnsAlias${hostnameSuffix}`** ids. We **do not** use `ARecord.node.addDependency(distribution)`; the alias target already depends on the distribution.
+
+**Recovery if Route 53 is empty but the stack still lists `RecordSet` resources:**
+
+1. **Fast:** Re-create the A **alias** records (console or CLI) pointing at your CloudFront distribution (alias hosted zone **`Z2FDTNDATAQYW2`** for CloudFront in **`aws`** partition), or  
+2. **IaC-only (two-phase):** (a) Remove the `ARecord` loop from **`static-site-stack.ts`**, deploy **`RiffSyncStatic-prod`**, (b) restore the loop, deploy again — clean creates with **no** overlapping old logical ids.
+
+**Do not** hand-delete the same records during a stack update — that adds **drift** on top of the above.
 
 **Tests:** `npm test` (Vitest — catalog + **room parsers** + TMDB reconcile core with mocked **`fetch`**).
 
