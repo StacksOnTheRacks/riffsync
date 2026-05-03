@@ -63,6 +63,20 @@ jobs:
           --context environment=staging
           --require-approval never
 
+      - name: Point API CORS + Cognito OAuth at staging CloudFront URL
+        run: |
+          set -euo pipefail
+          STACK_NAME=RiffSyncStatic-staging
+          ORIGIN_HOST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text)"
+          ORIGIN="https://${ORIGIN_HOST}"
+          echo "Adding ${ORIGIN} to HTTP API CORS and Cognito SPA callbacks"
+          npx cdk deploy RiffSyncFanAuth-staging RiffSyncApi-staging \
+            --context environment=staging \
+            --context "fanAuthOAuthExtras=${ORIGIN}/,${ORIGIN}/callback" \
+            --context "catalogCorsOrigins=${ORIGIN}" \
+            --require-approval never
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

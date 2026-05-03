@@ -54,6 +54,7 @@ function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[]): st
       ? ['https://riffsync.tv']
       : [
           'https://riffsync.tv',
+          'https://staging.riffsync.tv',
           'http://localhost:5173',
           'http://localhost:3000',
           'http://127.0.0.1:5173',
