@@ -13,7 +13,9 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | --- | --- | --- |
 | **`GET /v1/catalog`** | None required (public). | Canonical episode rows: curator fields + TMDB-derived + optional **`youtubeThumbnailUrl`** when implemented. **Caching:** **`Cache-Control`** with deployment-appropriate **max-age**; **`ETag`** weak validator derived from a **catalog generation** counter or **`max(updatedAt)`** in Dynamo so clients can **`If-None-Match`** (reduces egress cost when paired with CloudFront). |
 | **`GET /v1/lists`**, **`GET /v1/lists/{slug}`** | None (public) when shipped. | Curated collections; **`slug`** URL-safe. |
-| **Room create / read**, **`PATCH` / `PUT` room current episode**, **lobby list** | Anonymous **`sessionId`** + optional **Cognito JWT** per route policy. | Stable **`roomId`**, **`lastActivityAt`**, **mutable** **`catalogEpisodeId`** / **`videoId`** (**admin-only** write paths), broadcast/session hints as implemented, host binding, advisory **`playbackExpectation`**. Exact verbs (`POST /v1/rooms`, `PATCH /v1/rooms/:id`, `GET /v1/lobby`, …) finalized in OpenAPI/IaC—**semantics** are fixed here. |
+| **`POST /v1/rooms` (create)** | **Fan Cognito JWT** — **`hostSub`** on new room **= JWT `sub`**. **`sessionId`** optional telemetry only—**not** host binding. | Mint **`roomId`**, seed **`catalogEpisodeId`** / visibility / **`playbackExpectation`** per payload. |
+| **`GET /v1/rooms/:id`**, **`GET /v1/lobby`**, lobby joins | **`sessionId`** via **`X-Session-Id`** (guest); optional JWT if viewer signs in. | Read snapshots for lobby/detail/join validation. |
+| **`PATCH` / `PUT` … room playback metadata** | **Fan JWT**; **`JWT.sub === room.hostSub`**. | **Mutable current episode**, advisory labels, visibility flags—conditional **`version`** writes. |
 | **`GET /v1/health`** | None. | **Normative** liveness path (matches **`/v1`** versioning). Smoke: process up + critical dependencies **best-effort** (Dynamo **DescribeTable** or shallow read—**IaC** chooses depth vs cold-start cost). |
 | **`/v1/admin/*`** | **Staff-only** Cognito JWT (separate pool or app client). | Full route surface aligned with **`docs/architecture.admin.md`** (summary below). **CloudWatch** remains the primary ops chart layer. |
 
@@ -31,8 +33,8 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 ## WebSocket (API Gateway WebSocket API)
 
 - **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **WebRTC signaling** (SDP / ICE relay — schemas TBD), **chat**, **ping** (liveness for **`lastActivityAt`**).
-- **Connect context:** **`roomId`** required; **`sessionId`** always; **optional** **`Authorization`** (Cognito JWT) for signed-in users—**continuity / future abuse signals**; **MVP room-admin** binding remains **`sessionId` === `hostSessionId`** (no JWT required).
-- **Room-admin only:** durable playback-intent updates (episode selection / optional scrub state for reconnect UX) and **signaling publisher role** per policy; server validates **`sessionId === hostSessionId`** (and optional JWT **`sub`** later) before accepting publisher-bound envelopes or mutating authoritative room fields.
+- **Connect context:** **`roomId`** required; **`sessionId`** for guest envelope; **`Authorization`** **required** when connection assumes **publisher/admin** role — **`JWT.sub`** must equal **`room.hostSub`** after load.
+- **Room-admin only:** durable playback-intent updates and **signaling publisher role**; server validates **`JWT.sub === hostSub`** before accepting publisher-bound envelopes or mutating authoritative room fields.
 - **Broadcast:** Lambda uses **`execute-api:ManageConnections`** **`PostToConnection`** to room members after durable room write succeeds (ordering: best-effort; see consistency contract).
 
 ## HTTP idempotency & abuse (cost-first OSS)
@@ -58,7 +60,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Single BFF vs split admin API? | **Start:** one HTTP API with **`/v1/admin/*`**; split later for blast radius (**`architecture.admin.md`**). |
 | Public catalog without auth? | **Yes** for **`GET /v1/catalog`** (and public lists). |
 | WebSocket auth for guests? | **sessionId** sufficient for MVP; JWT optional enhancement for abuse resistance. |
-| Admin verification MVP? | **`hostSessionId`** must match caller’s **`sessionId`** for publisher-bound signaling and authoritative room playback mutations; **JWT not required** for admin in MVP. |
+| Admin verification MVP? | **`JWT.sub === room.hostSub`** for **`POST /v1/rooms`**, **`PATCH`/`PUT`**, and publisher signaling; **anonymous guests** never satisfy this check. |
 
 ## Open implementation details
 

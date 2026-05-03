@@ -6,29 +6,29 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 | Mode | Representation | Typical use |
 | --- | --- | --- |
-| **Anonymous** | Opaque **`sessionId`** (UUID) + **display name** in **`localStorage`** once the user crosses a **server-participant** boundary (**lobby / room create / room join**); sent on WS + room HTTP. | Room guest, anonymous room admin; **not** required for **catalog-only** browsing (**lazy mint**). |
-| **Signed-in viewer (optional)** | **Cognito JWT** (**`sub`**, groups/claims); Facebook federation. | Cross-device persona, stronger room-admin binding if product requires it. |
+| **Anonymous guest** | Opaque **`sessionId`** (UUID) + **display name** in **`localStorage`** once the user crosses **lobby** or **joins `/room/:id`** (**lazy mint**); **`X-Session-Id`** + WS **`$connect`**. | **Browse**, **join**, **watch**, **chat**—**cannot** create rooms or publish WebRTC. |
+| **Signed-in fan (host)** | **Cognito JWT** (**`sub`**, claims); Facebook or other IdP. | **Create room**, **room admin**, **PATCH** authoritative playback, **WebRTC publisher**; **`hostSub`** on room **=** **`sub`**. |
 | **Staff / operator** | **Invite-only** Cognito **staff pool** or isolated **app client** + **JWT authorizer** on **`/v1/admin/*`**. | Catalog edits, curated lists, roster/API tools—not fan Facebook login. |
 
 ## Enforcement points
 
 | Layer | Behavior |
 | --- | --- |
-| **HTTP** | JWT authorizers on **admin** routes; public catalog/list reads **open**; room/lobby routes accept **`sessionId`** via **`X-Session-Id`** header (preferred) **or** JSON body field where `POST` bodies are natural; **optional** viewer JWT on routes that opt in—**MVP room-admin** checks stay **`sessionId` vs `hostSessionId`**. |
-| **WebSocket** | **`$connect`**: validate **`roomId`** exists or join rules; attach **connectionId → roomId** mapping; **room-admin** publisher actions verified against **`hostSessionId`** on the room item (**optional** future: bind **`sub`** to admin). |
+| **HTTP** | JWT authorizers on **`/v1/admin/*`**; **`POST /v1/rooms`** and room-admin **`PATCH`/`PUT`** require **fan JWT** (**`sub`**); **`GET /v1/catalog`**, **`GET /v1/lobby`**, room **read/join** paths accept **`sessionId`** via **`X-Session-Id`** for anonymous guests. |
+| **WebSocket** | **`$connect`**: **`roomId`** + **`sessionId`**; **publisher paths** additionally require **JWT** whose **`sub`** matches **`room.hostSub`** (authorizer or Lambda validation). Map **`connectionId → roomId`** (+ optional **`sub`** / **`sessionId`** metadata). |
 
 ## Rules (domain)
 
-- **Room-admin authority:** only the **current room admin** (per room document) may assume **publisher** role messages and mutate authoritative playback metadata; server validates **`sessionId === hostSessionId`** before relay or durable writes.
-- **Moderation:** target **sessionId** or **connectionId** for anonymous; **`sub`** when signed-in (**`docs/architecture.admin.md`**).
-- **Principle:** never require Facebook (or any IdP) to **read catalog** or **start playback from the catalog** (rooms remain reachable anonymously).
+- **Room-admin authority:** only **`JWT.sub === room.hostSub`** may publish WebRTC signaling or mutate authoritative playback metadata.
+- **Moderation:** target **`sessionId`** / **`connectionId`** for anonymous guests; **`sub`** for signed-in hosts (**`docs/architecture.admin.md`**).
+- **Principle:** never require an IdP to **browse catalog**, **join**, **watch**, or **guest chat**; **do** require verified identity to **host**.
 
 ## Decisions (answered)
 
 | Question | Decision |
 | --- | --- |
 | Same Cognito pool for fans and staff? | **Avoid** sharing tokens across trust boundaries—**prefer staff-only pool/client**. |
-| JWT on WebSocket? | **Optional** MVP; anonymous **`sessionId`** allowed; upgrade path documented in API contracts. |
+| JWT on WebSocket? | **Required** for **publisher/admin** signaling paths (**`sub === hostSub`**); **guest** subscriptions may be **`sessionId`**-only if architecture keeps signaling separate—document chosen pattern in OpenAPI. |
 | Admin role claims MVP? | **`cognito:groups`** on **staff** pool tokens (e.g. **`admin`**, **`curator`**); Lambdas read group membership from the authorizer context. **Custom JWT claims** for roles are **out of scope** until IAM/Cognito needs them. |
 
 ## Primary code pointers (optional)

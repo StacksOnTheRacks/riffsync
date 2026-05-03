@@ -8,8 +8,8 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | --- | --- |
 | **Catalog loading** | Skeleton or **in-catalog placeholders** for rows; avoid blocking the whole shell on **`GET /v1/catalog`** when possible (progressive render). |
 | **Empty catalog** | Clear **“nothing to show yet”** copy for operators/contributors—never a silent blank. |
-| **Solo watch** | **No WebSocket** chrome; player errors surface **embed blocked** + **open on YouTube** escape hatch (**`error_state.md`**). |
-| **Room / lobby** | **Room-admin** controls only when **`sessionId === hostSessionId`**; guests see **read-only** transport / picker UI (picker admin-only per **`architecture.frontend.md`**). |
+| **Signed-in host / solo room** | **WebSocket** + **JWT** for admin paths; embed errors surface **embed blocked** + **open on YouTube** escape hatch (**`error_state.md`**). |
+| **Room / lobby** | **Room-admin** controls only when **`JWT.sub === hostSub`**; anonymous guests see **read-only** player/chat chrome (**picker hidden**, subscribe-only WebRTC). |
 | **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes **player + overlaid chat**, e.g. **right-side rail**) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
 | **Share** | **Copy `/room/:id` URL**; show advisory **`playbackExpectation`** near share affordance. |
 | **Rate / caps** | Server may return **429** / **WS business `error`** when limits hit (**`api_contracts.md`**); toast or inline message—**no** infinite retry storms. |

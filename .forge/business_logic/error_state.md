@@ -14,7 +14,8 @@ User-visible and system-visible failure modes (catalog + room + embed).
 | State | UX |
 | --- | --- |
 | **Room stale / gone** | Lobby hides or marks ended; join shows **not found / ended** without crash. |
-| **Lost host** | **Timeout then end:** if no connection from the **`hostSessionId`** client remains and **`lastActivityAt`** exceeds the **stale-room** window (see **`STALE_ROOM_MS`** / sweeper), the room **leaves the lobby** and joins treat it as **ended** (**not found** / “party ended”). **No guest promotion** in MVP. UI: honest copy + redirect to **`/lobby`**. |
+| **Hosting without login** | **401 / structured client error** on **`POST /v1/rooms`** / publisher paths — SPA routes user through **Sign in to host** (see **`architecture.frontend.md`**). |
+| **Lost admin / host** | **Timeout then end:** if no healthy **publisher** connection tied to **`hostSub`** (per **`Connections`** metadata or heartbeat policy) and **`lastActivityAt`** exceeds **stale-room** window, hide from lobby and treat joins as ended. **No guest promotion** in MVP. UI: honest copy + redirect **`/lobby`**. |
 | **Episode changed by admin** | Broadcast metadata update (+ optional chat system line): guests already on the stream see the new program through capture; **no** expectation that guests load their own embed for the new ID in MVP. |
 
 ## Auth (optional)

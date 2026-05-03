@@ -8,8 +8,8 @@ Tracks MVP UI and client behavior aligned with [`README.md`](../README.md) and [
 
 | Route / area | Purpose |
 | --- | --- |
-| `/` or `/catalog` | Browse curated catalog → **Open episode** creates or opens **`/room/:id`** with that selection (product choice: always-new vs reuse empty room). |
-| `/room/:roomId` | **Canonical session surface:** **in-room library selector** (catalog-backed; defaults to the episode used when opening the room) lets the **room admin** change the **current** title — authoritative **`catalogEpisodeId`**/`videoId` on the room doc updates accordingly; **embedded YouTube** for the admin; **WebRTC `<video>`** for **guests**; WebSocket for chat, presence, pings, **signaling**. Optional **`/watch/:catalogId`** alias may **redirect** here—avoid divergent playback logic. |
+| `/` or `/catalog` | Browse curated catalog → **Start party / host** requires **sign-in** → **`POST /v1/rooms`** → **`/room/:id`** with episode seed; anonymous visitors browse or join existing rooms only (unless optional viewer login is added later). |
+| `/room/:roomId` | **Canonical session surface:** **Hosting** (picker, embed, broadcast controls) only when the viewer is **signed in** as the room’s **`hostSub`**. **Guests** (typically anonymous **`sessionId`**) see inbound **`MediaStream`**, **Now watching**, and chat—WebSocket + HTTP per **`authorization.md`**. **In-room library selector** (catalog-backed; defaults to episode used when the room was created) lets the admin change **`catalogEpisodeId`**/`videoId` on the room doc. Optional **`/watch/:catalogId`** alias may **redirect** here—avoid divergent playback logic. |
 | `/lobby` (or sidebar on `/`) | List **live public** rooms from HTTP API → join navigates to `/room/:id`. |
 | `/admin/*` (**separate SPA or gated route**) | **Operator-only** UX: roster of **registered** viewers (via admin API), reporting views, catalog + curated list editors — authenticated with **staff** credentials (**`architecture.admin.md`**), not viewer Facebook OAuth. |
 
@@ -81,28 +81,31 @@ flowchart LR
 
 ---
 
-## Identity (anonymous MVP)
+## Identity (anonymous guests + signed-in hosts)
 
-On **first use that needs a server-visible participant** — **opening `/lobby`**, **creating/opening a room**, or **joining `/room/:id`** (WebSocket connect)—**not** for catalog browse alone (**cost control**: avoid storing anonymous sessions for drive-by readers):
+**Guests (default anonymous)** — On **first server-visible boundary** — **opening `/lobby`** or **joining `/room/:id`** (WebSocket connect)—**not** for catalog browse alone (**cost control**):
 
-- Assign **random display name** + generate **opaque `sessionId`** (UUID) persisted in **`localStorage`** (or SessionStorage where inappropriate for long-lived persona).
-- Optionally **persist `displayName`** and allow **reroll** / minor edit later.
-- Send **`sessionId`** on room/lobby HTTP (**`X-Session-Id`** header per **`authorization.md`**) and on WebSocket connect; **`hostSessionId`** on the room is set from the creator’s **`sessionId`** at party create (**no separate reclaim token** MVP—same browser session resumes host if **`sessionId`** unchanged).
+- Assign **random display name** + opaque **`sessionId`** (UUID) in **`localStorage`**; send **`X-Session-Id`** on lobby/join HTTP and on WebSocket **`$connect`**.
 
-Clearing site data ⇒ **new persona**; acceptable per README.
+**Room admin (signed-in only)** — Creating **`POST /v1/rooms`** and **publisher** actions (**PATCH** playback metadata, WebRTC signaling envelopes as implemented) require a valid **Cognito JWT**; API Gateway authorizer supplies **`sub`**. The room document stores **`hostSub`** = creator’s **`sub`** at create time.
+
+- Send **`Authorization: Bearer <access_or_id_token>`** on **host** HTTP mutations and on WebSocket **`$connect`** (or on signaling messages—pick one pattern and document in OpenAPI) whenever the client will **publish** media or change authoritative room fields.
+- Server validates **`JWT.sub === room.hostSub`** before relaying publisher signaling or applying admin writes—**not** `sessionId` equality.
+
+**Optional:** Signed-in users may also **join as guests** for continuity; guest **`sessionId`** can coexist with JWT if product maps display name to **`sub`**—MVP can keep guests anonymous-only.
+
+Clearing site data ⇒ **new anonymous persona**; host identity survives via **Cognito refresh** on trusted devices.
 
 ---
 
-## Optional: Facebook login (federated identity)
+## Optional: Facebook login (federated identity — hosting gate)
 
-When the product needs **optional** accounts (cross-device persona, stronger host trust, saved settings) while keeping **no mandatory signup**:
+When shipping **Facebook → Cognito** (or another IdP):
 
-1. **UX** — Offer **“Continue with Facebook”** beside the anonymous path; after success, store **Cognito tokens** (e.g. `id_token` / refresh flow per SDK) in memory + secure patterns; **do not** send Facebook access tokens to your Lambdas as the long-lived trust root—prefer **Cognito-issued JWTs**.
-2. **Display name** — Prefer **Cognito attributes** or a small **`GET /v1/me`** (or profile fragment on an existing route) backed by Dynamo **keyed by `sub`**, so chat/rooms show a stable label; allow override vs Facebook **name** per product policy.
-3. **WebSocket** — Send the same **Bearer** token (or a short-lived **connection ticket** minted over HTTP) on **`$connect`** so the authorizer can resolve **`sub`** for **future** signed-in features and abuse signals; **MVP host** authority remains **`sessionId` vs `hostSessionId`** (anonymous clients unchanged).
-4. **Meta / legal** — Register a **Meta** app with **Facebook Login**, set **OAuth redirect URIs** to match **Cognito Hosted UI** (or your chosen redirect flow), publish a **Privacy Policy** and **user data deletion** instructions where Meta requires them, and document what you store (see Meta **[Data Use Checkup](https://developers.facebook.com/docs/development/release/data-use-checkup)** and current **Platform Terms**).
-
-Implementation detail for Cognito, API Gateway JWT authorizers, and token claims lives in **`architecture.server.md`**.
+1. **UX** — **Sign in to host** on catalog **Start watch party** / room create; guests see **Continue anonymously** vs **Sign in** only if you want optional continuity for viewers.
+2. **Display name** — Host display may come from **Cognito attributes** or **`GET /v1/me`**; guests remain random adjective+noun until product adds optional viewer login.
+3. **WebSocket** — **Bearer JWT required** for connections that will **publish** WebRTC or issue admin mutations; guest connects may stay **`sessionId`**-only if signaling stays separate—prefer **one connect policy** once scaffold exists.
+4. **Meta / legal** — Same as before (Privacy Policy, Data deletion, Meta **[Data Use Checkup](https://developers.facebook.com/docs/development/release/data-use-checkup)**).
 
 ---
 
@@ -110,7 +113,7 @@ Implementation detail for Cognito, API Gateway JWT authorizers, and token claims
 
 Responsibilities on `/room/:roomId`:
 
-1. **Connection lifecycle** — connect with `roomId` + **`sessionId`**; backoff/reconnect UX; unsubscribe on navigate away.
+1. **Connection lifecycle** — connect with `roomId` + **`sessionId`** for anonymous envelope + **`Authorization: Bearer`** when the client acts as **room admin** (publisher); backoff/reconnect UX; unsubscribe on navigate away.
 2. **Periodic ping** — lightweight message on interval so **`lastActivityAt`** stays fresh while idle (coordinate interval with backend).
 3. **Inbound events** — **chat**, **presence**, **room metadata** updates (episode selection, visibility, broadcast lifecycle flags as implemented), and **WebRTC signaling envelopes** (SDP / ICE candidates—shape TBD with OpenAPI/contract tables).
 4. **Outbound** — **Room-admin only:** episode/load intent if modeled over WS, signaling messages; **not** “broadcast canonical `currentTime` to drive three separate iframes.” Anyone in MVP: **chat**; optional presence typing later.
@@ -131,7 +134,7 @@ Treat **WebRTC peer connection state** separately from **YouTube iframe events**
 **Peers**
 
 - **MVP options:** small-room **mesh** (admin ↔ each guest) vs **SFU** (managed vendor or self-hosted) when fan-out or uplink requires it. Publish **STUN** (`stun:`) in client config; add **TURN** when symmetric NAT / reliability demands—it is required for many real-world networks at scale.
-- **Signaling:** reuse WebSocket routes (or HTTP where simpler) to exchange SDP and ICE candidates **after** authz confirms **`sessionId === hostSessionId`** for publisher role.
+- **Signaling:** reuse WebSocket routes (or HTTP where simpler) to exchange SDP and ICE candidates **after** authz confirms **`JWT.sub === room.hostSub`** for publisher role.
 
 **Guests**
 
@@ -159,7 +162,7 @@ Treat **WebRTC peer connection state** separately from **YouTube iframe events**
 | Concern | Notes |
 | --- | --- |
 | **Library / “Now watching”** | Admin: **catalog picker** + transport on embed; guests: label + shared stream only. Reflect **current** **`catalogEpisodeId`** after switches; optional lightweight chat system line when admin changes title (product choice). |
-| **Admin vs guest** | Only **`sessionId === hostSessionId`** starts capture and publishes WebRTC; guests are subscribe-only for media (chat rules unchanged). |
+| **Admin vs guest** | Only callers with **`JWT.sub === hostSub`** start capture and publish WebRTC; anonymous **`sessionId`** guests are subscribe-only for media (chat rules unchanged). |
 | **Chromecast / Cast** | Optional **per-viewer**; behavior differs for **embed** (admin) vs **inbound WebRTC `<video>`** (guest). Hide when unavailable. |
 | **Share** | **Copy URL** (`/room/:id`), optional Web Share API on capable devices; show **`playbackExpectation`** on share affordance. |
 | **Badges** | Lobby row + room header: Premium vs **free, ad-supported** (**honor-system** disclaimer in microcopy optional). |

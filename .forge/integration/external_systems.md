@@ -21,7 +21,7 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 
 | Use | Mechanism | Contract |
 | --- | --- | --- |
-| **Viewer login** | **Cognito User Pool** + **Facebook IdP** → JWT to clients. | **Optional**; must not block browsing the catalog or opening episodes into rooms. Meta app config, privacy policy, data deletion URLs required. |
+| **Viewer login** | **Cognito User Pool** + **Facebook IdP** → JWT to clients. | **Required** to **host**; **optional** for guests who want continuity—must **not** block catalog browse or joining rooms (**`authorization.md`**). |
 
 ## AWS (platform)
 

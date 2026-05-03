@@ -9,7 +9,7 @@ Storage responsibilities; physical layout is IaC (**`architecture.server.md`**).
 | Table (conceptual name) | Holds |
 | --- | --- |
 | **Catalog** | Canonical episode rows served by **`GET /v1/catalog`**; reconcile writers update TMDB-aligned fields. |
-| **Rooms** | One authoritative item per **`roomId`** (playback, **`hostSessionId`**, **`lastActivityAt`**, visibility, advisory **`playbackExpectation`**). |
+| **Rooms** | One authoritative item per **`roomId`** (playback, **`hostSub`**, **`lastActivityAt`**, visibility, advisory **`playbackExpectation`**). |
 | **Connections** | Ephemeral **`connectionId → roomId`** (+ **`sessionId`** metadata) for WebSocket fan-out; **TTL** on disconnect/stale rows where useful. |
 | **Lists** *(when shipped)* | Curated list meta + membership rows (**`docs/architecture.admin.md`**). |
 | **Events** / **Profiles** *(optional)* | Audit or **`USER#sub`** rows per admin docs—add when needed. |

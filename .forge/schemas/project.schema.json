@@ -1,6 +1,6 @@
 {
     "name": "riffsync",
-    "description": "Open-source fan catalog and watch parties for riff-style MST episodes via lawful YouTube embeds on a room page\u2014room-admin broadcast to guests over WebRTC, lobby discovery, anonymous-first identity, AWS serverless operator tooling.",
+    "description": "Open-source fan catalog and watch parties for riff-style MST episodes via lawful YouTube embeds\u2014anonymous guests join watch rooms; signed-in hosts broadcast over WebRTC; lobby discovery; AWS serverless operator tooling.",
     "type": "opensource",
     "metadata_path": ".forge",
     "code_path": ".",

@@ -23,7 +23,7 @@ Authoritative server state for **room identity**, **catalog selection**, **admin
 | **`roomId`** | Stable, shareable (**UUID v4 or equivalent**); never recycled for a different party in confusing ways. |
 | **Catalog / playback intent** | **`catalogEpisodeId`** / **`videoId`** — **current** title for the room (**mutable** by **room admin** via picker; seeded at room create). Optional **`currentTime`**, **`playing`**, **`playbackRate`** if persisted for admin reconnect UX—**room admin** mutates via HTTP or WS per contracts; guests do **not** advance timeline via parallel embed state in MVP. Episode **changes** fan-out so lobby/listing metadata can track **Now watching**. |
 | **`playbackExpectation`** | Enum **`premium` \| free-ad-supported`** — advisory, admin-set. |
-| **`hostSessionId`** | Set at room create to the creator’s **`sessionId`**; only this participant may **publish WebRTC** / mutate authoritative playback fields (**MVP**). Guest promotion / alternate reclaim flows are **out of scope** for MVP—see **`domain_model.md`**. |
+| **`hostSub`** | Cognito **`sub`** of the user who **`POST /v1/rooms`** — immutable host binding for MVP; only this principal may **publish WebRTC** / mutate authoritative playback fields. |
 | **`lastActivityAt`** | Updated on meaningful traffic: signaling traffic if counted, chat, join, **`ping`**, admin embed control events as implemented. |
 
 ## Connection (WebSocket mapping)
