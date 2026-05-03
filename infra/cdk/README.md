@@ -87,13 +87,15 @@ JSON response shapes: **`docs/api.catalog.md`**.
 
 Same **`us-east-1`** ACM cert must include **both** DNS names. **`FanWebSiteUrl`** (and CI **`VITE_PUBLIC_ORIGIN`**) follow **`PROD_FAN_WEB_CANONICAL_HOSTNAME`** when set, otherwise **`PROD_FAN_WEB_HOSTNAME`**.
 
-**Staging (`staging` + `www-staging`, no redirect unless you want it):**
+**Staging (one hostname is enough; wildcard cert is fine):**
 
 | Variable | Example |
 | --- | --- |
 | **`STAGING_FAN_WEB_HOSTNAME`** | **`staging.riffsync.tv`** |
-| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | **`www-staging.riffsync.tv`** |
-| **`STAGING_FAN_WEB_CANONICAL_HOSTNAME`** | *(omit)* — both URLs serve the app; set to e.g. **`staging.riffsync.tv`** only if you want the other hostname to 302 to it |
+| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | *(omit)* — use only if you truly need a **second** name on the same distribution |
+| **`STAGING_FAN_WEB_CANONICAL_HOSTNAME`** | *(omit)* unless you set an alternate and want one to 302 to the other |
+
+With a **wildcard** ACM cert (**`*.riffsync.tv`**), a single name like **`staging.riffsync.tv`** is still covered; you do not need a second staging URL for that reason alone.
 
 **If Route 53 only shows one alias:** **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** / **`STAGING_…`** is almost certainly **empty** while **`…_HOSTNAME`** is set to a **single** name (often `www` only). The fix is to put the **other** hostname in **`…_ALTERNATE_DOMAIN_NAMES`** (not to rely on “apex is implicit”).
 
@@ -101,6 +103,14 @@ Same **`us-east-1`** ACM cert must include **both** DNS names. **`FanWebSiteUrl`
 `--context fanWebAlternateDomainNames=riffsync.tv --context fanWebCanonicalHostname=www.riffsync.tv` (with **`fanWebCustomDomain=www.riffsync.tv`**).
 
 CORS and Cognito callback allowlists include **`https://www.riffsync.tv`** and **`https://www-staging.riffsync.tv`** by default; **`fanWebAlternateDomainNames`** still adds any other names on the cert. If your **Meta (Facebook) app** restricts **Valid OAuth redirect URIs**, add the **`www`** URLs there as needed.
+
+### Route 53 + CloudFormation: why you see `DELETE_IN_PROGRESS`
+
+CDK manages **alias A** records as **`AWS::Route53::RecordSet`** resources. When the **construct id** for a record changes (for example from an older `FanWebDnsAlias0`-style id to **`FanWebDnsAlias` + hostname suffix**), CloudFormation treats that as **replacing** the resource: it creates records for the **new** logical ids and **deletes** the **old** ones at the end of the update. Events like **`FanWebDnsAlias046A299B5`** / **`FanWebDnsAlias14F058A65`** in **`DELETE_IN_PROGRESS`** are almost always those **superseded** resources—not a mysterious second pass that “undoes” DNS by itself.
+
+**Do not delete the same A records manually** while a stack update is running. That **drifts** the stack from the template: CloudFormation may still run the planned **delete** steps for the **old** logical resources (often a no-op if the record is already gone) while the **new** records can fail or be rolled back, leaving the zone empty or inconsistent.
+
+**Recovery if names are missing:** run **`cdk deploy`** again for **`RiffSyncStatic-{staging|prod}`** with the same **`fanWeb*`** and **`RIFFSYNC_ROUTE53_*`** context as usual, then confirm in the stack’s **Resources** tab that the current **`FanWebDnsAlias…`** records (hostname-based suffix) are **`CREATE_COMPLETE`**. Optionally: **`aws route53 list-resource-record-sets --hosted-zone-id …`** and filter for **`staging.`** / **`www-staging.`** (or prod equivalents).
 
 **Tests:** `npm test` (Vitest — catalog + **room parsers** + TMDB reconcile core with mocked **`fetch`**).
 
@@ -267,10 +277,12 @@ Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`
 | **`PROD_FAN_WEB_CERTIFICATE_ARN`** | **`us-east-1`** ACM ARN covering production hostname |
 | **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Optional; comma-separated extra hostnames on the **same** cert (e.g. apex **`riffsync.tv`** when **`PROD_FAN_WEB_HOSTNAME`** is **`www.riffsync.tv`**) — CloudFront aliases, Route 53 A, CORS, Cognito URLs |
 | **`PROD_FAN_WEB_CANONICAL_HOSTNAME`** | Optional; when set (e.g. **`www.riffsync.tv`**), CloudFront **302** from any **other** custom alias to this host (**`FanWebSiteUrl`** / **`VITE_PUBLIC_ORIGIN`** use this too) |
-| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Same pattern for staging (e.g. **`www-staging.riffsync.tv`**) |
+| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Optional; omit for a **single** staging hostname (typical). Set only if you need extra names on the same wildcard/cert (same behavior as prod). |
 | **`STAGING_FAN_WEB_CANONICAL_HOSTNAME`** | Optional; same behavior as prod (usually omit for staging) |
 | **`RIFFSYNC_ROUTE53_HOSTED_ZONE_ID`** | Public hosted zone for **`RIFFSYNC_ROUTE53_ZONE_NAME`** (optional) |
 | **`RIFFSYNC_ROUTE53_ZONE_NAME`** | e.g. **`riffsync.tv`** — with zone id; CDK creates Route 53 alias **A** records for **`fanWebCustomDomain`** and each **`fanWebAlternateDomainNames`** host |
+
+**DNS:** If **`STAGING_*/PROD_*_FAN_WEB_HOSTNAME`** (and cert) are set but **`RIFFSYNC_ROUTE53_*`** are **omitted**, the stack **still** attaches custom domains to CloudFront, but it **does not** create or retain Route 53 records — **`FanWebSiteUrl`** will show the custom URL while **`FanWebRoute53AliasRecordCount`** output is **`0`**. A later deploy that drops the zone vars can **remove** previously managed records from the template. Set **both** Route 53 variables whenever you want this stack to own the aliases.
 
 Request the ACM cert in **us-east-1**, complete **DNS validation**, then run the deploy workflow. Omit the Route 53 variables if you create the **CNAME/alias** yourself. **Stack output `FanWebSiteUrl`** is the canonical **`https://…`** used for **`VITE_PUBLIC_ORIGIN`** and API/Cognito allowlists (workflows read it from CloudFormation).
 

@@ -105,6 +105,13 @@ export class StaticSiteStack extends cdk.Stack {
       );
     }
 
+    if (customDomainConfigured && !(fanWebHostedZoneId && fanWebZoneName)) {
+      cdk.Annotations.of(this).addWarningV2(
+        'riffsync:fan-web-dns-not-managed',
+        'Custom domain + ACM are set but fanWebHostedZoneId and fanWebZoneName are not — this stack will not create Route 53 alias records. Set RIFFSYNC_ROUTE53_HOSTED_ZONE_ID and RIFFSYNC_ROUTE53_ZONE_NAME (or --context fanWebHostedZoneId / fanWebZoneName).',
+      );
+    }
+
     cdk.Tags.of(this).add('Project', 'RiffSync');
     cdk.Tags.of(this).add('Environment', environment);
 
@@ -190,13 +197,16 @@ export class StaticSiteStack extends cdk.Stack {
       cfDomainNames.forEach((hostname) => {
         const recordName = recordNameUnderZone(hostname, fanWebZoneName);
         const idSuffix = dnsRecordConstructSuffix(hostname);
-        new route53.ARecord(this, `FanWebDnsAlias${idSuffix}`, {
+        const alias = new route53.ARecord(this, `FanWebDnsAlias${idSuffix}`, {
           zone,
           recordName,
           target: route53.RecordTarget.fromAlias(
             new route53Targets.CloudFrontTarget(this.distribution),
           ),
         });
+        // Explicit edge ordering: alias records should not race ahead of the distribution
+        // deployment that attaches these hostnames (CloudFront can take 15–45+ minutes).
+        alias.node.addDependency(this.distribution);
       });
     }
 
@@ -222,6 +232,15 @@ export class StaticSiteStack extends cdk.Stack {
       value: siteUrl,
       description:
         'Canonical HTTPS origin for the fan SPA (custom domain or *.cloudfront.net). Use for VITE_PUBLIC_ORIGIN and CORS.',
+    });
+    const route53AliasCount =
+      fanWebHostedZoneId && fanWebZoneName && cfDomainNames && cfDomainNames.length > 0
+        ? cfDomainNames.length
+        : 0;
+    new cdk.CfnOutput(this, 'FanWebRoute53AliasRecordCount', {
+      value: String(route53AliasCount),
+      description:
+        'Route 53 alias A records managed here (0 = zone id/name not passed — no DNS records from this stack).',
     });
   }
 }
