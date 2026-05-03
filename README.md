@@ -100,7 +100,7 @@ Fan support might fund clearer distribution paths (sales, bundles, partnerships)
 
 | Layer | Suggested direction |
 | --- | --- |
-| Frontend | TypeScript, React or Next.js, YouTube IFrame API (admin room surface), **WebRTC** (tab/window capture → guests), WebSocket client for chat/presence/signaling, optional Google Cast |
+| Frontend | **`apps/web/`** — **Vite** + **React** + **TypeScript** (`npm run dev` / `npm run build` → **`dist/`**; see **`docs/architecture.frontend.md`**). **YouTube IFrame API** (admin room surface), **WebRTC** (tab capture → guests), WebSocket client for chat/presence/signaling, optional Google Cast |
 | API | REST for rooms/catalog; WebSockets for chat, presence, **WebRTC signaling**, periodic **ping** for liveness |
 | State | Authoritative room document (**mutable** **current** catalog episode / `videoId`, **`playbackExpectation`**, **`hostSub`** Cognito user id for the room owner, broadcast/session flags as implemented, **lastActivityAt**, optional reconnect token); ephemeral presence optional; **playback spine pluggable** for future non-YouTube sources |
 | AWS (baseline) | **IaC:** **`AWS CDK`** (TypeScript). **Compute:** **Lambda** in **TypeScript** (Node.js bundle) **serverless-first** — **API Gateway v2** (`HTTP` + `WEBSOCKET`), **DynamoDB**, **EventBridge / Scheduler**, **Secrets Manager**. **ElastiCache** (Redis/Valkey-compatible) **optional** for **`GET /v1/catalog`** or lobby caches (VPC-attached Lambdas). **S3** for SPA static hosting or exports if needed — **no ECS/EC2** in the default stack. Details: **`docs/architecture.server.md`**. |

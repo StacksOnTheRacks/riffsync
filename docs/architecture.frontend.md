@@ -1,6 +1,20 @@
 # RiffSync — frontend architecture (draft)
 
-Tracks MVP UI and client behavior aligned with [`README.md`](../README.md) and [`architecture.server.md`](architecture.server.md). Stack is **TypeScript** with **React or Next.js** plus **YouTube iframe / IFrame API** on the **room admin** surface and **WebRTC** for **guest** playback of the admin’s shared capture — pin the framework when scaffolding. The **backend** is specified as **AWS CDK** plus **TypeScript Lambda** handlers (**Node.js** runtime), **serverless-first**; optional future shared **types** packages can align client and API contracts. **Google Cast** (Chromecast-capable devices) is an **optional per-viewer** surface described under **Chromecast / Google Cast** below.
+Tracks MVP UI and client behavior aligned with [`README.md`](../README.md) and [`architecture.server.md`](architecture.server.md). The **fan SPA** is **TypeScript** with **Vite + React** (see **Pinned stack (state / bootstrap)**). **YouTube iframe / IFrame API** powers the **room admin** surface; **WebRTC** carries **guest** playback of the admin’s shared capture. The **backend** is specified as **AWS CDK** plus **TypeScript Lambda** handlers (**Node.js** runtime), **serverless-first**; optional future shared **types** packages can align client and API contracts. **Google Cast** (Chromecast-capable devices) is an **optional per-viewer** surface described under **Chromecast / Google Cast** below.
+
+**Next.js** remains a valid future choice if a milestone explicitly adds **SSR or edge** rendering; document the trade-off (dynamic origin, deploy complexity vs static `dist/`) in the PR that introduces it. Default static **`dist/`** deploy path aligns with **M1** S3 / CloudFront.
+
+---
+
+## Pinned stack (state / bootstrap)
+
+| Aspect | Choice |
+| --- | --- |
+| **Bundler / dev** | **Vite** (default `build` → **`dist/`** under **`apps/web/dist/`**) |
+| **UI** | **React** + **TypeScript** |
+| **Routing** | **`react-router-dom`** (v7.x, React Router 6+ `BrowserRouter` / `Route` tree) |
+| **Repository path** | **`apps/web/`** — run **`npm ci`**, **`npm run dev`**, **`npm run build`**, **`npm run preview`** from this directory |
+| **Canonical public origin** | Production: **`https://riffsync.tv`** (`.forge/project.json` → **`public_domain`**). Optional env override at build time: **`VITE_PUBLIC_ORIGIN`** (see **`apps/web/.env.example`**, **`apps/web/src/config/publicOrigin.ts`**). Staging hostname lives in **`.forge/runtime/configuration.md`** once the stack is wired. |
 
 ---
 
