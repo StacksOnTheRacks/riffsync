@@ -33,7 +33,7 @@ Shortcuts: `npm run synth:staging` and `npm run synth:prod`.
 ## What M1 provisions
 
 - **`AWS::S3::Bucket`** — **private** (block public access, default encryption). **No** public read ACL/policy; object access is via **CloudFront** only, with **`AWS:SourceArn`** scoped to the distribution in the bucket policy.
-- **`AWS::CloudFront::OriginAccessControl`** + **`AWS::CloudFront::Distribution`** — HTTPS, `defaultRootObject: index.html`. **SPA** deep-linking / error-to-`index.html` behavior can be layered in when the web app is wired (**M2+**).
+- **`AWS::CloudFront::OriginAccessControl`** + **`AWS::CloudFront::Distribution`** — HTTPS, `defaultRootObject: index.html`. **Custom error responses** map **403** and **404** to **`/index.html`** (HTTP **200**) so **SPA** deep links and hard refreshes work once assets are published (**M2**).
 - **Artifacts:** the bucket may be **empty** for M1; CI or deploy steps in **M2+** publish `index.html` and static assets.
 
 Staging uses **`RemovalPolicy.DESTROY`** on the bucket so stacks can be torn down in non-prod accounts; **empty the bucket** before `cdk destroy` if objects were published. Production uses **retain** + **versioning**.
@@ -52,7 +52,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 
 ## GitHub Actions (CI — no AWS credentials required)
 
-[**`.github/workflows/ci.yml`**](../../.github/workflows/ci.yml) runs on **`pull_request`** and **`push`** to **`main`** when **`infra/cdk`** or workflow files change. It executes **`npm ci`**, **`npm run build`**, **`cdk synth`** for **`staging`** and **`prod`** contexts (fails the job on synth errors), then **`cfn-lint`** on **`cdk.out/**/*.template.json`**.
+[**`.github/workflows/ci.yml`**](../../.github/workflows/ci.yml) runs on **`pull_request`** and **`push`** to **`main`** when **`infra/cdk`**, **`apps/web`**, or workflow files change. The **`infra-cdk`** job runs **`npm ci`**, **`npm run build`**, **`cdk synth`** (**`staging`** and **`prod`**), then **`cfn-lint`** on **`cdk.out/**/*.template.json`**. The **`web-app`** job runs **`npm ci`**, **`npm run build`**, and **`npm run lint`** under **`apps/web`**.
 
 This satisfies the **pull-request CI only** stance in **`docs/architecture.server.md`** (Delivery pipeline §): **PRs synthesize templates; they do not deploy.**
 
@@ -62,9 +62,41 @@ Deployment policy (**`.forge/operations/build_packaging.md`**, **`deployment_env
 
 | Target | Trigger | Notes |
 | --- | --- | --- |
-| **Staging** | Manual workflow [**`deploy-staging.yml`**](../../.github/workflows/deploy-staging.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. Ships integrated **`main`** to the **staging** CDK context. |
-| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Input must be an existing semver tag** matching **`vMajor.Minor.Patch`** (`v`-prefixed digits only — e.g. `v1.0.0`). **No deploy from arbitrary branch SHAs.** |
-| **Local** | **AWS CLI credential profile** via **`cdk deploy`** | Matches how engineers run **`cdk bootstrap`** / **`deploy`** interactively outside CI. |
+| **Staging** | Manual workflow [**`deploy-staging.yml`**](../../.github/workflows/deploy-staging.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. Runs **`cdk deploy`** for **staging**, then **builds `apps/web`**, **`aws s3 sync`** to the stack bucket (**`--delete`**), and **CloudFront invalidation** (`/*`). |
+| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Input must be an existing semver tag** matching **`vMajor.Minor.Patch`**. Deploys **prod** CDK, then publishes the SPA with **`VITE_PUBLIC_ORIGIN=https://riffsync.tv`**, **`s3 sync`**, and invalidation. **No deploy from arbitrary branch SHAs.** |
+| **Local** | **AWS CLI credential profile** via **`cdk deploy`** + manual **`s3 sync`** | Matches how engineers run **`cdk bootstrap`** / **`deploy`** interactively outside CI. |
+
+### Fan SPA publish (S3 sync + invalidation)
+
+After **`cdk deploy`**, the deploy workflows read **CloudFormation outputs** from **`RiffSyncStatic-staging`** / **`RiffSyncStatic-prod`**:
+
+| Output | Use |
+| --- | --- |
+| **`BucketName`** | `aws s3 sync apps/web/dist/ s3://$Bucket/` (**`--delete`** keeps the bucket aligned with the latest build) |
+| **`DistributionId`** | `aws cloudfront create-invalidation --paths "/*"` |
+| **`DistributionDomainName`** | **Staging** build-time **`VITE_PUBLIC_ORIGIN`** (`https://<distribution>`) so client-side absolute URLs match the live host. **Production** uses **`https://riffsync.tv`** until a follow-up wires **ACM** + **DNS** at the distribution (then keep **`VITE_PUBLIC_ORIGIN`** aligned with the public hostname operators configure). |
+
+**IAM for the GitHub OIDC deploy role** must allow, in addition to CDK/CloudFormation permissions:
+
+- **`cloudformation:DescribeStacks`** on **`RiffSyncStatic-staging`** / **`RiffSyncStatic-prod`** (or `*` conditioned appropriately).
+- **`s3:PutObject`**, **`s3:DeleteObject`**, **`s3:ListBucket`** on the **web bucket** (the **`BucketName`** output).
+- **`cloudfront:CreateInvalidation`** on **`arn:aws:cloudfront::ACCOUNT:distribution/DistributionId`**.
+
+Prefer scoping to those ARNs instead of `*` once ARNs are known from a first deploy.
+
+### Staging smoke checks (operators)
+
+After **Deploy CDK (staging)** completes:
+
+1. Resolve the URL: **`https://<DistributionDomainName>/`** (stack output, or **AWS Console** → **CloudFormation** → **Outputs**).
+2. **`curl -I`** — expect **`200`** for **`/`** and for **`/lobby`** (SPA fallback must return **`index.html`**, not S3 **`403`**).
+3. In a browser, open **`/room/demo-room`**, refresh — still the shell app (**client-side route**).
+
+**Local dry run (no AWS):**
+
+```bash
+cd apps/web && npm ci && npm run build && ls -la dist
+```
 
 ### Repository configuration (preferred: OIDC → IAM role)
 
