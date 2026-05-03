@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { RootLayout } from './layouts/RootLayout'
+import { SiteLayout } from './layouts/SiteLayout'
 import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
 import { LobbyPage } from './pages/LobbyPage'
@@ -9,7 +9,7 @@ import { AdminShellPage } from './pages/AdminShellPage'
 export function AppRoutes() {
   return (
     <Routes>
-      <Route element={<RootLayout />}>
+      <Route element={<SiteLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/lobby" element={<LobbyPage />} />

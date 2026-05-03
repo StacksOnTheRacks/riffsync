@@ -11,7 +11,7 @@ export function AdminShellPage() {
     <>
       <h1>Admin</h1>
       <p>M2 scaffold — gated operator UX (roster, reporting, catalog editors) is not implemented.</p>
-      <p className="app-scaffold-note">
+      <p className="riffsync-scaffold-note">
         Current path: <code>{pathname}</code>
         <br />
         See <code>docs/architecture.admin.md</code> for the full admin contract.

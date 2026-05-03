@@ -12,7 +12,7 @@ export function HomePage() {
       <p>
         <Link to="/catalog">Go to catalog stub →</Link>
       </p>
-      <p className="app-scaffold-note">
+      <p className="riffsync-scaffold-note">
         Canonical origin for this build: <code>{getPublicOrigin()}</code>
         <br />
         Override with <code>VITE_PUBLIC_ORIGIN</code> (see <code>.env.example</code>).
