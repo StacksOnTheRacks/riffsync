@@ -75,20 +75,40 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   padding-top: 0;
 }
 
+/*
+ * Template CSS sets `.gen-banner-movies .item { height: 100vh }` and spotlight
+ * `.home-singal-silder … { height: 70vh }` for their Owl sliders. Our Swiper
+ * hero/spotlight reuse those classes — without overrides we get a full-viewport
+ * black band and huge gaps between home rows.
+ */
 .riffsync-home .gen-banner-movies .swiper,
 .riffsync-home .gen-banner-movies .swiper-wrapper {
-  min-height: 420px;
+  min-height: 0;
 }
 
 .riffsync-home .gen-banner-movies .swiper-slide > .item {
-  min-height: 420px;
+  height: min(62vh, 520px) !important;
+  min-height: 320px;
+  max-height: min(70vh, 620px);
 }
 
 @media (min-width: 992px) {
-  .riffsync-home .gen-banner-movies .swiper,
   .riffsync-home .gen-banner-movies .swiper-slide > .item {
-    min-height: 540px;
+    height: min(58vh, 560px) !important;
+    min-height: 380px;
+    max-height: min(72vh, 640px);
   }
+}
+
+/* Horizontal movie rows — keep slides sized to cards, not banner 100vh rules */
+.riffsync-home .riffsync-home-row-swiper.swiper .swiper-slide.item {
+  height: auto !important;
+  min-height: 0;
+}
+
+.riffsync-home > section.gen-section-padding-2 {
+  padding-top: 2.75rem;
+  padding-bottom: 2rem;
 }
 
 .riffsync-home-row-swiper .swiper-button-next,
