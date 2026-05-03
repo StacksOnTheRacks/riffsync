@@ -54,6 +54,8 @@ Optional **`GET /movie/{id}/images`** — only **`posters`** / **`backdrops`** s
 
 ## Reconciliation workflow
 
+Scheduled **reconcile** Lambda (**`RiffSyncApi-*`** stack — **`infra/cdk/README.md`** TMDB §) implements the job shape below; **`GET /v1/catalog`** surfaces enriched fields **without** SPA TMDB keys.
+
 ```mermaid
 flowchart LR
   CRON[EventBridge schedule] --> JOB[Reconcile Lambda / job]

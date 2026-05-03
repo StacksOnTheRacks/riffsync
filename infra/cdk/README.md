@@ -8,9 +8,25 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | --- | --- |
 | `bin/riffsync.ts` | App entry; validates `environment` context |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
-| `lib/api-catalog-stack.ts` | **DynamoDB Catalog** table + **HTTP API** + **Lambda** — **`GET /v1/catalog`**, **`GET /v1/catalog/{id}`** |
-| `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** list, **`GetItem`** by `id`) |
+| `lib/api-catalog-stack.ts` | **DynamoDB Catalog** + **HTTP API** + read Lambdas + **TMDB reconcile** Lambda + **Secrets Manager** + **EventBridge** schedule |
+| `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
+| `lambda/tmdb-reconcile-*.ts` | Scheduled **`GET /configuration`**, **`/search/movie`**, **`/movie/{id}`** enrichment (**`docs/contracts.tmdb.md`**) |
 | `scripts/seed-catalog-from-json.ts` | Validates **`data/catalog/episodes.json`** against **`catalog.schema.json`**, **`BatchWriteItem`** into the deployed table |
+
+### TMDB reconcile (M4+)
+
+| Resource | Notes |
+| --- | --- |
+| **Secret** | **`TmdbApiTokenSecretArn`** — name **`riffsync/staging/tmdb-api-token`** or **`riffsync/prod/tmdb-api-token`**. Template seeds **`REPLACE_WITH_TMDB_BEARER_TOKEN`**; set a real **[TMDB bearer token](https://developer.themoviedb.org/docs/getting-started)** via **`aws secretsmanager put-secret-value`** (JSON `{"token":"…"}` or plain string). **Never** commit tokens. **Rotation:** update the secret value; next run picks it up (IAM **`secretsmanager:GetSecretValue`** on the secret ARN only). |
+| **Schedule** | **EventBridge** **`rate(6 hours)`** targeting **`TmdbReconcileFn`**. **Disable without redeploy:** pause/disabled rule in **EventBridge** console. **Disable via CDK:** **`--context catalogReconcileScheduleEnabled=false`**. **No-op handler:** **`--context catalogReconcileDisabled=true`** sets **`RECONCILE_DISABLED`** (manual invokes return immediately). |
+| **Batch** | **`--context catalogReconcileBatchSize=20`** (default **15**, max **50** enforced in handler). Scans catalog for rows with missing **`tmdbArtworkSyncedAt`**; **`tmdbMovieId`** uses **`/movie/{id}`** first; else single-hit **`/search/movie`** only (**ambiguous** or **zero** hits → skipped). |
+| **Metrics / logs** | **`RiffSync/Reconcile`** EMF (**Processed**, **Failed**, **Skipped**) + structured JSON logs (**no** token values). |
+
+**Smoke (staging):** after secret + seed, **`aws lambda invoke --function-name <TmdbReconcileFnName> /tmp/out.json`** then read **`GET /v1/catalog`** — enriched fields appear without SPA changes.
+
+**Deploy IAM:** GitHub OIDC role needs **EventBridge** / **Secrets Manager** (plus existing Lambda/Dynamo) for this stack — extend operator policy when **`cdk deploy`** fails on missing permissions.
+
+**Deferred (follow-up):** optional same-run **`youtubeThumbnailUrl`** **`HEAD`** cascade (**`architecture.catalog-images.md`**) — not in this MVP; track in a new issue if desired.
 
 ### Catalog table & HTTP API (M4+)
 
@@ -34,7 +50,7 @@ npm run seed:catalog -- "$TABLE_NAME"
 
 JSON response shapes: **`docs/api.catalog.md`**.
 
-**Tests:** `npm test` (Vitest for catalog projection helpers).
+**Tests:** `npm test` (Vitest — catalog projections + TMDB reconcile core with mocked **`fetch`**).
 
 ## Prerequisites
 
@@ -71,7 +87,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 
 - **`RiffSyncStatic-*` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
 - **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
-- **`RiffSyncApi-*` —** **Lambda** execution roles with **`dynamodb:GetItem` / `Scan`** (read) scoped to the **Catalog** table; **`AWS::Lambda::Permission`** for **API Gateway HTTP API** invoke (**`docs/architecture.server.md`**).
+- **`RiffSyncApi-*` —** **HTTP API** + **DynamoDB** read (**catalog list/get**); **DynamoDB** read/write + **Secrets Manager** + **EventBridge** for **TMDB reconcile**; **`cloudwatch:PutMetricData`** not required when using **EMF** in **`stdout`** ( **`infra/cdk/README.md`** TMDB §).
 
 Older milestone copy: **M1** alone only created the static stack.
 
