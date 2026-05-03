@@ -125,8 +125,40 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   background: var(--primary-color);
 }
 
+/* Solo watch: optional full-viewport catalog backdrop under main content only */
+.riffsync-solo-watch-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.riffsync-solo-watch-page--backdrop > .container {
+  position: relative;
+  z-index: 1;
+}
+
+.riffsync-solo-watch-page__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.riffsync-solo-watch__player-shell {
+  position: relative;
+  z-index: 1;
+  width: min(1600px, calc(100% - clamp(24px, 5vw, 80px)));
+  margin-inline: auto;
+}
+
+.riffsync-solo-watch-page .container:last-of-type .riffsync-solo-watch__fineprint {
+  margin-top: 1.75rem;
+}
+
 .riffsync-solo-watch__header h1 {
   margin-top: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .riffsync-solo-watch__meta {
@@ -158,15 +190,20 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   margin-bottom: 1rem;
 }
 
-.riffsync-solo-player__title {
-  font-weight: 600;
+.riffsync-solo-player__frame {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  background: #000;
 }
 
-.riffsync-solo-player__frame {
-  width: 100%;
-  min-height: min(56.25vw, 480px);
-  max-width: 960px;
-  background: #000;
+.riffsync-solo-player__frame iframe {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .riffsync-catalog-page__lede {

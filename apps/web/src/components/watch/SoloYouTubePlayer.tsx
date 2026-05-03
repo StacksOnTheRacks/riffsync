@@ -82,7 +82,7 @@ export function SoloYouTubePlayer({
         width: '100%',
         height: '100%',
         playerVars: {
-          fs: 0,
+          fs: 1,
           playsinline: 1,
           rel: 0,
           modestbranding: 1,
@@ -107,7 +107,6 @@ export function SoloYouTubePlayer({
   return (
     <div className="riffsync-solo-player">
       <div className="riffsync-solo-player__chrome" aria-live="polite">
-        <p className="riffsync-solo-player__title">{titleHint}</p>
         {status === 'idle' && (
           <button type="button" className="gen-button" onClick={startPlayback}>
             <span className="text">Play episode</span>

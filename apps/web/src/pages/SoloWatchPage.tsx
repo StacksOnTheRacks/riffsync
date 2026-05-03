@@ -1,6 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
-import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { useCatalogEpisodeQuery } from '../catalog/useCatalogQuery'
 
 export function SoloWatchPage() {
@@ -41,50 +40,77 @@ export function SoloWatchPage() {
 
   const vid = episode.youtubeVideoId
   const canEmbed = episode.embedAllows !== false
+  const backdropImageUrl = episode.backdropImageUrl?.trim()
 
   return (
-    <div className="container riffsync-solo-watch">
-      <nav className="riffsync-solo-watch__crumbs" aria-label="Breadcrumb">
-        <Link to="/">Home</Link>
-        <span aria-hidden> · </span>
-        <Link to="/catalog">Catalog</Link>
-        <span aria-hidden> · </span>
-        <span>Experiment #{episode.experimentNumber}</span>
-      </nav>
-      <header className="riffsync-solo-watch__header">
-        <h1>{episode.title}</h1>
-        <p className="riffsync-solo-watch__meta">
-          <span>Experiment {episode.experimentNumber}</span>
+    <div
+      className={
+        backdropImageUrl
+          ? 'riffsync-solo-watch-page riffsync-solo-watch-page--backdrop'
+          : 'riffsync-solo-watch-page'
+      }
+    >
+      {backdropImageUrl ? (
+        <div
+          className="riffsync-solo-watch-page__backdrop"
+          style={{
+            backgroundImage: `linear-gradient(
+              rgb(13 17 23 / 0.88),
+              rgb(13 17 23 / 0.92)
+            ), url(${JSON.stringify(backdropImageUrl)})`,
+            backgroundSize: 'cover,cover',
+            backgroundPosition: 'center,center',
+            backgroundRepeat: 'no-repeat,no-repeat',
+          }}
+          aria-hidden
+        />
+      ) : null}
+      <div className="container riffsync-solo-watch">
+        <nav className="riffsync-solo-watch__crumbs" aria-label="Breadcrumb">
+          <Link to="/">Home</Link>
           <span aria-hidden> · </span>
-          <span>{episode.era}</span>
+          <Link to="/catalog">Catalog</Link>
           <span aria-hidden> · </span>
-          <PlaybackExpectationBadge expectation={episode.playbackExpectation} />
+          <span>Experiment #{episode.experimentNumber}</span>
+        </nav>
+        <header className="riffsync-solo-watch__header">
+          <h1 title={episode.title}>{episode.title}</h1>
+          <p className="riffsync-solo-watch__meta">
+            <span>Experiment {episode.experimentNumber}</span>
+            <span aria-hidden> · </span>
+            <span>{episode.era}</span>
+          </p>
+        </header>
+        {!vid && (
+          <p role="status">Playback unavailable — no YouTube video is linked for this catalog entry.</p>
+        )}
+        {vid && !canEmbed && (
+          <p role="alert">
+            This episode is not available for in-app playback ({' '}
+            <code>embedAllows</code>
+            ). Open on YouTube if you have a watch URL.
+            {episode.youtubeWatchUrl && (
+              <>
+                {' '}
+                <a href={episode.youtubeWatchUrl} rel="noreferrer" target="_blank">
+                  Watch on YouTube
+                </a>
+              </>
+            )}
+          </p>
+        )}
+      </div>
+      {vid && canEmbed ? (
+        <div className="riffsync-solo-watch__player-shell">
+          <SoloYouTubePlayer videoId={vid} titleHint={episode.title} />
+        </div>
+      ) : null}
+      <div className="container riffsync-solo-watch">
+        <p className="riffsync-solo-watch__fineprint">
+          Embedded YouTube player. Browse more episodes in the{' '}
+          <Link to="/catalog">catalog</Link>.
         </p>
-        {episode.tagline?.trim() && <p className="riffsync-solo-watch__tagline">{episode.tagline}</p>}
-      </header>
-      {!vid && (
-        <p role="status">Playback unavailable — no YouTube video is linked for this catalog entry.</p>
-      )}
-      {vid && !canEmbed && (
-        <p role="alert">
-          This episode is not available for in-app playback ({' '}
-          <code>embedAllows</code>
-          ). Open on YouTube if you have a watch URL.
-          {episode.youtubeWatchUrl && (
-            <>
-              {' '}
-              <a href={episode.youtubeWatchUrl} rel="noreferrer" target="_blank">
-                Watch on YouTube
-              </a>
-            </>
-          )}
-        </p>
-      )}
-      {vid && canEmbed && <SoloYouTubePlayer videoId={vid} titleHint={episode.title} />}
-      <p className="riffsync-solo-watch__fineprint">
-        Official YouTube embed only. Ads and Premium benefits are not verified by RiffSync — see{' '}
-        <Link to="/catalog">catalog</Link> for more episodes.
-      </p>
+      </div>
     </div>
   )
 }
