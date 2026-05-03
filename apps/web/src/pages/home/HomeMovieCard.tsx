@@ -13,7 +13,11 @@ export function HomeMovieCard({ episode }: { episode: CatalogEpisode }) {
           <div className="gen-movie-img">
             <img src={img} alt="" loading="lazy" />
             <div className="gen-movie-action">
-              <Link to="/catalog" className="gen-button" aria-label={`Open catalog for ${episode.title}`}>
+              <Link
+                to={`/watch/${episode.id}`}
+                className="gen-button"
+                aria-label={`Watch ${episode.title}`}
+              >
                 <i className="fa fa-play" aria-hidden />
               </Link>
             </div>
@@ -21,14 +25,14 @@ export function HomeMovieCard({ episode }: { episode: CatalogEpisode }) {
           <div className="gen-info-contain">
             <div className="gen-movie-info">
               <h3>
-                <Link to="/catalog">{episode.title}</Link>
+                <Link to={`/watch/${episode.id}`}>{episode.title}</Link>
               </h3>
             </div>
             <div className="gen-movie-meta-holder">
               <ul>
                 <li>#{episode.experimentNumber}</li>
                 <li>
-                  <Link to="/catalog">
+                  <Link to={`/watch/${episode.id}`}>
                     <span>{eraLabel(episode.era)}</span>
                   </Link>
                 </li>

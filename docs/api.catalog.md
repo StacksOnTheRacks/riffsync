@@ -33,6 +33,13 @@ Returns a bundle aligned with **`data/catalog/episodes.json`**:
 
 Clients should treat optional / **`null`** enrichment fields as “not yet available.”
 
+### Optional SPA hints (not in git schema)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| **`embedAllows`** | `boolean` | When **`false`**, SPA should not offer in-app YouTube embed (see **`architecture.frontend.md`**). |
+| **`playbackExpectation`** | `"premium"` \| `"ad_supported"` \| `"unknown"` | Honor-system advisory for **US-P0-07**; not verified server-side. |
+
 ## `GET /v1/catalog/{id}`
 
 | Field | Type |

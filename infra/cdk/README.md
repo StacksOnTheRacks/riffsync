@@ -105,6 +105,7 @@ After **`cdk deploy`**, the deploy workflows read **CloudFormation outputs** fro
 | **`BucketName`** | `aws s3 sync apps/web/dist/ s3://$Bucket/` (**`--delete`** keeps the bucket aligned with the latest build) |
 | **`DistributionId`** | `aws cloudfront create-invalidation --paths "/*"` |
 | **`DistributionDomainName`** | **Staging** build-time **`VITE_PUBLIC_ORIGIN`** (`https://<distribution>`) so client-side absolute URLs match the live host. **Production** uses **`https://riffsync.tv`** until a follow-up wires **ACM** + **DNS** at the distribution (then keep **`VITE_PUBLIC_ORIGIN`** aligned with the public hostname operators configure). |
+| **`HttpApiUrl`** ( **`RiffSyncApi-staging` / `RiffSyncApi-prod`** ) | **`VITE_PUBLIC_API_BASE_URL`** for the fan SPA — catalog **`fetch`** targets **`GET /v1/catalog`** (deploy workflows read this output after **`cdk deploy`**). |
 
 **IAM for the GitHub OIDC deploy role** must allow, in addition to CDK/CloudFormation permissions:
 

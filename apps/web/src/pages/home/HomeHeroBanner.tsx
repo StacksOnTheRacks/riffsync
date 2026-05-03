@@ -49,7 +49,7 @@ export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
                                   </li>
                                   <li>—</li>
                                   <li>
-                                    <Link to="/catalog">
+                                    <Link to={`/watch/${s.episodeId}`}>
                                       <span>{s.era}</span>
                                     </Link>
                                   </li>
@@ -58,14 +58,14 @@ export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
                               </div>
                               <div className="gen-movie-action">
                                 <div className="gen-btn-container button-1">
-                                  <Link to="/catalog" className="gen-button">
-                                    <span className="text">Browse catalog</span>
+                                  <Link to={`/watch/${s.episodeId}`} className="gen-button">
+                                    <span className="text">Watch now</span>
                                   </Link>
                                 </div>
                                 <div className="gen-btn-container button-2">
-                                  <Link to="/lobby" className="gen-button gen-button-link">
+                                  <Link to="/catalog" className="gen-button gen-button-link">
                                     <i aria-hidden className="ion ion-play" />
-                                    <span className="text">Live lobby</span>
+                                    <span className="text">Browse catalog</span>
                                   </Link>
                                 </div>
                               </div>

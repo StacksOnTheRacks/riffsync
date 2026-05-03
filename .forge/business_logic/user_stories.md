@@ -33,3 +33,4 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 ## Primary code pointers (optional)
 
 - Link GitHub issues when filed.
+- **US-P0-01 (browse):** `apps/web` home + `/catalog` load from **`GET /v1/catalog`** when **`VITE_PUBLIC_API_BASE_URL`** is set (**M4 / issue #13**); **US-P0-07 (advisory):** `PlaybackExpectationBadge` + optional `playbackExpectation` on catalog rows (honor-system; see **`README`**).
