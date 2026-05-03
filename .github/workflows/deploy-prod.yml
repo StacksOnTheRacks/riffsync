@@ -23,6 +23,11 @@ jobs:
     defaults:
       run:
         working-directory: infra/cdk
+    env:
+      PROD_FAN_WEB_HOSTNAME: ${{ vars.PROD_FAN_WEB_HOSTNAME }}
+      PROD_FAN_WEB_CERTIFICATE_ARN: ${{ vars.PROD_FAN_WEB_CERTIFICATE_ARN }}
+      RIFFSYNC_ROUTE53_HOSTED_ZONE_ID: ${{ vars.RIFFSYNC_ROUTE53_HOSTED_ZONE_ID }}
+      RIFFSYNC_ROUTE53_ZONE_NAME: ${{ vars.RIFFSYNC_ROUTE53_ZONE_NAME }}
     steps:
       - name: Validate semver tag
         shell: bash
@@ -62,11 +67,41 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+
       - name: Deploy prod stack(s)
-        run: >-
-          npx cdk deploy --all
-          --context environment=prod
-          --require-approval never
+        run: |
+          set -euo pipefail
+          ARGS=(--context environment=prod)
+          if [ -n "${PROD_FAN_WEB_HOSTNAME:-}" ] && [ -n "${PROD_FAN_WEB_CERTIFICATE_ARN:-}" ]; then
+            ARGS+=(--context "fanWebCustomDomain=${PROD_FAN_WEB_HOSTNAME}")
+            ARGS+=(--context "fanWebCertificateArn=${PROD_FAN_WEB_CERTIFICATE_ARN}")
+          fi
+          if [ -n "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] && [ -n "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
+            ARGS+=(--context "fanWebHostedZoneId=${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID}")
+            ARGS+=(--context "fanWebZoneName=${RIFFSYNC_ROUTE53_ZONE_NAME}")
+          fi
+          npx cdk deploy --all "${ARGS[@]}" --require-approval never
+
+      - name: Point API CORS + Cognito OAuth at public production site URL
+        run: |
+          set -euo pipefail
+          ARGS=(--context environment=prod)
+          if [ -n "${PROD_FAN_WEB_HOSTNAME:-}" ] && [ -n "${PROD_FAN_WEB_CERTIFICATE_ARN:-}" ]; then
+            ARGS+=(--context "fanWebCustomDomain=${PROD_FAN_WEB_HOSTNAME}")
+            ARGS+=(--context "fanWebCertificateArn=${PROD_FAN_WEB_CERTIFICATE_ARN}")
+          fi
+          if [ -n "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] && [ -n "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
+            ARGS+=(--context "fanWebHostedZoneId=${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID}")
+            ARGS+=(--context "fanWebZoneName=${RIFFSYNC_ROUTE53_ZONE_NAME}")
+          fi
+          SITE_URL="$(aws cloudformation describe-stacks --stack-name RiffSyncStatic-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
+          echo "Adding ${SITE_URL} to HTTP API CORS and Cognito SPA callbacks"
+          npx cdk deploy RiffSyncFanAuth-prod RiffSyncApi-prod \
+            "${ARGS[@]}" \
+            --context "fanAuthOAuthExtras=${SITE_URL}/,${SITE_URL}/callback" \
+            --context "catalogCorsOrigins=${SITE_URL}" \
+            --require-approval never
 
       - uses: actions/setup-node@v4
         with:
@@ -80,15 +115,15 @@ jobs:
           API_STACK_NAME: RiffSyncApi-prod
         run: |
           set -euo pipefail
-          ORIGIN_HOST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text)"
+          SITE_URL="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
           API_BASE="$(aws cloudformation describe-stacks --stack-name "$API_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" --output text)"
-          echo "Production CloudFront host: ${ORIGIN_HOST}"
+          echo "Production public site URL: ${SITE_URL}"
           echo "Production HTTP API base: ${API_BASE}"
           cd "${GITHUB_WORKSPACE}/apps/web"
           npm ci
-          VITE_PUBLIC_ORIGIN="https://riffsync.tv" \
+          VITE_PUBLIC_ORIGIN="${SITE_URL}" \
             VITE_PUBLIC_API_BASE_URL="${API_BASE}" \
             npm run build
           BUCKET="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \

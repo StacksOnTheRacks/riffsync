@@ -1,16 +1,57 @@
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
 
 export interface StaticSiteStackProps extends cdk.StackProps {
   readonly environment: 'staging' | 'prod';
+  /**
+   * Public hostname for the fan SPA (e.g. staging.riffsync.tv). Requires **fanWebCertificateArn**
+   * (ACM in **us-east-1**, validated for this name). If unset, only the default ***.cloudfront.net** URL is used.
+   */
+  readonly fanWebCustomDomain?: string;
+  /**
+   * ACM certificate ARN in **us-east-1** covering **fanWebCustomDomain** (CloudFront requirement).
+   */
+  readonly fanWebCertificateArn?: string;
+  /**
+   * Public Route 53 hosted zone ID for **fanWebZoneName** (optional). When set with **fanWebZoneName**,
+   * creates an alias **A** record from **fanWebCustomDomain** to this distribution.
+   */
+  readonly fanWebHostedZoneId?: string;
+  /**
+   * Hosted zone name (e.g. riffsync.tv). Must match the zone for **fanWebCustomDomain**.
+   */
+  readonly fanWebZoneName?: string;
+}
+
+/** Relative record name under zone, or `undefined` for zone apex. */
+function recordNameUnderZone(fqdn: string, zoneName: string): string | undefined {
+  const z = zoneName.replace(/\.$/, '').toLowerCase();
+  const f = fqdn.replace(/\.$/, '').toLowerCase();
+  if (f === z) return undefined;
+  const suffix = `.${z}`;
+  if (!f.endsWith(suffix)) {
+    throw new Error(
+      `fanWebCustomDomain (${fqdn}) must be the zone apex or a name under fanWebZoneName (${zoneName}).`,
+    );
+  }
+  const prefix = f.slice(0, -suffix.length);
+  if (prefix.includes('.')) {
+    throw new Error(
+      `Nested hostnames under ${zoneName} must be a single label (e.g. staging.${z}), got ${fqdn}.`,
+    );
+  }
+  return prefix;
 }
 
 /**
  * Private S3 bucket + CloudFront with origin access control (OAC).
- * Publish SPA artifacts in a later milestone (empty bucket is valid for M1 synth).
+ * Optional **fanWebCustomDomain** + **us-east-1** ACM cert + Route 53 alias for a stable SPA URL.
  */
 export class StaticSiteStack extends cdk.Stack {
   public readonly bucket: s3.Bucket;
@@ -19,7 +60,15 @@ export class StaticSiteStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: StaticSiteStackProps) {
     super(scope, id, props);
 
-    const { environment } = props;
+    const {
+      environment,
+      fanWebCustomDomain,
+      fanWebCertificateArn,
+      fanWebHostedZoneId,
+      fanWebZoneName,
+    } = props;
+
+    const customDomainConfigured = Boolean(fanWebCustomDomain && fanWebCertificateArn);
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
     cdk.Tags.of(this).add('Environment', environment);
@@ -38,11 +87,18 @@ export class StaticSiteStack extends cdk.Stack {
       originAccessControlName: `riffsync-${environment}-web-oac`,
     });
 
+    const certificate =
+      customDomainConfigured && fanWebCertificateArn
+        ? acm.Certificate.fromCertificateArn(this, 'WebTlsCertImported', fanWebCertificateArn)
+        : undefined;
+
     this.distribution = new cloudfront.Distribution(this, 'WebDistribution', {
       comment: `RiffSync ${environment} fan SPA`,
       defaultRootObject: 'index.html',
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      domainNames: fanWebCustomDomain ? [fanWebCustomDomain] : undefined,
+      certificate,
       /**
        * SPA client routes: S3 has no object for `/lobby`, so CloudFront would otherwise
        * surface 403/404; map those to `index.html` so refreshes and deep links work.
@@ -72,6 +128,25 @@ export class StaticSiteStack extends cdk.Stack {
       },
     });
 
+    if (fanWebHostedZoneId && fanWebZoneName && fanWebCustomDomain) {
+      const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'FanWebDnsZone', {
+        hostedZoneId: fanWebHostedZoneId,
+        zoneName: fanWebZoneName,
+      });
+      const recordName = recordNameUnderZone(fanWebCustomDomain, fanWebZoneName);
+      new route53.ARecord(this, 'FanWebDnsAlias', {
+        zone,
+        recordName,
+        target: route53.RecordTarget.fromAlias(
+          new route53Targets.CloudFrontTarget(this.distribution),
+        ),
+      });
+    }
+
+    const siteUrl = fanWebCustomDomain
+      ? `https://${fanWebCustomDomain}`
+      : `https://${this.distribution.distributionDomainName}`;
+
     new cdk.CfnOutput(this, 'BucketName', {
       value: this.bucket.bucketName,
       description: 'Private S3 bucket for SPA objects (sync from CI in M2+)',
@@ -81,7 +156,13 @@ export class StaticSiteStack extends cdk.Stack {
     });
     new cdk.CfnOutput(this, 'DistributionDomainName', {
       value: this.distribution.distributionDomainName,
-      description: `CloudFront domain until a custom hostname is wired (${environment}).`,
+      description:
+        'CloudFront default hostname (use FanWebSiteUrl when a custom domain is configured).',
+    });
+    new cdk.CfnOutput(this, 'FanWebSiteUrl', {
+      value: siteUrl,
+      description:
+        'Canonical HTTPS origin for the fan SPA (custom domain or *.cloudfront.net). Use for VITE_PUBLIC_ORIGIN and CORS.',
     });
   }
 }

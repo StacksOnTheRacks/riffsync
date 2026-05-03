@@ -24,6 +24,11 @@ jobs:
     defaults:
       run:
         working-directory: infra/cdk
+    env:
+      STAGING_FAN_WEB_HOSTNAME: ${{ vars.STAGING_FAN_WEB_HOSTNAME }}
+      STAGING_FAN_WEB_CERTIFICATE_ARN: ${{ vars.STAGING_FAN_WEB_CERTIFICATE_ARN }}
+      RIFFSYNC_ROUTE53_HOSTED_ZONE_ID: ${{ vars.RIFFSYNC_ROUTE53_HOSTED_ZONE_ID }}
+      RIFFSYNC_ROUTE53_ZONE_NAME: ${{ vars.RIFFSYNC_ROUTE53_ZONE_NAME }}
     steps:
       - name: Require main-aligned ref
         if: ${{ github.event.inputs.git_ref != 'main' }}
@@ -57,24 +62,40 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-      - name: Deploy staging stack(s)
-        run: >-
-          npx cdk deploy --all
-          --context environment=staging
-          --require-approval never
 
-      - name: Point API CORS + Cognito OAuth at staging CloudFront URL
+      - name: Deploy staging stack(s)
         run: |
           set -euo pipefail
-          STACK_NAME=RiffSyncStatic-staging
-          ORIGIN_HOST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text)"
-          ORIGIN="https://${ORIGIN_HOST}"
-          echo "Adding ${ORIGIN} to HTTP API CORS and Cognito SPA callbacks"
+          ARGS=(--context environment=staging)
+          if [ -n "${STAGING_FAN_WEB_HOSTNAME:-}" ] && [ -n "${STAGING_FAN_WEB_CERTIFICATE_ARN:-}" ]; then
+            ARGS+=(--context "fanWebCustomDomain=${STAGING_FAN_WEB_HOSTNAME}")
+            ARGS+=(--context "fanWebCertificateArn=${STAGING_FAN_WEB_CERTIFICATE_ARN}")
+          fi
+          if [ -n "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] && [ -n "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
+            ARGS+=(--context "fanWebHostedZoneId=${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID}")
+            ARGS+=(--context "fanWebZoneName=${RIFFSYNC_ROUTE53_ZONE_NAME}")
+          fi
+          npx cdk deploy --all "${ARGS[@]}" --require-approval never
+
+      - name: Point API CORS + Cognito OAuth at public staging site URL
+        run: |
+          set -euo pipefail
+          ARGS=(--context environment=staging)
+          if [ -n "${STAGING_FAN_WEB_HOSTNAME:-}" ] && [ -n "${STAGING_FAN_WEB_CERTIFICATE_ARN:-}" ]; then
+            ARGS+=(--context "fanWebCustomDomain=${STAGING_FAN_WEB_HOSTNAME}")
+            ARGS+=(--context "fanWebCertificateArn=${STAGING_FAN_WEB_CERTIFICATE_ARN}")
+          fi
+          if [ -n "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] && [ -n "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
+            ARGS+=(--context "fanWebHostedZoneId=${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID}")
+            ARGS+=(--context "fanWebZoneName=${RIFFSYNC_ROUTE53_ZONE_NAME}")
+          fi
+          SITE_URL="$(aws cloudformation describe-stacks --stack-name RiffSyncStatic-staging \
+            --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
+          echo "Adding ${SITE_URL} to HTTP API CORS and Cognito SPA callbacks"
           npx cdk deploy RiffSyncFanAuth-staging RiffSyncApi-staging \
-            --context environment=staging \
-            --context "fanAuthOAuthExtras=${ORIGIN}/,${ORIGIN}/callback" \
-            --context "catalogCorsOrigins=${ORIGIN}" \
+            "${ARGS[@]}" \
+            --context "fanAuthOAuthExtras=${SITE_URL}/,${SITE_URL}/callback" \
+            --context "catalogCorsOrigins=${SITE_URL}" \
             --require-approval never
 
       - uses: actions/setup-node@v4
@@ -89,15 +110,15 @@ jobs:
           API_STACK_NAME: RiffSyncApi-staging
         run: |
           set -euo pipefail
-          ORIGIN_HOST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text)"
+          SITE_URL="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
           API_BASE="$(aws cloudformation describe-stacks --stack-name "$API_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" --output text)"
-          echo "Staging CloudFront host: ${ORIGIN_HOST}"
+          echo "Staging public site URL: ${SITE_URL}"
           echo "Staging HTTP API base: ${API_BASE}"
           cd "${GITHUB_WORKSPACE}/apps/web"
           npm ci
-          VITE_PUBLIC_ORIGIN="https://${ORIGIN_HOST}" \
+          VITE_PUBLIC_ORIGIN="${SITE_URL}" \
             VITE_PUBLIC_API_BASE_URL="${API_BASE}" \
             npm run build
           BUCKET="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \

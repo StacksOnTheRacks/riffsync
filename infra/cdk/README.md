@@ -209,6 +209,29 @@ Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`
 | **`AWS_DEPLOY_ROLE_ARN_PROD`** | IAM role ARN assumable via OIDC for **production** **`cdk deploy`** |
 | **`AWS_REGION`** (optional) | Target region (**default `us-east-1`** when unset — override as needed.) |
 
+**Optional — stable SPA hostname on CloudFront** (set on GitHub as **Variables**; certificate must be in **us-east-1**):
+
+| Variable | Purpose |
+| --- | --- |
+| **`STAGING_FAN_WEB_HOSTNAME`** | e.g. **`staging.riffsync.tv`** |
+| **`STAGING_FAN_WEB_CERTIFICATE_ARN`** | **`arn:aws:acm:us-east-1:…:certificate/…`** covering the staging hostname |
+| **`PROD_FAN_WEB_HOSTNAME`** | e.g. **`riffsync.tv`** (production deploy workflow) |
+| **`PROD_FAN_WEB_CERTIFICATE_ARN`** | **`us-east-1`** ACM ARN covering production hostname |
+| **`RIFFSYNC_ROUTE53_HOSTED_ZONE_ID`** | Public hosted zone for **`RIFFSYNC_ROUTE53_ZONE_NAME`** (optional) |
+| **`RIFFSYNC_ROUTE53_ZONE_NAME`** | e.g. **`riffsync.tv`** — required with zone id; CDK adds an alias **A** record to CloudFront |
+
+Request the ACM cert in **us-east-1**, complete **DNS validation**, then run the deploy workflow. Omit the Route 53 variables if you create the **CNAME/alias** yourself. **Stack output `FanWebSiteUrl`** is the canonical **`https://…`** used for **`VITE_PUBLIC_ORIGIN`** and API/Cognito allowlists (workflows read it from CloudFormation).
+
+Local deploy with custom hostname:
+
+```bash
+npx cdk deploy --all --context environment=staging \
+  --context fanWebCustomDomain=staging.riffsync.tv \
+  --context fanWebCertificateArn=arn:aws:acm:us-east-1:ACCOUNT:certificate/UUID \
+  --context fanWebHostedZoneId=Z0123456789ABCDEFGHIJ \
+  --context fanWebZoneName=riffsync.tv
+```
+
 IAM trust policy (**sketch**) for each role (`sts:AssumeRoleWithWebIdentity`):
 
 - Audience / issuer **`token.actions.githubusercontent.com`**
@@ -255,4 +278,4 @@ cd infra/cdk && npm ci && npm run build && npx cdk deploy --all --context enviro
 
 ## Naming & tiers
 
-Hosted tiers (**`staging`**, **`prod`**) and **`local`** (no AWS footprint) match [`.forge/runtime/configuration.md`](../../.forge/runtime/configuration.md). Production web hostname on the canonical domain is documented there (`public_domain` in [`.forge/project.json`](../../.forge/project.json)); **`staging`** hostname/alternate domain naming is chosen when ACM and DNS are wired—until then use the **`DistributionDomainName`** stack output.
+Hosted tiers (**`staging`**, **`prod`**) and **`local`** (no AWS footprint) match [`.forge/runtime/configuration.md`](../../.forge/runtime/configuration.md). Production web hostname is **`riffsync.tv`** ([**`.forge/project.json`**](../../.forge/project.json) **`public_domain`**). Prefer stack output **`FanWebSiteUrl`** (custom domain or default **`*.cloudfront.net`**) for the live **`https://`** origin.
