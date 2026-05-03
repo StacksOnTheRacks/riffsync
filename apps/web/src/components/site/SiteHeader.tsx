@@ -46,7 +46,6 @@ export function SiteHeader() {
                       </PrimaryNavItem>
                       <PrimaryNavItem to="/catalog">Catalog</PrimaryNavItem>
                       <PrimaryNavItem to="/lobby">Lobby</PrimaryNavItem>
-                      <PrimaryNavItem to="/room/demo-room">Room (demo)</PrimaryNavItem>
                       <PrimaryNavItem to="/admin" end={false}>
                         Admin
                       </PrimaryNavItem>

@@ -6,10 +6,12 @@ import { LobbyPage } from './pages/LobbyPage'
 import { RoomPage } from './pages/RoomPage'
 import { AdminShellPage } from './pages/AdminShellPage'
 import { SoloWatchPage } from './pages/SoloWatchPage'
+import { AuthCallbackPage } from './pages/AuthCallbackPage'
 
 export function AppRoutes() {
   return (
     <Routes>
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route element={<SiteLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/catalog" element={<CatalogPage />} />

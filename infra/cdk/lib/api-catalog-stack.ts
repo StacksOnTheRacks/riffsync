@@ -1,5 +1,7 @@
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import * as apigwv2Auth from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
@@ -17,6 +19,11 @@ export interface ApiCatalogStackProps extends cdk.StackProps {
    * Comma-separated in CDK context `catalogCorsOrigins`.
    */
   readonly extraCorsOrigins?: string[];
+  /**
+   * Fan Cognito pool + SPA client for HTTP / WebSocket JWT validation (**M5**).
+   */
+  readonly fanUserPool: cognito.IUserPool;
+  readonly fanUserPoolClient: cognito.IUserPoolClient;
 }
 
 function parseOriginsFromContext(scope: Construct): string[] {
@@ -28,6 +35,17 @@ function parseOriginsFromContext(scope: Construct): string[] {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function staleRoomMsFromContext(scope: Construct): number {
+  const raw = scope.node.tryGetContext('staleRoomMs');
+  const n =
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string'
+        ? Number.parseInt(raw, 10)
+        : Number.NaN;
+  return Number.isFinite(n) && n > 0 ? n : 45 * 60 * 1000;
 }
 
 function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[]): string[] {
@@ -44,24 +62,29 @@ function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[]): st
   return [...new Set([...base, ...extras])];
 }
 
+const sharedLambdaBundle = {
+  externalModules: ['@aws-sdk/*'],
+};
+
 /**
- * DynamoDB **Catalog** table + HTTP API **`GET /v1/catalog`** and **`GET /v1/catalog/{id}`**.
- *
- * **Access:** partition key **`id`** (stable episode slug). **`GET /v1/catalog`** uses **`Scan`**
- * (acceptable for MVP catalog size); **`GET /v1/catalog/{id}`** uses **`GetItem`**.
- * For large catalogs, add a GSI or snapshot/cache; see **`docs/architecture.server.md`**.
+ * DynamoDB **Catalog** + **Rooms** + **Connections**, HTTP API (catalog, rooms, lobby),
+ * WebSocket API (realtime), TMDB reconcile — see **`docs/architecture.server.md`**.
  */
 export class ApiCatalogStack extends cdk.Stack {
   public readonly catalogTable: dynamodb.Table;
+  public readonly roomsTable: dynamodb.Table;
+  public readonly connectionsTable: dynamodb.Table;
   public readonly httpApi: apigwv2.HttpApi;
+  public readonly webSocketApi: apigwv2.WebSocketApi;
   public readonly tmdbApiTokenSecret: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: ApiCatalogStackProps) {
     super(scope, id, props);
 
-    const { environment, extraCorsOrigins = [] } = props;
+    const { environment, extraCorsOrigins = [], fanUserPool, fanUserPoolClient } = props;
     const contextExtras = parseOriginsFromContext(this);
     const allowOrigins = corsAllowOrigins(environment, [...extraCorsOrigins, ...contextExtras]);
+    const staleRoomMs = staleRoomMsFromContext(this);
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
     cdk.Tags.of(this).add('Environment', environment);
@@ -74,6 +97,33 @@ export class ApiCatalogStack extends cdk.Stack {
         environment === 'prod' ? { pointInTimeRecoveryEnabled: true } : undefined,
     });
 
+    this.roomsTable = new dynamodb.Table(this, 'RoomsTable', {
+      partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      pointInTimeRecoverySpecification:
+        environment === 'prod' ? { pointInTimeRecoveryEnabled: true } : undefined,
+    });
+    this.roomsTable.addGlobalSecondaryIndex({
+      indexName: 'PublicLobbyIndex',
+      partitionKey: { name: 'lobbyPk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'lobbySk', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.connectionsTable = new dynamodb.Table(this, 'ConnectionsTable', {
+      partitionKey: { name: 'connectionId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      timeToLiveAttribute: 'expiresAt',
+    });
+    this.connectionsTable.addGlobalSecondaryIndex({
+      indexName: 'RoomConnectionsIndex',
+      partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'connectionId', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.KEYS_ONLY,
+    });
+
     this.tmdbApiTokenSecret = new secretsmanager.Secret(this, 'TmdbApiToken', {
       secretName: `riffsync/${environment}/tmdb-api-token`,
       description:
@@ -84,10 +134,11 @@ export class ApiCatalogStack extends cdk.Stack {
 
     const catalogListFn = new lambdaNodejs.NodejsFunction(this, 'CatalogListFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
-      entry: path.join(__dirname, '../lambda/catalog-list.ts'),
-      handler: 'handler',
       timeout: cdk.Duration.seconds(29),
       memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/catalog-list.ts'),
+      handler: 'handler',
       environment: {
         CATALOG_TABLE_NAME: this.catalogTable.tableName,
         NODE_OPTIONS: '--enable-source-maps',
@@ -96,10 +147,11 @@ export class ApiCatalogStack extends cdk.Stack {
 
     const catalogGetFn = new lambdaNodejs.NodejsFunction(this, 'CatalogGetFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
-      entry: path.join(__dirname, '../lambda/catalog-get.ts'),
-      handler: 'handler',
       timeout: cdk.Duration.seconds(10),
       memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/catalog-get.ts'),
+      handler: 'handler',
       environment: {
         CATALOG_TABLE_NAME: this.catalogTable.tableName,
         NODE_OPTIONS: '--enable-source-maps',
@@ -130,6 +182,7 @@ export class ApiCatalogStack extends cdk.Stack {
       handler: 'handler',
       timeout: cdk.Duration.minutes(5),
       memorySize: 512,
+      bundling: sharedLambdaBundle,
       environment: {
         CATALOG_TABLE_NAME: this.catalogTable.tableName,
         TMDB_SECRET_ARN: this.tmdbApiTokenSecret.secretArn,
@@ -151,12 +204,162 @@ export class ApiCatalogStack extends cdk.Stack {
       reconcileRule.addTarget(new eventsTargets.LambdaFunction(tmdbReconcileFn));
     }
 
+    const fanIssuer = `https://cognito-idp.${this.region}.amazonaws.com/${fanUserPool.userPoolId}`;
+    const fanJwtAuthorizer = new apigwv2Auth.HttpJwtAuthorizer('FanJwtAuthorizer', fanIssuer, {
+      jwtAudience: [fanUserPoolClient.userPoolClientId],
+      authorizerName: `riffsync-fan-${environment}`,
+    });
+
+    const jwtEnvShared = {
+      NODE_OPTIONS: '--enable-source-maps',
+    };
+
+    const roomCreateFn = new lambdaNodejs.NodejsFunction(this, 'RoomCreateFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/room-create.ts'),
+      handler: 'handler',
+      environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        ...jwtEnvShared,
+      },
+    });
+    const roomPatchFn = new lambdaNodejs.NodejsFunction(this, 'RoomPatchFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/room-patch.ts'),
+      handler: 'handler',
+      environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        ...jwtEnvShared,
+      },
+    });
+    const roomGetFn = new lambdaNodejs.NodejsFunction(this, 'RoomGetFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/room-get.ts'),
+      handler: 'handler',
+      environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        ...jwtEnvShared,
+      },
+    });
+    const lobbyGetFn = new lambdaNodejs.NodejsFunction(this, 'LobbyGetFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(15),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/lobby-get.ts'),
+      handler: 'handler',
+      environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        STALE_ROOM_MS: String(staleRoomMs),
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+
+    this.roomsTable.grantReadWriteData(roomCreateFn);
+    this.roomsTable.grantReadWriteData(roomPatchFn);
+    this.catalogTable.grantReadData(roomCreateFn);
+    this.catalogTable.grantReadData(roomPatchFn);
+    this.catalogTable.grantReadData(lobbyGetFn);
+    this.roomsTable.grantReadData(roomGetFn);
+    this.roomsTable.grantReadData(lobbyGetFn);
+
+    /** WebSocket management URL (HTTPS) for `PostToConnection`. */
+    this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
+      apiName: `riffsync-${environment}-ws`,
+      description: `RiffSync WebSocket (${environment}) — ping, chat, signaling`,
+      routeSelectionExpression: '$request.body.action',
+    });
+
+    const wsStage = new apigwv2.WebSocketStage(this, 'WebSocketStage', {
+      webSocketApi: this.webSocketApi,
+      stageName: environment,
+      autoDeploy: true,
+    });
+
+    const wsMgmtEndpoint = `https://${this.webSocketApi.apiId}.execute-api.${this.region}.amazonaws.com/${wsStage.stageName}`;
+
+    const wsSharedEnv = {
+      ROOMS_TABLE_NAME: this.roomsTable.tableName,
+      CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
+      COGNITO_USER_POOL_ID: fanUserPool.userPoolId,
+      COGNITO_CLIENT_ID: fanUserPoolClient.userPoolClientId,
+      WS_MANAGEMENT_API_ENDPOINT: wsMgmtEndpoint,
+      NODE_OPTIONS: '--enable-source-maps',
+    };
+
+    const wsConnectFn = new lambdaNodejs.NodejsFunction(this, 'WsConnectFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/ws-connect.ts'),
+      handler: 'handler',
+      environment: wsSharedEnv,
+    });
+    const wsDisconnectFn = new lambdaNodejs.NodejsFunction(this, 'WsDisconnectFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/ws-disconnect.ts'),
+      handler: 'handler',
+      environment: { CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName, NODE_OPTIONS: '--enable-source-maps' },
+    });
+    const wsRouteFn = new lambdaNodejs.NodejsFunction(this, 'WsRouteFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(25),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/ws-route.ts'),
+      handler: 'handler',
+      environment: wsSharedEnv,
+    });
+
+    this.catalogTable.grantReadData(wsConnectFn);
+    this.roomsTable.grantReadData(wsConnectFn);
+    this.connectionsTable.grantReadWriteData(wsConnectFn);
+
+    this.connectionsTable.grantReadWriteData(wsDisconnectFn);
+
+    this.roomsTable.grantReadWriteData(wsRouteFn);
+    this.connectionsTable.grantReadWriteData(wsRouteFn);
+    this.webSocketApi.grantManageConnections(wsRouteFn);
+
+    const wsConnectInt = new integrations.WebSocketLambdaIntegration('WsConnectInt', wsConnectFn);
+    const wsDisconnectInt = new integrations.WebSocketLambdaIntegration('WsDisconnectInt', wsDisconnectFn);
+    const wsRouteInt = new integrations.WebSocketLambdaIntegration('WsRouteInt', wsRouteFn);
+
+    this.webSocketApi.addRoute('$connect', { integration: wsConnectInt });
+    this.webSocketApi.addRoute('$disconnect', { integration: wsDisconnectInt });
+    for (const key of ['ping', 'chat', 'signaling'] as const) {
+      this.webSocketApi.addRoute(key, { integration: wsRouteInt });
+    }
+    this.webSocketApi.addRoute('$default', { integration: wsRouteInt });
+
     this.httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
       apiName: `riffsync-${environment}-http`,
       description: `RiffSync public HTTP API (${environment})`,
       corsPreflight: {
-        allowHeaders: ['content-type', 'authorization'],
-        allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.OPTIONS],
+        allowHeaders: ['content-type', 'authorization', 'x-session-id'],
+        allowMethods: [
+          apigwv2.CorsHttpMethod.GET,
+          apigwv2.CorsHttpMethod.POST,
+          apigwv2.CorsHttpMethod.PATCH,
+          apigwv2.CorsHttpMethod.PUT,
+          apigwv2.CorsHttpMethod.OPTIONS,
+        ],
         allowOrigins,
         maxAge: cdk.Duration.days(1),
       },
@@ -170,6 +373,10 @@ export class ApiCatalogStack extends cdk.Stack {
       'CatalogGetIntegration',
       catalogGetFn,
     );
+    const roomCreateIntegration = new integrations.HttpLambdaIntegration('RoomCreateInt', roomCreateFn);
+    const roomPatchIntegration = new integrations.HttpLambdaIntegration('RoomPatchInt', roomPatchFn);
+    const roomGetIntegration = new integrations.HttpLambdaIntegration('RoomGetInt', roomGetFn);
+    const lobbyGetIntegration = new integrations.HttpLambdaIntegration('LobbyGetInt', lobbyGetFn);
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -183,18 +390,61 @@ export class ApiCatalogStack extends cdk.Stack {
       integration: getIntegration,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/rooms',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: roomCreateIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/rooms/{roomId}',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: roomGetIntegration,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/rooms/{roomId}',
+      methods: [apigwv2.HttpMethod.PATCH],
+      integration: roomPatchIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/lobby',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: lobbyGetIntegration,
+    });
+
     new cdk.CfnOutput(this, 'CatalogTableName', {
       value: this.catalogTable.tableName,
       description: 'DynamoDB Catalog table — partition key `id` (episode slug).',
     });
 
+    new cdk.CfnOutput(this, 'RoomsTableName', {
+      value: this.roomsTable.tableName,
+    });
+
+    new cdk.CfnOutput(this, 'ConnectionsTableName', {
+      value: this.connectionsTable.tableName,
+    });
+
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
-      description: 'HTTP API base URL (HTTPS). Append `/v1/catalog`.',
+      description: 'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {
       value: this.httpApi.httpApiId,
+    });
+
+    new cdk.CfnOutput(this, 'WebSocketUrl', {
+      value: wsStage.url,
+      description: 'WebSocket **`wss://`** URL.',
+    });
+
+    new cdk.CfnOutput(this, 'WebSocketApiId', {
+      value: this.webSocketApi.apiId,
     });
 
     new cdk.CfnOutput(this, 'TmdbApiTokenSecretArn', {
@@ -205,6 +455,11 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TmdbReconcileFnName', {
       value: tmdbReconcileFn.functionName,
       description: 'Invoke manually: aws lambda invoke --function-name … out.json',
+    });
+
+    new cdk.CfnOutput(this, 'StaleRoomMs', {
+      value: String(staleRoomMs),
+      description: '`GET /v1/lobby` excludes rows with `lastActivityAt` older than this (ms). Override: `--context staleRoomMs=…`.',
     });
   }
 }

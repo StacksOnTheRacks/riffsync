@@ -1,0 +1,63 @@
+# WebSocket message contracts (M5)
+
+Fan clients connect to **`RiffSyncApi-{env}`** **`WebSocketUrl`** (**`wss://…`**).
+
+## `$connect`
+
+| Input | Requirement |
+| --- | --- |
+| **Query** `roomId` | Target room (**must exist**). |
+| **Query** `sessionId` | Opaque anonymous session (**`authorization.md`**). |
+| **Header** `Authorization` OR **Query** `accessToken` | **`Bearer <Cognito access token>`** (**header**) or bare/minimal raw token (**query**) only when claiming **publisher** (**`JWT.sub`** must equal **`room.hostSub`**). Browsers normally **cannot** set WebSocket **`Authorization`**; the SPA MUST pass **`accessToken`** (**URL-encoded JWT**) — avoid logging query strings containing tokens. |
+
+Malformed or mismatched JWT → **`403`**; missing room/session → **`400`**.
+
+## Route selection (`$request.body.action`)
+
+Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `chat`, `signaling`). **`$default`** maps **`body.action`** when the route selector misses.
+
+| **`action`** | Purpose | Auth |
+| --- | --- | --- |
+| **`ping`** | Heartbeat — bumps **`lastActivityAt`** (and **`lobbySk`** when room is **`public`**). | **Guest OK** once connected. |
+| **`chat`** | Fan-out text to sockets in **`roomId`**. | Guests + host. Body: **`text`** (**required**, ≤ 2000 chars). |
+| **`signaling`** | WebRTC relay to peers (`**envelope`** JSON). | **Host:** publisher **`JWT`** on **`$connect`**. **Guest:** only **`guestSignaling`** with **`kind`** **`ready`**, **`answer`**, or **`ice`** (see below). |
+
+## Server → client fan-out (`PostToConnection`)
+
+### Chat
+
+```json
+{ "type": "chat", "roomId": "<id>", "sessionId": "<sender>", "text": "…", "ts": 0 }
+```
+
+### Signaling
+
+Outbound fan-out payloads share a common envelope (**`Publishers`** and **`guest`** relay):
+
+```json
+{
+  "type": "signaling",
+  "roomId": "<id>",
+  "fromSessionId": "<sender session opaque id>",
+  "role": "host" | "guest",
+  "envelope": {}
+}
+```
+
+### Guest → relay (**`guestSignaling`**)
+
+Guests may **`POST`** messages on the **`signaling`** route only when **`envelope`** is **`{ guestSignaling: true, kind: … }`**:
+
+| **`kind`** | Purpose |
+| --- | --- |
+| **`ready`** | Guest announces WebRTC handshake readiness (prompts host to **`createOffer`** for that **`fromSessionId`**). |
+| **`answer`** | WebRTC SDP answer (`**sdp`** object: **`type`** + **`sdp`** string). |
+| **`ice`** | ICE candidate (**`candidate`** ICE payload). |
+
+**`offer`** and arbitrary publisher envelopes **must not** arrive on the guest path (**`403`** otherwise).
+
+Hosts send **`signaling`** without **`guestSignaling`** (publisher path). Typical host **`envelope`** fields: **`kind`**: **`offer`** | **`ice`**, **`sdp`** / **`candidate`**, **`targetSessionId`** (which guest applies the payload).
+
+SDP and ICE blobs are forwarded without semantic validation (**SPA-owned** contract).
+
+**`chat`** payloads are unchanged (**`Date.now()`** server timestamp).
