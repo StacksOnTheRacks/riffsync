@@ -56,6 +56,7 @@ export function normalizeEpisode(raw: unknown): CatalogEpisode {
       raw.tmdbArtworkSyncedAt === null || raw.tmdbArtworkSyncedAt === undefined
         ? null
         : String(raw.tmdbArtworkSyncedAt),
+    carousel: raw.carousel === true,
     embedAllows:
       raw.embedAllows === false ? false : raw.embedAllows === true ? true : undefined,
     playbackExpectation: parsePlaybackExpectation(raw.playbackExpectation),
@@ -90,6 +91,36 @@ export async function fetchCatalogEntries(): Promise<CatalogEpisode[]> {
 
   throw new Error(
     'Set VITE_PUBLIC_API_BASE_URL at build time so the catalog can load from the API.',
+  )
+}
+
+export async function fetchCatalogCarouselEntries(): Promise<CatalogEpisode[]> {
+  const base = getPublicApiBaseUrl()
+  if (base) {
+    const url = new URL(`${base}/v1/catalog`)
+    url.searchParams.set('carousel', 'true')
+    const res = await fetch(url.toString(), {
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) {
+      throw new Error(`Catalog carousel request failed (${res.status})`)
+    }
+    const body = (await res.json()) as { entries?: unknown[] }
+    if (!Array.isArray(body.entries)) {
+      throw new Error('Catalog carousel response missing entries array')
+    }
+    return body.entries.map(normalizeEpisode)
+  }
+
+  if (import.meta.env.DEV) {
+    const bundle = await loadDevSeedBundle()
+    return bundle.entries
+      .map(normalizeEpisode)
+      .filter((e) => e.carousel === true)
+  }
+
+  throw new Error(
+    'Set VITE_PUBLIC_API_BASE_URL at build time so the catalog carousel can load from the API.',
   )
 }
 

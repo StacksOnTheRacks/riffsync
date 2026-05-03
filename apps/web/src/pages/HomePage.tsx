@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useCatalogEntriesQuery } from '../catalog/useCatalogQuery'
+import { useCatalogCarouselQuery, useCatalogEntriesQuery } from '../catalog/useCatalogQuery'
 import {
   buildHeroSlides,
   cycleSlice,
@@ -9,11 +9,13 @@ import { HomeMovieRowSection } from './home/HomeMovieRowSection'
 import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
 
 /**
- * Catalog landing (/) — rows hydrate from **`GET /v1/catalog`** when **`VITE_PUBLIC_API_BASE_URL`**
- * is set; in **`vite dev`** without that var, the dev seed JSON loads (**`data/catalog/episodes.json`**).
+ * Catalog landing (/) — full list from **`GET /v1/catalog`**; hero + spotlight from
+ * **`GET /v1/catalog?carousel=true`** when **`VITE_PUBLIC_API_BASE_URL`** is set.
+ * In **`vite dev`** without that var, both load from **`data/catalog/episodes.json`** (carousel rows filtered client-side).
  */
 export function HomePage() {
   const { data, isPending, isError, error } = useCatalogEntriesQuery()
+  const carouselQ = useCatalogCarouselQuery()
 
   if (isPending) {
     return (
@@ -42,6 +44,9 @@ export function HomePage() {
   }
 
   const entries = data ?? []
+  const carouselEntries =
+    carouselQ.isSuccess ? (carouselQ.data ?? []) : carouselQ.isError ? [] : []
+
   if (entries.length === 0) {
     return (
       <div className="riffsync-home">
@@ -50,11 +55,11 @@ export function HomePage() {
     )
   }
 
-  const heroSlides = buildHeroSlides(entries)
+  const heroSlides = buildHeroSlides(carouselEntries)
 
   return (
     <div className="riffsync-home">
-      <HomeHeroBanner slides={heroSlides} />
+      {heroSlides.length > 0 ? <HomeHeroBanner slides={heroSlides} /> : null}
       <HomeMovieRowSection
         sectionId="home-most-popular"
         title="Most Popular"
@@ -65,7 +70,7 @@ export function HomePage() {
         title="Most Viewed"
         episodes={cycleSlice(entries, 12, 12)}
       />
-      <HomeSpotlightBanner episodes={entries} />
+      <HomeSpotlightBanner episodes={carouselEntries} />
       <HomeMovieRowSection
         sectionId="home-joel-era"
         title="Joel-era experiments"

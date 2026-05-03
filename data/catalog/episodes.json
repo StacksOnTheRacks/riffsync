@@ -14,7 +14,8 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": null
+      "tmdbArtworkSyncedAt": null,
+      "carousel": true
     },
     {
       "id": "102-the-robot-vs-the-aztec-mummy",
@@ -27,7 +28,8 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": null
+      "tmdbArtworkSyncedAt": null,
+      "carousel": true
     },
     {
       "id": "103-the-mad-monster",
@@ -40,7 +42,8 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": null
+      "tmdbArtworkSyncedAt": null,
+      "carousel": true
     },
     {
       "id": "104-women-of-the-prehistoric-planet",

@@ -4,6 +4,12 @@ Anonymous **`GET`** routes backed by **DynamoDB** (**`architecture.server.md`**)
 
 ## `GET /v1/catalog`
 
+Query parameters:
+
+| Param | Values | Effect |
+| --- | --- | --- |
+| **`carousel`** | **`true`** or **`1`** | Response **`entries`** only include rows where **`carousel`** is **`true`** in storage (still sorted by **`experimentNumber`**). Omit for the full catalog. |
+
 Returns a bundle aligned with **`data/catalog/episodes.json`**:
 
 | Field | Type | Notes |
@@ -26,6 +32,7 @@ Returns a bundle aligned with **`data/catalog/episodes.json`**:
 | **`backdropImageUrl`** | `string \| null` | |
 | **`tmdbMovieId`** | `number \| null` | |
 | **`tmdbArtworkSyncedAt`** | `string \| null` | ISO-8601 when enrichment last wrote artwork/tagline. |
+| **`carousel`** | `boolean` | **`true`** when the row is curated for home carousels; omitted in git seed is stored/fetched as **`false`**. |
 | **`tmdbOverview`** | `string \| optional` | Present when reconcile persisted copy (**`architecture.catalog-images.md`**). |
 | **`tmdbPopularity`** | `number \| optional` | |
 | **`tmdbPosterPath`** | `string \| optional` | Raw TMDB path; **`posterImageUrl`** is the resolved CDN URL when set. |

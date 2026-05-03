@@ -11,8 +11,10 @@ function tagForIndex(i: number): string {
   return 'Spotlight'
 }
 
+/** `episodes` should be the carousel list from **`GET /v1/catalog?carousel=true`**. */
 export function HomeSpotlightBanner({ episodes }: { episodes: CatalogEpisode[] }) {
   const slides = episodes.slice(0, 3)
+  if (slides.length === 0) return null
   return (
     <section
       className="pt-0 pb-0 gen-section-padding-2 home-singal-silder"

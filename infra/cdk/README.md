@@ -47,7 +47,8 @@ Hosted stacks **`RiffSyncApi-staging`** / **`RiffSyncApi-prod`** add:
 
 ```bash
 cd infra/cdk && npm ci && npm run build
-TABLE_NAME="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-staging \
+export AWS_REGION=us-east-1   # required for AWS CLI and the SDK in seed script if unset on your profile
+TABLE_NAME="$(aws cloudformation describe-stacks --region "$AWS_REGION" --stack-name RiffSyncApi-staging \
   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
 npm run seed:catalog -- "$TABLE_NAME"
 ```

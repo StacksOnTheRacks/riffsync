@@ -15,6 +15,8 @@ export interface CatalogEpisode {
   readonly backdropImageUrl: string | null;
   readonly tmdbMovieId: number | null;
   readonly tmdbArtworkSyncedAt: string | null;
+  /** When true, row is included in **`GET /v1/catalog?carousel=true`**. */
+  readonly carousel: boolean;
   readonly tmdbOverview?: string | null;
   readonly tmdbPopularity?: number | null;
   readonly tmdbPosterPath?: string | null;
@@ -60,6 +62,7 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
     backdropImageUrl: optionalString(item.backdropImageUrl),
     tmdbMovieId: optionalNumber(item.tmdbMovieId),
     tmdbArtworkSyncedAt: optionalString(item.tmdbArtworkSyncedAt),
+    carousel: item.carousel === true,
     tmdbOverview: optionalStringField(item.tmdbOverview),
     tmdbPopularity: optionalNumberField(item.tmdbPopularity),
     tmdbPosterPath: optionalStringField(item.tmdbPosterPath),

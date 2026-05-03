@@ -18,12 +18,6 @@ export function catalogCardImageUrl(ep: CatalogEpisode): string {
   return '/design/images/background/asset-53.jpg'
 }
 
-const HERO_BACKGROUNDS = [
-  '/design/images/background/asset-9.jpeg',
-  '/design/images/background/asset-52.jpg',
-  '/design/images/background/asset-24.jpeg',
-] as const
-
 export interface HeroSlide {
   episodeId: string
   backgroundUrl: string
@@ -33,19 +27,17 @@ export interface HeroSlide {
   era: string
 }
 
+const HERO_SLIDE_CAP = 3
+
+/** `entries` should be the curated carousel slice from **`GET /v1/catalog?carousel=true`**. */
 export function buildHeroSlides(entries: CatalogEpisode[]): HeroSlide[] {
-  const slice = entries.slice(0, HERO_BACKGROUNDS.length)
-  return HERO_BACKGROUNDS.map((backgroundUrl, i) => {
-    const ep = slice[i] ?? entries[i % entries.length]
-    if (!ep) {
-      throw new Error('Catalog entries required for hero slides')
-    }
+  return entries.slice(0, HERO_SLIDE_CAP).map((ep) => {
     const blurb =
       ep.tagline?.trim() ||
       `Experiment #${ep.experimentNumber}: Joel, Mike, Jonah, and friends riff on the film—in the not-too-distant future, this copy comes from the catalog API.`
     return {
       episodeId: ep.id,
-      backgroundUrl,
+      backgroundUrl: catalogStillImageUrl(ep),
       title: ep.title,
       taglineHtml: blurb,
       experimentNumber: ep.experimentNumber,

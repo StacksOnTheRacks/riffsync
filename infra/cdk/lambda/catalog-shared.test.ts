@@ -21,6 +21,40 @@ describe('projectEpisode', () => {
     expect(ep.experimentNumber).toBe(101);
     expect(ep.tagline).toBeNull();
     expect(ep.tmdbOverview).toBeUndefined();
+    expect(ep.carousel).toBe(false);
+  });
+
+  it('sets carousel from the stored attribute', () => {
+    const on = projectEpisode({
+      id: 'x',
+      experimentNumber: 1,
+      title: 'T',
+      era: 'joel',
+      youtubeVideoId: null,
+      youtubeWatchUrl: null,
+      tagline: null,
+      posterImageUrl: null,
+      backdropImageUrl: null,
+      tmdbMovieId: null,
+      tmdbArtworkSyncedAt: null,
+      carousel: true,
+    });
+    expect(on.carousel).toBe(true);
+    const off = projectEpisode({
+      id: 'y',
+      experimentNumber: 2,
+      title: 'U',
+      era: 'joel',
+      youtubeVideoId: null,
+      youtubeWatchUrl: null,
+      tagline: null,
+      posterImageUrl: null,
+      backdropImageUrl: null,
+      tmdbMovieId: null,
+      tmdbArtworkSyncedAt: null,
+      carousel: false,
+    });
+    expect(off.carousel).toBe(false);
   });
 
   it('preserves optional TMDB copy fields when present', () => {

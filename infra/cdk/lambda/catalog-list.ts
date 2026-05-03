@@ -5,11 +5,14 @@ import { projectEpisode, sortEpisodes } from './catalog-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
-export const handler: APIGatewayProxyHandlerV2 = async () => {
+export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const tableName = process.env.CATALOG_TABLE_NAME;
   if (!tableName) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Missing CATALOG_TABLE_NAME' }) };
   }
+
+  const carouselParam = event.queryStringParameters?.carousel;
+  const carouselOnly = carouselParam === 'true' || carouselParam === '1';
 
   const entries: ReturnType<typeof projectEpisode>[] = [];
   let startKey: Record<string, unknown> | undefined;
@@ -27,7 +30,10 @@ export const handler: APIGatewayProxyHandlerV2 = async () => {
     startKey = out.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (startKey);
 
-  const sorted = sortEpisodes(entries);
+  let sorted = sortEpisodes(entries);
+  if (carouselOnly) {
+    sorted = sorted.filter((e) => e.carousel === true);
+  }
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json; charset=utf-8' },
