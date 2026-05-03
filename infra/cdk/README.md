@@ -238,6 +238,8 @@ npm ci && npm run build
 npx cdk bootstrap aws://ACCOUNT/REGION   # uses your CLI profile credentials
 ```
 
+**Context:** `cdk.json` defaults **`environment`** to **`staging`**, so bootstrap does not need `--context`. CLI **`--context environment=prod`** overrides that for prod synth/deploy.
+
 **Exact operator sequence (staging, local profile):**
 
 ```bash
