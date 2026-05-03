@@ -180,6 +180,20 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   gap: 1.25rem;
 }
 
+/* Home rows + catalog grid: 16:9 thumb area so portrait poster fallbacks don't stretch layout */
+.riffsync-catalog-grid .gen-carousel-movies-style-3 .gen-movie-contain .gen-movie-img,
+.riffsync-home-row-swiper .gen-carousel-movies-style-3 .gen-movie-contain .gen-movie-img {
+  aspect-ratio: 16 / 9;
+}
+
+.riffsync-catalog-grid .gen-carousel-movies-style-3 .gen-movie-contain .gen-movie-img img,
+.riffsync-home-row-swiper .gen-carousel-movies-style-3 .gen-movie-contain .gen-movie-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .riffsync-catalog-card__advisory {
   margin-top: 0.35rem;
 }

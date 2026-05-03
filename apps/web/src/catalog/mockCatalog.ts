@@ -10,11 +10,16 @@ export function catalogStillImageUrl(ep: CatalogEpisode): string {
   return '/design/images/background/asset-53.jpg'
 }
 
+/**
+ * Landscape-friendly art for grid / row cards: YouTube still first (consistent ~16:9),
+ * then wide backdrop; TMDB **poster** last — it is portrait and breaks row alignment.
+ */
 export function catalogCardImageUrl(ep: CatalogEpisode): string {
-  if (ep.posterImageUrl) return ep.posterImageUrl
   if (ep.youtubeVideoId) {
     return `https://img.youtube.com/vi/${ep.youtubeVideoId}/hqdefault.jpg`
   }
+  if (ep.backdropImageUrl) return ep.backdropImageUrl
+  if (ep.posterImageUrl) return ep.posterImageUrl
   return '/design/images/background/asset-53.jpg'
 }
 
