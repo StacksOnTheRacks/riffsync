@@ -7,6 +7,8 @@ import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import type { Construct } from 'constructs';
 
+import { dnsRecordConstructSuffix, viewerRequestRedirectToCanonicalSource } from './cloudfront-canonical-redirect';
+
 export interface StaticSiteStackProps extends cdk.StackProps {
   readonly environment: 'staging' | 'prod';
   /**
@@ -32,6 +34,12 @@ export interface StaticSiteStackProps extends cdk.StackProps {
    * CDK context **`fanWebAlternateDomainNames`** (comma-separated). Creates CloudFront aliases + Route 53 A records.
    */
   readonly fanWebAlternateDomainNames?: string[];
+  /**
+   * If set (e.g. `www.riffsync.tv`), CloudFront returns **302** for any other custom alias so the browser
+   * lands on this host (path + query preserved). Must be one of **fanWebCustomDomain** + **fanWebAlternateDomainNames**.
+   * Leave unset for no host-based redirects (e.g. staging often keeps two hostnames equivalent).
+   */
+  readonly fanWebCanonicalHostname?: string;
 }
 
 /** Relative record name under zone, or `undefined` for zone apex. */
@@ -72,9 +80,15 @@ export class StaticSiteStack extends cdk.Stack {
       fanWebHostedZoneId,
       fanWebZoneName,
       fanWebAlternateDomainNames = [],
+      fanWebCanonicalHostname: fanWebCanonicalHostnameRaw,
     } = props;
 
     const customDomainConfigured = Boolean(fanWebCustomDomain && fanWebCertificateArn);
+
+    const fanWebCanonicalHostname =
+      typeof fanWebCanonicalHostnameRaw === 'string' && fanWebCanonicalHostnameRaw.trim() !== ''
+        ? fanWebCanonicalHostnameRaw.trim().replace(/\.$/, '').toLowerCase()
+        : undefined;
 
     const cfDomainNames =
       fanWebCustomDomain && customDomainConfigured
@@ -84,6 +98,12 @@ export class StaticSiteStack extends cdk.Stack {
             ),
           ]
         : undefined;
+
+    if (fanWebCanonicalHostname && cfDomainNames && !cfDomainNames.includes(fanWebCanonicalHostname)) {
+      throw new Error(
+        `fanWebCanonicalHostname (${fanWebCanonicalHostname}) must match fanWebCustomDomain or one of fanWebAlternateDomainNames (got: ${cfDomainNames.join(', ')}).`,
+      );
+    }
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
     cdk.Tags.of(this).add('Environment', environment);
@@ -105,6 +125,17 @@ export class StaticSiteStack extends cdk.Stack {
     const certificate =
       customDomainConfigured && fanWebCertificateArn
         ? acm.Certificate.fromCertificateArn(this, 'WebTlsCertImported', fanWebCertificateArn)
+        : undefined;
+
+    const canonicalRedirectFn =
+      fanWebCanonicalHostname && customDomainConfigured
+        ? new cloudfront.Function(this, 'CanonicalHostRedirect', {
+            comment: `Redirect alternate aliases to https://${fanWebCanonicalHostname}/`,
+            code: cloudfront.FunctionCode.fromInline(
+              viewerRequestRedirectToCanonicalSource(fanWebCanonicalHostname),
+            ),
+            runtime: cloudfront.FunctionRuntime.JS_2_0,
+          })
         : undefined;
 
     this.distribution = new cloudfront.Distribution(this, 'WebDistribution', {
@@ -140,6 +171,14 @@ export class StaticSiteStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         compress: true,
+        functionAssociations: canonicalRedirectFn
+          ? [
+              {
+                function: canonicalRedirectFn,
+                eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+              },
+            ]
+          : undefined,
       },
     });
 
@@ -148,9 +187,10 @@ export class StaticSiteStack extends cdk.Stack {
         hostedZoneId: fanWebHostedZoneId,
         zoneName: fanWebZoneName,
       });
-      cfDomainNames.forEach((hostname, i) => {
+      cfDomainNames.forEach((hostname) => {
         const recordName = recordNameUnderZone(hostname, fanWebZoneName);
-        new route53.ARecord(this, `FanWebDnsAlias${i}`, {
+        const idSuffix = dnsRecordConstructSuffix(hostname);
+        new route53.ARecord(this, `FanWebDnsAlias${idSuffix}`, {
           zone,
           recordName,
           target: route53.RecordTarget.fromAlias(
@@ -160,8 +200,10 @@ export class StaticSiteStack extends cdk.Stack {
       });
     }
 
-    const siteUrl = fanWebCustomDomain
-      ? `https://${fanWebCustomDomain}`
+    const primaryPublicHost =
+      fanWebCanonicalHostname ?? fanWebCustomDomain?.replace(/\.$/, '').toLowerCase();
+    const siteUrl = primaryPublicHost
+      ? `https://${primaryPublicHost}`
       : `https://${this.distribution.distributionDomainName}`;
 
     new cdk.CfnOutput(this, 'BucketName', {

@@ -96,8 +96,12 @@ export class FanAuthStack extends cdk.Stack {
     const stagingCallbackLogoutBase = [
       'https://riffsync.tv/',
       'https://riffsync.tv/callback',
+      'https://www.riffsync.tv/',
+      'https://www.riffsync.tv/callback',
       'https://staging.riffsync.tv/',
       'https://staging.riffsync.tv/callback',
+      'https://www-staging.riffsync.tv/',
+      'https://www-staging.riffsync.tv/callback',
       'http://localhost:5173/',
       'http://localhost:5173/callback',
       'http://127.0.0.1:5173/',
@@ -110,6 +114,7 @@ export class FanAuthStack extends cdk.Stack {
     const prodCallbackLogoutBase = [
       ...new Set([
         ...oauthCallbacksForHost('riffsync.tv'),
+        ...oauthCallbacksForHost('www.riffsync.tv'),
         ...fanWebAlternateDomainNamesFromContext(this).flatMap(oauthCallbacksForHost),
       ]),
     ];

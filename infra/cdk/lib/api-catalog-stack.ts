@@ -54,10 +54,12 @@ function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[], sco
   const altOrigins = fanWebAlternateDomainNamesFromContext(scope).map((h) => `https://${h}`);
   const base =
     environment === 'prod'
-      ? ['https://riffsync.tv']
+      ? ['https://riffsync.tv', 'https://www.riffsync.tv']
       : [
           'https://riffsync.tv',
+          'https://www.riffsync.tv',
           'https://staging.riffsync.tv',
+          'https://www-staging.riffsync.tv',
           'http://localhost:5173',
           'http://localhost:3000',
           'http://127.0.0.1:5173',

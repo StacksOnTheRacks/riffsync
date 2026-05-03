@@ -51,6 +51,7 @@ function parseFanWebAlternateDomains(a: cdk.App): string[] {
 }
 
 const fanWebAlternateDomainNames = parseFanWebAlternateDomains(app);
+const fanWebCanonicalHostname = trimContext(app, 'fanWebCanonicalHostname');
 
 const fanAuth = new FanAuthStack(app, `RiffSyncFanAuth-${environment}`, {
   description: `RiffSync fan Cognito (${environment}) — Hosted UI + Facebook IdP (host JWT)`,
@@ -80,6 +81,7 @@ new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
   fanWebHostedZoneId,
   fanWebZoneName,
   fanWebAlternateDomainNames,
+  fanWebCanonicalHostname,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,

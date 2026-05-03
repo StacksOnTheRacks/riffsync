@@ -73,16 +73,34 @@ JSON response shapes: **`docs/api.catalog.md`**.
 
 ### Extra SPA hostname (e.g. `www`)
 
-If your **ACM certificate** already includes **`www`** + apex, add **`fanWebAlternateDomainNames`** (comma-separated hostnames **without** `https://`). CDK adds:
+**Typical pattern (same as most public sites):** one **CloudFront** distribution with **two (or more) alternate domain names** on the **same ACM certificate**, and **Route 53 alias A (and AAAA) records** for each name pointing at that distribution. Optional: a **viewer-request CloudFront Function** returns **302** from non-canonical hosts (e.g. apex → `www`) so bookmarks and links consolidate on one hostname; this repo uses optional CDK context **`fanWebCanonicalHostname`** for that redirect.
 
-- **CloudFront** alternate domain names on the same distribution as **`fanWebCustomDomain`**
-- **Route 53** alias **A** records (when zone id + zone name are set) for each hostname
-- **API CORS** and **Cognito app client** callback / sign-out URLs for each **`https://`** host
+**You must list both names** in CDK: **`fanWebCustomDomain`** is always set to one hostname, and **`fanWebAlternateDomainNames`** lists the rest (comma-separated). CDK merges them for CloudFront **and** creates **one Route 53 record per name** when **`RIFFSYNC_ROUTE53_*`** is set.
 
-**GitHub Actions:** set repository variable **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** to e.g. **`www.riffsync.tv`** (staging: **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`**). **Local / CLI:**  
-`--context fanWebAlternateDomainNames=www.riffsync.tv`
+**Production (apex + `www`, canonical `www`, apex 302 → `www`):**
 
-**SPA build** keeps **`FanWebSiteUrl`** (apex) as **`VITE_PUBLIC_ORIGIN`**; both hosts serve the same **`dist/`** bundle. If your **Meta (Facebook) app** restricts **Valid OAuth redirect URIs** or **Allowed domains** beyond Cognito, add **`www`** there as required.
+| GitHub Actions variable | Example value |
+| --- | --- |
+| **`PROD_FAN_WEB_HOSTNAME`** | **`www.riffsync.tv`** |
+| **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | **`riffsync.tv`** |
+| **`PROD_FAN_WEB_CANONICAL_HOSTNAME`** | **`www.riffsync.tv`** |
+
+Same **`us-east-1`** ACM cert must include **both** DNS names. **`FanWebSiteUrl`** (and CI **`VITE_PUBLIC_ORIGIN`**) follow **`PROD_FAN_WEB_CANONICAL_HOSTNAME`** when set, otherwise **`PROD_FAN_WEB_HOSTNAME`**.
+
+**Staging (`staging` + `www-staging`, no redirect unless you want it):**
+
+| Variable | Example |
+| --- | --- |
+| **`STAGING_FAN_WEB_HOSTNAME`** | **`staging.riffsync.tv`** |
+| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | **`www-staging.riffsync.tv`** |
+| **`STAGING_FAN_WEB_CANONICAL_HOSTNAME`** | *(omit)* — both URLs serve the app; set to e.g. **`staging.riffsync.tv`** only if you want the other hostname to 302 to it |
+
+**If Route 53 only shows one alias:** **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** / **`STAGING_…`** is almost certainly **empty** while **`…_HOSTNAME`** is set to a **single** name (often `www` only). The fix is to put the **other** hostname in **`…_ALTERNATE_DOMAIN_NAMES`** (not to rely on “apex is implicit”).
+
+**Local / CLI:**  
+`--context fanWebAlternateDomainNames=riffsync.tv --context fanWebCanonicalHostname=www.riffsync.tv` (with **`fanWebCustomDomain=www.riffsync.tv`**).
+
+CORS and Cognito callback allowlists include **`https://www.riffsync.tv`** and **`https://www-staging.riffsync.tv`** by default; **`fanWebAlternateDomainNames`** still adds any other names on the cert. If your **Meta (Facebook) app** restricts **Valid OAuth redirect URIs**, add the **`www`** URLs there as needed.
 
 **Tests:** `npm test` (Vitest — catalog + **room parsers** + TMDB reconcile core with mocked **`fetch`**).
 
@@ -247,8 +265,10 @@ Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`
 | **`STAGING_FAN_WEB_CERTIFICATE_ARN`** | **`arn:aws:acm:us-east-1:…:certificate/…`** covering the staging hostname |
 | **`PROD_FAN_WEB_HOSTNAME`** | e.g. **`riffsync.tv`** (production deploy workflow) |
 | **`PROD_FAN_WEB_CERTIFICATE_ARN`** | **`us-east-1`** ACM ARN covering production hostname |
-| **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Optional; comma-separated extra hostnames on the **same** cert (e.g. **`www.riffsync.tv`**) — CloudFront aliases, Route 53 A, CORS, Cognito URLs |
-| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Same pattern for staging |
+| **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Optional; comma-separated extra hostnames on the **same** cert (e.g. apex **`riffsync.tv`** when **`PROD_FAN_WEB_HOSTNAME`** is **`www.riffsync.tv`**) — CloudFront aliases, Route 53 A, CORS, Cognito URLs |
+| **`PROD_FAN_WEB_CANONICAL_HOSTNAME`** | Optional; when set (e.g. **`www.riffsync.tv`**), CloudFront **302** from any **other** custom alias to this host (**`FanWebSiteUrl`** / **`VITE_PUBLIC_ORIGIN`** use this too) |
+| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Same pattern for staging (e.g. **`www-staging.riffsync.tv`**) |
+| **`STAGING_FAN_WEB_CANONICAL_HOSTNAME`** | Optional; same behavior as prod (usually omit for staging) |
 | **`RIFFSYNC_ROUTE53_HOSTED_ZONE_ID`** | Public hosted zone for **`RIFFSYNC_ROUTE53_ZONE_NAME`** (optional) |
 | **`RIFFSYNC_ROUTE53_ZONE_NAME`** | e.g. **`riffsync.tv`** — with zone id; CDK creates Route 53 alias **A** records for **`fanWebCustomDomain`** and each **`fanWebAlternateDomainNames`** host |
 
@@ -262,8 +282,8 @@ npx cdk deploy --all --context environment=staging \
   --context fanWebCertificateArn=arn:aws:acm:us-east-1:ACCOUNT:certificate/UUID \
   --context fanWebHostedZoneId=Z0123456789ABCDEFGHIJ \
   --context fanWebZoneName=riffsync.tv
-# Optional second hostname on the same ACM cert (e.g. www for prod):
-#   --context fanWebAlternateDomainNames=www.riffsync.tv
+# Optional apex on the same ACM cert (see README § Extra SPA hostname):
+#   --context fanWebAlternateDomainNames=riffsync.tv --context fanWebCanonicalHostname=www.riffsync.tv
 ```
 
 IAM trust policy (**sketch**) for each role (`sts:AssumeRoleWithWebIdentity`):
