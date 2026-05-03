@@ -8,9 +8,12 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | --- | --- |
 | `bin/riffsync.ts` | App entry; validates `environment` context |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
-| `lib/api-catalog-stack.ts` | **DynamoDB Catalog** + **HTTP API** + read Lambdas + **TMDB reconcile** Lambda + **Secrets Manager** + **EventBridge** schedule |
+| `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + **Facebook** IdP + SPA app client (**no** native password auth) |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
+| `lambda/room-*.ts` | **`POST/PATCH`** room + **`GET`** lobby/read (**`authorization.md`**) |
+| `lambda/ws-*.ts` | WebSocket **`$connect`** / **`$disconnect`** / message routes |
+| `lambda/room-shared.ts` | Shared parsing + **`STALE_ROOM_MS`** (**lobby staleness**) |
 | `lambda/tmdb-reconcile-*.ts` | Scheduled **`GET /configuration`**, **`/search/movie`**, **`/movie/{id}`** enrichment (**`docs/contracts.tmdb.md`**) |
 | `scripts/seed-catalog-from-json.ts` | Validates **`data/catalog/episodes.json`** against **`catalog.schema.json`**, **`BatchWriteItem`** into the deployed table |
 
@@ -51,7 +54,31 @@ npm run seed:catalog -- "$TABLE_NAME"
 
 JSON response shapes: **`docs/api.catalog.md`**.
 
-**Tests:** `npm test` (Vitest — catalog projections + TMDB reconcile core with mocked **`fetch`**).
+**Tests:** `npm test` (Vitest — catalog + **room parsers** + TMDB reconcile core with mocked **`fetch`**).
+
+### Rooms, lobby & WebSocket (M5+)
+
+Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as catalog). Depends on **`RiffSyncFanAuth-*`** (**`bin/riffsync.ts`** synthesizes Fan stack **before** API so JWT issuer + client IDs exist).
+
+**DynamoDB**
+
+| Logical | PK | GSI |
+| --- | --- | --- |
+| **Rooms** | **`roomId`** | **`PublicLobbyIndex`**: **`lobbyPk=PUBLIC`**, **`lobbySk`** (sortable activity key) |
+| **Connections** | **`connectionId`** (**API Gateway**) | **`RoomConnectionsIndex`**: **`roomId`**, **`connectionId`** (fan-out queries) |
+
+**HTTP** (JWT = **fan pool access token**, audience = **`FanUserPoolClientId`**)
+
+| Route | Auth | Behavior |
+| --- | --- | --- |
+| **`POST /v1/rooms`** | **JWT required** (`401` gateway) | Looks up **`catalogEpisodeId`** in **Catalog**, writes **`youtubeVideoId`**, binds **`hostSub = JWT.sub`** |
+| **`GET /v1/rooms/{roomId}`** | Anonymous | Reads room snapshot (**client merges catalog** if needed). |
+| **`PATCH /v1/rooms/{roomId}`** | JWT | **`403`** unless **`JWT.sub === room.hostSub`**; optimistic **`version`** check (`409`). |
+| **`GET /v1/lobby`** | Anonymous (`X-Session-Id` ignored here—reserved for quotas later) | **Query** **`PublicLobbyIndex`** + **`FilterExpression`** hides stale rows (**`lastActivityAt ≤ now − STALE_ROOM_MS`**). Default **`STALE_ROOM_MS`** = **`45 × 60 × 1000`**; synth/deploy **`--context staleRoomMs=…`** or Lambda env **`STALE_ROOM_MS`**. Hydrates **`catalog`** preview via **`BatchGetItem`**. Outputs **`staleRoomMsHint`**, **`cutoffActivityAfter`**. |
+
+**WebSocket**: outputs **`WebSocketUrl`** (**`wss://…/{staging|prod}`**). Contracts: **`../../docs/contracts.websocket.md`**. **`execute-api:ManageConnections`** attaches only to this stack’s WebSocket API (**`…/*/*/@connections/*`**, parameterized by **`WebSocketApiId`**), not arbitrary `*` resources.
+
+**Housekeeping:** lobby staleness uses **read-time filtering** (**US-P0-08**) — optional EventBridge TTL/sweeper deferred.
 
 ### Fan Cognito + Facebook Hosted UI (M5+)
 
@@ -112,7 +139,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 
 - **`RiffSyncStatic-*` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
 - **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
-- **`RiffSyncApi-*` —** **HTTP API** + **DynamoDB** read (**catalog list/get**); **DynamoDB** read/write + **Secrets Manager** + **EventBridge** for **TMDB reconcile**; **`cloudwatch:PutMetricData`** not required when using **EMF** in **`stdout`** ( **`infra/cdk/README.md`** TMDB §).
+- **`RiffSyncApi-*` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**); **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
 - **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **Facebook** `UserPoolIdentityProvider` + **UserPoolClient** (OAuth) + **Secrets Manager** secret for Meta app secret.
 
 Older milestone copy: **M1** alone only created the static stack.
@@ -147,7 +174,8 @@ After **`cdk deploy`**, the deploy workflows read **CloudFormation outputs** fro
 | **`BucketName`** | `aws s3 sync apps/web/dist/ s3://$Bucket/` (**`--delete`** keeps the bucket aligned with the latest build) |
 | **`DistributionId`** | `aws cloudfront create-invalidation --paths "/*"` |
 | **`DistributionDomainName`** | **Staging** build-time **`VITE_PUBLIC_ORIGIN`** (`https://<distribution>`) so client-side absolute URLs match the live host. **Production** uses **`https://riffsync.tv`** until a follow-up wires **ACM** + **DNS** at the distribution (then keep **`VITE_PUBLIC_ORIGIN`** aligned with the public hostname operators configure). |
-| **`HttpApiUrl`** ( **`RiffSyncApi-staging` / `RiffSyncApi-prod`** ) | **`VITE_PUBLIC_API_BASE_URL`** for the fan SPA — catalog **`fetch`** targets **`GET /v1/catalog`** (deploy workflows read this output after **`cdk deploy`**). |
+| **`HttpApiUrl`** ( **`RiffSyncApi-*`** ) | **`VITE_PUBLIC_API_BASE_URL`** — catalog + rooms REST |
+| **`WebSocketUrl`** ( **`RiffSyncApi-*`** ) | Build-time **`VITE_PUBLIC_WS_URL`** (**`wss://…`**) once SPA subscribes to realtime (**`contracts.websocket`**). |
 
 **IAM for the GitHub OIDC deploy role** must allow, in addition to CDK/CloudFormation permissions:
 
