@@ -1,25 +1,26 @@
 # RiffSync
 
-**RiffSync** is a fan-made idea centered on a **catalog** of episodes you can watch on **YouTube** — **alone** straight from the library, or together in a **watch party**. Public rooms can be browsed live and joined; each party gets a **shareable URL** hosts can paste elsewhere. Chat attaches to rooms, not solo sessions.
+**RiffSync** is a fan-made idea centered on a **catalog** of episodes you can watch on **YouTube**. Choosing an episode lands on a canonical **room** page: the **first participant** is **room admin**, uses an **in-room library selector** (pre-filled with that pick) to load or **switch** titles, drives the official **embedded player**, and can **share that viewing surface** with everyone else in the room via **browser realtime media** (WebRTC) so guests see **one shared picture**—including the same ad breaks the admin sees—instead of each running their own embedded player in lockstep. Public rooms can appear in the **lobby**; every room has a **shareable URL**. Chat attaches to rooms.
 
 This repository is the home for that project. Implementation details will land here as the project is built.
 
+**Production site:** [https://riffsync.tv](https://riffsync.tv) — canonical public hostname for the deployed fan app (see **`.forge/runtime/configuration.md`** and **`.forge/project.json`**).
+
 ## What users do
 
-From the **same catalog**:
+From the **same catalog**, flows converge on a **`/room/<id>`** page:
 
-1. **Play** — Open an episode and watch solo in the app (official embed; normal YouTube rules apply).
-2. **Start a watch party** — Choose an episode and open a party: you’re the **host**; synced playback + room chat/presence apply for guests.
+1. **Open an episode** — Creates or opens a **room** seeded with that catalog row as the **current episode** (a **mutable room attribute**); you’re the **first participant** → **room admin** (until you leave and policy says otherwise).
+2. **Room admin** — Sees an **in-room library selector** (same catalog data) **pre-selected** on the episode they arrived with; they can **switch** to a different title anytime—the embed updates and guests eventually see the new program through the **same shared capture**. Loads and controls playback in the **official embedded player**, chooses **public lobby** vs **private link-only** visibility when product supports it, and starts **sharing video to the room** so guests watch the **same stream** (see below).
+3. **Guests** — Join via **lobby** or **direct link**; they watch what the admin shares (typically after one browser **Play** tap for autoplay rules). Room **chat** and **presence** attach here; **lobby rows** should reflect the room’s **current** **`catalogEpisodeId`** when listing “what’s playing.”
 
-The host declares an **experience label** when creating or managing the room: **Premium** (“host runs YouTube with Premium / broadly ad-free playback on their setup”) versus default **free, ad-supported** — the app cannot detect someone’s subscription; this is advisory for join expectations and sync chatter, **not verified by RiffSync**.
+The admin declares an **experience label** when creating or managing the room: **Premium** (“admin runs YouTube with Premium / broadly ad-free playback on their setup”) versus default **free, ad-supported** — the app cannot detect someone’s subscription; this is advisory for join expectations and chat, **not verified by RiffSync**.
 
-**Share** — The host gets a **stable room URL** (e.g. `/room/<id>`) with **copy link / share** suited for Discord, Mastodon, etc.; anyone with the link can join according to visibility rules (**public lobby** vs unlisted/private later).
+**Share** — **Stable room URL** (`/room/<id>`) with **copy link / share** for Discord, Mastodon, etc.; visibility rules control lobby listing vs link-only.
 
-You can also **browse live public parties** started by someone else and **join** as a participant.
+You can **browse live public rooms** or join by link.
 
-Solo playback does **not** use realtime sync; watch parties do.
-
-**Chromecast / Cast (optional, per viewer)** — Each person can choose to send what they are watching to a **Google Cast** device (Chromecast TV, built-in Cast, etc.) **from their own browser**, the same way they might cast any YouTube session. It is **viewer-local**: the host does not “cast for the room.” Availability depends on **browser, OS, embed policy, and YouTube**; unsupported clients keep normal in-page playback. See **`docs/architecture.frontend.md`** for implementation notes and watch-party caveats when someone is casting.
+**Chromecast / Cast (optional, per viewer)** — Each viewer may cast **what their browser is playing** (the embed for an admin-only session, or the **received WebRTC stream** for guests—implementation detail). It stays **viewer-local**; the admin does not Cast for the whole room. Availability depends on **browser, OS, embed policy, YouTube, and Cast APIs**. See **`docs/architecture.frontend.md`**.
 
 ## Disclaimer
 
@@ -27,9 +28,9 @@ RiffSync is not affiliated with, endorsed by, or connected to *Mystery Science T
 
 ## Goals
 
-- **Catalog** — Curated episodes are **store-backed** (database as canonical source; see **`docs/architecture.server.md`**). Today’s **`data/catalog/episodes.json`** is a **bootstrap seed** + schema reference (**[`data/catalog/README.md`](data/catalog/README.md)**). App entry points: **solo play** and **starting a party**.
-- **Watch parties** — Public rooms (and optionally **unlisted/private** canonical URLs later) where one **host** controls play, pause, seek, and playback rate. Each room has a **shareable link** hosts can paste on social feeds.
-- **Playback expectations label** — The host marks the room **Premium** *or* (default) **free, ad-supported**; the embed/API **cannot** reliably detect YouTube subscription state, so the UI treats this as **self-reported**. Joiners see the badge in lobby and share cards.
+- **Catalog** — Curated episodes are **store-backed** (database as canonical source; see **`docs/architecture.server.md`**). Today’s **`data/catalog/episodes.json`** is a **bootstrap seed** + schema reference (**[`data/catalog/README.md`](data/catalog/README.md)**). Choosing an episode lands on the **room** experience.
+- **Rooms & shared viewing** — One **room admin** per room (first participant for MVP) drives the **embedded YouTube player**, uses an **in-room catalog picker** to change **what’s playing** (`catalogEpisodeId` / resolved **`videoId`** on the room document), and **broadcasts** that viewing surface to guests via **WebRTC** (signaling and chat via existing HTTP/WebSocket patterns—see **`docs/architecture.frontend.md`**). Guests do **not** rely on parallel embedded players kept in timeline sync. Each room has a **shareable link**; **public lobby** vs **private** visibility as product rules allow.
+- **Playback expectations label** — The admin marks the room **Premium** *or* (default) **free, ad-supported**; the embed/API **cannot** reliably detect YouTube subscription state, so the UI treats this as **self-reported**. Joiners see the badge in lobby and share cards.
 - **Discovery** — See what others are watching in public mode and join an active room.
 - **Chat** — Room-scoped messages (and optional light presence: who is here, join/leave).
 - **Optional Cast to TV** — Per-viewer **Chromecast / Google Cast** affordance for solo and party playback, where the platform allows it (implementation: **`docs/architecture.frontend.md`**).
@@ -41,24 +42,25 @@ RiffSync is not affiliated with, endorsed by, or connected to *Mystery Science T
 - **Anonymous by default** — People who participate in discovery, rooms, or chat get a **random display name** (e.g. adjective+noun+digits) assigned on **first meaningful use**, without an email/password flow.
 - **Continuity without accounts** — Keep the chosen name stable on that **browser/device** via local persistence (Storage). Clearing site data ⇒ new persona is acceptable for MVP.
 - **Optional tweaks** — Let users reroll name or lightly edit label if you want nicer social UX; defer full auth until you truly need recoverable identity or cross-device history.
+- **Optional “Continue with Facebook”** — When you want **recoverable identity** or **cross-device continuity**, add **federated login** (Meta **Facebook Login**) **without** making signup mandatory: anonymous catalog browse + room playback stay workable without accounts; signed-in users get a stable **`sub`** (from your auth provider) you can map to display name, room-admin privileges, or saved preferences. Recommended AWS fit: **Cognito User Pool** + **Facebook as IdP** + **JWT** on protected HTTP routes and WebSocket **`$connect`** (see **`docs/architecture.server.md`**, **`docs/architecture.frontend.md`**). Operating Facebook Login requires a **Meta developer app**, **Privacy Policy** / **Data deletion** URLs, and compliance with Meta and applicable privacy rules.
 
-Host controls and moderation stay simpler with anonymous users; banning or timeouts can target **opaque client/session ids**, not verified people.
+Host controls and moderation stay simpler with anonymous users; banning or timeouts can target **opaque client/session ids**, not verified people. If you add Facebook login, you can still moderate by **Cognito `sub`** (or linked session) for signed-in users while keeping anonymous mode for everyone else.
 
-## How sync works (watch parties; no tab sharing)
+## How shared viewing works (room page; admin broadcast)
 
-**Solo:** the client loads the chosen library item in the embedded player only — **no shared room timeline**.
+**Room page:** Everyone in a session meets on **`/room/<id>`**. The **current episode** is **whatever catalog row the room document says**—usually chosen when the room was opened, then adjustable via the admin’s **in-room library selector**. The **room admin** uses the **official YouTube iframe / IFrame Player API** for that selection—lawful playback, normal ads, no re-hosting of video files on RiffSync infrastructure.
 
-You do **not** need the host to share a screen tab for the default party mode. For the MVP, each participant loads the **same** YouTube video in the **official** embedded player; the app keeps **room state** in sync:
+**Guests watch what the admin shares:** After the admin starts **sharing video to the room**, the browser captures the admin’s **tab or window** showing that room page (with browser permission—typically **Share this tab**, steered so it defaults to **the current RiffSync tab** where the catalog-driven episode already loads). That capture is published over **WebRTC**; guests play the **incoming media stream** in the room UI. Everyone sees the **same pixels and audio** from the admin’s session, so **mid-roll ads and buffering match** in a way parallel embeds cannot guarantee.
 
-- Current time, play/pause, playback rate  
-- Host actions are sent to the server and broadcast to other clients  
-- Clients apply small **drift corrections** (e.g. every few seconds, if local time is off by more than a threshold, seek gently)
+**Coordination channel:** HTTP + WebSocket remain for **chat**, **presence**, **room metadata** (including **mutable** **current** catalog episode when the admin switches titles, visibility, **`lastActivityAt`** pings), and **WebRTC signaling** (SDP / ICE). The server does **not** implement frame-perfect “sync three separate YouTube embed clocks”; timeline alignment is **inherent** to receiving one shared stream.
 
-Mental model: a **synchronized remote control** on top of a playback backend, not a pirate CDN. The MVP uses YouTube; the same coordination layer can apply to other backends later.
+**Solo / admin-only:** If no guests need the stream, the admin can watch the embed alone without publishing WebRTC—still on the **room** page when that is the chosen navigation target.
+
+**Mental model:** **One lawful playback surface** (admin’s embed) plus **optional realtime redistribution of that viewing surface** to friends—not a pirate CDN. Other lawful backends can reuse the same split (**local player** / **capture** vs **guest `<video>`**) later.
 
 ## Room lifecycle & cleanup
 
-Rooms do **not** clean themselves up by magic. If the host **pulls power** or **drops offline**, TCP/WebSocket teardown may never arrive—you only learn from **timeouts**.
+Rooms do **not** clean themselves up by magic. If the **room admin** **pulls power** or **drops offline**, TCP/WebSocket teardown may never arrive—you only learn from **timeouts**.
 
 **Baseline pattern:**
 
@@ -70,10 +72,10 @@ Tune thresholds so transient issues (tab backgrounded, short disconnect) don’t
 
 **Also useful**
 
-- **`hostReconnectToken`** and a reclaim window so the original host can regain authority after reconnect.
-- If host stays missing past grace: **freeze**, **promote** another participant, or **end** the room—with simple UX for MVP.
+- **`hostReconnectToken`** and a reclaim window so the original **admin** can regain authority after reconnect.
+- If the admin stays missing past grace: **freeze**, **promote** another participant, or **end** the room—with simple UX for MVP.
 
-Browsers/networks rarely give instant “host is dead”; teardown stays **eventually consistent**.
+Browsers/networks rarely give instant “admin is gone”; teardown stays **eventually consistent**.
 
 ## Future playback backends (design hook)
 
@@ -88,26 +90,30 @@ Fan support might fund clearer distribution paths (sales, bundles, partnerships)
 - Use YouTube’s **iframe / IFrame Player API**; do not strip ads, re-host video, or circumvent YouTube’s normal playback.
 - Many videos are **not embeddable**; the catalog should only reference IDs that allow embedding, and be prepared for takedowns.
 - **Cast / Chromecast** is mediated by **YouTube** and **Google Cast** APIs and rules; embedding may hide or expose cast differently by client. Fail gracefully when Cast is unavailable.
-- Browsers enforce **autoplay policies** — expect an explicit user gesture (e.g. “Tap to join sync”) when joining a room.
-- **Premium vs ads** — RiffSync does not query or verify YouTube accounts; rely on honest **host-reported room labels**, not entitlement checks.
+- Browsers enforce **autoplay policies** — expect an explicit user gesture (e.g. **Tap to play**) when joining a stream or starting playback.
+- **Premium vs ads** — RiffSync does not query or verify YouTube accounts; rely on honest **admin-reported room labels**, not entitlement checks.
 - Naming and MST3K references in the UI should stay clearly **fan / unofficial**.
 
 ## Technical direction (sketch)
 
 | Layer | Suggested direction |
 | --- | --- |
-| Frontend | TypeScript, React or Next.js, YouTube IFrame API, WebSocket client, optional Google Cast Sender / platform Cast affordances |
-| API | REST for rooms/catalog; WebSockets for playback events, chat, presence, periodic **ping** for liveness |
-| State | Authoritative room document (video id or future episode/source key, time, playing, rate, **`playbackExpectation`** `premium \| free-ad-supported`, host id, **lastActivityAt**, optional reconnect token); ephemeral presence optional; **player backend as a pluggable seam** |
-| AWS (baseline) | **Serverless:** **API Gateway v2** (`HTTP` + `WEBSOCKET`), **Lambda**, **DynamoDB** (rooms, connections, **catalog**), **EventBridge / Scheduler**, **Secrets Manager**. **ElastiCache** (Redis/Valkey-compatible) **optional** for **`GET /v1/catalog`** or lobby caches (VPC-attached Lambdas). **S3** only if you host the SPA or keep offline exports — no ECS in the default stack. Details: **`docs/architecture.server.md`**. |
+| Frontend | TypeScript, React or Next.js, YouTube IFrame API (admin room surface), **WebRTC** (tab/window capture → guests), WebSocket client for chat/presence/signaling, optional Google Cast |
+| API | REST for rooms/catalog; WebSockets for chat, presence, **WebRTC signaling**, periodic **ping** for liveness |
+| State | Authoritative room document (**mutable** **current** catalog episode / `videoId`, **`playbackExpectation`**, **`hostSessionId`**, broadcast/session flags as implemented, **lastActivityAt**, optional reconnect token); ephemeral presence optional; **playback spine pluggable** for future non-YouTube sources |
+| AWS (baseline) | **IaC:** **`AWS CDK`** (TypeScript). **Compute:** **Lambda** in **TypeScript** (Node.js bundle) **serverless-first** — **API Gateway v2** (`HTTP` + `WEBSOCKET`), **DynamoDB**, **EventBridge / Scheduler**, **Secrets Manager**. **ElastiCache** (Redis/Valkey-compatible) **optional** for **`GET /v1/catalog`** or lobby caches (VPC-attached Lambdas). **S3** for SPA static hosting or exports if needed — **no ECS/EC2** in the default stack. Details: **`docs/architecture.server.md`**. |
+| Deploy / CI | **GitHub Actions**: **on-demand** workflow deploys **`main`** → **staging**; separate **on-demand** workflow deploys **semver** git tags (`vMajor.Minor.Patch`) → **production**. **Semantic versioning** governs production releases. See **`.forge/operations/build_packaging.md`**. |
 
-**MVP cut:** catalog **solo play**, catalog → **create watch party**, **canonical share URLs** + lobby discovery + join path, embedded YouTube, host controls, chat, basic sync — **anonymous display names**, **self-reported “Premium” vs “free, ad-supported”** room labels, no signup. Defer full accounts, heavy moderation, and unlisted/private-only rooms if you want speed.
+**MVP cut:** catalog → **room page**, **room admin** + **guest WebRTC viewing**, **canonical share URLs** + lobby discovery + join path, embedded YouTube on admin surface, chat, **anonymous display names**, **self-reported “Premium” vs “free, ad-supported”** labels, no signup. Defer full accounts, heavy moderation, and polished private-room policy if you want speed. **Managed SFU / TURN** is optional when mesh/host uplink is insufficient—see **`docs/architecture.frontend.md`**.
 
 ## Documentation
 
+- [Forge domain contracts & knowledge map (`.forge/`)](.forge/knowledge_map.json) — start at **`vision.json`**; mirrors product + technical boundaries alongside `docs/*`.
 - [Catalog data (`data/catalog/`)](data/catalog/README.md)
+- [TMDB HTTP contracts — endpoints, fields, image URLs (`contracts.tmdb.md`)](docs/contracts.tmdb.md)
 - [Catalog images & TMDB reconciliation (posters + backdrops; draft)](docs/architecture.catalog-images.md)
 - [Server architecture (draft)](docs/architecture.server.md)
+- [Operator admin — users, reporting, catalog & lists (draft)](docs/architecture.admin.md)
 - [Frontend architecture (draft)](docs/architecture.frontend.md)
 
 ## Naming

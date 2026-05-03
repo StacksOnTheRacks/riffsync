@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://riffsync.local/schema/catalog-bundle-v1",
   "title": "RiffSync catalog bundle",
-  "description": "Shape of canonical catalog rows (future DB/API). Repo JSON is seed/fixture—not production truth.",
+  "description": "Shape of catalog rows in git seed episodes.json (future Dynamo/API may attach additional reconcile-only attributes). Every entry uses the same property set: core fields plus nullable post-era columns.",
   "type": "object",
   "required": ["version", "entries"],
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "updated": {
       "type": ["string", "null"],
       "format": "date",
-      "description": "Last curated update (YYYY-MM-DD), or null until first publish."
+      "description": "Last curated update (YYYY-MM-DD)."
     },
     "entries": {
       "type": "array",
@@ -26,88 +26,94 @@
   "$defs": {
     "episode": {
       "type": "object",
-      "required": ["id", "title", "era"],
+      "required": [
+        "id",
+        "experimentNumber",
+        "title",
+        "era",
+        "youtubeVideoId",
+        "youtubeWatchUrl",
+        "tagline",
+        "posterImageUrl",
+        "backdropImageUrl",
+        "tmdbMovieId",
+        "tmdbArtworkSyncedAt"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
-          "description": "Stable URL-safe slug (1+ chars): lowercase letters, digits, hyphen. Never recycle for another experiment.",
+          "description": "Stable URL-safe slug; never recycle for another experiment.",
           "examples": ["421-crow-magnum"]
         },
         "experimentNumber": {
-          "type": ["integer", "null"],
+          "type": "integer",
           "minimum": 0,
-          "description": "Classic experiment number where it applies; null for specials or non-numbered clips."
+          "description": "Classic experiment number (MST ordering)."
         },
         "title": {
           "type": "string",
-          "description": "Display title shown in catalog and room previews."
-        },
-        "youtubeVideoId": {
-          "anyOf": [
-            { "type": "null", "description": "Set when TMDB/grid metadata exists but an embed-ready upload is still unmapped." },
-            {
-              "type": "string",
-              "pattern": "^[a-zA-Z0-9_-]{11}$",
-              "description": "Official YouTube 11-character video id for IFrame embedding."
-            }
-          ],
-          "description": "Official YouTube id for embedding when known; otherwise null until curated."
-        },
-        "youtubeWatchUrl": {
-          "anyOf": [
-            { "type": "null" },
-            { "type": "string", "format": "uri" }
-          ],
-          "description": "Canonical watch URL (https://www.youtube.com/watch?v=…) when verifying or linking without an id yet."
+          "description": "Display title shown in catalog and rooms."
         },
         "era": {
           "type": "string",
           "enum": ["joel", "mike", "jonah", "emily", "other"],
-          "description": "Hosting era labeling for UX filters."
+          "description": "Hosting era filters."
         },
-        "embedAllows": {
-          "type": ["boolean", "null"],
-          "description": "If false, the app should hide or warn (video may not play in iframe). True when manually verified; null unknown."
+        "youtubeVideoId": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{11}$",
+              "description": "YouTube video id when an embed-ready upload exists."
+            }
+          ]
         },
-        "curatorNotes": {
-          "type": "string",
-          "description": "Internal note (e.g. alternate uploads, region caveats). Not shown in-app unless you choose to."
+        "youtubeWatchUrl": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "format": "uri",
+              "description": "Canonical watch URL; often https://www.youtube.com/watch?v=…"
+            }
+          ]
         },
-        "movieSearchTitle": {
+        "tagline": {
           "type": ["string", "null"],
-          "description": "Override string for TMDB search when riff episode title differs from the underlying film title."
+          "description": "Film tagline from TMDB `movie` detail (typically filled by reconcile)."
+        },
+        "posterImageUrl": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "format": "uri",
+              "description": "Resolved poster CDN URL from TMDB (reconcile)."
+            }
+          ]
+        },
+        "backdropImageUrl": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "format": "uri",
+              "description": "Resolved backdrop CDN URL from TMDB (reconcile)."
+            }
+          ]
         },
         "tmdbMovieId": {
           "type": ["integer", "null"],
           "minimum": 1,
-          "description": "Lock to a TMDB movie id after manual verify (skips ambiguous search)."
-        },
-        "tmdbPosterPath": {
-          "type": ["string", "null"],
-          "pattern": "^/.+",
-          "description": "Raw poster_path from the resolved movie (TMDB); reconcile composes posterImageUrl."
-        },
-        "tmdbBackdropPath": {
-          "type": ["string", "null"],
-          "pattern": "^/.+",
-          "description": "Raw backdrop_path from the resolved movie (TMDB wide still); reconcile composes backdropImageUrl."
-        },
-        "posterImageUrl": {
-          "type": ["string", "null"],
-          "format": "uri",
-          "description": "Resolved CDN URL for card/grid layouts (from poster_path; not cast photos)."
-        },
-        "backdropImageUrl": {
-          "type": ["string", "null"],
-          "format": "uri",
-          "description": "Resolved CDN URL from movie backdrop_path (hero / blurred chrome). Not logos or actor imagery."
+          "description": "TMDB movie id after reconcile or manual pin."
         },
         "tmdbArtworkSyncedAt": {
           "type": ["string", "null"],
           "format": "date-time",
-          "description": "UTC timestamp when scheduled reconciliation last refreshed TMDB poster and backdrop paths/URLs."
+          "description": "UTC iso8601 when TMDB-derived fields below were last written (poster, backdrop, tagline, id)."
         }
       }
     }

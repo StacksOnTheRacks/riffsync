@@ -1,10 +1,14 @@
 # RiffSync — server-side architecture (draft)
 
-Companion to the repo README: **AWS serverless baseline** for HTTP rooms/lobby, WebSocket realtime, catalog, and housekeeping. **Lambda** sits behind **API Gateway (HTTP API + WebSocket API)**; durable state is **DynamoDB**.
+Companion to the repo README: **AWS serverless baseline** for HTTP rooms/lobby, WebSocket realtime, catalog, and housekeeping. **Infrastructure-as-code targets [AWS CDK](https://docs.aws.amazon.com/cdk/) (TypeScript)**; **Lambda** handlers are authored in **`TypeScript`** and run on **Node.js**. Prefer **managed serverless** services everywhere it fits the problem; extend with VPC-only pieces (for example optional ElastiCache) only when required.
+
+Lambda sits behind **API Gateway (HTTP API + WebSocket API)**; durable state is **DynamoDB**.
 
 **ElastiCache** — **Redis OSS–compatible** (ElastiCache for Redis or ElastiCache Serverless for **Valkey** depending on what you enable in account/region) — is **optional**. Use it for read-through caches on **`GET /v1/catalog`**, lobby list snapshots, etc. Any Lambda that talks to ElastiCache joins a **VPC** (ENIs → **cold-start and burst** trade-offs). Cache is **never** authoritative: **DynamoDB** remains the system of record.
 
-Infrastructure-as-code specifics below align with **[Amazon API Gateway HTTP APIs and WebSocket APIs](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html)** (prefer **`AWS::ApiGatewayV2::Api`**, `ProtocolType`: **`HTTP`** or **`WEBSOCKET`**, vs legacy **`AWS::ApiGateway::RestApi`**) and the **[ApiGatewayV2 template reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-apigatewayv2-api.html)**. Lint with **`cfn-lint`** (**[Installing and using](https://github.com/aws-cloudformation/cfn-lint)**) and **`validate_cloudformation_template`** from Cursor’s AWS IaC MCP (**`search_cloudformation_documentation`** for resource properties).
+Infrastructure-as-code: **deploy with AWS CDK** (`cdk synth` emits CloudFormation). CDK constructs should target **HTTP API (`AWS::ApiGatewayV2::Api`)** / **WebSocket API** primitives and related resources. Lint synthesized templates with **`cfn-lint`** (**[Installing and using](https://github.com/aws-cloudformation/cfn-lint)**) and **`validate_cloudformation_template`** from Cursor’s AWS IaC MCP (**`search_cloudformation_documentation`** for resource properties) when iterating.
+
+**Production web hostname:** **`https://riffsync.tv`** — fan SPA + shareable links (**`.forge/runtime/configuration.md`**). Provision **ACM** + **CloudFront** (or equivalent) **alternate domain** names, **API Gateway** custom domain names if serving APIs from the same brand, and **CORS** allowlists that include this origin.
 
 ---
 
@@ -12,20 +16,24 @@ Infrastructure-as-code specifics below align with **[Amazon API Gateway HTTP API
 
 | Resource | Role |
 | --- | --- |
-| **API Gateway HTTP API** (`ProtocolType: HTTP`) | BFF JSON: **`GET /v1/catalog`**, create/fetch room, lobby list, health. |
-| **API Gateway WebSocket API** (`ProtocolType: WEBSOCKET`) | Realtime paths: `$connect` / `$disconnect`, playback, chat, ping, **`execute-api:ManageConnections`** fan-out. |
+| **API Gateway HTTP API** (`ProtocolType: HTTP`) | BFF JSON: **`GET /v1/catalog`**, curated **`GET /v1/lists`** (when shipped), room create/read/**patch** (current episode / metadata), lobby list, **`GET /v1/health`**, plus **`/v1/admin/*`** **operator** APIs (JWT + staff pool / groups — **`architecture.admin.md`**). |
+| **API Gateway WebSocket API** (`ProtocolType: WEBSOCKET`) | Realtime paths: `$connect` / `$disconnect`, **WebRTC signaling** (SDP / ICE relay—shape TBD), chat, ping, **`execute-api:ManageConnections`** fan-out. |
 | **AWS Lambda** | All synchronous route handlers + **EventBridge** consumers (sweeper, TMDB catalog reconciliation). |
-| **Amazon DynamoDB** | **All durable application state:** at least **rooms** (playback + `lastActivityAt`), **WebSocket connection index** (`connectionId → roomId`), and **catalog** (canonical episode fields + reconciled TMDB image attributes). Use **separate tables** or a **single-table** key design in IaC — pick for operational clarity; splitting tables is fine for MVP. |
+| **Amazon DynamoDB** | **All durable application state:** **rooms**, **connections**, **catalog**, plus **optional** **`profiles`** (fan **`USER#sub`**), **`lists` + memberships** (**`LIST#slug`** editorial rows), append-only **events**/**rollups** for admin reporting (**`architecture.admin.md`**). |
 | **Amazon EventBridge** (`AWS::Events::Rule` or **`AWS::Scheduler::Schedule`**) | Schedules for **stale-room housekeeping** and **TMDB reconciliation** batch jobs. |
-| **AWS Secrets Manager** | TMDB (and similar) API credentials. |
+| **AWS Secrets Manager** | Backend secrets (**TMDB**, etc.). Cognito federated (**Facebook**) app secrets are referenced from pool config (**never** expose to browsers). Staff-only secrets optionally here too. Lambda **`secretsmanager:GetSecretValue`**. |
 | **Amazon ElastiCache (optional)** | Redis/Valkey-compatible **cache** — e.g. serialized **full catalog** or lobby denorm. **Invalidate** or **short TTL** when catalog rows change. Not required to ship. |
 | **Amazon S3 (optional)** | **Static site** hosting for the SPA, or **offline exports** — **not** part of the catalog **write path** once DynamoDB owns merged rows. |
+| **Amazon Cognito user pool (optional)** | Viewer **Facebook** federation (or native sign-up) issuing **JWTs** to **`id_token`** / **`access_token`** for public routes needing **`sub`**. Prefer an **invite-only operator pool** (or separate **app client**) guarding **`/v1/admin/*`**. JWT authorizers on HTTP and optionally WebSocket **`$connect`**; attributes depend on scopes. Secrets referenced from IaC, **never** baked into SPA. **`architecture.admin.md`**. |
+| **Amazon CloudWatch** | **Default home for observability:** **metrics** (built-in + **`PutMetricData`** custom), **dashboards**, **alarms**, **Logs Insights** on Lambda/API Gateway/Dynamo log groups. **Operational and product rollups** SHOULD be charted here first; see **Observability** below. |
 
 **Out of scope for this baseline:** **ECS/Fargate**, long-lived **EC2** app tiers, or alternative WebSocket stacks — API Gateway + Lambda is the default.
 
 ---
 
 ## Component diagram
+
+**Physical DynamoDB:** **multiple tables** — **Catalog**, **Rooms**, **Connections** (and **Lists** / optional **Events**/**Profiles** when shipped)—see **`.forge/data/persistence_abstractions.md`**. The diagram uses separate nodes for clarity.
 
 ```mermaid
 flowchart TB
@@ -41,7 +49,7 @@ flowchart TB
   subgraph compute["Compute — Lambda"]
     HREST["HTTP handlers\n/catalog / rooms / lobby"]
     HWSC["WS $connect / $disconnect"]
-    HWSR["WS routes:\nplayback / chat / ping"]
+    HWSR["WS routes:\nsignaling / chat / ping"]
     HSWP["Sweeper + TMDB reconcile\n(EventBridge schedules)"]
   end
 
@@ -85,14 +93,44 @@ flowchart TB
 
 | Area | Responsibility |
 | --- | --- |
-| **HTTP API** | **`GET /v1/catalog`** (assemble from **DynamoDB** catalog items; optional **ElastiCache** read-through). Room create/read, **live public** lobby list using **`lastActivityAt`**. |
-| **WebSocket API** | **`$connect` / `$disconnect`** write the **connection → room** mapping; message routes update **authoritative room items** in DynamoDB, then **`PostToConnection`** to room members. |
-| **DynamoDB (rooms)** | Source of truth: video / party fields, **`hostId`/session**, **`playbackExpectation`**, **`lastActivityAt`**, **`roomId`**, optional reclaim token. |
+| **HTTP API** | **`GET /v1/catalog`**, **`GET /v1/lists`** (when curated lists ship); room create/read/**update current episode**; **live public** lobby; **`GET /v1/health`**; **`/v1/admin/*`** behind **JWT** for operators (**catalog writes**, **lists**, **reporting**, **user roster**) — **`architecture.admin.md`**. Optional ElastiCache on hot reads. |
+| **WebSocket API** | **`$connect` / `$disconnect`** write the **connection → room** mapping; message routes relay **signaling** for admin→guest WebRTC, plus **chat**, **ping**, and **room metadata** updates in DynamoDB where durable state is required—then **`PostToConnection`** fan-out as appropriate. |
+| **DynamoDB (rooms)** | Source of truth: **current** catalog episode / `videoId` (**admin-updatable**), **`hostSessionId`** (room admin), **`playbackExpectation`**, **`lastActivityAt`**, **`roomId`**, optional flags for **broadcast lifecycle / visibility**. Admin is whoever presents **`sessionId === hostSessionId`**; **no guest promotion / reclaim token** in MVP. |
 | **DynamoDB (connections)** | **`connectionId → roomId`** (and optional **`sessionId`**) for targeting fan-out and teardown. |
-| **DynamoDB (catalog)** | Canonical **`youtubeVideoId`**, **`title`**, **`era`**, **`id`**, curator hints; reconciliation **writes TMDB paths/URLs + `tmdbArtworkSyncedAt`** on the same items (or paired access pattern). **`data/catalog/episodes.json`** seeds this table during bootstrap only. |
+| **DynamoDB (catalog)** | Canonical **`youtubeVideoId`**, **`youtubeWatchUrl`**, **`title`**, **`era`**, **`id`**, optional curator hints; reconcile **writes** TMDB-aligned **`tagline`**, **`posterImageUrl`**, **`backdropImageUrl`**, **`tmdbMovieId`**, **`tmdbArtworkSyncedAt`** plus Dynamo-only copy/paths (**`tmdbOverview`**, **`tmdbPopularity`**, raw poster/backdrop paths) per **`architecture.catalog-images.md`**. TMDB **`original_title`** / **`title`** are **not** persisted — catalog **`title`** is source of truth for display. Bootstrap **seed** (**`data/catalog/episodes.json`**) conforms to **`catalog.schema.json`** — not every Dynamo attribute need appear in git. |
 | **Sweeper / TTL** | Remove or hide stale lobby entries (**EventBridge → Lambda**; **Dynamo TTL** where appropriate). |
-| **Catalog enrichment (TMDB)** | Scheduled **Lambda** reads catalog items, calls TMDB, **updates DynamoDB** — **`docs/architecture.catalog-images.md`**. |
+| **Catalog enrichment (TMDB)** | Scheduled **Lambda** reads catalog items, calls TMDB per **`docs/contracts.tmdb.md`**, **updates DynamoDB** — **`docs/architecture.catalog-images.md`**. |
+| **Identity (optional)** | **Cognito** + **Facebook IdP**: API Gateway validates **JWT** (`iss`, `aud`, signature) before Lambda; **`sub`** identifies the user in **DynamoDB** profile rows (**`USER#sub`**) if you persist display-name overrides or entitlements. **Public** reads (**`GET /v1/catalog`**) stay **unauthenticated**. **MVP room-admin binding** is **`sessionId` vs `hostSessionId`** on room/WS routes (**JWT not required**); optional JWT later for cross-device admin binding or abuse signals. |
+| **Operator admin (optional)** | **`/v1/admin/*`** — **staff Cognito JWT** (**invite-only**, MFA ideally), **`cognito-idp:ListUsers`** on fan pool for **registered-users** roster, Dynamo writers for catalog + curated lists + reporting reads. Full surface and data sketches: **`architecture.admin.md`**. |
 | **ElastiCache (optional)** | Reduce Dynamo read load and latency for **catalog** and optionally **lobby**; **VPC** Lambda + security groups to cluster/serverless cache endpoint. |
+| **Observability** | **CloudWatch-first** — built-in service metrics, **`PutMetricData`** / **EMF** custom business metrics, **dashboards**, **alarms**, **Logs Insights** (**see Observability below**). Reporting charts live in **AWS** by default. |
+
+---
+
+## Observability (AWS / CloudWatch-first)
+
+RiffSync assumes **charts, alarms, and most reporting** are satisfied **inside AWS** without a separate APM vendor unless you later add one.
+
+| Layer | Use |
+| --- | --- |
+| **Built-in** | **Lambda** (errors, duration, throttles, concurrent executions), **API Gateway HTTP + WebSocket** (4xx/5xx, latency, count), **DynamoDB** (RCU/WCU, **`UserErrors`**), **EventBridge** invocation success — compose into **[CloudWatch dashboards](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_dashboards.html)**. |
+| **Custom metrics** | Lambdas call **`cloudwatch:PutMetricData`** (or **[Embedded Metric Format](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format.html)** in **`stdout`**) under a dedicated namespace (e.g. **`RiffSync/Api`**, **`RiffSync/Reconcile`**, **`RiffSync/Rooms`**) for **domain** signals: rooms created, websocket messages by type, reconcile **processed/failed/skipped** (**`architecture.catalog-images.md`**), TMDB rate-limit hits, **`PostToConnection`** failures, catalog import counts, admin mutations. Use **low-cardinality dimensions** only (`Environment`, `Route`, `Outcome` — avoid unbounded `roomId` as a dimension key). |
+| **Logs** | Structured **JSON logs** per Lambda; **[CloudWatch Logs Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html)** for ad-hoc investigation and **metric filters** → alarms (e.g. spike in `"level":"ERROR"`). |
+| **Tracing (optional)** | **AWS X-Ray** on API Gateway + Lambda when you need latency breakdown (TMDB / Dynamo / Cognito) — not required for MVP charts. |
+| **Dashboards** | One **“RiffSync operations”** dashboard (health + traffic + errors); optional **“Catalog reconcile”** dashboard (custom metrics); optional **“Realtime / WebSocket”**. **IaC:** **`AWS::CloudWatch::Dashboard`** in the same stack as Lambdas. |
+
+**IAM:** Grant Lambda **`cloudwatch:PutMetricData`**. **`PutMetricData`** is often authorized on **`Resource: *`** in AWS; tighten with an IAM **condition** on **[`cloudwatch:namespace`](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoncloudwatch.html)** (e.g. restrict to **`RiffSync/...`**) when your org’s policy language allows it — otherwise enforce **namespace prefixes in code review**.
+
+Operator-facing **admin HTTP** reporting endpoints (**`architecture.admin.md`**) remain **optional** for drill-down or CSV export; **canonical charts** for uptime, volumes, and reconcile health should be **CloudWatch** so on-call and stakeholders use one console.
+
+---
+
+## Delivery pipeline (GitHub Actions)
+
+- **CI:** GitHub Actions runs tests, **`cdk synth`**, and lint on **pull requests** (recommended).
+- **Staging:** **`workflow_dispatch`** (manual) deploys **`main`** to the **staging** CDK stack/environment on demand.
+- **Production:** Separate **manual** workflow deploys from a **semver** git tag (**`vMajor.Minor.Patch`** per [Semantic Versioning](https://semver.org/)); **no** production deploy from an untagged branch by policy. Prefer **OIDC** from GitHub → AWS over static access keys.
+- Full workflow layout: **`.forge/operations/build_packaging.md`** and **`.forge/operations/deployment_environments.md`**.
 
 ---
 
@@ -106,8 +144,10 @@ Aligned with **[`AWS::ApiGatewayV2::Api`](https://docs.aws.amazon.com/AWSCloudFo
 | **`PostToConnection` broadcast** | WebSocket handler IAM needs **`execute-api:ManageConnections`** on **`…execute-api:…/@connections/*`** ([**@connections API**](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-how-to-call-websocket-api-connections.html)). |
 | **`AWS::Events::Rule` / Scheduler** | EventBridge **`rate()` / `cron()`** (or **`AWS::Scheduler::Schedule`**) invoking Lambda requires **`events.amazonaws.com`** (**or Scheduler principal**) **`lambda:InvokeFunction`** permission ([**Events rule**](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-events-rule.html)). |
 | **DynamoDB TTL** | **`TimeToLiveSpecification`** on TTL attribute — deletes are **eventual**; keep **`lastActivityAt`** for live queries ([**TTL**](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html)). |
+| **`cognito-idp` (admin Lambda)** | Admin roster uses **`ListUsers`** / **`AdminGetUser`** on **fan-only** pools with IAM restricted to **`Resource:`** (`arn:aws:cognito-idp:…:userpool/<fanpoolid>` — no `*`). Separate policy from Lambda code that edits Dynamo. |
 | **Secrets Manager** | TMDB secret; Lambda **`secretsmanager:GetSecretValue`** ([**retrieve**](https://docs.aws.amazon.com/secretsmanager/latest/userguide/manage_retrieve-secret.html)). |
 | **ElastiCache** | Lambda in **VPC** subnets that reach the cache; security group allows client port; expect **longer cold starts**. Prefer **subnet groups** documented for [ElastiCache](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/elasticache-intro.html); consider **Serverless** cache to defer cluster sizing. |
+| **CloudWatch custom metrics** | Lambdas emitting **`PutMetricData`**: **`cloudwatch:PutMetricData`** + namespace **condition** where possible; keep **metric dimensions** low-cardinality. |
 | **IaC tooling** | **`cfn-lint`**; Cursor AWS IaC MCP **`validate_cloudformation_template`**, **`search_cloudformation_documentation`**, and the **[CloudFormation resource reference](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-template-resource-reference.html)**. |
 
 ---
