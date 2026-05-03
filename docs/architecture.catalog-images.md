@@ -1,5 +1,7 @@
 # Catalog enrichment — TMDB artwork & movie copy (draft)
 
+**HTTP read contract** for merged rows (fields clients see on **`GET /v1/catalog`**): **`docs/api.catalog.md`**. Writers may add optional TMDB columns in Dynamo that are not present in git seeds; readers must tolerate **`null`** / missing enrichment.
+
 Backend plan for enriching library rows from TMDB **`GET /movie/{id}`**: **poster** / **backdrop** art (resolved CDN URLs plus raw paths) and lightweight **movie copy** — **`overview`**, **`popularity`**, **`tagline`** — alongside **`id`**. Episode **`title`** stays **curator-owned**; TMDB film titles are **not** stored. The SPA consumes enrichment from **`GET /v1/catalog`** without hitting TMDB directly.
 
 **Public HTTP contracts** (methods, queries, JSON field mapping, image URL algebra): **`docs/contracts.tmdb.md`**.
@@ -51,6 +53,8 @@ Optional **`GET /movie/{id}/images`** — only **`posters`** / **`backdrops`** s
 ---
 
 ## Reconciliation workflow
+
+Scheduled **reconcile** Lambda (**`RiffSyncApi-*`** stack — **`infra/cdk/README.md`** TMDB §) implements the job shape below; **`GET /v1/catalog`** surfaces enriched fields **without** SPA TMDB keys.
 
 ```mermaid
 flowchart LR

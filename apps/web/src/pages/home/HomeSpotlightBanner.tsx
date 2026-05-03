@@ -61,21 +61,21 @@ export function HomeSpotlightBanner({ episodes }: { episodes: CatalogEpisode[] }
                                   </li>
                                   <li>—</li>
                                   <li>
-                                    <Link to="/catalog">
+                                    <Link to={`/watch/${ep.id}`}>
                                       <span>{ep.era}</span>
                                     </Link>
                                   </li>
                                 </ul>
                                 <p>
                                   {ep.tagline?.trim() ||
-                                    'Join a watch room and enjoy the riff with friends—catalog API wiring lands in M4.'}
+                                    'Watch this experiment solo with the official YouTube player, or join a room from the lobby when friends are online.'}
                                 </p>
                               </div>
                               <div className="gen-movie-action">
                                 <div className="gen-btn-container button-1">
-                                  <Link to="/catalog" className="gen-button">
+                                  <Link to={`/watch/${ep.id}`} className="gen-button">
                                     <i aria-hidden className="ion ion-play" />
-                                    <span className="text">Open catalog</span>
+                                    <span className="text">Watch solo</span>
                                   </Link>
                                 </div>
                                 <div className="gen-btn-container button-2">

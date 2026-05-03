@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
+import { ApiCatalogStack } from '../lib/api-catalog-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
 
 const app = new cdk.App();
@@ -11,6 +12,15 @@ if (typeof raw !== 'string' || (raw !== 'staging' && raw !== 'prod')) {
   );
 }
 const environment = raw as 'staging' | 'prod';
+
+new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
+  description: `RiffSync HTTP API + Catalog (${environment}) — DynamoDB + Lambda`,
+  environment,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});
 
 new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
   description: `RiffSync static SPA hosting (${environment}) — S3 (private) + CloudFront OAC`,

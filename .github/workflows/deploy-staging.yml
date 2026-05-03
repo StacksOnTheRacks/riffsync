@@ -72,14 +72,20 @@ jobs:
       - name: Build and publish fan SPA (staging)
         env:
           STACK_NAME: RiffSyncStatic-staging
+          API_STACK_NAME: RiffSyncApi-staging
         run: |
           set -euo pipefail
           ORIGIN_HOST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" --output text)"
+          API_BASE="$(aws cloudformation describe-stacks --stack-name "$API_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" --output text)"
           echo "Staging CloudFront host: ${ORIGIN_HOST}"
+          echo "Staging HTTP API base: ${API_BASE}"
           cd "${GITHUB_WORKSPACE}/apps/web"
           npm ci
-          VITE_PUBLIC_ORIGIN="https://${ORIGIN_HOST}" npm run build
+          VITE_PUBLIC_ORIGIN="https://${ORIGIN_HOST}" \
+            VITE_PUBLIC_API_BASE_URL="${API_BASE}" \
+            npm run build
           BUCKET="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)"
           DIST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \

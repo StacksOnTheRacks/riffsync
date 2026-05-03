@@ -8,10 +8,53 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | --- | --- |
 | `bin/riffsync.ts` | App entry; validates `environment` context |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
+| `lib/api-catalog-stack.ts` | **DynamoDB Catalog** + **HTTP API** + read Lambdas + **TMDB reconcile** Lambda + **Secrets Manager** + **EventBridge** schedule |
+| `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
+| `lambda/tmdb-reconcile-*.ts` | Scheduled **`GET /configuration`**, **`/search/movie`**, **`/movie/{id}`** enrichment (**`docs/contracts.tmdb.md`**) |
+| `scripts/seed-catalog-from-json.ts` | Validates **`data/catalog/episodes.json`** against **`catalog.schema.json`**, **`BatchWriteItem`** into the deployed table |
+
+### TMDB reconcile (M4+)
+
+| Resource | Notes |
+| --- | --- |
+| **Secret** | **`TmdbApiTokenSecretArn`** — name **`riffsync/staging/tmdb-api-token`** or **`riffsync/prod/tmdb-api-token`**. Template seeds **`REPLACE_WITH_TMDB_BEARER_TOKEN`**; set a real **[TMDB bearer token](https://developer.themoviedb.org/docs/getting-started)** via **`aws secretsmanager put-secret-value`** (JSON `{"token":"…"}` or plain string). **Never** commit tokens. **Rotation:** update the secret value; next run picks it up (IAM **`secretsmanager:GetSecretValue`** on the secret ARN only). |
+| **Schedule** | **EventBridge** **`rate(6 hours)`** targeting **`TmdbReconcileFn`**. **Disable without redeploy:** pause/disabled rule in **EventBridge** console. **Disable via CDK:** **`--context catalogReconcileScheduleEnabled=false`**. **No-op handler:** **`--context catalogReconcileDisabled=true`** sets **`RECONCILE_DISABLED`** (manual invokes return immediately). |
+| **Batch** | **`--context catalogReconcileBatchSize=20`** (default **15**, max **50** enforced in handler). Scans catalog for rows with missing **`tmdbArtworkSyncedAt`**; **`tmdbMovieId`** uses **`/movie/{id}`** first; else single-hit **`/search/movie`** only (**ambiguous** or **zero** hits → skipped). |
+| **Metrics / logs** | **`RiffSync/Reconcile`** EMF (**Processed**, **Failed**, **Skipped**) + structured JSON logs (**no** token values). |
+
+**Smoke (staging):** after secret + seed, **`aws lambda invoke --function-name <TmdbReconcileFnName> /tmp/out.json`** then read **`GET /v1/catalog`** — enriched fields appear without SPA changes.
+
+**Deploy IAM:** GitHub OIDC role needs **EventBridge** / **Secrets Manager** (plus existing Lambda/Dynamo) for this stack — extend operator policy when **`cdk deploy`** fails on missing permissions.
+
+**Deferred (follow-up):** optional same-run **`youtubeThumbnailUrl`** **`HEAD`** cascade (**`architecture.catalog-images.md`**) — not in this MVP; track in a new issue if desired.
+
+### Catalog table & HTTP API (M4+)
+
+Hosted stacks **`RiffSyncApi-staging`** / **`RiffSyncApi-prod`** add:
+
+- **`AWS::DynamoDB::Table`** — **partition key** **`id`** (string, episode slug). **No sort key.** **`GET /v1/catalog`** uses **`Scan`** (acceptable while the library fits one Lambda scan; add **GSI**, **export**, or **cache** before scale demands it — **`docs/architecture.server.md`**, **`.forge/data/persistence_abstractions.md`**).
+- **`AWS::ApiGatewayV2::Api`** (HTTP API) — routes above; **CORS** allows **`https://riffsync.tv`** in **prod**; **staging** adds **localhost** dev origins and **`https://riffsync.tv`**. Pass extra origins (e.g. **`https://<distribution>.cloudfront.net`**) at synth/deploy:  
+  **`npx cdk deploy --all --context environment=staging --context catalogCorsOrigins=https://d111111abcdef8.cloudfront.net`**
+- **`AWS::Lambda::Permission`** — **`lambda:InvokeFunction`** from **`apigateway.amazonaws.com`** per route integration ( **`docs/architecture.server.md`** IAM table).
+
+**Outputs:** **`CatalogTableName`**, **`HttpApiUrl`** (base URL — append **`/v1/catalog`**).
+
+**Seed (operators, after deploy):**
+
+```bash
+cd infra/cdk && npm ci && npm run build
+TABLE_NAME="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-staging \
+  --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
+npm run seed:catalog -- "$TABLE_NAME"
+```
+
+JSON response shapes: **`docs/api.catalog.md`**.
+
+**Tests:** `npm test` (Vitest — catalog projections + TMDB reconcile core with mocked **`fetch`**).
 
 ## Prerequisites
 
-- **Node.js** LTS (**≥ 20**)
+- **Node.js** LTS (**≥ 20**) on your machine for **`npm`/`cdk`**; synthesized **Lambda** runtimes are **Node.js 24** (matches **`cfn-lint`** / AWS deprecation policy).
 - **AWS CDK CLI** — `npm install -g aws-cdk` or `npx cdk` (this package lists `aws-cdk` as a devDependency)
 - AWS credentials only if you **deploy**; **`cdk synth` does not require a live account**
 
@@ -40,15 +83,18 @@ Staging uses **`RemovalPolicy.DESTROY`** on the bucket so stacks can be torn dow
 
 ## IAM baseline vs `docs/architecture.server.md`
 
-Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Manager, `execute-api:ManageConnections`, CloudWatch `PutMetricData`, etc.) is described in [`../../docs/architecture.server.md`](../../docs/architecture.server.md) (**[Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions)** and **[IaC & permission notes §](../../docs/architecture.server.md#iac--permission-notes)**). **This milestone only creates:**
+Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Manager, `execute-api:ManageConnections`, CloudWatch `PutMetricData`, etc.) is described in [`../../docs/architecture.server.md`](../../docs/architecture.server.md) (**[Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions)** and **[IaC & permission notes §](../../docs/architecture.server.md#iac--permission-notes)**). **This repo’s CDK app provisions (by stack):**
 
-- **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
-- **CloudFront** service-managed roles for the distribution (implicit in the **`AWS::CloudFront::Distribution`** resource).
+- **`RiffSyncStatic-*` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
+- **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
+- **`RiffSyncApi-*` —** **HTTP API** + **DynamoDB** read (**catalog list/get**); **DynamoDB** read/write + **Secrets Manager** + **EventBridge** for **TMDB reconcile**; **`cloudwatch:PutMetricData`** not required when using **EMF** in **`stdout`** ( **`infra/cdk/README.md`** TMDB §).
+
+Older milestone copy: **M1** alone only created the static stack.
 
 **Follow-ups (later milestones):**
 
 - **GitHub Actions → AWS** deploy identity — prefer **OIDC** to IAM roles over long-lived access keys ([Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions); [`.forge/operations/build_packaging.md`](../../.forge/operations/build_packaging.md)).
-- **Runtime** IAM for **Lambda**, **API Gateway**, **WebSocket `@connections`**, **DynamoDB**, **Secrets Manager**, and **CloudWatch** custom metrics — add when those resources are provisioned (**M2+**).
+- **Runtime** IAM for **Lambda**, **API Gateway**, **WebSocket `@connections`**, **DynamoDB** writers (admin/catalog jobs), **Secrets Manager**, and **CloudWatch** custom metrics — extend policies as new routes and jobs ship.
 
 ## GitHub Actions (CI — no AWS credentials required)
 
@@ -75,6 +121,7 @@ After **`cdk deploy`**, the deploy workflows read **CloudFormation outputs** fro
 | **`BucketName`** | `aws s3 sync apps/web/dist/ s3://$Bucket/` (**`--delete`** keeps the bucket aligned with the latest build) |
 | **`DistributionId`** | `aws cloudfront create-invalidation --paths "/*"` |
 | **`DistributionDomainName`** | **Staging** build-time **`VITE_PUBLIC_ORIGIN`** (`https://<distribution>`) so client-side absolute URLs match the live host. **Production** uses **`https://riffsync.tv`** until a follow-up wires **ACM** + **DNS** at the distribution (then keep **`VITE_PUBLIC_ORIGIN`** aligned with the public hostname operators configure). |
+| **`HttpApiUrl`** ( **`RiffSyncApi-staging` / `RiffSyncApi-prod`** ) | **`VITE_PUBLIC_API_BASE_URL`** for the fan SPA — catalog **`fetch`** targets **`GET /v1/catalog`** (deploy workflows read this output after **`cdk deploy`**). |
 
 **IAM for the GitHub OIDC deploy role** must allow, in addition to CDK/CloudFormation permissions:
 
