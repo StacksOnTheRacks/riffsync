@@ -146,7 +146,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-solo-watch__player-shell {
   position: relative;
   z-index: 1;
-  width: min(1600px, calc(100% - clamp(24px, 5vw, 80px)));
+  width: min(1280px, calc(100% - clamp(40px, 7vw, 120px)));
   margin-inline: auto;
 }
 
@@ -154,18 +154,24 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   margin-top: 1.75rem;
 }
 
-.riffsync-solo-watch__header h1 {
-  margin-top: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.riffsync-solo-watch__header {
+  margin-bottom: 0.35rem;
 }
 
-.riffsync-solo-watch__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.75rem;
-  align-items: center;
+.riffsync-solo-watch__toolbar {
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  opacity: 0.92;
+}
+
+.riffsync-solo-watch__toolbar a {
+  color: inherit;
+}
+
+.riffsync-solo-watch__toolbar-era {
+  text-transform: capitalize;
 }
 
 .riffsync-solo-watch__fineprint {

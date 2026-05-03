@@ -48,13 +48,16 @@ function loadYoutubeIframeApi(): Promise<void> {
 export function SoloYouTubePlayer({
   videoId,
   titleHint,
+  /** Rooms default autoplay so guests join in-motion; solo watch disables it so viewers use native YouTube play. */
+  autoPlay = true,
 }: {
   videoId: string
   titleHint: string
+  autoPlay?: boolean
 }) {
   const domId = useId().replace(/:/g, '')
   const playerRef = useRef<YtPlayerInstance | null>(null)
-  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorDetail, setErrorDetail] = useState<string | null>(null)
 
   const destroyPlayer = useCallback(() => {
@@ -63,20 +66,31 @@ export function SoloYouTubePlayer({
   }, [])
 
   useEffect(() => {
-    return () => {
-      destroyPlayer()
-    }
-  }, [destroyPlayer])
+    let cancelled = false
 
-  const startPlayback = useCallback(async () => {
-    setErrorDetail(null)
-    setStatus('loading')
-    try {
-      await loadYoutubeIframeApi()
-      if (!window.YT?.Player) {
-        throw new Error('YouTube API unavailable')
+    async function boot() {
+      setErrorDetail(null)
+      setStatus('loading')
+      try {
+        await loadYoutubeIframeApi()
+      } catch (err) {
+        if (!cancelled) {
+          setStatus('error')
+          setErrorDetail(err instanceof Error ? err.message : 'Could not start playback.')
+        }
+        return
       }
+
+      if (cancelled) return
+
+      if (!window.YT?.Player) {
+        setStatus('error')
+        setErrorDetail('YouTube API unavailable')
+        return
+      }
+
       destroyPlayer()
+
       playerRef.current = new window.YT.Player(domId, {
         videoId,
         width: '100%',
@@ -85,36 +99,43 @@ export function SoloYouTubePlayer({
           fs: 1,
           playsinline: 1,
           rel: 0,
+          autoplay: autoPlay ? 1 : 0,
           modestbranding: 1,
         },
         events: {
           onReady: (e) => {
+            if (cancelled) return
             setStatus('ready')
-            e.target.playVideo()
+            if (autoPlay) {
+              e.target.playVideo()
+            }
           },
           onError: (e) => {
-            setStatus('error')
-            setErrorDetail(`Playback error (${e.data}). This video may be unavailable to embed.`)
+            if (!cancelled) {
+              setStatus('error')
+              setErrorDetail(`Playback error (${e.data}). This video may be unavailable to embed.`)
+            }
           },
         },
       })
-    } catch (err) {
-      setStatus('error')
-      setErrorDetail(err instanceof Error ? err.message : 'Could not start playback.')
     }
-  }, [domId, destroyPlayer, videoId])
+
+    void boot()
+
+    return () => {
+      cancelled = true
+      destroyPlayer()
+    }
+  }, [autoPlay, videoId, domId, destroyPlayer])
 
   return (
     <div className="riffsync-solo-player">
-      <div className="riffsync-solo-player__chrome" aria-live="polite">
-        {status === 'idle' && (
-          <button type="button" className="gen-button" onClick={startPlayback}>
-            <span className="text">Play episode</span>
-          </button>
-        )}
-        {status === 'loading' && <p>Loading player…</p>}
-        {status === 'error' && errorDetail && <p role="alert">{errorDetail}</p>}
-      </div>
+      {status === 'error' && errorDetail ? (
+        <div className="riffsync-solo-player__chrome" aria-live="polite">
+          <p role="alert">{errorDetail}</p>
+        </div>
+      ) : null}
+      {status === 'loading' ? <span className="sr-only">Loading video player.</span> : null}
       <div className="riffsync-solo-player__frame" id={domId} title={titleHint} />
     </div>
   )

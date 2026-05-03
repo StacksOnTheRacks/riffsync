@@ -66,20 +66,17 @@ export function SoloWatchPage() {
         />
       ) : null}
       <div className="container riffsync-solo-watch">
-        <nav className="riffsync-solo-watch__crumbs" aria-label="Breadcrumb">
-          <Link to="/">Home</Link>
-          <span aria-hidden> · </span>
-          <Link to="/catalog">Catalog</Link>
-          <span aria-hidden> · </span>
-          <span>Experiment #{episode.experimentNumber}</span>
-        </nav>
         <header className="riffsync-solo-watch__header">
-          <h1 title={episode.title}>{episode.title}</h1>
-          <p className="riffsync-solo-watch__meta">
-            <span>Experiment {episode.experimentNumber}</span>
+          <h1 className="sr-only">{episode.title}</h1>
+          <nav aria-label="Breadcrumb" className="riffsync-solo-watch__toolbar">
+            <Link to="/">Home</Link>
             <span aria-hidden> · </span>
-            <span>{episode.era}</span>
-          </p>
+            <Link to="/catalog">Catalog</Link>
+            <span aria-hidden> · </span>
+            <span>Experiment #{episode.experimentNumber}</span>
+            <span aria-hidden> · </span>
+            <span className="riffsync-solo-watch__toolbar-era">{episode.era}</span>
+          </nav>
         </header>
         {!vid && (
           <p role="status">Playback unavailable — no YouTube video is linked for this catalog entry.</p>
@@ -102,7 +99,7 @@ export function SoloWatchPage() {
       </div>
       {vid && canEmbed ? (
         <div className="riffsync-solo-watch__player-shell">
-          <SoloYouTubePlayer videoId={vid} titleHint={episode.title} />
+          <SoloYouTubePlayer videoId={vid} titleHint={episode.title} autoPlay={false} />
         </div>
       ) : null}
       <div className="container riffsync-solo-watch">
