@@ -1,0 +1,64 @@
+name: Deploy CDK (staging)
+
+# Policy: **`main` → staging** (manual); see `.forge/operations/deployment_environments.md`.
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Git ref to deploy (must be main)'
+        required: true
+        default: 'main'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: cdk-deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/cdk
+    steps:
+      - name: Require main-aligned ref
+        if: ${{ github.event.inputs.git_ref != 'main' }}
+        run: |
+          echo "::error::Staging deploy policy is main only (requested: ${{ github.event.inputs.git_ref }}). See infra/cdk/README.md and .forge/operations/deployment_environments.md"
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
+      - name: Require staging OIDC configuration
+        env:
+          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN_STAGING }}
+        run: |
+          if [ -z "$ROLE" ]; then
+            echo "::error::Set repository Variable AWS_DEPLOY_ROLE_ARN_STAGING to the IAM role ARN trusted via GitHub OIDC (see infra/cdk/README.md)."
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_STAGING }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: infra/cdk/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy staging stack(s)
+        run: >-
+          npx cdk deploy --all
+          --context environment=staging
+          --require-approval never
