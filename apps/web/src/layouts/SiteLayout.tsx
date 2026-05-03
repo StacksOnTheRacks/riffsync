@@ -7,9 +7,7 @@ export function SiteLayout() {
     <div className="riffsync-site">
       <SiteHeader />
       <main id="riffsync-main" className="riffsync-main">
-        <div className="container">
-          <Outlet />
-        </div>
+        <Outlet />
       </main>
       <SiteFooter />
     </div>

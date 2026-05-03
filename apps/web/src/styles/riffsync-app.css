@@ -71,6 +71,40 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   border-color: var(--black-color);
 }
 
+.riffsync-main:has(.riffsync-home) {
+  padding-top: 0;
+}
+
+.riffsync-home .gen-banner-movies .swiper,
+.riffsync-home .gen-banner-movies .swiper-wrapper {
+  min-height: 420px;
+}
+
+.riffsync-home .gen-banner-movies .swiper-slide > .item {
+  min-height: 420px;
+}
+
+@media (min-width: 992px) {
+  .riffsync-home .gen-banner-movies .swiper,
+  .riffsync-home .gen-banner-movies .swiper-slide > .item {
+    min-height: 540px;
+  }
+}
+
+.riffsync-home-row-swiper .swiper-button-next,
+.riffsync-home-row-swiper .swiper-button-prev {
+  color: var(--primary-color);
+}
+
+.riffsync-home-hero-swiper .swiper-button-next,
+.riffsync-home-hero-swiper .swiper-button-prev {
+  color: var(--white-color);
+}
+
+.riffsync-home-spotlight-swiper .swiper-pagination-bullet-active {
+  background: var(--primary-color);
+}
+
 @media (min-width: 992px) {
   .navbar-expand-lg .navbar-toggler {
     display: none;

@@ -8,7 +8,7 @@ export function AdminShellPage() {
   const { pathname } = useLocation()
 
   return (
-    <>
+    <div className="container">
       <h1>Admin</h1>
       <p>M2 scaffold — gated operator UX (roster, reporting, catalog editors) is not implemented.</p>
       <p className="riffsync-scaffold-note">
@@ -16,6 +16,6 @@ export function AdminShellPage() {
         <br />
         See <code>docs/architecture.admin.md</code> for the full admin contract.
       </p>
-    </>
+    </div>
   )
 }

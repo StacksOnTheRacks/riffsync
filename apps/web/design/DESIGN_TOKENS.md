@@ -2,6 +2,8 @@
 
 Canonical template: `docs/riffsync-design-template/Main File/red-html/`. Static CSS and font assets are mirrored under `apps/web/public/design/` (served as `/design/...`).
 
+Manual parity checks for the catalog home route: **`docs/design/m3-parity-checklist.md`**.
+
 ## Color & core variables
 
 | Token / variable | Value (template) | Source |
