@@ -46,24 +46,18 @@ export function LobbyPage() {
   }
 
   const rooms = data?.rooms ?? []
-  const staleMs = data?.staleRoomMsHint
 
   return (
     <div className="container riffsync-lobby-page">
       <h1>Lobby</h1>
       <p className="riffsync-lobby-page__lede">
-        Public parties from the deployed API. Guests join anonymously; hosts sign in before creating a room from the{' '}
+        Join a public room from the list below. To host, sign in and start a room from the{' '}
         <Link to="/catalog">catalog</Link>.
       </p>
-      {typeof staleMs === 'number' && (
-        <p className="riffsync-muted" role="note">
-          Inactive listings may expire after roughly {Math.round(staleMs / 60_000)} minutes server-side — refresh to see updates.
-        </p>
-      )}
       {!data ? (
         <p>Loading lobby…</p>
       ) : rooms.length === 0 ? (
-        <p>No public parties right now. Start one from the catalog when signed in as a host.</p>
+        <p>There are no public rooms right now.</p>
       ) : (
         <ul className="riffsync-lobby-list">
           {rooms.map((row) => {

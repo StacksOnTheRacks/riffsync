@@ -62,12 +62,6 @@ export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
                                     <span className="text">Watch now</span>
                                   </Link>
                                 </div>
-                                <div className="gen-btn-container button-2">
-                                  <Link to="/catalog" className="gen-button gen-button-link">
-                                    <i aria-hidden className="ion ion-play" />
-                                    <span className="text">Browse catalog</span>
-                                  </Link>
-                                </div>
                               </div>
                             </div>
                           </div>

@@ -149,11 +149,7 @@ export function CatalogPage() {
   return (
     <div className="container riffsync-catalog-page">
       <h1>Catalog</h1>
-      <p className="riffsync-catalog-page__lede">
-        Browse experiments anonymously — pick a title to watch solo with the official YouTube player (
-        <Link to="/">home</Link>
-        ).
-      </p>
+      <p className="riffsync-catalog-page__lede">Push the button, Frank</p>
       <div className="riffsync-catalog-grid">
         {entries.map((ep) => (
           <CatalogGridCard key={ep.id} episode={ep} />
