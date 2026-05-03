@@ -9,6 +9,7 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `bin/riffsync.ts` | App entry; validates `environment` context |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **DynamoDB Catalog** + **HTTP API** + read Lambdas + **TMDB reconcile** Lambda + **Secrets Manager** + **EventBridge** schedule |
+| `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + **Facebook** IdP + SPA app client (**no** native password auth) |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
 | `lambda/tmdb-reconcile-*.ts` | Scheduled **`GET /configuration`**, **`/search/movie`**, **`/movie/{id}`** enrichment (**`docs/contracts.tmdb.md`**) |
 | `scripts/seed-catalog-from-json.ts` | Validates **`data/catalog/episodes.json`** against **`catalog.schema.json`**, **`BatchWriteItem`** into the deployed table |
@@ -52,6 +53,30 @@ JSON response shapes: **`docs/api.catalog.md`**.
 
 **Tests:** `npm test` (Vitest — catalog projections + TMDB reconcile core with mocked **`fetch`**).
 
+### Fan Cognito + Facebook Hosted UI (M5+)
+
+Hosted stacks **`RiffSyncFanAuth-staging`** / **`RiffSyncFanAuth-prod`** provision a **fan-only** pool suitable for **`POST /v1/rooms`** and room-admin JWTs per **`.forge/integration/authorization.md`** (stable **`sub`** for **`hostSub`**). **Staff** `/v1/admin/*` pool remains a **separate** future stack.
+
+| Decision | Choice |
+| --- | --- |
+| **Native email/password** | **Off** for MVP — **Hosted UI + Facebook** only (`authFlows.userPassword` / `userSrp` disabled). |
+| **Meta app secret** | **Secrets Manager** secret **`riffsync/<env>/facebook-app-secret`** (template **`REPLACE_WITH_META_APP_SECRET`**). **Never** put the app secret in the SPA. |
+| **Meta app ID** | **CDK context** **`facebookAppId`** (public). CI **`cdk synth`** omits it and uses a numeric **placeholder**; real deploys should pass **`--context facebookAppId=<meta-app-id>`** (or set in **`cdk.json`** / deploy env). |
+| **Callback / sign-out URLs** | **Prod:** **`https://riffsync.tv/`** and **`https://riffsync.tv/callback`**. **Staging:** those plus **`https://staging.riffsync.tv/*`**, **localhost** Vite ports, and optional extras via **`--context fanAuthOAuthExtras=https://d111111abcdef8.cloudfront.net/,https://d111111abcdef8.cloudfront.net/callback`**. |
+| **Hosted domain prefix** | Default **`riffsync-fan-staging`** / **`riffsync-fan-prod`** (must be **unique** in the Region). Override collision: **`--context fanAuthCognitoDomainPrefix=your-prefix`**. |
+
+**CloudFormation outputs:** **`FanUserPoolId`**, **`FanUserPoolClientId`**, **`FanHostedUiDomainPrefix`**, **`FanHostedUiBaseUrl`**, **`FanFacebookAppSecretSecretArn`**.
+
+**Meta developer app (manual):**
+
+1. Create a **Meta** app with **Facebook Login** and add **Cognito’s** redirect URI exactly: **`https://<FanHostedUiDomainPrefix>.auth.<region>.amazoncognito.com/oauth2/idpresponse`** (use **`FanHostedUiBaseUrl`** output + **`/oauth2/idpresponse`**).
+2. Set **Privacy Policy** and **Data deletion** URLs on the Meta app to your public policy pages (align with **`docs/architecture.frontend.md`** / product legal). Complete Meta **Data Use Checkup** when required.
+3. Put the live **app secret** in Secrets Manager at **`FanFacebookAppSecretSecretArn`** **before** expecting federated sign-in to succeed (replace the template placeholder).
+
+**Smoke (staging):** open **`FanHostedUiBaseUrl`** in the console flow or build the **`/oauth2/authorize`** link (response_type **`code`**, client_id **`FanUserPoolClientId`**, redirect_uri **must** match an allowlisted SPA URL, scope **`openid email profile`**, identity_provider **`Facebook`**). After sign-in, inspect **`id_token`** / **`access_token`** (`sub` is the host id). **Do not** commit tokens.
+
+**Deploy IAM:** the OIDC deploy role needs **Cognito** create/update permissions for this stack (extend the role if **`cdk deploy`** fails on **`cognito-idp:*`**).
+
 ## Prerequisites
 
 - **Node.js** LTS (**≥ 20**) on your machine for **`npm`/`cdk`**; synthesized **Lambda** runtimes are **Node.js 24** (matches **`cfn-lint`** / AWS deprecation policy).
@@ -88,6 +113,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 - **`RiffSyncStatic-*` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
 - **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
 - **`RiffSyncApi-*` —** **HTTP API** + **DynamoDB** read (**catalog list/get**); **DynamoDB** read/write + **Secrets Manager** + **EventBridge** for **TMDB reconcile**; **`cloudwatch:PutMetricData`** not required when using **EMF** in **`stdout`** ( **`infra/cdk/README.md`** TMDB §).
+- **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **Facebook** `UserPoolIdentityProvider` + **UserPoolClient** (OAuth) + **Secrets Manager** secret for Meta app secret.
 
 Older milestone copy: **M1** alone only created the static stack.
 

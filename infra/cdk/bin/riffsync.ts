@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
 import { ApiCatalogStack } from '../lib/api-catalog-stack';
+import { FanAuthStack } from '../lib/fan-auth-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
 
 const app = new cdk.App();
@@ -24,6 +25,15 @@ new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
 
 new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
   description: `RiffSync static SPA hosting (${environment}) — S3 (private) + CloudFront OAC`,
+  environment,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});
+
+new FanAuthStack(app, `RiffSyncFanAuth-${environment}`, {
+  description: `RiffSync fan Cognito (${environment}) — Hosted UI + Facebook IdP (host JWT)`,
   environment,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
