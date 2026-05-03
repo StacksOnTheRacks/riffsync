@@ -15,7 +15,7 @@ function PrimaryNavItem({
   const active = !!match
   return (
     <li className={`menu-item${active ? ' active' : ''}`}>
-      <NavLink to={to} end={end}>
+      <NavLink to={to} end={end ?? true}>
         {children}
       </NavLink>
     </li>
