@@ -19,17 +19,20 @@ You can also **browse live public parties** started by someone else and **join**
 
 Solo playback does **not** use realtime sync; watch parties do.
 
+**Chromecast / Cast (optional, per viewer)** — Each person can choose to send what they are watching to a **Google Cast** device (Chromecast TV, built-in Cast, etc.) **from their own browser**, the same way they might cast any YouTube session. It is **viewer-local**: the host does not “cast for the room.” Availability depends on **browser, OS, embed policy, and YouTube**; unsupported clients keep normal in-page playback. See **`docs/architecture.frontend.md`** for implementation notes and watch-party caveats when someone is casting.
+
 ## Disclaimer
 
 RiffSync is not affiliated with, endorsed by, or connected to *Mystery Science Theater 3000*, Shout! Factory, Alternaversal, or YouTube. Episode metadata and links point at third-party content; availability and embed permissions change over time.
 
 ## Goals
 
-- **Catalog** — Curated list of episodes (or experiments) with metadata: title, episode number, YouTube video ID, era, etc. Entry points for both **solo play** and **starting a party**.
+- **Catalog** — Curated episodes are **store-backed** (database as canonical source; see **`docs/architecture.server.md`**). Today’s **`data/catalog/episodes.json`** is a **bootstrap seed** + schema reference (**[`data/catalog/README.md`](data/catalog/README.md)**). App entry points: **solo play** and **starting a party**.
 - **Watch parties** — Public rooms (and optionally **unlisted/private** canonical URLs later) where one **host** controls play, pause, seek, and playback rate. Each room has a **shareable link** hosts can paste on social feeds.
 - **Playback expectations label** — The host marks the room **Premium** *or* (default) **free, ad-supported**; the embed/API **cannot** reliably detect YouTube subscription state, so the UI treats this as **self-reported**. Joiners see the badge in lobby and share cards.
 - **Discovery** — See what others are watching in public mode and join an active room.
 - **Chat** — Room-scoped messages (and optional light presence: who is here, join/leave).
+- **Optional Cast to TV** — Per-viewer **Chromecast / Google Cast** affordance for solo and party playback, where the platform allows it (implementation: **`docs/architecture.frontend.md`**).
 - **Future (lawful playback only)** — Leave room for lawful sources beyond YouTube (partner streams, clarified purchase terms, or **local / self-hosted** playback). See **Future playback backends** below — without operating a communal upload vault.
 
 ## Users & identity
@@ -84,6 +87,7 @@ Fan support might fund clearer distribution paths (sales, bundles, partnerships)
 
 - Use YouTube’s **iframe / IFrame Player API**; do not strip ads, re-host video, or circumvent YouTube’s normal playback.
 - Many videos are **not embeddable**; the catalog should only reference IDs that allow embedding, and be prepared for takedowns.
+- **Cast / Chromecast** is mediated by **YouTube** and **Google Cast** APIs and rules; embedding may hide or expose cast differently by client. Fail gracefully when Cast is unavailable.
 - Browsers enforce **autoplay policies** — expect an explicit user gesture (e.g. “Tap to join sync”) when joining a room.
 - **Premium vs ads** — RiffSync does not query or verify YouTube accounts; rely on honest **host-reported room labels**, not entitlement checks.
 - Naming and MST3K references in the UI should stay clearly **fan / unofficial**.
@@ -92,12 +96,19 @@ Fan support might fund clearer distribution paths (sales, bundles, partnerships)
 
 | Layer | Suggested direction |
 | --- | --- |
-| Frontend | TypeScript, React or Next.js, YouTube IFrame API, WebSocket client |
+| Frontend | TypeScript, React or Next.js, YouTube IFrame API, WebSocket client, optional Google Cast Sender / platform Cast affordances |
 | API | REST for rooms/catalog; WebSockets for playback events, chat, presence, periodic **ping** for liveness |
 | State | Authoritative room document (video id or future episode/source key, time, playing, rate, **`playbackExpectation`** `premium \| free-ad-supported`, host id, **lastActivityAt**, optional reconnect token); ephemeral presence optional; **player backend as a pluggable seam** |
-| AWS (example) | API Gateway (HTTP + WebSocket) + Lambda, or containerized realtime if you want Socket.IO-level ergonomics; DynamoDB for rooms/catalog metadata; optionally ElastiCache for hot room state on larger scale |
+| AWS (baseline) | **Serverless:** **API Gateway v2** (`HTTP` + `WEBSOCKET`), **Lambda**, **DynamoDB** (rooms, connections, **catalog**), **EventBridge / Scheduler**, **Secrets Manager**. **ElastiCache** (Redis/Valkey-compatible) **optional** for **`GET /v1/catalog`** or lobby caches (VPC-attached Lambdas). **S3** only if you host the SPA or keep offline exports — no ECS in the default stack. Details: **`docs/architecture.server.md`**. |
 
 **MVP cut:** catalog **solo play**, catalog → **create watch party**, **canonical share URLs** + lobby discovery + join path, embedded YouTube, host controls, chat, basic sync — **anonymous display names**, **self-reported “Premium” vs “free, ad-supported”** room labels, no signup. Defer full accounts, heavy moderation, and unlisted/private-only rooms if you want speed.
+
+## Documentation
+
+- [Catalog data (`data/catalog/`)](data/catalog/README.md)
+- [Catalog images & TMDB reconciliation (posters + backdrops; draft)](docs/architecture.catalog-images.md)
+- [Server architecture (draft)](docs/architecture.server.md)
+- [Frontend architecture (draft)](docs/architecture.frontend.md)
 
 ## Naming
 
