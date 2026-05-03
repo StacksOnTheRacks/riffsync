@@ -1,0 +1,122 @@
+/* App shell overrides on top of Streamlab template CSS (public/design/css). */
+
+.riffsync-brand {
+  font-family: var(--title-fonts);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--white-color) !important;
+  text-transform: capitalize;
+}
+
+.riffsync-brand:hover,
+.riffsync-brand:focus {
+  color: var(--primary-color) !important;
+  text-decoration: none;
+}
+
+header#gen-header.gen-header-style-1.gen-has-sticky.gen-header-sticky {
+  position: relative;
+  background: var(--black-color);
+  box-shadow: 0 3px 30px 0 rgb(0 33 85 / 10%);
+}
+
+.riffsync-main {
+  flex: 1;
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+
+.riffsync-main .container {
+  margin-bottom: 0;
+}
+
+footer#gen-footer .gen-copyright-footer .gen-copyright {
+  color: var(--white-color);
+}
+
+.riffsync-site {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.riffsync-footer-wordmark {
+  display: inline-block;
+  font-family: var(--title-fonts);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--white-color);
+  text-transform: capitalize;
+  margin-bottom: 0.5rem;
+}
+
+footer#gen-footer .widget .riffsync-footer-wordmark {
+  color: var(--white-color);
+}
+
+.riffsync-scaffold-note {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--secondary-color);
+  font-size: 0.875rem;
+  color: var(--secondary-color);
+}
+
+.riffsync-scaffold-note code {
+  font-size: 0.8125rem;
+  color: var(--white-color);
+  background: var(--dark-color);
+  border-color: var(--black-color);
+}
+
+.riffsync-main:has(.riffsync-home) {
+  padding-top: 0;
+}
+
+.riffsync-home .gen-banner-movies .swiper,
+.riffsync-home .gen-banner-movies .swiper-wrapper {
+  min-height: 420px;
+}
+
+.riffsync-home .gen-banner-movies .swiper-slide > .item {
+  min-height: 420px;
+}
+
+@media (min-width: 992px) {
+  .riffsync-home .gen-banner-movies .swiper,
+  .riffsync-home .gen-banner-movies .swiper-slide > .item {
+    min-height: 540px;
+  }
+}
+
+.riffsync-home-row-swiper .swiper-button-next,
+.riffsync-home-row-swiper .swiper-button-prev {
+  color: var(--primary-color);
+}
+
+.riffsync-home-hero-swiper .swiper-button-next,
+.riffsync-home-hero-swiper .swiper-button-prev {
+  color: var(--white-color);
+}
+
+.riffsync-home-spotlight-swiper .swiper-pagination-bullet-active {
+  background: var(--primary-color);
+}
+
+@media (min-width: 992px) {
+  .navbar-expand-lg .navbar-toggler {
+    display: none;
+  }
+}
+
+@media (max-width: 991px) {
+  header#gen-header .gen-bottom-header .navbar .navbar-collapse.show {
+    display: block;
+  }
+
+  header#gen-header .gen-bottom-header .navbar .navbar-nav li {
+    line-height: 3rem;
+  }
+}
