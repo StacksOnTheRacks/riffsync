@@ -30,7 +30,16 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     return { statusCode: 404, body: 'Room not found' };
   }
 
-  const authHdr = event.headers?.Authorization ?? event.headers?.authorization;
+  /** Browsers cannot set `Authorization` on WebSocket handshakes; accept raw JWT query as fallback (see `docs/contracts.websocket.md`). */
+  const qpToken = event.queryStringParameters?.accessToken;
+  const headerAuth = event.headers?.Authorization ?? event.headers?.authorization;
+  const authHdr =
+    typeof qpToken === 'string' && qpToken.trim().length > 0
+      ? qpToken.startsWith('Bearer ')
+        ? qpToken
+        : `Bearer ${qpToken.trim()}`
+      : headerAuth;
+
   const jwtUser = await verifyAccessToken(authHdr);
   let hostSub: string | undefined;
   if (jwtUser) {

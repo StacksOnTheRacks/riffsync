@@ -108,19 +108,35 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   }
 
   if (routeKey === 'signaling') {
-    const hostSub = typeof conn.hostSub === 'string' ? conn.hostSub : undefined;
-    if (!hostSub || hostSub !== room.hostSub) {
-      return { statusCode: 403, body: 'Publisher JWT required' };
-    }
     const envelope = body.envelope;
     if (envelope === undefined) {
       return { statusCode: 400, body: 'envelope required' };
     }
+
+    const hostSubConn = typeof conn.hostSub === 'string' ? conn.hostSub : undefined;
+    const isPublisher = Boolean(hostSubConn && hostSubConn === room.hostSub);
+
+    let allowGuestRelay = false;
+    if (
+      envelope !== null &&
+      typeof envelope === 'object' &&
+      (envelope as { guestSignaling?: unknown }).guestSignaling === true
+    ) {
+      const kind = (envelope as { kind?: unknown }).kind;
+      allowGuestRelay = kind === 'ready' || kind === 'answer' || kind === 'ice';
+    }
+
+    if (!isPublisher && !allowGuestRelay) {
+      return { statusCode: 403, body: 'Publisher JWT required (or guest ready/answer/ice only)' };
+    }
+
     const mgmt = wsManagementClient();
     const ids = await queryConnectionsForRoom(doc, connTable, roomId);
     const out = {
       type: 'signaling',
       roomId,
+      fromSessionId: sessionId,
+      role: isPublisher ? 'host' : 'guest',
       envelope,
     };
     const buf = encoder.encode(JSON.stringify(out));
