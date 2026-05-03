@@ -84,7 +84,7 @@ export class FanAuthStack extends cdk.Stack {
       standardAttributes: { email: { required: false, mutable: true } },
     });
 
-    new cognito.UserPoolIdentityProviderFacebook(this, 'FacebookIdp', {
+    const facebookIdp = new cognito.UserPoolIdentityProviderFacebook(this, 'FacebookIdp', {
       userPool: this.fanUserPool,
       clientId: facebookAppId,
       clientSecret: facebookAppSecret.secretValue.toString(),
@@ -147,6 +147,9 @@ export class FanAuthStack extends cdk.Stack {
       },
       supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.FACEBOOK],
     });
+
+    // Cognito rejects the client if it references Facebook before the IdP resource exists — enforce order.
+    this.fanUserPoolClient.node.addDependency(facebookIdp);
 
     new cdk.CfnOutput(this, 'FanUserPoolId', {
       value: this.fanUserPool.userPoolId,
