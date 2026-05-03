@@ -9,18 +9,25 @@
     "cdk": "cdk",
     "synth:staging": "cdk synth --all --context environment=staging",
     "synth:prod": "cdk synth --all --context environment=prod",
-    "test": "npm run build"
+    "test": "npm run build && vitest run",
+    "seed:catalog": "npx ts-node --prefer-ts-exts scripts/seed-catalog-from-json.ts"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
     "@types/node": "^20.17.14",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "aws-cdk": "^2.173.4",
     "ts-node": "^10.9.2",
-    "typescript": "~5.6.3"
+    "typescript": "~5.6.3",
+    "vitest": "^3.0.2"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.726.1",
+    "@aws-sdk/lib-dynamodb": "^3.726.1",
     "aws-cdk-lib": "^2.173.4",
     "constructs": "^10.4.2"
   }

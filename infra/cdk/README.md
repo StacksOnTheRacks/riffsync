@@ -8,6 +8,33 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | --- | --- |
 | `bin/riffsync.ts` | App entry; validates `environment` context |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
+| `lib/api-catalog-stack.ts` | **DynamoDB Catalog** table + **HTTP API** + **Lambda** — **`GET /v1/catalog`**, **`GET /v1/catalog/{id}`** |
+| `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** list, **`GetItem`** by `id`) |
+| `scripts/seed-catalog-from-json.ts` | Validates **`data/catalog/episodes.json`** against **`catalog.schema.json`**, **`BatchWriteItem`** into the deployed table |
+
+### Catalog table & HTTP API (M4+)
+
+Hosted stacks **`RiffSyncApi-staging`** / **`RiffSyncApi-prod`** add:
+
+- **`AWS::DynamoDB::Table`** — **partition key** **`id`** (string, episode slug). **No sort key.** **`GET /v1/catalog`** uses **`Scan`** (acceptable while the library fits one Lambda scan; add **GSI**, **export**, or **cache** before scale demands it — **`docs/architecture.server.md`**, **`.forge/data/persistence_abstractions.md`**).
+- **`AWS::ApiGatewayV2::Api`** (HTTP API) — routes above; **CORS** allows **`https://riffsync.tv`** in **prod**; **staging** adds **localhost** dev origins and **`https://riffsync.tv`**. Pass extra origins (e.g. **`https://<distribution>.cloudfront.net`**) at synth/deploy:  
+  **`npx cdk deploy --all --context environment=staging --context catalogCorsOrigins=https://d111111abcdef8.cloudfront.net`**
+- **`AWS::Lambda::Permission`** — **`lambda:InvokeFunction`** from **`apigateway.amazonaws.com`** per route integration ( **`docs/architecture.server.md`** IAM table).
+
+**Outputs:** **`CatalogTableName`**, **`HttpApiUrl`** (base URL — append **`/v1/catalog`**).
+
+**Seed (operators, after deploy):**
+
+```bash
+cd infra/cdk && npm ci && npm run build
+TABLE_NAME="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-staging \
+  --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
+npm run seed:catalog -- "$TABLE_NAME"
+```
+
+JSON response shapes: **`docs/api.catalog.md`**.
+
+**Tests:** `npm test` (Vitest for catalog projection helpers).
 
 ## Prerequisites
 
@@ -40,15 +67,18 @@ Staging uses **`RemovalPolicy.DESTROY`** on the bucket so stacks can be torn dow
 
 ## IAM baseline vs `docs/architecture.server.md`
 
-Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Manager, `execute-api:ManageConnections`, CloudWatch `PutMetricData`, etc.) is described in [`../../docs/architecture.server.md`](../../docs/architecture.server.md) (**[Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions)** and **[IaC & permission notes §](../../docs/architecture.server.md#iac--permission-notes)**). **This milestone only creates:**
+Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Manager, `execute-api:ManageConnections`, CloudWatch `PutMetricData`, etc.) is described in [`../../docs/architecture.server.md`](../../docs/architecture.server.md) (**[Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions)** and **[IaC & permission notes §](../../docs/architecture.server.md#iac--permission-notes)**). **This repo’s CDK app provisions (by stack):**
 
-- **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
-- **CloudFront** service-managed roles for the distribution (implicit in the **`AWS::CloudFront::Distribution`** resource).
+- **`RiffSyncStatic-*` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
+- **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
+- **`RiffSyncApi-*` —** **Lambda** execution roles with **`dynamodb:GetItem` / `Scan`** (read) scoped to the **Catalog** table; **`AWS::Lambda::Permission`** for **API Gateway HTTP API** invoke (**`docs/architecture.server.md`**).
+
+Older milestone copy: **M1** alone only created the static stack.
 
 **Follow-ups (later milestones):**
 
 - **GitHub Actions → AWS** deploy identity — prefer **OIDC** to IAM roles over long-lived access keys ([Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions); [`.forge/operations/build_packaging.md`](../../.forge/operations/build_packaging.md)).
-- **Runtime** IAM for **Lambda**, **API Gateway**, **WebSocket `@connections`**, **DynamoDB**, **Secrets Manager**, and **CloudWatch** custom metrics — add when those resources are provisioned (**M2+**).
+- **Runtime** IAM for **Lambda**, **API Gateway**, **WebSocket `@connections`**, **DynamoDB** writers (admin/catalog jobs), **Secrets Manager**, and **CloudWatch** custom metrics — extend policies as new routes and jobs ship.
 
 ## GitHub Actions (CI — no AWS credentials required)
 
