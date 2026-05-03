@@ -18,6 +18,17 @@ function parsePlaybackExpectation(v: unknown): PlaybackExpectation | undefined {
   return undefined
 }
 
+function parseCarouselFlag(v: unknown): boolean {
+  if (v === true) return true
+  if (v === false || v === null || v === undefined) return false
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase()
+    return s === 'true' || s === '1' || s === 'yes'
+  }
+  if (typeof v === 'number' && Number.isFinite(v)) return v === 1
+  return false
+}
+
 export function normalizeEpisode(raw: unknown): CatalogEpisode {
   if (!isRecord(raw)) {
     throw new Error('Catalog episode must be an object')
@@ -56,7 +67,7 @@ export function normalizeEpisode(raw: unknown): CatalogEpisode {
       raw.tmdbArtworkSyncedAt === null || raw.tmdbArtworkSyncedAt === undefined
         ? null
         : String(raw.tmdbArtworkSyncedAt),
-    carousel: raw.carousel === true,
+    carousel: parseCarouselFlag(raw.carousel),
     embedAllows:
       raw.embedAllows === false ? false : raw.embedAllows === true ? true : undefined,
     playbackExpectation: parsePlaybackExpectation(raw.playbackExpectation),

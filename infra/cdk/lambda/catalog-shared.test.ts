@@ -57,6 +57,41 @@ describe('projectEpisode', () => {
     expect(off.carousel).toBe(false);
   });
 
+  it('accepts string/number carousel flags from Dynamo or legacy clients', () => {
+    expect(
+      projectEpisode({
+        id: 'a',
+        experimentNumber: 1,
+        title: 'T',
+        era: 'joel',
+        youtubeVideoId: null,
+        youtubeWatchUrl: null,
+        tagline: null,
+        posterImageUrl: null,
+        backdropImageUrl: null,
+        tmdbMovieId: null,
+        tmdbArtworkSyncedAt: null,
+        carousel: 'true',
+      }).carousel,
+    ).toBe(true);
+    expect(
+      projectEpisode({
+        id: 'b',
+        experimentNumber: 2,
+        title: 'U',
+        era: 'joel',
+        youtubeVideoId: null,
+        youtubeWatchUrl: null,
+        tagline: null,
+        posterImageUrl: null,
+        backdropImageUrl: null,
+        tmdbMovieId: null,
+        tmdbArtworkSyncedAt: null,
+        carousel: 1,
+      }).carousel,
+    ).toBe(true);
+  });
+
   it('preserves optional TMDB copy fields when present', () => {
     const row = {
       id: 'x',

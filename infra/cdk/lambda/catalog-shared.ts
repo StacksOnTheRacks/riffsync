@@ -25,6 +25,18 @@ export interface CatalogEpisode {
 
 const ERAS = new Set(['joel', 'mike', 'jonah', 'emily', 'other']);
 
+/** Dynamo / hand-edited rows may use BOOL, or accidentally String/Number — treat like UI expectations. */
+function parseCarouselFlag(v: unknown): boolean {
+  if (v === true) return true;
+  if (v === false || v === null || v === undefined) return false;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    return s === 'true' || s === '1' || s === 'yes';
+  }
+  if (typeof v === 'number' && Number.isFinite(v)) return v === 1;
+  return false;
+}
+
 export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
   const id = item.id;
   if (typeof id !== 'string') {
@@ -62,7 +74,7 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
     backdropImageUrl: optionalString(item.backdropImageUrl),
     tmdbMovieId: optionalNumber(item.tmdbMovieId),
     tmdbArtworkSyncedAt: optionalString(item.tmdbArtworkSyncedAt),
-    carousel: item.carousel === true,
+    carousel: parseCarouselFlag(item.carousel),
     tmdbOverview: optionalStringField(item.tmdbOverview),
     tmdbPopularity: optionalNumberField(item.tmdbPopularity),
     tmdbPosterPath: optionalStringField(item.tmdbPosterPath),
