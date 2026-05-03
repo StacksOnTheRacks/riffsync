@@ -15,7 +15,7 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `lambda/ws-*.ts` | WebSocket **`$connect`** / **`$disconnect`** / message routes |
 | `lambda/room-shared.ts` | Shared parsing + **`STALE_ROOM_MS`** (**lobby staleness**) |
 | `lambda/tmdb-reconcile-*.ts` | Scheduled **`GET /configuration`**, **`/search/movie`**, **`/movie/{id}`** enrichment (**`docs/contracts.tmdb.md`**) |
-| `scripts/seed-catalog-from-json.ts` | Validates **`data/catalog/episodes.json`** against **`catalog.schema.json`**, **`BatchWriteItem`** into the deployed table |
+| `scripts/copy-catalog-dynamodb.ts` | **`npm run copy:catalog`** — scan one catalog table, **`BatchWriteItem`** into another (staging → prod migration) |
 
 ### TMDB reconcile (M4+)
 
@@ -37,7 +37,7 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 Hosted stacks **`RiffSyncApi-staging`** / **`RiffSyncApi-prod`** add:
 
 - **`AWS::DynamoDB::Table`** — **partition key** **`id`** (string, episode slug). **No sort key.** **`GET /v1/catalog`** uses **`Scan`** (acceptable while the library fits one Lambda scan; add **GSI**, **export**, or **cache** before scale demands it — **`docs/architecture.server.md`**, **`.forge/data/persistence_abstractions.md`**).
-- **`AWS::ApiGatewayV2::Api`** (HTTP API) — routes above; **CORS** allows **`https://riffsync.tv`** in **prod**; **staging** adds **localhost** dev origins and **`https://riffsync.tv`**. Pass extra origins (e.g. **`https://<distribution>.cloudfront.net`**) at synth/deploy:  
+- **`AWS::ApiGatewayV2::Api`** (HTTP API) — routes above; **CORS** allows **`https://riffsync.tv`** plus any **`fanWebAlternateDomainNames`** (e.g. **`www.riffsync.tv`**) in **prod**. **Staging** adds **localhost** and **`https://staging.riffsync.tv`**. Pass extra origins (e.g. **`https://<distribution>.cloudfront.net`**) at synth/deploy:  
   **`npx cdk deploy --all --context environment=staging --context catalogCorsOrigins=https://d111111abcdef8.cloudfront.net`**
 - **`AWS::Lambda::Permission`** — **`lambda:InvokeFunction`** from **`apigateway.amazonaws.com`** per route integration ( **`docs/architecture.server.md`** IAM table).
 
@@ -53,7 +53,36 @@ TABLE_NAME="$(aws cloudformation describe-stacks --region "$AWS_REGION" --stack-
 npm run seed:catalog -- "$TABLE_NAME"
 ```
 
+**Copy catalog between tables (staging → production):** When prod should match **live staging** data (not just git `episodes.json`), use credentials that can **read** staging and **write** prod in the same **`AWS_REGION`**:
+
+```bash
+cd infra/cdk && npm ci && npm run build
+export AWS_REGION=us-east-1   # must match both tables
+SOURCE="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-staging \
+  --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
+DEST="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-prod \
+  --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
+npm run copy:catalog -- "$SOURCE" "$DEST"
+```
+
+**`PutRequest` overwrites** existing rows with the same **`id`**. For a **clean** prod table, rely on an empty first deploy or truncate items out-of-band; **`copy:catalog` does not delete** rows present only in prod.
+
+**Prefer `seed:catalog` to prod** when **`data/catalog/episodes.json`** is the **source of truth** (CI-friendly, schema-validated).
+
 JSON response shapes: **`docs/api.catalog.md`**.
+
+### Extra SPA hostname (e.g. `www`)
+
+If your **ACM certificate** already includes **`www`** + apex, add **`fanWebAlternateDomainNames`** (comma-separated hostnames **without** `https://`). CDK adds:
+
+- **CloudFront** alternate domain names on the same distribution as **`fanWebCustomDomain`**
+- **Route 53** alias **A** records (when zone id + zone name are set) for each hostname
+- **API CORS** and **Cognito app client** callback / sign-out URLs for each **`https://`** host
+
+**GitHub Actions:** set repository variable **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** to e.g. **`www.riffsync.tv`** (staging: **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`**). **Local / CLI:**  
+`--context fanWebAlternateDomainNames=www.riffsync.tv`
+
+**SPA build** keeps **`FanWebSiteUrl`** (apex) as **`VITE_PUBLIC_ORIGIN`**; both hosts serve the same **`dist/`** bundle. If your **Meta (Facebook) app** restricts **Valid OAuth redirect URIs** or **Allowed domains** beyond Cognito, add **`www`** there as required.
 
 **Tests:** `npm test` (Vitest — catalog + **room parsers** + TMDB reconcile core with mocked **`fetch`**).
 
@@ -218,8 +247,10 @@ Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`
 | **`STAGING_FAN_WEB_CERTIFICATE_ARN`** | **`arn:aws:acm:us-east-1:…:certificate/…`** covering the staging hostname |
 | **`PROD_FAN_WEB_HOSTNAME`** | e.g. **`riffsync.tv`** (production deploy workflow) |
 | **`PROD_FAN_WEB_CERTIFICATE_ARN`** | **`us-east-1`** ACM ARN covering production hostname |
+| **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Optional; comma-separated extra hostnames on the **same** cert (e.g. **`www.riffsync.tv`**) — CloudFront aliases, Route 53 A, CORS, Cognito URLs |
+| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Same pattern for staging |
 | **`RIFFSYNC_ROUTE53_HOSTED_ZONE_ID`** | Public hosted zone for **`RIFFSYNC_ROUTE53_ZONE_NAME`** (optional) |
-| **`RIFFSYNC_ROUTE53_ZONE_NAME`** | e.g. **`riffsync.tv`** — required with zone id; CDK adds an alias **A** record to CloudFront |
+| **`RIFFSYNC_ROUTE53_ZONE_NAME`** | e.g. **`riffsync.tv`** — with zone id; CDK creates Route 53 alias **A** records for **`fanWebCustomDomain`** and each **`fanWebAlternateDomainNames`** host |
 
 Request the ACM cert in **us-east-1**, complete **DNS validation**, then run the deploy workflow. Omit the Route 53 variables if you create the **CNAME/alias** yourself. **Stack output `FanWebSiteUrl`** is the canonical **`https://…`** used for **`VITE_PUBLIC_ORIGIN`** and API/Cognito allowlists (workflows read it from CloudFormation).
 
@@ -231,6 +262,8 @@ npx cdk deploy --all --context environment=staging \
   --context fanWebCertificateArn=arn:aws:acm:us-east-1:ACCOUNT:certificate/UUID \
   --context fanWebHostedZoneId=Z0123456789ABCDEFGHIJ \
   --context fanWebZoneName=riffsync.tv
+# Optional second hostname on the same ACM cert (e.g. www for prod):
+#   --context fanWebAlternateDomainNames=www.riffsync.tv
 ```
 
 IAM trust policy (**sketch**) for each role (`sts:AssumeRoleWithWebIdentity`):

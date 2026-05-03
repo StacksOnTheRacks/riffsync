@@ -12,6 +12,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as path from 'node:path';
 import type { Construct } from 'constructs';
 
+import { fanWebAlternateDomainNamesFromContext } from './context-alternate-domains';
+
 export interface ApiCatalogStackProps extends cdk.StackProps {
   readonly environment: 'staging' | 'prod';
   /**
@@ -48,7 +50,8 @@ function staleRoomMsFromContext(scope: Construct): number {
   return Number.isFinite(n) && n > 0 ? n : 45 * 60 * 1000;
 }
 
-function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[]): string[] {
+function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[], scope: Construct): string[] {
+  const altOrigins = fanWebAlternateDomainNamesFromContext(scope).map((h) => `https://${h}`);
   const base =
     environment === 'prod'
       ? ['https://riffsync.tv']
@@ -60,7 +63,7 @@ function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[]): st
           'http://127.0.0.1:5173',
           'https://localhost:5173',
         ];
-  return [...new Set([...base, ...extras])];
+  return [...new Set([...base, ...altOrigins, ...extras])];
 }
 
 const sharedLambdaBundle = {
@@ -84,7 +87,7 @@ export class ApiCatalogStack extends cdk.Stack {
 
     const { environment, extraCorsOrigins = [], fanUserPool, fanUserPoolClient } = props;
     const contextExtras = parseOriginsFromContext(this);
-    const allowOrigins = corsAllowOrigins(environment, [...extraCorsOrigins, ...contextExtras]);
+    const allowOrigins = corsAllowOrigins(environment, [...extraCorsOrigins, ...contextExtras], this);
     const staleRoomMs = staleRoomMsFromContext(this);
 
     cdk.Tags.of(this).add('Project', 'RiffSync');

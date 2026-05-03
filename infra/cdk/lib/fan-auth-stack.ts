@@ -3,6 +3,8 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as cdk from 'aws-cdk-lib';
 import type { Construct } from 'constructs';
 
+import { fanWebAlternateDomainNamesFromContext, oauthCallbacksForHost } from './context-alternate-domains';
+
 export interface FanAuthStackProps extends cdk.StackProps {
   readonly environment: 'staging' | 'prod';
   /**
@@ -105,11 +107,16 @@ export class FanAuthStack extends cdk.Stack {
       'https://localhost:5173/',
       'https://localhost:5173/callback',
     ];
-    const prodCallbackLogoutBase = ['https://riffsync.tv/', 'https://riffsync.tv/callback'];
+    const prodCallbackLogoutBase = [
+      ...new Set([
+        ...oauthCallbacksForHost('riffsync.tv'),
+        ...fanWebAlternateDomainNamesFromContext(this).flatMap(oauthCallbacksForHost),
+      ]),
+    ];
 
     const callbackUrls =
       environment === 'prod'
-        ? [...prodCallbackLogoutBase, ...extraOAuthUrls]
+        ? [...new Set([...prodCallbackLogoutBase, ...extraOAuthUrls])]
         : [...new Set([...stagingCallbackLogoutBase, ...prodCallbackLogoutBase, ...extraOAuthUrls])];
 
     const logoutUrls = callbackUrls;

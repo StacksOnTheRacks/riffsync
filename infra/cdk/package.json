@@ -10,7 +10,8 @@
     "synth:staging": "cdk synth --all --context environment=staging",
     "synth:prod": "cdk synth --all --context environment=prod",
     "test": "npm run build && vitest run",
-    "seed:catalog": "npx ts-node --prefer-ts-exts scripts/seed-catalog-from-json.ts"
+    "seed:catalog": "npx ts-node --prefer-ts-exts scripts/seed-catalog-from-json.ts",
+    "copy:catalog": "npx ts-node --prefer-ts-exts scripts/copy-catalog-dynamodb.ts"
   },
   "engines": {
     "node": ">=20"

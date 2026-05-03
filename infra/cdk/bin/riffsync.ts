@@ -37,6 +37,21 @@ if ((fanWebHostedZoneId || fanWebZoneName) && !fanWebCustomDomain) {
   throw new Error('fanWebHostedZoneId / fanWebZoneName require fanWebCustomDomain + fanWebCertificateArn.');
 }
 
+function parseFanWebAlternateDomains(a: cdk.App): string[] {
+  const raw = trimContext(a, 'fanWebAlternateDomainNames');
+  if (!raw) return [];
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+const fanWebAlternateDomainNames = parseFanWebAlternateDomains(app);
+
 const fanAuth = new FanAuthStack(app, `RiffSyncFanAuth-${environment}`, {
   description: `RiffSync fan Cognito (${environment}) — Hosted UI + Facebook IdP (host JWT)`,
   environment,
@@ -64,6 +79,7 @@ new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
   fanWebCertificateArn,
   fanWebHostedZoneId,
   fanWebZoneName,
+  fanWebAlternateDomainNames,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,

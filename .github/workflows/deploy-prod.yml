@@ -23,6 +23,7 @@ jobs:
     env:
       PROD_FAN_WEB_HOSTNAME: ${{ vars.PROD_FAN_WEB_HOSTNAME }}
       PROD_FAN_WEB_CERTIFICATE_ARN: ${{ vars.PROD_FAN_WEB_CERTIFICATE_ARN }}
+      PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES: ${{ vars.PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES }}
       RIFFSYNC_ROUTE53_HOSTED_ZONE_ID: ${{ vars.RIFFSYNC_ROUTE53_HOSTED_ZONE_ID }}
       RIFFSYNC_ROUTE53_ZONE_NAME: ${{ vars.RIFFSYNC_ROUTE53_ZONE_NAME }}
     steps:
@@ -80,6 +81,9 @@ jobs:
             ARGS+=(--context "fanWebHostedZoneId=${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID}")
             ARGS+=(--context "fanWebZoneName=${RIFFSYNC_ROUTE53_ZONE_NAME}")
           fi
+          if [ -n "${PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES:-}" ]; then
+            ARGS+=(--context "fanWebAlternateDomainNames=${PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES}")
+          fi
           npx cdk deploy --all "${ARGS[@]}" --require-approval never
 
       - name: Point API CORS + Cognito OAuth at public production site URL
@@ -94,6 +98,9 @@ jobs:
           if [ -n "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] && [ -n "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
             ARGS+=(--context "fanWebHostedZoneId=${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID}")
             ARGS+=(--context "fanWebZoneName=${RIFFSYNC_ROUTE53_ZONE_NAME}")
+          fi
+          if [ -n "${PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES:-}" ]; then
+            ARGS+=(--context "fanWebAlternateDomainNames=${PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES}")
           fi
           SITE_URL="$(aws cloudformation describe-stacks --stack-name RiffSyncStatic-prod \
             --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"

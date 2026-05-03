@@ -24,9 +24,14 @@ export interface StaticSiteStackProps extends cdk.StackProps {
    */
   readonly fanWebHostedZoneId?: string;
   /**
-   * Hosted zone name (e.g. riffsync.tv). Must match the zone for **fanWebCustomDomain**.
+   * Hosted zone name (e.g. riffsync.tv). Must match the zone for **fanWebCustomDomain** and alternate names.
    */
   readonly fanWebZoneName?: string;
+  /**
+   * Extra hostnames on the **same ACM certificate** as **fanWebCustomDomain** (e.g. `www.riffsync.tv`).
+   * CDK context **`fanWebAlternateDomainNames`** (comma-separated). Creates CloudFront aliases + Route 53 A records.
+   */
+  readonly fanWebAlternateDomainNames?: string[];
 }
 
 /** Relative record name under zone, or `undefined` for zone apex. */
@@ -66,9 +71,19 @@ export class StaticSiteStack extends cdk.Stack {
       fanWebCertificateArn,
       fanWebHostedZoneId,
       fanWebZoneName,
+      fanWebAlternateDomainNames = [],
     } = props;
 
     const customDomainConfigured = Boolean(fanWebCustomDomain && fanWebCertificateArn);
+
+    const cfDomainNames =
+      fanWebCustomDomain && customDomainConfigured
+        ? [
+            ...new Set(
+              [fanWebCustomDomain.toLowerCase(), ...fanWebAlternateDomainNames.map((h) => h.toLowerCase())],
+            ),
+          ]
+        : undefined;
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
     cdk.Tags.of(this).add('Environment', environment);
@@ -97,7 +112,7 @@ export class StaticSiteStack extends cdk.Stack {
       defaultRootObject: 'index.html',
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
-      domainNames: fanWebCustomDomain ? [fanWebCustomDomain] : undefined,
+      domainNames: cfDomainNames,
       certificate,
       /**
        * SPA client routes: S3 has no object for `/lobby`, so CloudFront would otherwise
@@ -128,18 +143,20 @@ export class StaticSiteStack extends cdk.Stack {
       },
     });
 
-    if (fanWebHostedZoneId && fanWebZoneName && fanWebCustomDomain) {
+    if (fanWebHostedZoneId && fanWebZoneName && cfDomainNames && cfDomainNames.length > 0) {
       const zone = route53.HostedZone.fromHostedZoneAttributes(this, 'FanWebDnsZone', {
         hostedZoneId: fanWebHostedZoneId,
         zoneName: fanWebZoneName,
       });
-      const recordName = recordNameUnderZone(fanWebCustomDomain, fanWebZoneName);
-      new route53.ARecord(this, 'FanWebDnsAlias', {
-        zone,
-        recordName,
-        target: route53.RecordTarget.fromAlias(
-          new route53Targets.CloudFrontTarget(this.distribution),
-        ),
+      cfDomainNames.forEach((hostname, i) => {
+        const recordName = recordNameUnderZone(hostname, fanWebZoneName);
+        new route53.ARecord(this, `FanWebDnsAlias${i}`, {
+          zone,
+          recordName,
+          target: route53.RecordTarget.fromAlias(
+            new route53Targets.CloudFrontTarget(this.distribution),
+          ),
+        });
       });
     }
 
