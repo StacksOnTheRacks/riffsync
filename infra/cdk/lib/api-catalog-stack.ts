@@ -83,7 +83,7 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     const catalogListFn = new lambdaNodejs.NodejsFunction(this, 'CatalogListFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       entry: path.join(__dirname, '../lambda/catalog-list.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(29),
@@ -95,7 +95,7 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     const catalogGetFn = new lambdaNodejs.NodejsFunction(this, 'CatalogGetFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       entry: path.join(__dirname, '../lambda/catalog-get.ts'),
       handler: 'handler',
       timeout: cdk.Duration.seconds(10),
@@ -125,7 +125,7 @@ export class ApiCatalogStack extends cdk.Stack {
       this.node.tryGetContext('catalogReconcileScheduleEnabled') === 'false';
 
     const tmdbReconcileFn = new lambdaNodejs.NodejsFunction(this, 'TmdbReconcileFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       entry: path.join(__dirname, '../lambda/tmdb-reconcile-handler.ts'),
       handler: 'handler',
       timeout: cdk.Duration.minutes(5),

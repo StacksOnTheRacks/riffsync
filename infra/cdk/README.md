@@ -54,7 +54,7 @@ JSON response shapes: **`docs/api.catalog.md`**.
 
 ## Prerequisites
 
-- **Node.js** LTS (**≥ 20**)
+- **Node.js** LTS (**≥ 20**) on your machine for **`npm`/`cdk`**; synthesized **Lambda** runtimes are **Node.js 24** (matches **`cfn-lint`** / AWS deprecation policy).
 - **AWS CDK CLI** — `npm install -g aws-cdk` or `npx cdk` (this package lists `aws-cdk` as a devDependency)
 - AWS credentials only if you **deploy**; **`cdk synth` does not require a live account**
 
