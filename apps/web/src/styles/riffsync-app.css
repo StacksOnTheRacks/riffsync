@@ -586,7 +586,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-page__theater-heading {
-  margin: 0 0 1rem;
+  margin: 0;
   text-align: center;
   font-family: var(--title-fonts);
   font-size: clamp(1.2rem, 2.65vw, 1.85rem);
