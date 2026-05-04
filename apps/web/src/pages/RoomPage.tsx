@@ -244,7 +244,13 @@ export function RoomPage() {
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
   const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
   const [guestPlayHint, setGuestPlayHint] = useState(false)
-  const [presenceMembers, setPresenceMembers] = useState<PresenceMember[]>([])
+  const [presenceRoster, setPresenceRoster] = useState<{
+    roomId: string
+    members: PresenceMember[]
+  }>(() => ({
+    roomId: '',
+    members: [],
+  }))
   const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people'>('chat')
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -268,13 +274,10 @@ export function RoomPage() {
     guestSigQRef.current = Promise.resolve()
   }, [roomId])
 
-  useEffect(() => {
-    setPresenceMembers([])
-  }, [roomId])
-
   const peopleShown = useMemo(() => {
+    const roster = presenceRoster.roomId === roomId ? presenceRoster.members : []
     const merged = new Map<string, PresenceMember>()
-    for (const m of presenceMembers) {
+    for (const m of roster) {
       merged.set(m.sessionId, m)
     }
     if (!merged.has(sessionId)) {
@@ -285,7 +288,7 @@ export function RoomPage() {
       return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
     })
     return list
-  }, [presenceMembers, sessionId, displayName, isPublisher])
+  }, [presenceRoster.members, presenceRoster.roomId, roomId, sessionId, displayName, isPublisher])
 
   const iceServers = useMemo(() => getRtcIceServers(), [])
 
@@ -356,7 +359,7 @@ export function RoomPage() {
           if (typeof sid !== 'string' || typeof dn !== 'string') continue
           members.push({ sessionId: sid, displayName: dn, isHost: Boolean(m.isHost) })
         }
-        setPresenceMembers(members)
+        setPresenceRoster({ roomId: data.roomId as string, members })
         return
       }
       if (t !== 'signaling') return
