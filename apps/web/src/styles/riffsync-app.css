@@ -547,6 +547,89 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   border-bottom: 1px solid rgb(255 255 255 / 0.08);
 }
 
+.riffsync-room-page__chat-toolbar--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.65rem;
+  row-gap: 0.4rem;
+}
+
+.riffsync-room-page__tabs {
+  display: flex;
+  align-items: stretch;
+}
+
+.riffsync-room-page__tab {
+  cursor: pointer;
+  appearance: none;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  margin: 0;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: inherit;
+  background: rgb(255 255 255 / 0.04);
+}
+
+.riffsync-room-page__tab:first-of-type {
+  border-radius: 4px 0 0 4px;
+}
+
+.riffsync-room-page__tab:last-of-type {
+  border-radius: 0 4px 4px 0;
+}
+
+.riffsync-room-page__tab + .riffsync-room-page__tab {
+  border-left: none;
+}
+
+.riffsync-room-page__tab--on {
+  background: rgb(255 255 255 / 0.13);
+  color: var(--primary-color);
+}
+
+.riffsync-room-page__people-list {
+  list-style: none;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  max-height: min(460px, 56vh);
+  padding: 0.5rem 0.65rem;
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.riffsync-room-page__people-list li + li {
+  margin-top: 0.35rem;
+}
+
+.riffsync-room-page__person-label strong {
+  font-weight: 700;
+}
+
+.riffsync-room-page__ws-banner {
+  margin: 0;
+  padding: 0.45rem 0.65rem 0.65rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.riffsync-room-page__picker--host-only {
+  flex: 1 1 260px;
+  max-width: 100%;
+}
+
+.riffsync-room-page__guest-signin {
+  margin: 0.5rem 0 0;
+}
+
+.riffsync-room-page__guest-actions {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
 .riffsync-room-page__chat-heading {
   margin: 0;
   font-family: var(--title-fonts);

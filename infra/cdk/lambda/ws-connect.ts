@@ -2,6 +2,7 @@ import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyAccessToken } from './cognito-jwt';
+import { broadcastRoomPresence } from './ws-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -16,6 +17,9 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   const apiStage = typeof event.requestContext.stage === 'string' ? event.requestContext.stage : undefined;
   const roomId = event.queryStringParameters?.roomId;
   const sessionId = event.queryStringParameters?.sessionId;
+  const displayNameRaw = event.queryStringParameters?.displayName;
+  const displayName =
+    typeof displayNameRaw === 'string' && displayNameRaw.trim() !== '' ? displayNameRaw.trim().slice(0, 48) : undefined;
   if (!roomId || !sessionId || roomId.trim() === '' || sessionId.trim() === '') {
     console.warn(
       JSON.stringify({
@@ -87,6 +91,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
         connectionId,
         roomId,
         sessionId,
+        ...(displayName ? { displayName } : {}),
         ...(hostSub ? { hostSub } : {}),
         connectedAt: nowSec,
         expiresAt: ttl,
@@ -107,6 +112,8 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
       dynamoStoresPublisherRole: Boolean(hostSub),
     }),
   );
+
+  await broadcastRoomPresence({ doc: client, connectionsTable: connTable, roomId }).catch(() => undefined);
 
   return { statusCode: 200, body: 'Connected' };
 };

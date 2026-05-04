@@ -8,6 +8,7 @@ Fan clients connect to **`RiffSyncApi-{env}`** **`WebSocketUrl`** (**`wss://…`
 | --- | --- |
 | **Query** `roomId` | Target room (**must exist**). |
 | **Query** `sessionId` | Opaque anonymous session (**`authorization.md`**). |
+| **Query** `displayName` | Optional nickname for **`People`** in the SPA (**≤ 48** chars after trim server-side); blank → generic **`Guest (…)`** in roster payloads. |
 | **Header** `Authorization` OR **Query** `accessToken` | **`Bearer <Cognito access token>`** (**header**) or bare/minimal raw token (**query**) only when claiming **publisher** (**`JWT.sub`** must equal **`room.hostSub`**). Browsers normally **cannot** set WebSocket **`Authorization`**; the SPA MUST pass **`accessToken`** (**URL-encoded JWT**) — avoid logging query strings containing tokens. |
 
 Malformed or mismatched JWT → **`403`**; missing room/session → **`400`**.
@@ -29,6 +30,22 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 ```json
 { "type": "chat", "roomId": "<id>", "sessionId": "<sender>", "text": "…", "ts": 0 }
 ```
+
+### Presence (roster snapshot)
+
+Broadcast to **every** connection in **`roomId`** whenever the connection roster changes (**`$connect`** / **`$disconnect`**). Clients should **replace** local roster UI with **`members`**.
+
+Optional **`displayName`** on **`$connect`** exists only on the WebSocket connections row until disconnect.
+
+```json
+{
+  "type": "presence",
+  "roomId": "<id>",
+  "members": [{ "sessionId": "<opaque>", "displayName": "…", "isHost": false }]
+}
+```
+
+- **`isHost`**: **`true`** when **`$connect`** verified **`accessToken`** and **`JWT.sub`** matched **`rooms.hostSub`** for that publisher socket.
 
 ### Signaling
 

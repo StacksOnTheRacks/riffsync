@@ -2,12 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import type { MutableRefObject } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RoomPatchResult, RoomSnapshot } from '../api/roomsApi'
-import {
-  catalogToRoomPlayback,
-  fetchRoom,
-  patchRoom,
-  roomPlaybackForBadge,
-} from '../api/roomsApi'
+import { catalogToRoomPlayback, fetchRoom, patchRoom } from '../api/roomsApi'
 import { fetchCatalogEpisodeById, fetchCatalogEntries } from '../catalog/catalogApi'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { cognitoSub } from '../auth/jwtDecode'
@@ -19,66 +14,19 @@ import { getPublicOrigin } from '../config/publicOrigin'
 import { getRtcIceServers } from '../config/iceServers'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
 import {
-  announceWebrtcDebugOnRoomMount,
   attachPcStateLogging,
   summarizeEnvelope,
   webrtcDebugEnabled,
   webrtcLog,
 } from '../room/webrtcDebug'
-import {
-  clearRealtimeDiag,
-  getRealtimeDiagSnapshot,
-  installRealtimeDiagGlobal,
-  setRealtimeRoomProfile,
-  showRealtimeDiagPanel,
-} from '../room/realtimeDiagnostics'
-import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 
 type ChatMsg = { sessionId: string; text: string; ts: number }
 
-function RoomRealtimeDiagnosticsPanel() {
-  const [rev, bump] = useState(0)
-  useEffect(() => {
-    const id = window.setInterval(() => bump((x) => x + 1), 1000)
-    return () => window.clearInterval(id)
-  }, [])
-  const snap = getRealtimeDiagSnapshot()
-  const json = JSON.stringify(snap, null, 2)
-  void rev
-
-  return (
-    <section className="riffsync-room-page__diag" aria-label="Realtime diagnostics">
-      <details>
-        <summary>Realtime diagnostics (instrumented facts)</summary>
-        <p className="riffsync-muted">
-          Console: run <code>riffsyncRealtimeDiag.print()</code> for JSON. Toggle this panel anytime with{' '}
-          <code>?diag=1</code>,<code>?webrtcDebug=1</code>, or{' '}
-          <code>localStorage.setItem(&apos;riffsync.roomDiagPanel&apos;,&apos;1&apos;)</code> then reload.
-        </p>
-        <p className="riffsync-muted">
-          AWS: open CloudWatch for the Lambda that handles WebSocket{' '}
-          <code>$connect</code>, then search log messages containing <code>riffsyncDiag</code> around the UTC time in{' '}
-          <code>generatedAtIso</code> below.
-        </p>
-        <p>
-          <button
-            type="button"
-            className="gen-button"
-            onClick={() => void navigator.clipboard.writeText(json).catch(() => undefined)}
-          >
-            Copy snapshot JSON
-          </button>{' '}
-          <button type="button" className="gen-button" onClick={() => clearRealtimeDiag()}>
-            Reset counters / timeline
-          </button>
-        </p>
-        <pre style={{ maxHeight: 340, overflow: 'auto', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-          {json}
-        </pre>
-      </details>
-    </section>
-  )
+type PresenceMember = {
+  sessionId: string
+  displayName: string
+  isHost: boolean
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -296,6 +244,8 @@ export function RoomPage() {
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
   const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
   const [guestPlayHint, setGuestPlayHint] = useState(false)
+  const [presenceMembers, setPresenceMembers] = useState<PresenceMember[]>([])
+  const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people'>('chat')
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const peerByGuestRef = useRef(new Map<string, RTCPeerConnection>())
@@ -310,26 +260,6 @@ export function RoomPage() {
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
 
   useEffect(() => {
-    installRealtimeDiagGlobal()
-  }, [])
-
-  useEffect(() => {
-    setRealtimeRoomProfile(
-      room && roomId
-        ? {
-            roomId,
-            sessionProbe8: sessionId.slice(0, 8),
-            jwtSubProbe8: fanToken ? cognitoSub(fanToken)?.slice(0, 8) : undefined,
-            hostSubProbe8: room.hostSub.slice(0, 8),
-            clientClaimsPublisherUi: isPublisher,
-            wsConfigured: Boolean(wsBase),
-            wsHookEnabledSemantics: Boolean(wsBase && roomId && room),
-          }
-        : null,
-    )
-  }, [room, roomId, sessionId, fanToken, isPublisher, wsBase])
-
-  useEffect(() => {
     guestRemoteRef.current = guestRemote
   }, [guestRemote])
 
@@ -337,6 +267,25 @@ export function RoomPage() {
     guestPendingIceRef.current = []
     guestSigQRef.current = Promise.resolve()
   }, [roomId])
+
+  useEffect(() => {
+    setPresenceMembers([])
+  }, [roomId])
+
+  const peopleShown = useMemo(() => {
+    const merged = new Map<string, PresenceMember>()
+    for (const m of presenceMembers) {
+      merged.set(m.sessionId, m)
+    }
+    if (!merged.has(sessionId)) {
+      merged.set(sessionId, { sessionId, displayName, isHost: isPublisher })
+    }
+    const list = [...merged.values()].sort((a, b) => {
+      if (a.isHost !== b.isHost) return a.isHost ? -1 : 1
+      return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
+    })
+    return list
+  }, [presenceMembers, sessionId, displayName, isPublisher])
 
   const iceServers = useMemo(() => getRtcIceServers(), [])
 
@@ -355,11 +304,6 @@ export function RoomPage() {
   useEffect(() => {
     queueMicrotask(() => void loadRoom())
   }, [loadRoom])
-
-  useEffect(() => {
-    if (!roomId || !room) return
-    announceWebrtcDebugOnRoomMount()
-  }, [roomId, room])
 
   useEffect(() => {
     if (!roomId || !room) return
@@ -398,6 +342,21 @@ export function RoomPage() {
             ts,
           },
         ])
+        return
+      }
+      if (t === 'presence' && typeof data.roomId === 'string') {
+        if (data.roomId !== roomId) return
+        const raw = data.members
+        if (!Array.isArray(raw)) return
+        const members: PresenceMember[] = []
+        for (const m of raw) {
+          if (!isRecord(m)) continue
+          const sid = m.sessionId
+          const dn = m.displayName
+          if (typeof sid !== 'string' || typeof dn !== 'string') continue
+          members.push({ sessionId: sid, displayName: dn, isHost: Boolean(m.isHost) })
+        }
+        setPresenceMembers(members)
         return
       }
       if (t !== 'signaling') return
@@ -444,13 +403,14 @@ export function RoomPage() {
         pendingReadyGuestsRef,
       }).catch(() => undefined)
     },
-    [captureStream, iceServers, isPublisher, sessionId],
+    [captureStream, iceServers, isPublisher, roomId, sessionId],
   )
 
   const { status: wsStatus, sendJson: wsSendJson } = useRoomWebSocket({
     url: wsBase,
     roomId,
     sessionId,
+    displayName,
     accessToken: isPublisher ? fanToken : null,
     enabled: Boolean(wsBase && roomId && room),
     onMessage: onWsMessage,
@@ -540,7 +500,6 @@ export function RoomPage() {
         })
       })
       setCaptureStream(stream)
-      console.info('[riffsync] Screen capture started — WebRTC signaling appears after a guest opens this room (not only ping).')
       webrtcLog('getDisplayMedia OK, tracks:', stream.getTracks().length)
     }
 
@@ -702,66 +661,6 @@ export function RoomPage() {
       <div className="container riffsync-room-page">
         <div className="riffsync-room-page__stage">
           <div className="riffsync-room-page__theater">
-            <header className="riffsync-room-page__masthead">
-              <div className="riffsync-room-page__masthead-text">
-                <h1 className="riffsync-room-page__title">{title}</h1>
-                <p className="riffsync-room-page__identity">
-                  <strong>{displayName}</strong>{' '}
-                  <span className="riffsync-room-page__identity-id">
-                    (<code>{sessionId.slice(0, 8)}…</code>)
-                  </span>{' '}
-                  {isPublisher ? (
-                    <span className="riffsync-muted">Hosting</span>
-                  ) : (
-                    <span className="riffsync-muted">Guest</span>
-                  )}
-                </p>
-              </div>
-              <div className="riffsync-room-page__masthead-chips">
-                <PlaybackExpectationBadge expectation={roomPlaybackForBadge(room.playbackExpectation)} />
-                {wsBase ? (
-                  <span className="riffsync-room-page__ws-pill riffsync-muted">
-                    Realtime{' '}
-                    <code className={wsStatus === 'open' ? 'riffsync-room-page__ws-open' : undefined}>{wsStatus}</code>
-                  </span>
-                ) : null}
-                <Link to="/lobby" className="riffsync-room-page__lobby-link">
-                  Lobby
-                </Link>
-              </div>
-            </header>
-
-            {!wsBase ? (
-              <p role="status" className="riffsync-room-page__banner riffsync-muted">
-                Set <code>VITE_PUBLIC_WS_URL</code> for chat and watch parties.
-              </p>
-            ) : null}
-
-            {isPublisher ? (
-              <details className="riffsync-room-page__collapsible riffsync-muted">
-                <summary>Testing two browsers?</summary>
-                <p role="note">
-                  Use a <strong>signed-out</strong> or <strong>Incognito</strong> window as the guest. If the guest
-                  signs in with the <strong>same</strong> account that created the room, that tab is also{' '}
-                  <strong>host</strong>—it never sends a WebRTC <code>ready</code>, so signaling stays idle.
-                </p>
-                {wsBase ? (
-                  <p role="note">
-                    WebSocket Messages: pings ~25s; when guests connect expect <code>signaling</code> (
-                    <code>ready</code>, <code>offer</code>, …).
-                  </p>
-                ) : null}
-              </details>
-            ) : wsBase ? (
-              <details className="riffsync-room-page__collapsible riffsync-muted">
-                <summary>Realtime tip</summary>
-                <p role="note">
-                  When the socket is <code>open</code>, you should see outbound <code>signaling</code> (
-                  <code>ready</code>) right away, then <code>ping</code> (~25s apart).
-                </p>
-              </details>
-            ) : null}
-
             {isPublisher ? (
               <section className="riffsync-room-page__playback" aria-label="Hosted playback">
                 <div className="riffsync-room-page__player-shell">
@@ -775,7 +674,7 @@ export function RoomPage() {
                     </p>
                   ) : null}
                   <div className="riffsync-room-page__host-strip-row">
-                    <div className="riffsync-room-page__picker">
+                    <div className="riffsync-room-page__picker riffsync-room-page__picker--host-only">
                       <label htmlFor="episode-picker">Episode</label>
                       <select
                         id="episode-picker"
@@ -790,18 +689,6 @@ export function RoomPage() {
                         ))}
                       </select>
                     </div>
-                    <p className="riffsync-room-page__share-status" role="status">
-                      {captureStream ? (
-                        <>
-                          Share <strong>on</strong>. Guests receive this tab over WebRTC. Use{' '}
-                          <strong>Room ▸ Stop sharing</strong> to end.
-                        </>
-                      ) : (
-                        <>
-                          Not sharing yet — use <strong>Room ▸ Share this tab</strong> so guests see video.
-                        </>
-                      )}
-                    </p>
                   </div>
                   {captureErr ? (
                     <p className="riffsync-room-page__capture-err" role="alert">
@@ -809,22 +696,12 @@ export function RoomPage() {
                     </p>
                   ) : null}
                 </div>
-
-                <details className="riffsync-room-page__collapsible riffsync-muted">
-                  <summary>About screen capture and the media picker</summary>
-                  <p>
-                    Capture the tab that shows this embedded player so everyone sees consistent pixels—including
-                    on-screen cues. If this tab does not appear in Chrome&apos;s picker, choose{' '}
-                    <strong>Window</strong> and pick this browser window.
-                  </p>
-                </details>
               </section>
             ) : (
               <section className="riffsync-room-page__playback" aria-label="Guest playback">
-                <p className="riffsync-room-page__guest-lede">
-                  Viewing the host&apos;s shared tab. If playback does not start automatically, tap Play (autoplay
-                  rules).
-                </p>
+                <span className="sr-only">
+                  Watching the shared video stream from this room&apos;s host. Use Play if the browser blocks autoplay.
+                </span>
                 {guestPlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
                     <button type="button" className="gen-button" onClick={() => void playGuestVideo()}>
@@ -841,34 +718,54 @@ export function RoomPage() {
                     muted={false}
                   />
                 </div>
-                <p className="riffsync-room-page__guest-foot riffsync-muted">
-                  {fanToken ? (
-                    <>Signed in as a guest — only the party creator can administer this room.</>
-                  ) : (
-                    <>
-                      Hosts sign in with Facebook via Cognito to create rooms.{' '}
-                      <button
-                        type="button"
-                        className="gen-button"
-                        onClick={() =>
-                          void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
-                        }
-                      >
-                        Sign in (optional)
-                      </button>
-                    </>
-                  )}
-                </p>
+                {fanToken ? (
+                  <p className="sr-only">
+                    You are signed in as a guest. Only the party creator can change room settings or the episode.
+                  </p>
+                ) : (
+                  <p className="riffsync-room-page__guest-signin riffsync-muted">
+                    <button
+                      type="button"
+                      className="gen-button"
+                      onClick={() =>
+                        void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
+                      }
+                    >
+                      Sign in (optional)
+                    </button>
+                  </p>
+                )}
               </section>
             )}
-
-            {showRealtimeDiagPanel() ? <RoomRealtimeDiagnosticsPanel /> : null}
           </div>
 
-          <aside className="riffsync-room-page__chat-column" aria-label="Chat sidebar">
-            <section className="riffsync-room-page__chat" aria-label="Chat">
-              <div className="riffsync-room-page__chat-toolbar">
-                <h2 className="riffsync-room-page__chat-heading">Chat</h2>
+          <aside className="riffsync-room-page__chat-column" aria-label="Room sidebar">
+            <section className="riffsync-room-page__chat" aria-label="Chat and viewers">
+              {!wsBase ? (
+                <p className="riffsync-room-page__ws-banner riffsync-muted" role="status">
+                  Chat and viewer list require <code>VITE_PUBLIC_WS_URL</code> on this deployment.
+                </p>
+              ) : null}
+
+              <div className="riffsync-room-page__chat-toolbar riffsync-room-page__chat-toolbar--split">
+                <div className="riffsync-room-page__tabs">
+                  <button
+                    type="button"
+                    className={`riffsync-room-page__tab${roomSidebarTab === 'chat' ? ' riffsync-room-page__tab--on' : ''}`}
+                    aria-pressed={roomSidebarTab === 'chat'}
+                    onClick={() => setRoomSidebarTab('chat')}
+                  >
+                    Chat
+                  </button>
+                  <button
+                    type="button"
+                    className={`riffsync-room-page__tab${roomSidebarTab === 'people' ? ' riffsync-room-page__tab--on' : ''}`}
+                    aria-pressed={roomSidebarTab === 'people'}
+                    onClick={() => setRoomSidebarTab('people')}
+                  >
+                    People
+                  </button>
+                </div>
                 <details className="riffsync-room-page__room-menu">
                   <summary className="riffsync-room-page__room-menu-trigger">Room</summary>
                   <div className="riffsync-room-page__room-menu-panel">
@@ -894,30 +791,55 @@ export function RoomPage() {
                   </div>
                 </details>
               </div>
-              <ul className="riffsync-room-chat-log">
-                {chat.map((m) => (
-                  <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
-                    <span className="riffsync-room-chat-log__who">{m.sessionId.slice(0, 6)}…</span>
-                    {': '}
-                    {m.text}
-                  </li>
-                ))}
-              </ul>
-              <div className="riffsync-room-chat-compose">
-                <input
-                  type="text"
-                  maxLength={2000}
-                  value={chatDraft}
-                  placeholder="Say something…"
-                  onChange={(e) => setChatDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') sendChat()
-                  }}
-                />
-                <button type="button" className="gen-button" onClick={sendChat}>
-                  Send
-                </button>
-              </div>
+
+              {roomSidebarTab === 'chat' ? (
+                <>
+                  <ul className="riffsync-room-chat-log">
+                    {chat.map((m) => (
+                      <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
+                        <span className="riffsync-room-chat-log__who">{m.sessionId.slice(0, 6)}…</span>
+                        {': '}
+                        {m.text}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="riffsync-room-chat-compose">
+                    <input
+                      type="text"
+                      maxLength={2000}
+                      value={chatDraft}
+                      placeholder="Say something…"
+                      onChange={(e) => setChatDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') sendChat()
+                      }}
+                    />
+                    <button type="button" className="gen-button" onClick={sendChat}>
+                      Send
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
+                  {peopleShown.map((p) => (
+                    <li key={p.sessionId}>
+                      <span className="riffsync-room-page__person-label">
+                        {p.isHost ? (
+                          <>
+                            <strong>{p.displayName}</strong>
+                            <span className="riffsync-muted"> (Host)</span>
+                          </>
+                        ) : (
+                          p.displayName
+                        )}
+                        {p.sessionId === sessionId ? (
+                          <span className="riffsync-muted"> · you</span>
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           </aside>
         </div>

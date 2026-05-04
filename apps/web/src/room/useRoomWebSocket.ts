@@ -18,6 +18,8 @@ export function useRoomWebSocket(options: {
   url: string | undefined
   roomId: string
   sessionId: string
+  /** Shown in room “People” list when the server broadcasts presence (bounded to 48 chars on connect). */
+  displayName?: string
   accessToken: string | null
   enabled: boolean
   onMessage: (data: Record<string, unknown>) => void
@@ -25,7 +27,7 @@ export function useRoomWebSocket(options: {
   status: WsStatus
   sendJson: (payload: Record<string, unknown>) => void
 } {
-  const { url, roomId, sessionId, accessToken, enabled, onMessage } = options
+  const { url, roomId, sessionId, displayName, accessToken, enabled, onMessage } = options
   const enabledRef = useRef(enabled)
   const wsRef = useRef<WebSocket | null>(null)
   const pingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -81,6 +83,9 @@ export function useRoomWebSocket(options: {
       queueMicrotask(() => setStatus('connecting'))
 
       const qp = new URLSearchParams({ roomId, sessionId })
+      if (displayName && displayName.trim() !== '') {
+        qp.set('displayName', displayName.trim().slice(0, 48))
+      }
       if (accessToken) {
         qp.set('accessToken', accessToken)
       }
@@ -164,7 +169,7 @@ export function useRoomWebSocket(options: {
       wsRef.current?.close()
       wsRef.current = null
     }
-  }, [accessToken, enabled, roomId, sessionId, url])
+  }, [accessToken, displayName, enabled, roomId, sessionId, url])
 
   const sendJson = useCallback((payload: Record<string, unknown>) => {
     const ws = wsRef.current
