@@ -18,6 +18,12 @@ import { getPublicWsUrl } from '../config/wsUrl'
 import { getPublicOrigin } from '../config/publicOrigin'
 import { getRtcIceServers } from '../config/iceServers'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
+import {
+  attachPcStateLogging,
+  summarizeEnvelope,
+  webrtcDebugEnabled,
+  webrtcLog,
+} from '../room/webrtcDebug'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 
@@ -44,6 +50,7 @@ async function ensureHostPeerNegotiated(
     pc.close()
   }
   pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
+  attachPcStateLogging(pc, `host→${guestSessionId.slice(0, 8)}…`)
   ctx.peerByGuestRef.current.set(guestSessionId, pc)
   for (const t of stream.getTracks()) {
     pc.addTrack(t, stream)
@@ -156,6 +163,7 @@ async function handleGuestSignal(ctx: {
     ctx.pendingIceRef.current = []
 
     const pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
+    attachPcStateLogging(pc, 'guest')
     ctx.guestPcRef.current = pc
 
     pc.ontrack = (ev) => {
@@ -322,6 +330,14 @@ export function RoomPage() {
       const envelope = data.envelope
       if (!fromSessionId || !isRecord(envelope)) return
 
+      if (webrtcDebugEnabled()) {
+        webrtcLog('ws in', {
+          role,
+          from: `${fromSessionId.slice(0, 8)}…`,
+          ...summarizeEnvelope(envelope),
+        })
+      }
+
       if (!isPublisher) {
         if (role !== 'host') return
         guestSigQRef.current = guestSigQRef.current
@@ -354,7 +370,7 @@ export function RoomPage() {
     [captureStream, iceServers, isPublisher, sessionId],
   )
 
-  const { status: wsStatus, sendJson } = useRoomWebSocket({
+  const { status: wsStatus, sendJson: wsSendJson } = useRoomWebSocket({
     url: wsBase,
     roomId,
     sessionId,
@@ -362,6 +378,20 @@ export function RoomPage() {
     enabled: Boolean(wsBase && roomId && room),
     onMessage: onWsMessage,
   })
+
+  const sendJson = useCallback(
+    (payload: Record<string, unknown>) => {
+      if (
+        webrtcDebugEnabled() &&
+        payload.action === 'signaling' &&
+        isRecord(payload.envelope)
+      ) {
+        webrtcLog('ws out', summarizeEnvelope(payload.envelope))
+      }
+      wsSendJson(payload)
+    },
+    [wsSendJson],
+  )
 
   useEffect(() => {
     sendJsonRef.current = sendJson
