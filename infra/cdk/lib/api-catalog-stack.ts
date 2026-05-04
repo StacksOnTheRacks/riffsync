@@ -139,6 +139,16 @@ export class ApiCatalogStack extends cdk.Stack {
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
+    const privacyRoutingSecret = new secretsmanager.Secret(this, 'PrivacyRemovalRouting', {
+      secretName: `riffsync/${environment}/privacy-removal-routing`,
+      description:
+        'JSON: {"notifyEmail":"you@example.com","fromEmail":"verified-sender@yourdomain"} — SES-verified fromEmail; notifyEmail receives submissions.',
+      secretStringValue: cdk.SecretValue.unsafePlainText(
+        '{"notifyEmail":"REPLACE_WITH_NOTIFY_EMAIL","fromEmail":"REPLACE_WITH_VERIFIED_SES_FROM"}',
+      ),
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
     const catalogListFn = new lambdaNodejs.NodejsFunction(this, 'CatalogListFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(29),
@@ -282,6 +292,26 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomsTable.grantReadData(lobbyGetFn);
     this.connectionsTable.grantReadData(lobbyGetFn);
 
+    const privacyRemovalFn = new lambdaNodejs.NodejsFunction(this, 'PrivacyRemovalRequestFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/privacy-removal-request.ts'),
+      handler: 'handler',
+      environment: {
+        PRIVACY_ROUTING_SECRET_ARN: privacyRoutingSecret.secretArn,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    privacyRoutingSecret.grantRead(privacyRemovalFn);
+    privacyRemovalFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ses:SendEmail'],
+        resources: ['*'],
+      }),
+    );
+
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
@@ -392,6 +422,10 @@ export class ApiCatalogStack extends cdk.Stack {
     const roomPatchIntegration = new integrations.HttpLambdaIntegration('RoomPatchInt', roomPatchFn);
     const roomGetIntegration = new integrations.HttpLambdaIntegration('RoomGetInt', roomGetFn);
     const lobbyGetIntegration = new integrations.HttpLambdaIntegration('LobbyGetInt', lobbyGetFn);
+    const privacyRemovalIntegration = new integrations.HttpLambdaIntegration(
+      'PrivacyRemovalInt',
+      privacyRemovalFn,
+    );
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -431,6 +465,12 @@ export class ApiCatalogStack extends cdk.Stack {
       integration: lobbyGetIntegration,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/privacy-removal-request',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: privacyRemovalIntegration,
+    });
+
     new cdk.CfnOutput(this, 'CatalogTableName', {
       value: this.catalogTable.tableName,
       description: 'DynamoDB Catalog table — partition key `id` (episode slug).',
@@ -465,6 +505,12 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TmdbApiTokenSecretArn', {
       value: this.tmdbApiTokenSecret.secretArn,
       description: 'Set to a real TMDB bearer token (not a v3 api_key query param in git).',
+    });
+
+    new cdk.CfnOutput(this, 'PrivacyRemovalRoutingSecretArn', {
+      value: privacyRoutingSecret.secretArn,
+      description:
+        'JSON with notifyEmail + SES-verified fromEmail for POST /v1/privacy-removal-request (see secret description).',
     });
 
     new cdk.CfnOutput(this, 'TmdbReconcileFnName', {

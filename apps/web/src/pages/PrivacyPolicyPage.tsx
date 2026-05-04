@@ -201,11 +201,11 @@ export function PrivacyPolicyPage() {
           </p>
           <p>
             To request deletion of personal information associated with your use of RiffSync (including
-            data tied to a hosted sign-in account such as Amazon Cognito), email{' '}
-            <a href="mailto:derrick@andersonwebstudio.com">derrick@andersonwebstudio.com</a> from an address
-            you control or that matches your account where possible. Include a brief description of your
-            request (for example &ldquo;delete my RiffSync account and related data&rdquo;) and any details
-            that help us locate your record (such as the email address shown on your account, if any).
+            data tied to a hosted sign-in account such as Amazon Cognito), submit our{' '}
+            <Link to="/privacy/data-removal">data removal request form</Link>. Include enough detail for us
+            to locate your records (for example the email address associated with your account, if any).
+            You do not need to publish a personal email address on the web to reach us; we review submissions
+            delivered securely through that form.
           </p>
           <p>
             We may need to verify your identity before completing deletion. We will respond within a
@@ -226,9 +226,9 @@ export function PrivacyPolicyPage() {
         <section>
           <h2>14. Contact</h2>
           <p>
-            For privacy questions or requests (including deletion), email{' '}
-            <a href="mailto:derrick@andersonwebstudio.com">derrick@andersonwebstudio.com</a>. You can also
-            reach the project via our public repository:{' '}
+            For general privacy questions, use the{' '}
+            <Link to="/privacy/data-removal">data removal request form</Link> (you may describe an access or
+            correction question there as well), or reach the project via our public repository:{' '}
             <a href="https://github.com/StacksOnTheRacks/riffsync" rel="noopener noreferrer">
               GitHub
             </a>

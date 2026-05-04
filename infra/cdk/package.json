@@ -30,6 +30,7 @@
     "@aws-sdk/client-apigatewaymanagementapi": "^3.1041.0",
     "@aws-sdk/client-dynamodb": "^3.726.1",
     "@aws-sdk/client-secrets-manager": "^3.726.1",
+    "@aws-sdk/client-ses": "^3.726.1",
     "@aws-sdk/lib-dynamodb": "^3.726.1",
     "aws-cdk-lib": "^2.173.4",
     "aws-jwt-verify": "^5.1.1",

@@ -140,6 +140,44 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   color: var(--white-color);
 }
 
+.riffsync-legal-form label {
+  display: block;
+  margin-top: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.riffsync-legal-form input[type='email'],
+.riffsync-legal-form textarea {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--secondary-color);
+  background: var(--dark-color);
+  color: var(--white-color);
+}
+
+.riffsync-legal-form textarea {
+  resize: vertical;
+  min-height: 8rem;
+}
+
+.riffsync-legal-form__error {
+  margin-top: 1rem;
+  color: var(--primary-color);
+}
+
+/* Spam honeypot — leave off-screen */
+.riffsync-honeypot {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /*
  * Template CSS sets `.gen-banner-movies .item { height: 100vh }` and spotlight
  * `.home-singal-silder … { height: 70vh }` for their Owl sliders. Our Swiper

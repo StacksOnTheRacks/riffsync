@@ -141,6 +141,7 @@ Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as cat
 | **`GET /v1/rooms/{roomId}`** | Anonymous | Reads room snapshot (**client merges catalog** if needed). |
 | **`PATCH /v1/rooms/{roomId}`** | JWT | **`403`** unless **`JWT.sub === room.hostSub`**; optimistic **`version`** check (`409`). |
 | **`GET /v1/lobby`** | Anonymous (`X-Session-Id` ignored here—reserved for quotas later) | **Query** **`PublicLobbyIndex`** + **`FilterExpression`** hides stale rows (**`lastActivityAt ≤ now − STALE_ROOM_MS`**). Default **`STALE_ROOM_MS`** = **`45 × 60 × 1000`**; synth/deploy **`--context staleRoomMs=…`** or Lambda env **`STALE_ROOM_MS`**. Hydrates **`catalog`** preview via **`BatchGetItem`**. Outputs **`staleRoomMsHint`**, **`cutoffActivityAfter`**. |
+| **`POST /v1/privacy-removal-request`** | Anonymous | JSON body **`contactEmail`**, **`message`** (10–8000 chars), optional honeypot **`website`** (must be empty). Sends mail via **SES** using **`riffsync/<env>/privacy-removal-routing`** (JSON **`notifyEmail`** + SES-verified **`fromEmail`**). Configure **SES** identities and replace secret placeholders before relying on the SPA form. |
 
 **WebSocket**: outputs **`WebSocketUrl`** (**`wss://…/{staging|prod}`**). Contracts: **`../../docs/contracts.websocket.md`**. **`execute-api:ManageConnections`** attaches only to this stack’s WebSocket API (**`…/*/*/@connections/*`**, parameterized by **`WebSocketApiId`**), not arbitrary `*` resources.
 

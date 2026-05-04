@@ -9,6 +9,7 @@ import { SoloWatchPage } from './pages/SoloWatchPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { TermsOfServicePage } from './pages/TermsOfServicePage'
+import { DataRemovalRequestPage } from './pages/DataRemovalRequestPage'
 
 export function AppRoutes() {
   return (
@@ -21,6 +22,7 @@ export function AppRoutes() {
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/privacy/data-removal" element={<DataRemovalRequestPage />} />
         <Route path="/room/:roomId" element={<RoomPage />} />
         <Route path="/admin/*" element={<AdminShellPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
