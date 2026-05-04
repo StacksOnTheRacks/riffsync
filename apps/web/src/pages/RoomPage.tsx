@@ -397,9 +397,23 @@ export function RoomPage() {
   const startCapture = async () => {
     setCaptureErr(null)
     try {
+      // Chrome defaults `selfBrowserSurface` to "exclude", which omits the *current* tab from the
+      // "Chrome Tab" picker—bad for hosts who want this same tab (embedded player). See:
+      // https://developer.chrome.com/docs/web-platform/screen-sharing-controls
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { preferCurrentTab: true } as MediaTrackConstraints & { preferCurrentTab?: boolean },
+        video: {
+          displaySurface: 'browser',
+          preferCurrentTab: true,
+        } as MediaTrackConstraints & {
+          preferCurrentTab?: boolean
+          displaySurface?: string
+        },
         audio: true,
+        selfBrowserSurface: 'include',
+        surfaceSwitching: 'include',
+      } as Parameters<MediaDevices['getDisplayMedia']>[0] & {
+        selfBrowserSurface?: 'include' | 'exclude'
+        surfaceSwitching?: 'include' | 'exclude'
       })
       stream.getTracks().forEach((tr) => {
         tr.addEventListener('ended', () => {
@@ -551,7 +565,9 @@ export function RoomPage() {
           </p>
           {captureErr ? <p role="alert">{captureErr}</p> : null}
           <p className="riffsync-muted">
-            Capture the browser tab showing the embedded player so guests receive one consistent picture—including any on-screen honor-system cues.
+            Capture the browser tab showing the embedded player so guests receive one consistent picture—including any on-screen honor-system cues. If
+            you still don&apos;t see this tab in the picker, use <strong>Window</strong> and choose this Chrome window, or share another tab that has the
+            video full screen.
           </p>
           <div className="riffsync-room-page__embed">
             <SoloYouTubePlayer key={room.youtubeVideoId} videoId={room.youtubeVideoId} titleHint={title} />

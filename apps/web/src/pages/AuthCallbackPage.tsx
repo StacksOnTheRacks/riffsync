@@ -7,6 +7,8 @@ export function AuthCallbackPage() {
   const navigate = useNavigate()
   const code = params.get('code')
   const state = params.get('state')
+  const oauthErr = params.get('error')
+  const oauthErrDesc = params.get('error_description')
   const missing = !code || !state
 
   const [err, setErr] = useState<string | null>(null)
@@ -29,10 +31,14 @@ export function AuthCallbackPage() {
   }, [navigate, code, state])
 
   if (missing) {
+    const detail =
+      oauthErr || oauthErrDesc
+        ? [oauthErr, oauthErrDesc?.replace(/\+/g, ' ')].filter(Boolean).join(' — ')
+        : null
     return (
       <div className="container" role="alert">
         <h1>Sign-in</h1>
-        <p>Missing OAuth code or state.</p>
+        <p>{detail ?? 'Missing OAuth code or state.'}</p>
         <p>
           <a href="/catalog">← Catalog</a>
         </p>
