@@ -140,6 +140,7 @@ async function handleGuestSignal(ctx: {
   iceServers: RTCIceServer[]
   sendJson: (payload: Record<string, unknown>) => void
   guestPcRef: MutableRefObject<RTCPeerConnection | null>
+  pendingIceRef: MutableRefObject<RTCIceCandidateInit[]>
   setGuestRemote: (s: MediaStream | null) => void
   envelope: Record<string, unknown>
 }): Promise<void> {
@@ -152,6 +153,8 @@ async function handleGuestSignal(ctx: {
 
     const prev = ctx.guestPcRef.current
     prev?.close()
+    ctx.pendingIceRef.current = []
+
     const pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
     ctx.guestPcRef.current = pc
 
@@ -176,6 +179,12 @@ async function handleGuestSignal(ctx: {
       await pc.setRemoteDescription(
         new RTCSessionDescription(sdp as unknown as RTCSessionDescriptionInit),
       )
+      while (ctx.pendingIceRef.current.length > 0) {
+        const batch = ctx.pendingIceRef.current.splice(0)
+        for (const init of batch) {
+          await pc.addIceCandidate(new RTCIceCandidate(init)).catch(() => undefined)
+        }
+      }
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
       ctx.sendJson({
@@ -196,8 +205,13 @@ async function handleGuestSignal(ctx: {
     const cand = ctx.envelope.candidate
     const pc = ctx.guestPcRef.current
     if (!pc || !isRecord(cand)) return
+    const init = cand as RTCIceCandidateInit
+    if (!pc.remoteDescription) {
+      ctx.pendingIceRef.current.push(init)
+      return
+    }
     try {
-      await pc.addIceCandidate(new RTCIceCandidate(cand as RTCIceCandidateInit))
+      await pc.addIceCandidate(new RTCIceCandidate(init))
     } catch {
       /* ignore */
     }
@@ -227,11 +241,22 @@ export function RoomPage() {
   const peerByGuestRef = useRef(new Map<string, RTCPeerConnection>())
   const pendingReadyGuestsRef = useRef(new Set<string>())
   const guestPcRef = useRef<RTCPeerConnection | null>(null)
-  const readySentRef = useRef(false)
+  const guestPendingIceRef = useRef<RTCIceCandidateInit[]>([])
+  const guestSigQRef = useRef<Promise<void>>(Promise.resolve())
+  const guestRemoteRef = useRef<MediaStream | null>(null)
 
   const wsBase = getPublicWsUrl()
   const fanToken = getFanAccessToken()
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
+
+  useEffect(() => {
+    guestRemoteRef.current = guestRemote
+  }, [guestRemote])
+
+  useEffect(() => {
+    guestPendingIceRef.current = []
+    guestSigQRef.current = Promise.resolve()
+  }, [roomId])
 
   const iceServers = useMemo(() => getRtcIceServers(), [])
 
@@ -299,14 +324,19 @@ export function RoomPage() {
 
       if (!isPublisher) {
         if (role !== 'host') return
-        void handleGuestSignal({
-          mySessionId: sessionId,
-          iceServers,
-          sendJson: (payload) => sendJsonRef.current(payload),
-          guestPcRef,
-          setGuestRemote,
-          envelope,
-        })
+        guestSigQRef.current = guestSigQRef.current
+          .then(() =>
+            handleGuestSignal({
+              mySessionId: sessionId,
+              iceServers,
+              sendJson: (payload) => sendJsonRef.current(payload),
+              guestPcRef,
+              pendingIceRef: guestPendingIceRef,
+              setGuestRemote,
+              envelope,
+            }),
+          )
+          .catch(() => undefined)
         return
       }
 
@@ -352,19 +382,17 @@ export function RoomPage() {
 
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
-    if (readySentRef.current) return
-    readySentRef.current = true
-    sendJson({
-      action: 'signaling',
-      envelope: { guestSignaling: true, kind: 'ready' },
-    })
-  }, [isPublisher, sendJson, wsStatus])
-
-  useEffect(() => {
-    if (wsStatus !== 'open') {
-      readySentRef.current = false
+    const sendReady = () => {
+      if (guestRemoteRef.current) return
+      sendJson({
+        action: 'signaling',
+        envelope: { guestSignaling: true, kind: 'ready' },
+      })
     }
-  }, [wsStatus])
+    sendReady()
+    const id = window.setInterval(sendReady, 8000)
+    return () => window.clearInterval(id)
+  }, [isPublisher, wsStatus, sendJson])
 
   useEffect(() => {
     if (!captureStream || !isPublisher) return
