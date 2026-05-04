@@ -5,6 +5,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
@@ -342,6 +343,14 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomsTable.grantReadWriteData(wsRouteFn);
     this.connectionsTable.grantReadWriteData(wsRouteFn);
     this.webSocketApi.grantManageConnections(wsRouteFn);
+
+    // WebSocketLambdaIntegration can leave InvokeFunction scoped to only one route (IAM showed SourceArn ending in *ping).
+    // chat/signaling/$default then fail invoke auth; API Gateway returns Internal server error on the WebSocket frame.
+    wsRouteFn.addPermission('WsRouteFnAllowExecuteApiWebSocket', {
+      principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+      action: 'lambda:InvokeFunction',
+      sourceArn: `arn:aws:execute-api:${this.region}:${this.account}:${this.webSocketApi.apiId}/*`,
+    });
 
     const wsConnectInt = new integrations.WebSocketLambdaIntegration('WsConnectInt', wsConnectFn);
     const wsDisconnectInt = new integrations.WebSocketLambdaIntegration('WsDisconnectInt', wsDisconnectFn);
