@@ -19,8 +19,6 @@ import {
   webrtcDebugEnabled,
   webrtcLog,
 } from '../room/webrtcDebug'
-import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
-
 const DISPLAY_TITLE_MAX_LEN = 120
 
 function hostShareDismissStorageKey(roomId: string): string {
@@ -265,6 +263,7 @@ export function RoomPage() {
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
   const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
   const [guestPlayHint, setGuestPlayHint] = useState(false)
+  const [hostCapturePlayHint, setHostCapturePlayHint] = useState(false)
   const [presenceRoster, setPresenceRoster] = useState<{
     roomId: string
     members: PresenceMember[]
@@ -275,6 +274,7 @@ export function RoomPage() {
   const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people'>('chat')
 
   const videoRef = useRef<HTMLVideoElement>(null)
+  const hostCaptureVideoRef = useRef<HTMLVideoElement>(null)
   const peerByGuestRef = useRef(new Map<string, RTCPeerConnection>())
   const pendingReadyGuestsRef = useRef(new Set<string>())
   const guestPcRef = useRef<RTCPeerConnection | null>(null)
@@ -526,13 +526,26 @@ export function RoomPage() {
     void v.play().catch(() => setGuestPlayHint(true))
   }, [guestRemote, isPublisher])
 
+  useEffect(() => {
+    const v = hostCaptureVideoRef.current
+    if (!v || !isPublisher) return
+    if (!captureStream) {
+      v.srcObject = null
+      return
+    }
+    v.srcObject = captureStream
+    void v.play().catch(() => setHostCapturePlayHint(true))
+  }, [captureStream, isPublisher])
+
   const startCapture = async () => {
     setCaptureErr(null)
 
     const applyStream = (stream: MediaStream) => {
+      setHostCapturePlayHint(false)
       stream.getTracks().forEach((tr) => {
         tr.addEventListener('ended', () => {
           stream.getTracks().forEach((x) => x.stop())
+          setHostCapturePlayHint(false)
           setCaptureStream(null)
         })
       })
@@ -542,7 +555,7 @@ export function RoomPage() {
 
     try {
       // Chrome defaults `selfBrowserSurface` to "exclude", which omits the *current* tab from the
-      // "Chrome Tab" picker—bad for hosts who want this same tab (embedded player). See:
+      // "Chrome Tab" picker—bad when the host wants to share this tab. See:
       // https://developer.chrome.com/docs/web-platform/screen-sharing-controls
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
@@ -578,6 +591,7 @@ export function RoomPage() {
   }
 
   const stopCapture = () => {
+    setHostCapturePlayHint(false)
     setCaptureStream((prev) => {
       if (prev) prev.getTracks().forEach((t) => t.stop())
       return null
@@ -684,6 +698,17 @@ export function RoomPage() {
     }
   }
 
+  const playHostCapturePreview = async () => {
+    const v = hostCaptureVideoRef.current
+    if (!v) return
+    try {
+      await v.play()
+      setHostCapturePlayHint(false)
+    } catch {
+      setHostCapturePlayHint(true)
+    }
+  }
+
   if (!roomId) {
     return (
       <div className="container">
@@ -712,7 +737,7 @@ export function RoomPage() {
     )
   }
 
-  const title = room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId
+  const nowPlayingLabel = room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId
   const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
 
   return (
@@ -741,7 +766,7 @@ export function RoomPage() {
         <div className="riffsync-room-page__stage">
           <div className="riffsync-room-page__theater">
             {isPublisher ? (
-              <section className="riffsync-room-page__playback" aria-label="Hosted playback">
+              <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
                 {showHostShareInstructions ? (
                   <div
                     className="riffsync-room-page__host-share-panel"
@@ -774,8 +799,31 @@ export function RoomPage() {
                     </div>
                   </div>
                 ) : null}
-                <div className="riffsync-room-page__player-shell">
-                  <SoloYouTubePlayer key={room.youtubeVideoId} videoId={room.youtubeVideoId} titleHint={title} />
+                {captureStream && hostCapturePlayHint ? (
+                  <p className="riffsync-room-page__guest-actions">
+                    <button type="button" className="gen-button" onClick={() => void playHostCapturePreview()}>
+                      Play preview
+                    </button>
+                  </p>
+                ) : null}
+                <div className="riffsync-room-page__player-shell riffsync-room-page__player-shell--guest">
+                  {captureStream ? (
+                    <video
+                      ref={hostCaptureVideoRef}
+                      className="riffsync-room-page__guest-video"
+                      playsInline
+                      controls
+                      muted={false}
+                    />
+                  ) : (
+                    <div className="riffsync-room-page__host-preview-placeholder">
+                      <p className="riffsync-room-page__host-preview-placeholder__title">{nowPlayingLabel}</p>
+                      <p className="riffsync-muted">
+                        Nothing shared yet. Use <strong>Room → Share screen or tab…</strong> and pick the tab that has
+                        your player (often the one you opened with <strong>Open player in new tab</strong>).
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="riffsync-room-page__host-strip" aria-label="Host controls">

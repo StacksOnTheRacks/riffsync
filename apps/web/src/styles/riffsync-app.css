@@ -534,6 +534,26 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   object-fit: contain;
 }
 
+.riffsync-room-page__host-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1rem 1.25rem;
+  text-align: center;
+  background: #080808;
+}
+
+.riffsync-room-page__host-preview-placeholder__title {
+  margin: 0;
+  font-family: var(--title-fonts);
+  font-size: clamp(1rem, 2.2vw, 1.15rem);
+  line-height: 1.3;
+}
+
 .riffsync-room-page__guest-lede,
 .riffsync-room-page__guest-foot,
 .riffsync-room-page__guest-actions {
