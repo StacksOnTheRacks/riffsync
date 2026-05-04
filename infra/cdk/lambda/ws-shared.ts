@@ -20,7 +20,6 @@ export async function queryConnectionsForRoom(
       IndexName: 'RoomConnectionsIndex',
       KeyConditionExpression: 'roomId = :r',
       ExpressionAttributeValues: { ':r': roomId },
-      ProjectionExpression: 'connectionId',
     }),
   );
   const ids: string[] = [];

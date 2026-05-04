@@ -1,4 +1,8 @@
-import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
+import type {
+  APIGatewayProxyResultV2,
+  APIGatewayProxyWebsocketEventV2,
+  APIGatewayProxyWebsocketHandlerV2,
+} from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
@@ -12,7 +16,18 @@ import { postToConnections, queryConnectionsForRoom, wsManagementClient } from '
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const encoder = new TextEncoder();
 
-export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
+function summarizeCaughtErr(err: unknown): { errorType: string; errorMessage: string } {
+  if (typeof err !== 'object' || err === null) {
+    return { errorType: typeof err, errorMessage: String(err) };
+  }
+  const o = err as { name?: unknown; message?: unknown };
+  const name =
+    typeof o.name === 'string' ? o.name : (typeof err.constructor === 'function' && err.constructor?.name) || 'Error';
+  const message = typeof o.message === 'string' ? o.message : '(no message)';
+  return { errorType: name, errorMessage: message };
+}
+
+async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Promise<APIGatewayProxyResultV2> {
   let routeKey = event.requestContext.routeKey;
   const roomsTable = process.env.ROOMS_TABLE_NAME;
   const connTable = process.env.CONNECTIONS_TABLE_NAME;
@@ -155,4 +170,23 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   }
 
   return { statusCode: 400, body: `Unknown route ${routeKey}` };
+}
+
+export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
+  try {
+    return await websocketRouteInner(event);
+  } catch (err: unknown) {
+    const { errorType, errorMessage } = summarizeCaughtErr(err);
+    console.error(
+      JSON.stringify({
+        riffsyncDiag: 'ws_route_uncaught',
+        requestIdGw: event.requestContext.requestId,
+        connectionId: event.requestContext.connectionId,
+        routeKey: event.requestContext.routeKey,
+        errorType,
+        errorMessage,
+      }),
+    );
+    throw err;
+  }
 };
