@@ -962,3 +962,35 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-party-capture-banner button:focus {
   background: rgb(255 255 255 / 0.2);
 }
+
+@keyframes riffsyncPartyCaptureBannerFadeOut {
+  from {
+    opacity: 1;
+    max-height: 12rem;
+  }
+
+  to {
+    opacity: 0;
+    max-height: 0;
+    padding-block: 0;
+    margin: 0;
+    border-bottom-width: 0;
+    overflow: hidden;
+    visibility: hidden;
+  }
+}
+
+/* Auto-hide ~60s via animation end (no setState-in-effect); dismiss skips animation via unmount */
+.riffsync-party-capture-banner--timed {
+  animation-name: riffsyncPartyCaptureBannerFadeOut;
+  animation-duration: 1s;
+  animation-delay: 59s;
+  animation-timing-function: ease;
+  animation-fill-mode: forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .riffsync-party-capture-banner--timed {
+    animation: none;
+  }
+}

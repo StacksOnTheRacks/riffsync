@@ -1,23 +1,41 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/useCatalogQuery'
+
+const PARTY_CAPTURE_ANIMATION = 'riffsyncPartyCaptureBannerFadeOut'
+
+/** Banner for `/watch/:id?partyCapture=1`; keyed by episode so opening another capture tab resets state. */
+function PartyCaptureBanner() {
+  const [closed, setClosed] = useState(false)
+
+  if (closed) return null
+
+  return (
+    <div
+      className="riffsync-party-capture-banner riffsync-party-capture-banner--timed"
+      role="status"
+      onAnimationEnd={(e) => {
+        if (e.animationName === PARTY_CAPTURE_ANIMATION) setClosed(true)
+      }}
+    >
+      <div className="riffsync-party-capture-banner__inner">
+        <p>
+          This tab is meant to be shared with your watch party. Go back to the party tab, start sharing, then{' '}
+          <strong>choose this tab</strong> in your browser&apos;s share dialog. Chat stays on the party tab.
+        </p>
+        <button type="button" onClick={() => setClosed(true)}>
+          Dismiss
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export function SoloWatchPage() {
   const { catalogEpisodeId } = useParams<{ catalogEpisodeId: string }>()
   const [searchParams] = useSearchParams()
   const partyCapture = searchParams.get('partyCapture') === '1'
-  const [captureBannerVisible, setCaptureBannerVisible] = useState(partyCapture)
-
-  useEffect(() => {
-    setCaptureBannerVisible(partyCapture)
-  }, [partyCapture])
-
-  useEffect(() => {
-    if (!partyCapture || !captureBannerVisible) return
-    const id = window.setTimeout(() => setCaptureBannerVisible(false), 60_000)
-    return () => window.clearTimeout(id)
-  }, [partyCapture, captureBannerVisible])
 
   const { data: episode, isPending, isError, error } = useCatalogEpisodeQuery(catalogEpisodeId)
 
@@ -67,18 +85,8 @@ export function SoloWatchPage() {
           : 'riffsync-solo-watch-page'
       }
     >
-      {partyCapture && captureBannerVisible ? (
-        <div className="riffsync-party-capture-banner" role="status">
-          <div className="riffsync-party-capture-banner__inner">
-            <p>
-              This tab is meant to be shared with your watch party. Go back to the party tab, start sharing, then{' '}
-              <strong>choose this tab</strong> in your browser&apos;s share dialog. Chat stays on the party tab.
-            </p>
-            <button type="button" onClick={() => setCaptureBannerVisible(false)}>
-              Dismiss
-            </button>
-          </div>
-        </div>
+      {partyCapture ? (
+        <PartyCaptureBanner key={catalogEpisodeId ?? 'episode'} />
       ) : null}
       {backdropImageUrl ? (
         <div

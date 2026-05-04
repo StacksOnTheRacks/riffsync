@@ -27,6 +27,15 @@ function hostShareDismissStorageKey(roomId: string): string {
   return `riffsync_hostShareDismiss_${roomId}`
 }
 
+function readHostShareInstructionsOpen(roomId: string): boolean {
+  if (!roomId) return true
+  try {
+    return sessionStorage.getItem(hostShareDismissStorageKey(roomId)) !== '1'
+  } catch {
+    return true
+  }
+}
+
 type ChatMsg = { sessionId: string; text: string; ts: number }
 
 type PresenceMember = {
@@ -247,7 +256,10 @@ export function RoomPage() {
   const [patchErr, setPatchErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [displayTitleDraft, setDisplayTitleDraft] = useState('')
-  const [showHostShareInstructions, setShowHostShareInstructions] = useState(true)
+  const [showHostShareInstructions, setShowHostShareInstructions] = useState(() =>
+    readHostShareInstructionsOpen(roomId),
+  )
+  const [shareInstrRoomId, setShareInstrRoomId] = useState(roomId)
   const displayTitleSyncSigRef = useRef('')
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
@@ -274,13 +286,10 @@ export function RoomPage() {
   const fanToken = getFanAccessToken()
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
 
-  useEffect(() => {
-    try {
-      setShowHostShareInstructions(sessionStorage.getItem(hostShareDismissStorageKey(roomId)) !== '1')
-    } catch {
-      setShowHostShareInstructions(true)
-    }
-  }, [roomId])
+  if (roomId !== shareInstrRoomId) {
+    setShareInstrRoomId(roomId)
+    setShowHostShareInstructions(readHostShareInstructionsOpen(roomId))
+  }
 
   useEffect(() => {
     if (!room) return
