@@ -432,6 +432,13 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 .riffsync-room-page__playback {
   margin-bottom: 0;
+  /* Template `section { padding: 130px 0 }` pushes the player down — room controls spacing itself */
+  padding-block: 0;
+}
+
+/* Same global `section` padding applies to the chat panel */
+.riffsync-room-page section.riffsync-room-page__chat {
+  padding-block: 0;
 }
 
 /*
