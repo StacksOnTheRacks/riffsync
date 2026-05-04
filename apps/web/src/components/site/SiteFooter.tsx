@@ -75,9 +75,6 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                       <li className="menu-item">
                         <Link to="/lobby">Lobby</Link>
                       </li>
-                      <li className="menu-item">
-                        <Link to="/room/demo-room">Room (demo)</Link>
-                      </li>
                     </ul>
                   </div>
                 </div>
@@ -87,9 +84,6 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                   <h4 className="footer-title">Project</h4>
                   <div className="menu-about-container">
                     <ul className="menu">
-                      <li className="menu-item">
-                        <Link to="/admin">Admin</Link>
-                      </li>
                       <li className="menu-item">
                         <a href="https://riffsync.tv" rel="noopener noreferrer">
                           riffsync.tv
@@ -106,7 +100,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                 <div className="widget">
                   <h4 className="footer-title">Contribute</h4>
                   <p>
-                    RiffSync is built in public. Issues and pull requests on GitHub are the best
+                    RiffSync is built in public, by the fans, for the fans. Issues and pull requests on GitHub are currentlythe best
                     way to improve the catalog and watch experience.
                   </p>
                 </div>
