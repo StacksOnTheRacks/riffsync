@@ -74,7 +74,7 @@ export function setRealtimeRoomProfile(p: RoomRoleProfile | null): void {
 }
 
 export function recordWsConnectAttempt(wsUrlRaw: string, hasAccessTokenQuery: boolean): void {
-  let hostname = ''
+  let hostname: string
   let pathLen = 0
   let queryChars = 0
   try {
