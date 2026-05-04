@@ -894,8 +894,61 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-page__host-share-steps {
-  margin: 0 0 0.65rem 1rem;
+  list-style: none;
+  margin: 0 0 0.5rem;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.riffsync-room-page__host-share-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 0.85rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.riffsync-room-page__host-share-step:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.riffsync-room-page__host-share-step-main {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.riffsync-room-page__host-share-step-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+
+.riffsync-room-page__host-share-step-num {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+  min-width: 1.25rem;
+}
+
+.riffsync-room-page__host-share-step-desc {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  font-weight: 400;
+  opacity: 0.82;
+  line-height: 1.35;
+}
+
+.riffsync-room-page__host-share-footnote {
+  margin: 0 0 0.65rem;
+  padding-top: 0.15rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
 }
 
 .riffsync-room-page__host-share-actions {
@@ -909,6 +962,19 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   background: transparent;
   border: 1px solid rgb(255 255 255 / 0.18);
   color: inherit;
+}
+
+/* Persistent broadcast controls when instructions are dismissed */
+.riffsync-room-page__host-broadcast-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  margin-bottom: 0.85rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(6 10 14 / 0.55);
 }
 
 .riffsync-room-page__host-title-row {

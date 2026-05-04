@@ -771,24 +771,55 @@ export function RoomPage() {
                   <div
                     className="riffsync-room-page__host-share-panel"
                     role="region"
-                    aria-label="How to share video with guests"
+                    aria-label="How to broadcast"
                   >
-                    <h3>How guests see your video</h3>
+                    <h3>How to Broadcast</h3>
                     <ol className="riffsync-room-page__host-share-steps">
-                      <li>
-                        Open the player in a new tab — it has minimal chrome and is easier to pick in the share
-                        dialog.
+                      <li className="riffsync-room-page__host-share-step">
+                        <div className="riffsync-room-page__host-share-step-main">
+                          <span className="riffsync-room-page__host-share-step-title">
+                            <span className="riffsync-room-page__host-share-step-num" aria-hidden>
+                              1.
+                            </span>
+                            Open media player
+                          </span>
+                          <span className="riffsync-room-page__host-share-step-desc">
+                            Starts playback in a new tab. Use play, pause, and seek only there — keep that tab open.
+                          </span>
+                        </div>
+                        <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
+                          Open in new tab
+                        </button>
                       </li>
-                      <li>Return to this watch party tab.</li>
-                      <li>
-                        Open <strong>Room</strong> → <strong>Share screen or tab…</strong>, then choose the{' '}
-                        <strong>player</strong> tab in your browser&apos;s picker (not this tab).
+                      <li className="riffsync-room-page__host-share-step">
+                        <div className="riffsync-room-page__host-share-step-main">
+                          <span className="riffsync-room-page__host-share-step-title">
+                            <span className="riffsync-room-page__host-share-step-num" aria-hidden>
+                              2.
+                            </span>
+                            Share that tab
+                          </span>
+                          <span className="riffsync-room-page__host-share-step-desc">
+                            Choose your player tab in the browser picker — not this watch party tab. The preview below
+                            matches what guests see.
+                          </span>
+                        </div>
+                        {captureStream ? (
+                          <button type="button" className="gen-button" onClick={stopCapture}>
+                            Stop sharing
+                          </button>
+                        ) : (
+                          <button type="button" className="gen-button" onClick={() => void startCapture()}>
+                            Share screen or tab…
+                          </button>
+                        )}
                       </li>
                     </ol>
+                    <p className="riffsync-room-page__host-share-footnote riffsync-muted">
+                      When you&apos;re done, use <strong>Stop sharing</strong>. You can open or close the player tab
+                      anytime.
+                    </p>
                     <div className="riffsync-room-page__host-share-actions">
-                      <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
-                        Open player in new tab
-                      </button>
                       <button
                         type="button"
                         className="gen-button gen-button--ghost"
@@ -798,7 +829,22 @@ export function RoomPage() {
                       </button>
                     </div>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="riffsync-room-page__host-broadcast-bar" aria-label="Broadcast controls">
+                    <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
+                      Open in new tab
+                    </button>
+                    {captureStream ? (
+                      <button type="button" className="gen-button" onClick={stopCapture}>
+                        Stop sharing
+                      </button>
+                    ) : (
+                      <button type="button" className="gen-button" onClick={() => void startCapture()}>
+                        Share screen or tab…
+                      </button>
+                    )}
+                  </div>
+                )}
                 {captureStream && hostCapturePlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
                     <button type="button" className="gen-button" onClick={() => void playHostCapturePreview()}>
@@ -819,8 +865,17 @@ export function RoomPage() {
                     <div className="riffsync-room-page__host-preview-placeholder">
                       <p className="riffsync-room-page__host-preview-placeholder__title">{nowPlayingLabel}</p>
                       <p className="riffsync-muted">
-                        Nothing shared yet. Use <strong>Room → Share screen or tab…</strong> and pick the tab that has
-                        your player (often the one you opened with <strong>Open player in new tab</strong>).
+                        {showHostShareInstructions ? (
+                          <>
+                            Nothing shared yet. Use steps <strong>1</strong> and <strong>2</strong>, then choose your{' '}
+                            <strong>player tab</strong> in the share dialog.
+                          </>
+                        ) : (
+                          <>
+                            Nothing shared yet. Use <strong>Share screen or tab…</strong> above, then choose your{' '}
+                            <strong>player tab</strong> — not this tab.
+                          </>
+                        )}
                       </p>
                     </div>
                   )}
@@ -948,21 +1003,6 @@ export function RoomPage() {
                       Copy room link
                     </button>
                     {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
-                    {isPublisher ? (
-                      captureStream ? (
-                        <button type="button" className="gen-button gen-button-wide" onClick={stopCapture}>
-                          Stop sharing
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="gen-button gen-button-wide"
-                          onClick={() => void startCapture()}
-                        >
-                          Share screen or tab…
-                        </button>
-                      )
-                    ) : null}
                   </div>
                 </details>
               </div>
