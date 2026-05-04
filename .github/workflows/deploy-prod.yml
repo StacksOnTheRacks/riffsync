@@ -21,6 +21,7 @@ jobs:
   validate-and-deploy:
     runs-on: ubuntu-latest
     env:
+      META_FACEBOOK_APP_ID: ${{ vars.META_FACEBOOK_APP_ID }}
       PROD_FAN_WEB_HOSTNAME: ${{ vars.PROD_FAN_WEB_HOSTNAME }}
       PROD_FAN_WEB_CERTIFICATE_ARN: ${{ vars.PROD_FAN_WEB_CERTIFICATE_ARN }}
       PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES: ${{ vars.PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES }}
@@ -50,6 +51,13 @@ jobs:
         run: |
           if [ -z "$ROLE" ]; then
             echo "::error::Set repository Variable AWS_DEPLOY_ROLE_ARN_PROD to the IAM role ARN trusted via GitHub OIDC (see infra/cdk/README.md)."
+            exit 1
+          fi
+
+      - name: Require Meta Facebook App ID (Cognito IdP)
+        run: |
+          if [ -z "${META_FACEBOOK_APP_ID:-}" ]; then
+            echo "::error::Set repository Variable META_FACEBOOK_APP_ID to your Meta App ID (see infra/cdk/README.md — passed as CDK --context facebookAppId)."
             exit 1
           fi
 
@@ -88,6 +96,7 @@ jobs:
           if [ -n "${PROD_FAN_WEB_CANONICAL_HOSTNAME:-}" ]; then
             ARGS+=(--context "fanWebCanonicalHostname=${PROD_FAN_WEB_CANONICAL_HOSTNAME}")
           fi
+          ARGS+=(--context "facebookAppId=${META_FACEBOOK_APP_ID}")
           if [ -z "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] || [ -z "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
             echo "::notice::RiffSync: RIFFSYNC_ROUTE53_HOSTED_ZONE_ID / RIFFSYNC_ROUTE53_ZONE_NAME unset — static stack will not create Route 53 aliases (FanWebRoute53AliasRecordCount will be 0)."
           fi
@@ -112,6 +121,7 @@ jobs:
           if [ -n "${PROD_FAN_WEB_CANONICAL_HOSTNAME:-}" ]; then
             ARGS+=(--context "fanWebCanonicalHostname=${PROD_FAN_WEB_CANONICAL_HOSTNAME}")
           fi
+          ARGS+=(--context "facebookAppId=${META_FACEBOOK_APP_ID}")
           SITE_URL="$(aws cloudformation describe-stacks --stack-name RiffSyncStatic-prod \
             --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
           echo "Adding ${SITE_URL} to HTTP API CORS and Cognito SPA callbacks"
@@ -131,18 +141,29 @@ jobs:
         env:
           STACK_NAME: RiffSyncStatic-prod
           API_STACK_NAME: RiffSyncApi-prod
+          FAN_AUTH_STACK_NAME: RiffSyncFanAuth-prod
         run: |
           set -euo pipefail
           SITE_URL="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
           API_BASE="$(aws cloudformation describe-stacks --stack-name "$API_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" --output text)"
+          WS_URL="$(aws cloudformation describe-stacks --stack-name "$API_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='WebSocketUrl'].OutputValue" --output text)"
+          COGNITO_BASE="$(aws cloudformation describe-stacks --stack-name "$FAN_AUTH_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='FanHostedUiBaseUrl'].OutputValue" --output text)"
+          COGNITO_DOMAIN="${COGNITO_BASE#https://}"
+          COGNITO_CLIENT="$(aws cloudformation describe-stacks --stack-name "$FAN_AUTH_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='FanUserPoolClientId'].OutputValue" --output text)"
           echo "Production public site URL: ${SITE_URL}"
           echo "Production HTTP API base: ${API_BASE}"
           cd "${GITHUB_WORKSPACE}/apps/web"
           npm ci
           VITE_PUBLIC_ORIGIN="${SITE_URL}" \
             VITE_PUBLIC_API_BASE_URL="${API_BASE}" \
+            VITE_PUBLIC_WS_URL="${WS_URL}" \
+            VITE_COGNITO_HOSTED_UI_DOMAIN="${COGNITO_DOMAIN}" \
+            VITE_COGNITO_CLIENT_ID="${COGNITO_CLIENT}" \
             npm run build
           BUCKET="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)"

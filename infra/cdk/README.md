@@ -271,6 +271,7 @@ Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`
 
 | Variable | Used by |
 | --- | --- |
+| **`META_FACEBOOK_APP_ID`** | Meta **App ID** (public). **Deploy** workflows pass **`--context facebookAppId=…`** to CDK so Cognito’s Facebook IdP matches your Meta app. **Not** the app secret (that stays in Secrets Manager). |
 | **`AWS_DEPLOY_ROLE_ARN_STAGING`** | IAM role ARN assumable via OIDC for **staging** **`cdk deploy`** |
 | **`AWS_DEPLOY_ROLE_ARN_PROD`** | IAM role ARN assumable via OIDC for **production** **`cdk deploy`** |
 | **`AWS_REGION`** (optional) | Target region (**default `us-east-1`** when unset — override as needed.) |
