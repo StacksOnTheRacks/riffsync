@@ -5,7 +5,14 @@ import {
   GetCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { lobbySortKey, LOBBY_PARTITION, parsePlaybackExpectation, parseVisibility } from './room-shared';
+import {
+  lobbySortKey,
+  LOBBY_PARTITION,
+  normalizeRoomDisplayTitle,
+  parsePlaybackExpectation,
+  parseVisibility,
+  ROOM_DISPLAY_TITLE_MAX_LEN,
+} from './room-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -126,6 +133,24 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }
   }
 
+  let storedDisplayTitle: string | undefined;
+  if (Object.prototype.hasOwnProperty.call(body, 'displayTitle')) {
+    const n = normalizeRoomDisplayTitle(body.displayTitle);
+    if (!n) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: `displayTitle must be a non-empty string at most ${ROOM_DISPLAY_TITLE_MAX_LEN} characters`,
+        }),
+      };
+    }
+    storedDisplayTitle = n;
+  } else if (typeof room.displayTitle === 'string' && room.displayTitle.trim() !== '') {
+    const t = room.displayTitle.trim();
+    storedDisplayTitle =
+      t.length > ROOM_DISPLAY_TITLE_MAX_LEN ? t.slice(0, ROOM_DISPLAY_TITLE_MAX_LEN) : t;
+  }
+
   const now = Math.max(
     Date.now(),
     typeof room.lastActivityAt === 'number' ? room.lastActivityAt : 0,
@@ -170,6 +195,12 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     names['#bc'] = 'broadcastCaptureActive';
     values[':bc'] = broadcastCapturePatch;
     setParts.push('#bc = :bc');
+  }
+
+  if (storedDisplayTitle !== undefined) {
+    names['#dt'] = 'displayTitle';
+    values[':dt'] = storedDisplayTitle;
+    setParts.push('#dt = :dt');
   }
 
   let updateExpression: string;
@@ -219,6 +250,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       youtubeVideoId,
       visibility,
       lastActivityAt: now,
+      ...(storedDisplayTitle !== undefined ? { displayTitle: storedDisplayTitle } : {}),
     }),
   };
 };

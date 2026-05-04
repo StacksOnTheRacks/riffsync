@@ -21,6 +21,12 @@ import {
 } from '../room/webrtcDebug'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 
+const DISPLAY_TITLE_MAX_LEN = 120
+
+function hostShareDismissStorageKey(roomId: string): string {
+  return `riffsync_hostShareDismiss_${roomId}`
+}
+
 type ChatMsg = { sessionId: string; text: string; ts: number }
 
 type PresenceMember = {
@@ -240,6 +246,9 @@ export function RoomPage() {
   const [chatDraft, setChatDraft] = useState('')
   const [patchErr, setPatchErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
+  const [displayTitleDraft, setDisplayTitleDraft] = useState('')
+  const [showHostShareInstructions, setShowHostShareInstructions] = useState(true)
+  const displayTitleSyncSigRef = useRef('')
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
   const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
@@ -264,6 +273,22 @@ export function RoomPage() {
   const wsBase = getPublicWsUrl()
   const fanToken = getFanAccessToken()
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
+
+  useEffect(() => {
+    try {
+      setShowHostShareInstructions(sessionStorage.getItem(hostShareDismissStorageKey(roomId)) !== '1')
+    } catch {
+      setShowHostShareInstructions(true)
+    }
+  }, [roomId])
+
+  useEffect(() => {
+    if (!room) return
+    const sig = `${room.displayTitle ?? ''}\0${room.catalogEpisodeId}\0${catalogEp?.title ?? ''}`
+    if (sig === displayTitleSyncSigRef.current) return
+    displayTitleSyncSigRef.current = sig
+    setDisplayTitleDraft(room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId)
+  }, [room, catalogEp?.title])
 
   useEffect(() => {
     guestRemoteRef.current = guestRemote
@@ -590,11 +615,53 @@ export function RoomPage() {
         version: res.version,
         lastActivityAt: res.lastActivityAt,
         visibility: res.visibility,
+        ...(res.displayTitle !== undefined ? { displayTitle: res.displayTitle } : {}),
       })
       void fetchCatalogEpisodeById(res.catalogEpisodeId).then(setCatalogEp)
     } catch (e) {
       setPatchErr(e instanceof Error ? e.message : 'Patch failed')
     }
+  }
+
+  const saveDisplayTitle = async () => {
+    if (!room || !fanToken || !isPublisher) return
+    const t = displayTitleDraft.trim()
+    if (!t) {
+      setPatchErr('Now playing title cannot be empty.')
+      return
+    }
+    setPatchErr(null)
+    try {
+      const res = await patchRoom(fanToken, roomId, { displayTitle: t })
+      const nextTitle = res.displayTitle ?? t
+      setRoom({
+        ...room,
+        version: res.version,
+        catalogEpisodeId: res.catalogEpisodeId,
+        youtubeVideoId: res.youtubeVideoId,
+        visibility: res.visibility,
+        lastActivityAt: res.lastActivityAt,
+        displayTitle: nextTitle,
+      })
+      displayTitleSyncSigRef.current = `${nextTitle}\0${res.catalogEpisodeId}\0${catalogEp?.title ?? ''}`
+    } catch (e) {
+      setPatchErr(e instanceof Error ? e.message : 'Could not save title')
+    }
+  }
+
+  const openCapturePlayerTab = () => {
+    if (!room) return
+    const url = `${getPublicOrigin()}/watch/${encodeURIComponent(room.catalogEpisodeId)}?partyCapture=1`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const dismissHostShareInstructions = () => {
+    try {
+      sessionStorage.setItem(hostShareDismissStorageKey(roomId), '1')
+    } catch {
+      /* ignore private mode */
+    }
+    setShowHostShareInstructions(false)
   }
 
   const playGuestVideo = async () => {
@@ -636,7 +703,7 @@ export function RoomPage() {
     )
   }
 
-  const title = catalogEp?.title ?? room.catalogEpisodeId
+  const title = room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId
   const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
 
   return (
@@ -666,6 +733,38 @@ export function RoomPage() {
           <div className="riffsync-room-page__theater">
             {isPublisher ? (
               <section className="riffsync-room-page__playback" aria-label="Hosted playback">
+                {showHostShareInstructions ? (
+                  <div
+                    className="riffsync-room-page__host-share-panel"
+                    role="region"
+                    aria-label="How to share video with guests"
+                  >
+                    <h3>How guests see your video</h3>
+                    <ol className="riffsync-room-page__host-share-steps">
+                      <li>
+                        Open the player in a new tab — it has minimal chrome and is easier to pick in the share
+                        dialog.
+                      </li>
+                      <li>Return to this watch party tab.</li>
+                      <li>
+                        Open <strong>Room</strong> → <strong>Share screen or tab…</strong>, then choose the{' '}
+                        <strong>player</strong> tab in your browser&apos;s picker (not this tab).
+                      </li>
+                    </ol>
+                    <div className="riffsync-room-page__host-share-actions">
+                      <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
+                        Open player in new tab
+                      </button>
+                      <button
+                        type="button"
+                        className="gen-button gen-button--ghost"
+                        onClick={dismissHostShareInstructions}
+                      >
+                        Dismiss for this session
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="riffsync-room-page__player-shell">
                   <SoloYouTubePlayer key={room.youtubeVideoId} videoId={room.youtubeVideoId} titleHint={title} />
                 </div>
@@ -676,6 +775,22 @@ export function RoomPage() {
                       {patchErr}
                     </p>
                   ) : null}
+                  <div className="riffsync-room-page__host-strip-row">
+                    <div className="riffsync-room-page__host-title-row">
+                      <label htmlFor="room-display-title">Now playing</label>
+                      <input
+                        id="room-display-title"
+                        maxLength={DISPLAY_TITLE_MAX_LEN}
+                        value={displayTitleDraft}
+                        onChange={(e) => setDisplayTitleDraft(e.target.value)}
+                        placeholder="Title shown in the lobby"
+                        autoComplete="off"
+                      />
+                      <button type="button" className="gen-button" onClick={() => void saveDisplayTitle()}>
+                        Save title
+                      </button>
+                    </div>
+                  </div>
                   <div className="riffsync-room-page__host-strip-row">
                     <div className="riffsync-room-page__picker riffsync-room-page__picker--host-only">
                       <label htmlFor="episode-picker">Episode</label>
@@ -787,7 +902,7 @@ export function RoomPage() {
                           className="gen-button gen-button-wide"
                           onClick={() => void startCapture()}
                         >
-                          Share this tab (video + audio)
+                          Share screen or tab…
                         </button>
                       )
                     ) : null}

@@ -27,6 +27,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const row = out.Item as Record<string, unknown>;
+  const displayTitle =
+    typeof row.displayTitle === 'string' && row.displayTitle.trim() !== '' ? row.displayTitle.trim() : undefined;
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json; charset=utf-8' },
@@ -36,6 +38,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         hostSub: row.hostSub,
         catalogEpisodeId: row.catalogEpisodeId,
         youtubeVideoId: row.youtubeVideoId,
+        ...(displayTitle !== undefined ? { displayTitle } : {}),
         playbackExpectation: row.playbackExpectation,
         visibility: row.visibility,
         lastActivityAt: row.lastActivityAt,

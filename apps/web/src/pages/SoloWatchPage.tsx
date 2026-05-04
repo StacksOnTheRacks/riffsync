@@ -1,9 +1,24 @@
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/useCatalogQuery'
 
 export function SoloWatchPage() {
   const { catalogEpisodeId } = useParams<{ catalogEpisodeId: string }>()
+  const [searchParams] = useSearchParams()
+  const partyCapture = searchParams.get('partyCapture') === '1'
+  const [captureBannerVisible, setCaptureBannerVisible] = useState(partyCapture)
+
+  useEffect(() => {
+    setCaptureBannerVisible(partyCapture)
+  }, [partyCapture])
+
+  useEffect(() => {
+    if (!partyCapture || !captureBannerVisible) return
+    const id = window.setTimeout(() => setCaptureBannerVisible(false), 60_000)
+    return () => window.clearTimeout(id)
+  }, [partyCapture, captureBannerVisible])
+
   const { data: episode, isPending, isError, error } = useCatalogEpisodeQuery(catalogEpisodeId)
 
   if (isPending) {
@@ -30,7 +45,9 @@ export function SoloWatchPage() {
     return (
       <div className="container riffsync-solo-watch">
         <h1>Not found</h1>
-        <p>No catalog row matched <code>{catalogEpisodeId ?? '—'}</code>.</p>
+        <p>
+          No catalog row matched <code>{catalogEpisodeId ?? '—'}</code>.
+        </p>
         <p>
           <Link to="/catalog">Browse catalog</Link>
         </p>
@@ -50,6 +67,19 @@ export function SoloWatchPage() {
           : 'riffsync-solo-watch-page'
       }
     >
+      {partyCapture && captureBannerVisible ? (
+        <div className="riffsync-party-capture-banner" role="status">
+          <div className="riffsync-party-capture-banner__inner">
+            <p>
+              This tab is meant to be shared with your watch party. Go back to the party tab, start sharing, then{' '}
+              <strong>choose this tab</strong> in your browser&apos;s share dialog. Chat stays on the party tab.
+            </p>
+            <button type="button" onClick={() => setCaptureBannerVisible(false)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
       {backdropImageUrl ? (
         <div
           className="riffsync-solo-watch-page__backdrop"
@@ -83,9 +113,8 @@ export function SoloWatchPage() {
         )}
         {vid && !canEmbed && (
           <p role="alert">
-            This episode is not available for in-app playback ({' '}
-            <code>embedAllows</code>
-            ). Open on YouTube if you have a watch URL.
+            This episode is not available for in-app playback (<code>embedAllows</code>). Open on YouTube if you have a
+            watch URL.
             {episode.youtubeWatchUrl && (
               <>
                 {' '}
@@ -104,8 +133,7 @@ export function SoloWatchPage() {
       ) : null}
       <div className="container riffsync-solo-watch">
         <p className="riffsync-solo-watch__fineprint">
-          Embedded YouTube player. Browse more episodes in the{' '}
-          <Link to="/catalog">catalog</Link>.
+          Embedded YouTube player. Browse more episodes in the <Link to="/catalog">catalog</Link>.
         </p>
       </div>
     </div>

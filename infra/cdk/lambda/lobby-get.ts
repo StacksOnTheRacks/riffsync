@@ -1,21 +1,29 @@
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  BatchGetCommand,
-  QueryCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { defaultStaleRoomMs, LOBBY_PARTITION } from './room-shared';
-import { projectEpisode } from './catalog-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 const LOBBY_PAGE = 75;
 
+async function countConnectionsForRoom(connectionsTable: string, roomId: string): Promise<number> {
+  const out = await client.send(
+    new QueryCommand({
+      TableName: connectionsTable,
+      IndexName: 'RoomConnectionsIndex',
+      KeyConditionExpression: 'roomId = :r',
+      ExpressionAttributeValues: { ':r': roomId },
+      Select: 'COUNT',
+    }),
+  );
+  return typeof out.Count === 'number' ? out.Count : 0;
+}
+
 export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
   const roomsTable = process.env.ROOMS_TABLE_NAME;
-  const catalogTable = process.env.CATALOG_TABLE_NAME;
-  if (!roomsTable || !catalogTable) {
+  const connectionsTable = process.env.CONNECTIONS_TABLE_NAME;
+  if (!roomsTable || !connectionsTable) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Missing table env' }) };
   }
 
@@ -38,60 +46,28 @@ export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
   );
 
   const rows = (q.Items ?? []) as Record<string, unknown>[];
-  const episodeIdSet = new Set<string>();
-  for (const r of rows) {
-    const id = r.catalogEpisodeId;
-    if (typeof id === 'string' && id !== '') episodeIdSet.add(id);
-  }
-  const episodeIds = [...episodeIdSet];
-  const catMap = new Map<string, Record<string, unknown>>();
-  let remaining = [...episodeIds];
-  while (remaining.length) {
-    const batch = remaining.slice(0, 100);
-    remaining = remaining.slice(100);
-    const bg = await client.send(
-      new BatchGetCommand({
-        RequestItems: {
-          [catalogTable]: { Keys: batch.map((id) => ({ id })) },
-        },
-      }),
-    );
-    for (const it of bg.Responses?.[catalogTable] ?? []) {
-      const raw = it as Record<string, unknown>;
-      const id = raw.id;
-      if (typeof id === 'string') catMap.set(id, raw);
-    }
-  }
 
-  const roomsOut = [];
-  for (const r of rows) {
+  const counts = await Promise.all(
+    rows.map((r) => countConnectionsForRoom(connectionsTable, String(r.roomId ?? ''))),
+  );
+
+  const roomsOut = rows.map((r, i) => {
     const catalogEpisodeId = String(r.catalogEpisodeId ?? '');
-    const catRow = catMap.get(catalogEpisodeId);
-    let projection: Record<string, unknown> | null = null;
-    if (catRow) {
-      try {
-        const ep = projectEpisode(catRow as Record<string, unknown>);
-        projection = {
-          id: ep.id,
-          experimentNumber: ep.experimentNumber,
-          title: ep.title,
-          era: ep.era,
-          posterImageUrl: ep.posterImageUrl,
-          youtubeVideoId: ep.youtubeVideoId,
-        };
-      } catch {
-        projection = null;
-      }
-    }
-    roomsOut.push({
+    const trimmedDisplay =
+      typeof r.displayTitle === 'string' && r.displayTitle.trim() !== ''
+        ? r.displayTitle.trim()
+        : undefined;
+
+    return {
       roomId: r.roomId,
       playbackExpectation: r.playbackExpectation,
       lastActivityAt: r.lastActivityAt,
       catalogEpisodeId,
       youtubeVideoId: r.youtubeVideoId,
-      ...(projection !== null ? { catalog: projection } : {}),
-    });
-  }
+      ...(trimmedDisplay !== undefined ? { displayTitle: trimmedDisplay } : {}),
+      liveConnectionCount: counts[i] ?? 0,
+    };
+  });
 
   return {
     statusCode: 200,

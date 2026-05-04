@@ -18,12 +18,10 @@ export interface LobbyRoomRow {
   youtubeVideoId?: string
   playbackExpectation?: RoomPlaybackExpectation
   lastActivityAt?: number
-  catalog?: {
-    id: string
-    title: string
-    experimentNumber?: number
-    posterImageUrl?: string | null
-  }
+  /** Host-editable headline for the lobby row. */
+  displayTitle?: string
+  /** WebSocket connections for this room (tabs / live sockets; not unique people). */
+  liveConnectionCount?: number
 }
 
 export interface LobbyResponse {
@@ -53,6 +51,8 @@ export interface RoomSnapshot {
   hostSub: string
   catalogEpisodeId: string
   youtubeVideoId: string
+  /** Lobby / “now playing” label (host-editable). */
+  displayTitle?: string
   playbackExpectation: RoomPlaybackExpectation
   visibility: 'public' | 'private'
   lastActivityAt: number
@@ -106,6 +106,7 @@ export interface RoomPatchResult {
   youtubeVideoId: string
   visibility: 'public' | 'private'
   lastActivityAt: number
+  displayTitle?: string
 }
 
 export async function patchRoom(
@@ -115,6 +116,7 @@ export async function patchRoom(
     catalogEpisodeId?: string
     visibility?: 'public' | 'private'
     playbackExpectation?: RoomPlaybackExpectation
+    displayTitle?: string
   },
 ): Promise<RoomPatchResult> {
   const base = getPublicApiBaseUrl()

@@ -6,6 +6,7 @@ import {
   PutCommand,
 } from '@aws-sdk/lib-dynamodb';
 import {
+  initialDisplayTitleFromCatalog,
   lobbySortKey,
   LOBBY_PARTITION,
   parsePlaybackExpectation,
@@ -83,6 +84,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
   const youtubeVideoId = row.youtubeVideoId as string;
 
+  const displayTitle = initialDisplayTitleFromCatalog({
+    catalogEpisodeId,
+    catalogTitle: row.title,
+  });
+
   const now = Date.now();
   const roomId = crypto.randomUUID();
   const version = 1;
@@ -92,6 +98,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     hostSub,
     catalogEpisodeId,
     youtubeVideoId,
+    displayTitle,
     playbackExpectation,
     visibility,
     lastActivityAt: now,
@@ -120,6 +127,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       hostSub,
       catalogEpisodeId,
       youtubeVideoId,
+      displayTitle,
       playbackExpectation,
       visibility,
       lastActivityAt: now,

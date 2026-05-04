@@ -268,7 +268,7 @@ export class ApiCatalogStack extends cdk.Stack {
       handler: 'handler',
       environment: {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
-        CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
         STALE_ROOM_MS: String(staleRoomMs),
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -278,9 +278,9 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomsTable.grantReadWriteData(roomPatchFn);
     this.catalogTable.grantReadData(roomCreateFn);
     this.catalogTable.grantReadData(roomPatchFn);
-    this.catalogTable.grantReadData(lobbyGetFn);
     this.roomsTable.grantReadData(roomGetFn);
     this.roomsTable.grantReadData(lobbyGetFn);
+    this.connectionsTable.grantReadData(lobbyGetFn);
 
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {

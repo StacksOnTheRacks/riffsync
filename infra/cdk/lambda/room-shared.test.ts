@@ -1,10 +1,12 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import {
   defaultStaleRoomMs,
+  initialDisplayTitleFromCatalog,
   lobbySortKey,
-  LOBBY_PARTITION,
+  normalizeRoomDisplayTitle,
   parsePlaybackExpectation,
   parseVisibility,
+  ROOM_DISPLAY_TITLE_MAX_LEN,
 } from './room-shared';
 
 describe('room-shared', () => {
@@ -56,8 +58,24 @@ describe('room-shared', () => {
   });
 });
 
-describe('LOBBY_PARTITION', () => {
-  it('constant', () => {
-    expect(LOBBY_PARTITION).toBe('PUBLIC');
+describe('normalizeRoomDisplayTitle', () => {
+  it('trims and accepts valid strings', () => {
+    expect(normalizeRoomDisplayTitle('  Hi  ')).toBe('Hi');
+  });
+  it('rejects empty', () => {
+    expect(normalizeRoomDisplayTitle('   ')).toBeNull();
+    expect(normalizeRoomDisplayTitle(null)).toBeNull();
+  });
+  it('rejects too long', () => {
+    expect(normalizeRoomDisplayTitle('x'.repeat(ROOM_DISPLAY_TITLE_MAX_LEN + 1))).toBeNull();
+  });
+});
+
+describe('initialDisplayTitleFromCatalog', () => {
+  it('uses catalog title when present', () => {
+    expect(initialDisplayTitleFromCatalog({ catalogEpisodeId: 'ep1', catalogTitle: '  Foo  ' })).toBe('Foo');
+  });
+  it('falls back to episode id', () => {
+    expect(initialDisplayTitleFromCatalog({ catalogEpisodeId: 'ep99', catalogTitle: '' })).toBe('ep99');
   });
 });

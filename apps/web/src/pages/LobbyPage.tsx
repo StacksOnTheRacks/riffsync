@@ -6,6 +6,16 @@ import { ensureGuestSession } from '../session/guestSession'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 
+function formatLobbyActivity(lastActivityAt: number | undefined): string {
+  if (typeof lastActivityAt !== 'number' || !Number.isFinite(lastActivityAt)) return ''
+  const sec = Math.max(0, Math.floor((Date.now() - lastActivityAt) / 1000))
+  if (sec < 45) return 'Active just now'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `Active ${min}m ago`
+  const hr = Math.floor(min / 60)
+  return `Active ${hr}h ago`
+}
+
 export function LobbyPage() {
   const apiUrl = getPublicApiBaseUrl()
   const [data, setData] = useState<LobbyResponse | null>(null)
@@ -61,24 +71,25 @@ export function LobbyPage() {
       ) : (
         <ul className="riffsync-lobby-list">
           {rooms.map((row) => {
-            const title = row.catalog?.title ?? row.catalogEpisodeId
-            const poster = row.catalog?.posterImageUrl
+            const headline = row.displayTitle ?? row.catalogEpisodeId
             const badge = roomPlaybackForBadge(row.playbackExpectation)
+            const activity = formatLobbyActivity(row.lastActivityAt)
+            const live = row.liveConnectionCount ?? 0
             return (
               <li key={row.roomId} className="riffsync-lobby-list__item">
-                {poster ? (
-                  <img className="riffsync-lobby-list__poster" src={poster} alt="" loading="lazy" />
-                ) : null}
-                <div>
-                  <h2>
-                    <Link to={`/room/${encodeURIComponent(row.roomId)}`}>{title}</Link>
+                <div className="riffsync-lobby-list__body">
+                  <h2 className="riffsync-lobby-list__title">
+                    <Link to={`/room/${encodeURIComponent(row.roomId)}`}>{headline}</Link>
                   </h2>
-                  <p className="riffsync-lobby-list__meta">
-                    Room <code>{row.roomId.slice(0, 8)}…</code>
-                    {' · '}Experiment{' '}
-                    {row.catalog?.experimentNumber ?? <span title={row.catalogEpisodeId}>—</span>}
-                  </p>
-                  <PlaybackExpectationBadge expectation={badge} />
+                  <div className="riffsync-lobby-list__stats">
+                    {activity ? (
+                      <span className="riffsync-lobby-list__activity riffsync-muted">{activity}</span>
+                    ) : null}
+                    <span className="riffsync-lobby-list__connections" title="Open WebSocket tabs or devices">
+                      {live} live {live === 1 ? 'connection' : 'connections'}
+                    </span>
+                    <PlaybackExpectationBadge expectation={badge} />
+                  </div>
                 </div>
               </li>
             )
