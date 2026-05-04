@@ -13,9 +13,18 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   }
 
   const connectionId = event.requestContext.connectionId;
+  const apiStage = typeof event.requestContext.stage === 'string' ? event.requestContext.stage : undefined;
   const roomId = event.queryStringParameters?.roomId;
   const sessionId = event.queryStringParameters?.sessionId;
   if (!roomId || !sessionId || roomId.trim() === '' || sessionId.trim() === '') {
+    console.warn(
+      JSON.stringify({
+        riffsyncDiag: 'ws_connect',
+        outcome: 'bad_request_missing_query',
+        connectionIdTail: connectionId.slice(-12),
+        apiStage,
+      }),
+    );
     return { statusCode: 400, body: 'Missing roomId or sessionId query parameter' };
   }
 
@@ -27,6 +36,15 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   );
   const room = roomOut.Item as Record<string, unknown> | undefined;
   if (!room || typeof room.hostSub !== 'string') {
+    console.warn(
+      JSON.stringify({
+        riffsyncDiag: 'ws_connect',
+        outcome: 'room_not_found',
+        connectionIdTail: connectionId.slice(-12),
+        roomIdHead: roomId.slice(0, 8),
+        apiStage,
+      }),
+    );
     return { statusCode: 404, body: 'Room not found' };
   }
 
@@ -44,6 +62,16 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   let hostSub: string | undefined;
   if (jwtUser) {
     if (jwtUser.sub !== room.hostSub) {
+      console.warn(
+        JSON.stringify({
+          riffsyncDiag: 'ws_connect',
+          outcome: 'forbidden_jwt_sub_mismatch_room_host',
+          connectionIdTail: connectionId.slice(-12),
+          roomIdHead: roomId.slice(0, 8),
+          apiStage,
+          jwtVerified: true,
+        }),
+      );
       return { statusCode: 403, body: 'JWT.sub does not match room hostSub' };
     }
     hostSub = jwtUser.sub;
@@ -63,6 +91,20 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
         connectedAt: nowSec,
         expiresAt: ttl,
       },
+    }),
+  );
+
+  console.info(
+    JSON.stringify({
+      riffsyncDiag: 'ws_connect',
+      outcome: 'ok',
+      connectionIdTail: connectionId.slice(-12),
+      roomIdHead: roomId.slice(0, 8),
+      sessionIdHead: sessionId.slice(0, 8),
+      apiStage,
+      bearerPresent: Boolean(authHdr && authHdr.length > 'Bearer '.length),
+      jwtVerifiedOk: jwtUser !== null,
+      dynamoStoresPublisherRole: Boolean(hostSub),
     }),
   );
 

@@ -127,6 +127,16 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     }
 
     if (!isPublisher && !allowGuestRelay) {
+      console.warn(
+        JSON.stringify({
+          riffsyncDiag: 'ws_signaling',
+          outcome: 'forbidden_non_publisher',
+          connectionIdTail: connectionId.slice(-12),
+          sessionHead: sessionId.slice(0, 8),
+          roomIdHead: roomId.slice(0, 8),
+          dynamoStoresPublisherRole: Boolean(hostSubConn),
+        }),
+      );
       return { statusCode: 403, body: 'Publisher JWT required (or guest ready/answer/ice only)' };
     }
 

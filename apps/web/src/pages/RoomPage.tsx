@@ -25,10 +25,61 @@ import {
   webrtcDebugEnabled,
   webrtcLog,
 } from '../room/webrtcDebug'
+import {
+  clearRealtimeDiag,
+  getRealtimeDiagSnapshot,
+  installRealtimeDiagGlobal,
+  setRealtimeRoomProfile,
+  showRealtimeDiagPanel,
+} from '../room/realtimeDiagnostics'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 
 type ChatMsg = { sessionId: string; text: string; ts: number }
+
+function RoomRealtimeDiagnosticsPanel() {
+  const [rev, bump] = useState(0)
+  useEffect(() => {
+    const id = window.setInterval(() => bump((x) => x + 1), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+  const snap = getRealtimeDiagSnapshot()
+  const json = JSON.stringify(snap, null, 2)
+  void rev
+
+  return (
+    <section className="riffsync-room-page__diag" aria-label="Realtime diagnostics">
+      <details>
+        <summary>Realtime diagnostics (instrumented facts)</summary>
+        <p className="riffsync-muted">
+          Console: run <code>riffsyncRealtimeDiag.print()</code> for JSON. Toggle this panel anytime with{' '}
+          <code>?diag=1</code>,<code>?webrtcDebug=1</code>, or{' '}
+          <code>localStorage.setItem(&apos;riffsync.roomDiagPanel&apos;,&apos;1&apos;)</code> then reload.
+        </p>
+        <p className="riffsync-muted">
+          AWS: open CloudWatch for the Lambda that handles WebSocket{' '}
+          <code>$connect</code>, then search log messages containing <code>riffsyncDiag</code> around the UTC time in{' '}
+          <code>generatedAtIso</code> below.
+        </p>
+        <p>
+          <button
+            type="button"
+            className="gen-button"
+            onClick={() => void navigator.clipboard.writeText(json).catch(() => undefined)}
+          >
+            Copy snapshot JSON
+          </button>{' '}
+          <button type="button" className="gen-button" onClick={() => clearRealtimeDiag()}>
+            Reset counters / timeline
+          </button>
+        </p>
+        <pre style={{ maxHeight: 340, overflow: 'auto', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+          {json}
+        </pre>
+      </details>
+    </section>
+  )
+}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
@@ -257,6 +308,26 @@ export function RoomPage() {
   const wsBase = getPublicWsUrl()
   const fanToken = getFanAccessToken()
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
+
+  useEffect(() => {
+    installRealtimeDiagGlobal()
+  }, [])
+
+  useEffect(() => {
+    setRealtimeRoomProfile(
+      room && roomId
+        ? {
+            roomId,
+            sessionProbe8: sessionId.slice(0, 8),
+            jwtSubProbe8: fanToken ? cognitoSub(fanToken)?.slice(0, 8) : undefined,
+            hostSubProbe8: room.hostSub.slice(0, 8),
+            clientClaimsPublisherUi: isPublisher,
+            wsConfigured: Boolean(wsBase),
+            wsHookEnabledSemantics: Boolean(wsBase && roomId && room),
+          }
+        : null,
+    )
+  }, [room, roomId, sessionId, fanToken, isPublisher, wsBase])
 
   useEffect(() => {
     guestRemoteRef.current = guestRemote
@@ -621,9 +692,24 @@ export function RoomPage() {
           Set <code>VITE_PUBLIC_WS_URL</code> for chat and synchronized watch parties.
         </p>
       )}
+      {isPublisher ? (
+        <p className="riffsync-muted" role="note">
+          Second browser for testing? Use a <strong>signed-out</strong> or <strong>Incognito</strong> window as the
+          guest. If it signs in with the <strong>same</strong> account that created the room, that tab is also{' '}
+          <strong>host</strong>—it never sends a WebRTC <code>ready</code>, so DevTools looks idle and video sync
+          fails.
+        </p>
+      ) : null}
       {wsBase ? (
         <p className="riffsync-muted" role="status">
           Realtime: <code>{wsStatus}</code>
+          {!isPublisher ? (
+            <>
+              {' '}
+              · When <code>open</code>, you should see outbound <code>signaling</code> (<code>ready</code>) immediately,
+              then <code>ping</code> (~25s apart).
+            </>
+          ) : null}
         </p>
       ) : null}
 
@@ -672,7 +758,7 @@ export function RoomPage() {
           {captureErr ? <p role="alert">{captureErr}</p> : null}
           <p className="riffsync-muted">
             {captureStream
-              ? 'In DevTools → Network → your WebSocket → Messages: you will mostly see only ping heartbeats until another browser joins this room; then look for signaling (ready, offer, answer, ice).'
+              ? 'In DevTools → Network → WebSocket → Messages: expect a ping right after connect, then roughly every 25s; once a real guest joins, add signaling frames (ready, offer, answer, ice).'
               : 'Capture the browser tab showing the embedded player so guests receive one consistent picture—including any on-screen honor-system cues. If you still do not see this tab in the picker, use Window and choose this Chrome window, or share another tab that has the video full screen.'}
           </p>
           <div className="riffsync-room-page__embed">
@@ -719,6 +805,8 @@ export function RoomPage() {
           </p>
         </>
       )}
+
+      {showRealtimeDiagPanel() ? <RoomRealtimeDiagnosticsPanel /> : null}
 
       <section className="riffsync-room-page__chat" aria-label="Chat">
         <h2>Chat</h2>

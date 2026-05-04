@@ -1,4 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  recordInboundWsMessage,
+  recordOutboundDropped,
+  recordOutboundSent,
+  recordWsClose,
+  recordWsConnectAttempt,
+  recordWsErrorEvent,
+  recordWsOpen,
+} from './realtimeDiagnostics'
 import { webrtcDebugEnabled, webrtcLog } from './webrtcDebug'
 
 const PING_MS = 25_000
@@ -76,6 +85,7 @@ export function useRoomWebSocket(options: {
         qp.set('accessToken', accessToken)
       }
       const wsUrlBase = `${url}?${qp.toString()}`
+      recordWsConnectAttempt(wsUrlBase, Boolean(accessToken))
       if (webrtcDebugEnabled()) {
         webrtcLog('ws opening', {
           urlChars: wsUrlBase.length,
@@ -95,15 +105,19 @@ export function useRoomWebSocket(options: {
         if (cancelled) return
         backoffRef.current = 1000
         setStatus('open')
+        recordWsOpen()
         if (webrtcDebugEnabled()) webrtcLog('ws open')
-        pingRef.current = setInterval(() => {
+        const ping = () => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ action: 'ping' }))
           }
-        }, PING_MS)
+        }
+        ping()
+        pingRef.current = setInterval(ping, PING_MS)
       })
 
       ws.addEventListener('message', (ev) => {
+        recordInboundWsMessage(String(ev.data))
         try {
           const data = JSON.parse(String(ev.data)) as Record<string, unknown>
           onMessageRef.current(data)
@@ -115,6 +129,7 @@ export function useRoomWebSocket(options: {
       ws.addEventListener('close', (ev) => {
         clearPing()
         wsRef.current = null
+        recordWsClose(ev.code, ev.reason !== '' ? ev.reason : undefined)
         if (!cancelled && webrtcDebugEnabled()) {
           webrtcLog('ws close', {
             code: ev.code,
@@ -133,6 +148,7 @@ export function useRoomWebSocket(options: {
       })
 
       ws.addEventListener('error', () => {
+        if (!cancelled) recordWsErrorEvent()
         if (!cancelled && webrtcDebugEnabled()) webrtcLog('ws error event')
         if (!cancelled) queueMicrotask(() => setStatus('error'))
       })
@@ -152,9 +168,12 @@ export function useRoomWebSocket(options: {
 
   const sendJson = useCallback((payload: Record<string, unknown>) => {
     const ws = wsRef.current
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload))
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      recordOutboundDropped(payload, ws?.readyState ?? -1)
+      return
     }
+    recordOutboundSent(payload)
+    ws.send(JSON.stringify(payload))
   }, [])
 
   return { status, sendJson }
