@@ -19,6 +19,8 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               <span aria-hidden>·</span>
               <Link to="/lobby">Lobby</Link>
               <span aria-hidden>·</span>
+              <Link to="/privacy">Privacy</Link>
+              <span aria-hidden>·</span>
               <Link to="/terms">Terms</Link>
               <span aria-hidden>·</span>
               <a href="https://github.com/StacksOnTheRacks/riffsync" rel="noopener noreferrer">
@@ -88,6 +90,9 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                         <a href="https://riffsync.tv" rel="noopener noreferrer">
                           riffsync.tv
                         </a>
+                      </li>
+                      <li className="menu-item">
+                        <Link to="/privacy">Privacy Policy</Link>
                       </li>
                       <li className="menu-item">
                         <Link to="/terms">Terms of Service</Link>

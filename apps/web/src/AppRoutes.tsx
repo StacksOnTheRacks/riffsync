@@ -7,6 +7,7 @@ import { RoomPage } from './pages/RoomPage'
 import { AdminShellPage } from './pages/AdminShellPage'
 import { SoloWatchPage } from './pages/SoloWatchPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { TermsOfServicePage } from './pages/TermsOfServicePage'
 
 export function AppRoutes() {
@@ -19,6 +20,7 @@ export function AppRoutes() {
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/room/:roomId" element={<RoomPage />} />
         <Route path="/admin/*" element={<AdminShellPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useEffect } from 'react'
 
 const LAST_UPDATED = 'May 4, 2026'
@@ -25,7 +26,8 @@ export function TermsOfServicePage() {
             (&ldquo;RiffSync,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;),
             including our website, watch-party features, catalogs, chat, and related services
             (collectively, the &ldquo;Service&rdquo;). By accessing or using the Service, you agree to
-            these Terms. If you do not agree, do not use the Service.
+            these Terms. If you do not agree, do not use the Service. Our{' '}
+            <Link to="/privacy">Privacy Policy</Link> describes how we handle information when you use the Service.
           </p>
         </section>
 
