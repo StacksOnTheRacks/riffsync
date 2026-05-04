@@ -181,10 +181,41 @@ export function PrivacyPolicyPage() {
             Guests without accounts may clear browser storage or leave rooms to discontinue identifiers tied
             to that browser profile.
           </p>
+          <p>
+            If you signed in with Facebook or another linked provider, see{' '}
+            <a href="#user-data-deletion">User data deletion</a> below for how to disconnect the app and
+            request removal of information we hold.
+          </p>
+        </section>
+
+        <section id="user-data-deletion">
+          <h2>12. User data deletion</h2>
+          <p>
+            If you used <strong>Facebook Login</strong> (or another social login we offer), you can remove
+            RiffSync&rsquo;s connection to your Facebook account at any time in your{' '}
+            <a href="https://www.facebook.com/settings?tab=applications" rel="noopener noreferrer">
+              Facebook settings under Apps and Websites
+            </a>
+            . That stops future access through that login connection; it does not by itself delete data we
+            already processed while you used the Service.
+          </p>
+          <p>
+            To request deletion of personal information associated with your use of RiffSync (including
+            data tied to a hosted sign-in account such as Amazon Cognito), email{' '}
+            <a href="mailto:derrick@andersonwebstudio.com">derrick@andersonwebstudio.com</a> from an address
+            you control or that matches your account where possible. Include a brief description of your
+            request (for example &ldquo;delete my RiffSync account and related data&rdquo;) and any details
+            that help us locate your record (such as the email address shown on your account, if any).
+          </p>
+          <p>
+            We may need to verify your identity before completing deletion. We will respond within a
+            reasonable time and delete or anonymize personal information we hold for providing the Service,
+            except where retention is required for security, fraud prevention, or legal obligations.
+          </p>
         </section>
 
         <section>
-          <h2>12. Changes</h2>
+          <h2>13. Changes</h2>
           <p>
             We may update this Policy from time to time by posting a revised version on this page and
             updating the &ldquo;Last updated&rdquo; date. Continued use after changes become effective
@@ -193,14 +224,15 @@ export function PrivacyPolicyPage() {
         </section>
 
         <section>
-          <h2>13. Contact</h2>
+          <h2>14. Contact</h2>
           <p>
-            For privacy questions, contact the RiffSync maintainers via the channels listed on our public
-            repository or website (for example{' '}
+            For privacy questions or requests (including deletion), email{' '}
+            <a href="mailto:derrick@andersonwebstudio.com">derrick@andersonwebstudio.com</a>. You can also
+            reach the project via our public repository:{' '}
             <a href="https://github.com/StacksOnTheRacks/riffsync" rel="noopener noreferrer">
               GitHub
             </a>
-            ). Replace this section with a dedicated privacy inbox when available.
+            .
           </p>
         </section>
       </div>
