@@ -595,13 +595,93 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   color: rgb(248 250 253 / 0.98);
 }
 
-.riffsync-room-page__host-sharing-toolbar {
+.riffsync-room-page__host-feedback {
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(8 11 14 / 0.55);
+}
+
+.riffsync-room-page__host-feedback-alert {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #ffb4b4;
+}
+
+.riffsync-room-page__host-feedback-alert + .riffsync-room-page__host-feedback-alert {
+  margin-top: 0.45rem;
+}
+
+.riffsync-room-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(3 6 10 / 0.65);
+  backdrop-filter: blur(5px);
+}
+
+.riffsync-room-modal {
+  width: min(26rem, 100%);
+  padding: 1.1rem 1.25rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(14 17 23 / 0.98);
+  box-shadow: 0 26px 60px rgb(0 0 0 / 0.5);
+}
+
+.riffsync-room-modal__heading {
+  margin: 0 0 0.35rem;
+  font-family: var(--title-fonts);
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.riffsync-room-modal__lede {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.riffsync-room-modal__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.riffsync-room-modal__field {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 0.85rem;
+  padding: 0.5rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: rgb(255 255 255 / 0.06);
+  color: inherit;
+  font-size: 0.95rem;
+}
+
+.riffsync-room-modal__err {
+  margin: 0 0 0.85rem;
+  font-size: 0.875rem;
+  color: #ffb4b4;
+}
+
+.riffsync-room-modal__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem 0.75rem;
-  margin: 0 0 0.85rem;
+  justify-content: flex-end;
+  gap: 0.45rem 0.65rem;
 }
 
 /* Same global `section` padding applies to the chat panel */

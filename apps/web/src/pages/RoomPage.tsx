@@ -1,9 +1,9 @@
 import { Link, useParams } from 'react-router-dom'
 import type { MutableRefObject } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { RoomPatchResult, RoomSnapshot } from '../api/roomsApi'
-import { catalogToRoomPlayback, fetchRoom, patchRoom } from '../api/roomsApi'
-import { fetchCatalogEpisodeById, fetchCatalogEntries } from '../catalog/catalogApi'
+import type { RoomSnapshot } from '../api/roomsApi'
+import { fetchRoom, patchRoom } from '../api/roomsApi'
+import { fetchCatalogEpisodeById } from '../catalog/catalogApi'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { cognitoSub } from '../auth/jwtDecode'
 import { getFanAccessToken } from '../auth/fanTokens'
@@ -248,17 +248,14 @@ export function RoomPage() {
   const [room, setRoom] = useState<RoomSnapshot | null | undefined>(undefined)
   const [roomErr, setRoomErr] = useState<string | null>(null)
   const [catalogEp, setCatalogEp] = useState<CatalogEpisode | null>(null)
-  const [catalogList, setCatalogList] = useState<CatalogEpisode[]>([])
   const [chat, setChat] = useState<ChatMsg[]>([])
   const [chatDraft, setChatDraft] = useState('')
   const [patchErr, setPatchErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
-  const [displayTitleDraft, setDisplayTitleDraft] = useState('')
   const [showHostShareInstructions, setShowHostShareInstructions] = useState(() =>
     readHostShareInstructionsOpen(roomId),
   )
   const [shareInstrRoomId, setShareInstrRoomId] = useState(roomId)
-  const displayTitleSyncSigRef = useRef('')
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
   const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
@@ -272,6 +269,9 @@ export function RoomPage() {
     members: [],
   }))
   const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people'>('chat')
+  const [renameModalOpen, setRenameModalOpen] = useState(false)
+  const [renameModalDraft, setRenameModalDraft] = useState('')
+  const roomMenuDetailsRef = useRef<HTMLDetailsElement>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const hostCaptureVideoRef = useRef<HTMLVideoElement>(null)
@@ -290,14 +290,6 @@ export function RoomPage() {
     setShareInstrRoomId(roomId)
     setShowHostShareInstructions(readHostShareInstructionsOpen(roomId))
   }
-
-  useEffect(() => {
-    if (!room) return
-    const sig = `${room.displayTitle ?? ''}\0${room.catalogEpisodeId}\0${catalogEp?.title ?? ''}`
-    if (sig === displayTitleSyncSigRef.current) return
-    displayTitleSyncSigRef.current = sig
-    setDisplayTitleDraft(room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId)
-  }, [room, catalogEp?.title])
 
   useEffect(() => {
     guestRemoteRef.current = guestRemote
@@ -358,11 +350,13 @@ export function RoomPage() {
   }, [room?.catalogEpisodeId])
 
   useEffect(() => {
-    if (!isPublisher) return
-    void fetchCatalogEntries()
-      .then(setCatalogList)
-      .catch(() => setCatalogList([]))
-  }, [isPublisher])
+    if (!renameModalOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRenameModalOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [renameModalOpen])
 
   const sendJsonRef = useRef<(o: Record<string, unknown>) => void>(() => {})
 
@@ -537,6 +531,19 @@ export function RoomPage() {
     void v.play().catch(() => setHostCapturePlayHint(true))
   }, [captureStream, isPublisher])
 
+  const stopCapture = () => {
+    setHostCapturePlayHint(false)
+    setCaptureStream((prev) => {
+      if (prev) prev.getTracks().forEach((t) => t.stop())
+      return null
+    })
+    for (const pc of peerByGuestRef.current.values()) {
+      pc.close()
+    }
+    peerByGuestRef.current.clear()
+    pendingReadyGuestsRef.current.clear()
+  }
+
   const startCapture = async () => {
     setCaptureErr(null)
 
@@ -544,9 +551,7 @@ export function RoomPage() {
       setHostCapturePlayHint(false)
       stream.getTracks().forEach((tr) => {
         tr.addEventListener('ended', () => {
-          stream.getTracks().forEach((x) => x.stop())
-          setHostCapturePlayHint(false)
-          setCaptureStream(null)
+          stopCapture()
         })
       })
       setCaptureStream(stream)
@@ -590,17 +595,39 @@ export function RoomPage() {
     }
   }
 
-  const stopCapture = () => {
-    setHostCapturePlayHint(false)
-    setCaptureStream((prev) => {
-      if (prev) prev.getTracks().forEach((t) => t.stop())
-      return null
-    })
-    for (const pc of peerByGuestRef.current.values()) {
-      pc.close()
+  const saveRenameFromModal = async (): Promise<boolean> => {
+    if (!room || !fanToken || !isPublisher) return false
+    const t = renameModalDraft.trim()
+    if (!t) {
+      setPatchErr('Room name cannot be empty.')
+      return false
     }
-    peerByGuestRef.current.clear()
-    pendingReadyGuestsRef.current.clear()
+    setPatchErr(null)
+    try {
+      const res = await patchRoom(fanToken, roomId, { displayTitle: t })
+      const nextTitle = res.displayTitle ?? t
+      setRoom({
+        ...room,
+        version: res.version,
+        catalogEpisodeId: res.catalogEpisodeId,
+        youtubeVideoId: res.youtubeVideoId,
+        visibility: res.visibility,
+        lastActivityAt: res.lastActivityAt,
+        displayTitle: nextTitle,
+      })
+      return true
+    } catch (e) {
+      setPatchErr(e instanceof Error ? e.message : 'Could not save title')
+      return false
+    }
+  }
+
+  const openRenameModal = () => {
+    if (!room) return
+    setPatchErr(null)
+    setRenameModalDraft(room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId ?? '')
+    setRenameModalOpen(true)
+    if (roomMenuDetailsRef.current) roomMenuDetailsRef.current.open = false
   }
 
   const sendChat = () => {
@@ -620,57 +647,6 @@ export function RoomPage() {
       setShareHint(`Copy manually: ${url}`)
     }
     window.setTimeout(() => setShareHint(null), 4000)
-  }
-
-  const onEpisodeChange = async (nextId: string) => {
-    if (!room || !fanToken || !isPublisher) return
-    setPatchErr(null)
-    const ep = catalogList.find((e) => e.id === nextId)
-    try {
-      const body: Parameters<typeof patchRoom>[2] = { catalogEpisodeId: nextId }
-      if (ep) {
-        body.playbackExpectation = catalogToRoomPlayback(ep)
-      }
-      const res: RoomPatchResult = await patchRoom(fanToken, roomId, body)
-      setRoom({
-        ...room,
-        catalogEpisodeId: res.catalogEpisodeId,
-        youtubeVideoId: res.youtubeVideoId,
-        version: res.version,
-        lastActivityAt: res.lastActivityAt,
-        visibility: res.visibility,
-        ...(res.displayTitle !== undefined ? { displayTitle: res.displayTitle } : {}),
-      })
-      void fetchCatalogEpisodeById(res.catalogEpisodeId).then(setCatalogEp)
-    } catch (e) {
-      setPatchErr(e instanceof Error ? e.message : 'Patch failed')
-    }
-  }
-
-  const saveDisplayTitle = async () => {
-    if (!room || !fanToken || !isPublisher) return
-    const t = displayTitleDraft.trim()
-    if (!t) {
-      setPatchErr('Now playing title cannot be empty.')
-      return
-    }
-    setPatchErr(null)
-    try {
-      const res = await patchRoom(fanToken, roomId, { displayTitle: t })
-      const nextTitle = res.displayTitle ?? t
-      setRoom({
-        ...room,
-        version: res.version,
-        catalogEpisodeId: res.catalogEpisodeId,
-        youtubeVideoId: res.youtubeVideoId,
-        visibility: res.visibility,
-        lastActivityAt: res.lastActivityAt,
-        displayTitle: nextTitle,
-      })
-      displayTitleSyncSigRef.current = `${nextTitle}\0${res.catalogEpisodeId}\0${catalogEp?.title ?? ''}`
-    } catch (e) {
-      setPatchErr(e instanceof Error ? e.message : 'Could not save title')
-    }
   }
 
   const openCapturePlayerTab = () => {
@@ -783,8 +759,8 @@ export function RoomPage() {
                       </p>
                     </div>
                     <p className="riffsync-room-page__host-share-footnote riffsync-muted">
-                      While you&apos;re sharing, tap <strong>Stop sharing</strong> above the player to end broadcast. You
-                      can open or close the source tab anytime.
+                      When you&apos;re done sharing, use your browser&apos;s <strong>Stop sharing</strong> control — it appears
+                      at the top of this tab while broadcast is live. You can open or close the source tab anytime.
                     </p>
                     <div className="riffsync-room-page__host-share-actions">
                       <button
@@ -798,13 +774,6 @@ export function RoomPage() {
                   </div>
                 ) : null}
                 <h2 className="riffsync-room-page__theater-heading">{nowPlayingLabel}</h2>
-                {captureStream ? (
-                  <div className="riffsync-room-page__host-sharing-toolbar">
-                    <button type="button" className="gen-button" onClick={stopCapture}>
-                      Stop sharing
-                    </button>
-                  </div>
-                ) : null}
                 {captureStream && hostCapturePlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
                     <button type="button" className="gen-button" onClick={() => void playHostCapturePreview()}>
@@ -839,51 +808,20 @@ export function RoomPage() {
                   )}
                 </div>
 
-                <div className="riffsync-room-page__host-strip" aria-label="Host controls">
-                  {patchErr ? (
-                    <p className="riffsync-room-page__host-strip-alert" role="alert">
-                      {patchErr}
-                    </p>
-                  ) : null}
-                  <div className="riffsync-room-page__host-strip-row">
-                    <div className="riffsync-room-page__host-title-row">
-                      <label htmlFor="room-display-title">Now playing</label>
-                      <input
-                        id="room-display-title"
-                        maxLength={DISPLAY_TITLE_MAX_LEN}
-                        value={displayTitleDraft}
-                        onChange={(e) => setDisplayTitleDraft(e.target.value)}
-                        placeholder="Title shown in the lobby"
-                        autoComplete="off"
-                      />
-                      <button type="button" className="gen-button" onClick={() => void saveDisplayTitle()}>
-                        Save title
-                      </button>
-                    </div>
+                {isPublisher && (captureErr || (patchErr && !renameModalOpen)) ? (
+                  <div className="riffsync-room-page__host-feedback" aria-label="Host notices">
+                    {patchErr && !renameModalOpen ? (
+                      <p className="riffsync-room-page__host-feedback-alert" role="alert">
+                        {patchErr}
+                      </p>
+                    ) : null}
+                    {captureErr ? (
+                      <p className="riffsync-room-page__host-feedback-alert" role="alert">
+                        {captureErr}
+                      </p>
+                    ) : null}
                   </div>
-                  <div className="riffsync-room-page__host-strip-row">
-                    <div className="riffsync-room-page__picker riffsync-room-page__picker--host-only">
-                      <label htmlFor="episode-picker">Episode</label>
-                      <select
-                        id="episode-picker"
-                        value={room.catalogEpisodeId}
-                        onChange={(e) => void onEpisodeChange(e.target.value)}
-                        disabled={catalogList.length === 0}
-                      >
-                        {catalogList.map((e) => (
-                          <option key={e.id} value={e.id}>
-                            #{e.experimentNumber} — {e.title}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  {captureErr ? (
-                    <p className="riffsync-room-page__capture-err" role="alert">
-                      {captureErr}
-                    </p>
-                  ) : null}
-                </div>
+                ) : null}
               </section>
             ) : (
               <section className="riffsync-room-page__playback" aria-label="Guest playback">
@@ -909,7 +847,7 @@ export function RoomPage() {
                 </div>
                 {fanToken ? (
                   <p className="sr-only">
-                    You are signed in as a guest. Only the party creator can change room settings or the episode.
+                    You are signed in as a guest. Only the party creator can rename the room and share video.
                   </p>
                 ) : (
                   <p className="sr-only">
@@ -951,12 +889,17 @@ export function RoomPage() {
                     People
                   </button>
                 </div>
-                <details className="riffsync-room-page__room-menu">
+                <details ref={roomMenuDetailsRef} className="riffsync-room-page__room-menu">
                   <summary className="riffsync-room-page__room-menu-trigger">Room</summary>
                   <div className="riffsync-room-page__room-menu-panel">
                     <button type="button" className="gen-button gen-button-wide" onClick={() => void copyShare()}>
                       Copy room link
                     </button>
+                    {isPublisher ? (
+                      <button type="button" className="gen-button gen-button-wide" onClick={openRenameModal}>
+                        Rename room
+                      </button>
+                    ) : null}
                     {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
                   </div>
                 </details>
@@ -1038,6 +981,72 @@ export function RoomPage() {
           </aside>
         </div>
       </div>
+
+      {renameModalOpen && isPublisher ? (
+        <div
+          className="riffsync-room-modal-overlay"
+          role="presentation"
+          onClick={() => setRenameModalOpen(false)}
+        >
+          <div
+            className="riffsync-room-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="riffsync-rename-room-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="riffsync-rename-room-title" className="riffsync-room-modal__heading">
+              Rename room
+            </h2>
+            <p className="riffsync-room-modal__lede riffsync-muted">
+              This updates the lobby listing and &quot;Now playing&quot; label for everyone in the party.
+            </p>
+            <label className="riffsync-room-modal__label" htmlFor="riffsync-rename-room-input">
+              Room name / now playing
+            </label>
+            <input
+              id="riffsync-rename-room-input"
+              className="riffsync-room-modal__field"
+              maxLength={DISPLAY_TITLE_MAX_LEN}
+              value={renameModalDraft}
+              onChange={(e) => setRenameModalDraft(e.target.value)}
+              autoComplete="off"
+              autoFocus
+            />
+            {patchErr ? (
+              <p className="riffsync-room-modal__err" role="alert">
+                {patchErr}
+              </p>
+            ) : null}
+            <div className="riffsync-room-modal__actions">
+              <button
+                type="button"
+                className="gen-button gen-button--ghost"
+                onClick={() => {
+                  setPatchErr(null)
+                  setRenameModalOpen(false)
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="gen-button"
+                onClick={() =>
+                  void saveRenameFromModal().then((ok) => {
+                    if (ok) {
+                      setPatchErr(null)
+                      setRenameModalOpen(false)
+                    }
+                  })
+                }
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
