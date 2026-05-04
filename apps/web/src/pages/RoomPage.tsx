@@ -19,6 +19,7 @@ import { getPublicOrigin } from '../config/publicOrigin'
 import { getRtcIceServers } from '../config/iceServers'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
 import {
+  announceWebrtcDebugOnRoomMount,
   attachPcStateLogging,
   summarizeEnvelope,
   webrtcDebugEnabled,
@@ -286,6 +287,11 @@ export function RoomPage() {
 
   useEffect(() => {
     if (!roomId || !room) return
+    announceWebrtcDebugOnRoomMount()
+  }, [roomId, room])
+
+  useEffect(() => {
+    if (!roomId || !room) return
     const t = window.setInterval(() => {
       void loadRoom()
     }, 5000)
@@ -480,9 +486,26 @@ export function RoomPage() {
         })
       })
       setCaptureStream(stream)
+      console.info('[riffsync] Screen capture started — WebRTC signaling appears after a guest opens this room (not only ping).')
+      webrtcLog('getDisplayMedia OK, tracks:', stream.getTracks().length)
     } catch (e) {
-      setCaptureErr(e instanceof Error ? e.message : 'Could not start tab capture')
+      const msg = e instanceof Error ? e.message : 'Could not start tab capture'
+      setCaptureErr(msg)
+      console.warn('[riffsync] getDisplayMedia failed — guests will not see video until share succeeds:', e)
+      webrtcLog('getDisplayMedia failed', e)
     }
+  }
+
+  const stopCapture = () => {
+    setCaptureStream((prev) => {
+      if (prev) prev.getTracks().forEach((t) => t.stop())
+      return null
+    })
+    for (const pc of peerByGuestRef.current.values()) {
+      pc.close()
+    }
+    peerByGuestRef.current.clear()
+    pendingReadyGuestsRef.current.clear()
   }
 
   const sendChat = () => {
@@ -617,15 +640,26 @@ export function RoomPage() {
             </select>
           </div>
           <p>
-            <button type="button" className="gen-button" onClick={() => void startCapture()}>
-              Share this tab (video + audio)
-            </button>
+            {captureStream ? (
+              <>
+                <span role="status">
+                  Screen share is <strong>on</strong> — guests will see this once they join and WebRTC connects.
+                </span>{' '}
+                <button type="button" className="gen-button" onClick={stopCapture}>
+                  Stop sharing
+                </button>
+              </>
+            ) : (
+              <button type="button" className="gen-button" onClick={() => void startCapture()}>
+                Share this tab (video + audio)
+              </button>
+            )}
           </p>
           {captureErr ? <p role="alert">{captureErr}</p> : null}
           <p className="riffsync-muted">
-            Capture the browser tab showing the embedded player so guests receive one consistent picture—including any on-screen honor-system cues. If
-            you still don&apos;t see this tab in the picker, use <strong>Window</strong> and choose this Chrome window, or share another tab that has the
-            video full screen.
+            {captureStream
+              ? 'In DevTools → Network → your WebSocket → Messages: you will mostly see only ping heartbeats until another browser joins this room; then look for signaling (ready, offer, answer, ice).'
+              : 'Capture the browser tab showing the embedded player so guests receive one consistent picture—including any on-screen honor-system cues. If you still do not see this tab in the picker, use Window and choose this Chrome window, or share another tab that has the video full screen.'}
           </p>
           <div className="riffsync-room-page__embed">
             <SoloYouTubePlayer key={room.youtubeVideoId} videoId={room.youtubeVideoId} titleHint={title} />

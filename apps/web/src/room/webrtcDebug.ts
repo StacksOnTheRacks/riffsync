@@ -24,6 +24,13 @@ export function webrtcLog(...args: unknown[]): void {
   console.info('[riffsync-webrtc]', ...args)
 }
 
+export function announceWebrtcDebugOnRoomMount(): void {
+  if (!webrtcDebugEnabled()) return
+  console.info(
+    '[riffsync-webrtc] Verbose signaling enabled for this tab. If you expected logs but see none, add ?webrtcDebug=1 to the room URL and reload. Disable: sessionStorage.removeItem("riffsync.webrtcDebug")',
+  )
+}
+
 export function summarizeEnvelope(envelope: Record<string, unknown>): Record<string, unknown> {
   const kind = envelope.kind
   const guest = envelope.guestSignaling === true
