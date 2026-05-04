@@ -768,10 +768,6 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   max-width: 100%;
 }
 
-.riffsync-room-page__guest-signin {
-  margin: 0.5rem 0 0;
-}
-
 .riffsync-room-page__guest-actions {
   margin: 0 0 0.5rem;
   font-size: 0.9rem;
@@ -853,6 +849,29 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   padding: 0.5rem;
   border-top: 1px solid rgb(255 255 255 / 0.08);
   background: rgb(5 8 11 / 0.55);
+}
+
+.riffsync-room-chat-compose-holder {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.riffsync-room-chat-compose--inactive input:disabled,
+.riffsync-room-chat-compose--inactive .gen-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.riffsync-room-chat-signin-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.85rem;
+  background: rgb(8 11 18 / 0.86);
+  backdrop-filter: blur(5px);
+  z-index: 2;
 }
 
 .riffsync-room-chat-compose input {

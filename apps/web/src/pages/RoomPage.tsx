@@ -604,6 +604,7 @@ export function RoomPage() {
   }
 
   const sendChat = () => {
+    if (!fanToken) return
     const txt = chatDraft.trim()
     if (!txt) return
     sendJson({ action: 'chat', text: txt })
@@ -911,16 +912,8 @@ export function RoomPage() {
                     You are signed in as a guest. Only the party creator can change room settings or the episode.
                   </p>
                 ) : (
-                  <p className="riffsync-room-page__guest-signin riffsync-muted">
-                    <button
-                      type="button"
-                      className="gen-button"
-                      onClick={() =>
-                        void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
-                      }
-                    >
-                      Sign in (optional)
-                    </button>
+                  <p className="sr-only">
+                    You can read chat without signing in. Sign in near the chat box to send messages.
                   </p>
                 )}
               </section>
@@ -980,20 +973,44 @@ export function RoomPage() {
                       </li>
                     ))}
                   </ul>
-                  <div className="riffsync-room-chat-compose">
-                    <input
-                      type="text"
-                      maxLength={2000}
-                      value={chatDraft}
-                      placeholder="Say something…"
-                      onChange={(e) => setChatDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') sendChat()
-                      }}
-                    />
-                    <button type="button" className="gen-button" onClick={sendChat}>
-                      Send
-                    </button>
+                  <div className="riffsync-room-chat-compose-holder">
+                    <div
+                      className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
+                    >
+                      <input
+                        type="text"
+                        maxLength={2000}
+                        value={fanToken ? chatDraft : ''}
+                        placeholder="Say something…"
+                        disabled={!fanToken}
+                        onChange={(e) => {
+                          if (fanToken) setChatDraft(e.target.value)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && fanToken) sendChat()
+                        }}
+                      />
+                      <button type="button" className="gen-button" disabled={!fanToken} onClick={sendChat}>
+                        Send
+                      </button>
+                    </div>
+                    {!fanToken ? (
+                      <div
+                        className="riffsync-room-chat-signin-overlay"
+                        role="region"
+                        aria-label="Sign in to participate in chat"
+                      >
+                        <button
+                          type="button"
+                          className="gen-button"
+                          onClick={() =>
+                            void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
+                          }
+                        >
+                          Sign in (optional)
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </>
               ) : (
