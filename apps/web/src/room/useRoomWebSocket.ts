@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { webrtcDebugEnabled, webrtcLog } from './webrtcDebug'
 
 const PING_MS = 25_000
 
@@ -75,6 +76,12 @@ export function useRoomWebSocket(options: {
         qp.set('accessToken', accessToken)
       }
       const wsUrlBase = `${url}?${qp.toString()}`
+      if (webrtcDebugEnabled()) {
+        webrtcLog('ws opening', {
+          urlChars: wsUrlBase.length,
+          hasAccessToken: Boolean(accessToken),
+        })
+      }
       let ws: WebSocket
       try {
         ws = new WebSocket(wsUrlBase)
@@ -88,6 +95,7 @@ export function useRoomWebSocket(options: {
         if (cancelled) return
         backoffRef.current = 1000
         setStatus('open')
+        if (webrtcDebugEnabled()) webrtcLog('ws open')
         pingRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ action: 'ping' }))
@@ -104,9 +112,15 @@ export function useRoomWebSocket(options: {
         }
       })
 
-      ws.addEventListener('close', () => {
+      ws.addEventListener('close', (ev) => {
         clearPing()
         wsRef.current = null
+        if (!cancelled && webrtcDebugEnabled()) {
+          webrtcLog('ws close', {
+            code: ev.code,
+            reason: typeof ev.reason === 'string' && ev.reason !== '' ? ev.reason : undefined,
+          })
+        }
         if (cancelled) return
         queueMicrotask(() => setStatus('closed'))
         if (!enabledRef.current) return
@@ -119,6 +133,7 @@ export function useRoomWebSocket(options: {
       })
 
       ws.addEventListener('error', () => {
+        if (!cancelled && webrtcDebugEnabled()) webrtcLog('ws error event')
         if (!cancelled) queueMicrotask(() => setStatus('error'))
       })
     }

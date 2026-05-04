@@ -431,7 +431,7 @@ export function RoomPage() {
   }, [isPublisher, wsStatus, sendJson])
 
   useEffect(() => {
-    if (!captureStream || !isPublisher) return
+    if (!captureStream || !isPublisher || wsStatus !== 'open') return
     void flushHostPending({
       captureStream,
       iceServers,
@@ -439,7 +439,7 @@ export function RoomPage() {
       peerByGuestRef,
       pendingReadyGuestsRef,
     }).catch(() => undefined)
-  }, [captureStream, iceServers, isPublisher])
+  }, [captureStream, iceServers, isPublisher, wsStatus])
 
   useEffect(() => {
     if (isPublisher) return
@@ -460,6 +460,19 @@ export function RoomPage() {
 
   const startCapture = async () => {
     setCaptureErr(null)
+
+    const applyStream = (stream: MediaStream) => {
+      stream.getTracks().forEach((tr) => {
+        tr.addEventListener('ended', () => {
+          stream.getTracks().forEach((x) => x.stop())
+          setCaptureStream(null)
+        })
+      })
+      setCaptureStream(stream)
+      console.info('[riffsync] Screen capture started — WebRTC signaling appears after a guest opens this room (not only ping).')
+      webrtcLog('getDisplayMedia OK, tracks:', stream.getTracks().length)
+    }
+
     try {
       // Chrome defaults `selfBrowserSurface` to "exclude", which omits the *current* tab from the
       // "Chrome Tab" picker—bad for hosts who want this same tab (embedded player). See:
@@ -479,15 +492,16 @@ export function RoomPage() {
         selfBrowserSurface?: 'include' | 'exclude'
         surfaceSwitching?: 'include' | 'exclude'
       })
-      stream.getTracks().forEach((tr) => {
-        tr.addEventListener('ended', () => {
-          stream.getTracks().forEach((x) => x.stop())
-          setCaptureStream(null)
-        })
-      })
-      setCaptureStream(stream)
-      console.info('[riffsync] Screen capture started — WebRTC signaling appears after a guest opens this room (not only ping).')
-      webrtcLog('getDisplayMedia OK, tracks:', stream.getTracks().length)
+      applyStream(stream)
+      return
+    } catch (eStrict) {
+      webrtcLog('getDisplayMedia (tab-tuned constraints) failed, trying permissive:', eStrict)
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+      applyStream(stream)
+      return
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not start tab capture'
       setCaptureErr(msg)
