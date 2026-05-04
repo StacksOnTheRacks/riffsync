@@ -245,6 +245,60 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   opacity: 0.85;
 }
 
+/* `/watch/:id?partyCapture=1`: host broadcast tab — no site header/footer, stretch player vertically */
+.riffsync-site.riffsync-site--party-capture {
+  min-height: 100dvh;
+}
+
+.riffsync-main--party-capture {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.riffsync-solo-watch-page--party-capture {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.riffsync-solo-watch--capture {
+  position: relative;
+  z-index: 1;
+  padding: clamp(0.45rem, 2vw, 0.75rem);
+  margin-bottom: 0;
+}
+
+.riffsync-solo-watch-page--party-capture .riffsync-solo-watch__player-shell {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  padding-inline: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.riffsync-solo-watch-page--party-capture .riffsync-solo-player {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.riffsync-solo-watch-page--party-capture .riffsync-solo-player__frame {
+  flex: 1 1 auto;
+  aspect-ratio: auto;
+  min-height: clamp(240px, 56vh, 1200px);
+}
+
 .riffsync-advisory {
   display: inline-block;
   font-size: 0.8rem;

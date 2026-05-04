@@ -32,6 +32,7 @@ function PartyCaptureBanner() {
   )
 }
 
+
 export function SoloWatchPage() {
   const { catalogEpisodeId } = useParams<{ catalogEpisodeId: string }>()
   const [searchParams] = useSearchParams()
@@ -40,6 +41,15 @@ export function SoloWatchPage() {
   const { data: episode, isPending, isError, error } = useCatalogEpisodeQuery(catalogEpisodeId)
 
   if (isPending) {
+    if (partyCapture) {
+      return (
+        <div className="riffsync-solo-watch-page riffsync-solo-watch-page--party-capture">
+          <div className="riffsync-solo-watch riffsync-solo-watch--capture">
+            <p role="status">Loading playback…</p>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="container riffsync-solo-watch">
         <p>Loading episode…</p>
@@ -48,6 +58,19 @@ export function SoloWatchPage() {
   }
 
   if (isError) {
+    if (partyCapture) {
+      return (
+        <div className="riffsync-solo-watch-page riffsync-solo-watch-page--party-capture" role="alert">
+          <div className="riffsync-solo-watch riffsync-solo-watch--capture">
+            <p>Could not load this episode.</p>
+            <p>{error instanceof Error ? error.message : 'Unknown error'}</p>
+            <p>
+              <Link to="/">← Home</Link>
+            </p>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="container riffsync-solo-watch" role="alert">
         <p>Could not load this episode.</p>
@@ -60,6 +83,21 @@ export function SoloWatchPage() {
   }
 
   if (!episode) {
+    if (partyCapture) {
+      return (
+        <div className="riffsync-solo-watch-page riffsync-solo-watch-page--party-capture">
+          <div className="riffsync-solo-watch riffsync-solo-watch--capture">
+            <h1 className="sr-only">Not found</h1>
+            <p role="alert">
+              No catalog row matched <code>{catalogEpisodeId ?? '—'}</code>.
+            </p>
+            <p>
+              <Link to="/catalog">Browse catalog</Link>
+            </p>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="container riffsync-solo-watch">
         <h1>Not found</h1>
@@ -76,15 +114,14 @@ export function SoloWatchPage() {
   const vid = episode.youtubeVideoId
   const canEmbed = episode.embedAllows !== false
   const backdropImageUrl = episode.backdropImageUrl?.trim()
+  const pageRoot =
+    backdropImageUrl
+      ? `riffsync-solo-watch-page riffsync-solo-watch-page--backdrop${partyCapture ? ' riffsync-solo-watch-page--party-capture' : ''}`
+      : `riffsync-solo-watch-page${partyCapture ? ' riffsync-solo-watch-page--party-capture' : ''}`
+  const innerChrome = partyCapture ? 'riffsync-solo-watch riffsync-solo-watch--capture' : 'container riffsync-solo-watch'
 
   return (
-    <div
-      className={
-        backdropImageUrl
-          ? 'riffsync-solo-watch-page riffsync-solo-watch-page--backdrop'
-          : 'riffsync-solo-watch-page'
-      }
-    >
+    <div className={pageRoot}>
       {partyCapture ? (
         <PartyCaptureBanner key={catalogEpisodeId ?? 'episode'} />
       ) : null}
@@ -103,19 +140,21 @@ export function SoloWatchPage() {
           aria-hidden
         />
       ) : null}
-      <div className="container riffsync-solo-watch">
-        <header className="riffsync-solo-watch__header">
-          <h1 className="sr-only">{episode.title}</h1>
-          <nav aria-label="Breadcrumb" className="riffsync-solo-watch__toolbar">
-            <Link to="/">Home</Link>
-            <span aria-hidden> · </span>
-            <Link to="/catalog">Catalog</Link>
-            <span aria-hidden> · </span>
-            <span>Experiment #{episode.experimentNumber}</span>
-            <span aria-hidden> · </span>
-            <span className="riffsync-solo-watch__toolbar-era">{episode.era}</span>
-          </nav>
-        </header>
+      <div className={innerChrome}>
+        <h1 className="sr-only">{episode.title}</h1>
+        {!partyCapture ? (
+          <header className="riffsync-solo-watch__header">
+            <nav aria-label="Breadcrumb" className="riffsync-solo-watch__toolbar">
+              <Link to="/">Home</Link>
+              <span aria-hidden> · </span>
+              <Link to="/catalog">Catalog</Link>
+              <span aria-hidden> · </span>
+              <span>Experiment #{episode.experimentNumber}</span>
+              <span aria-hidden> · </span>
+              <span className="riffsync-solo-watch__toolbar-era">{episode.era}</span>
+            </nav>
+          </header>
+        ) : null}
         {!vid && (
           <p role="status">Playback unavailable — no YouTube video is linked for this catalog entry.</p>
         )}
@@ -139,11 +178,13 @@ export function SoloWatchPage() {
           <SoloYouTubePlayer videoId={vid} titleHint={episode.title} autoPlay={false} />
         </div>
       ) : null}
-      <div className="container riffsync-solo-watch">
-        <p className="riffsync-solo-watch__fineprint">
-          Embedded YouTube player. Browse more episodes in the <Link to="/catalog">catalog</Link>.
-        </p>
-      </div>
+      {!partyCapture ? (
+        <div className="container riffsync-solo-watch">
+          <p className="riffsync-solo-watch__fineprint">
+            Embedded YouTube player. Browse more episodes in the <Link to="/catalog">catalog</Link>.
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }
