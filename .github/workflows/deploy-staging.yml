@@ -122,7 +122,7 @@ jobs:
           echo "Adding ${SITE_URL} to HTTP API CORS and Cognito SPA callbacks"
           npx cdk deploy RiffSyncFanAuth-staging RiffSyncApi-staging \
             "${ARGS[@]}" \
-            --context "fanAuthOAuthExtras=${SITE_URL}/,${SITE_URL}/callback" \
+            --context "fanAuthOAuthExtras=${SITE_URL}/,${SITE_URL}/auth/callback" \
             --context "catalogCorsOrigins=${SITE_URL}" \
             --require-approval never
 

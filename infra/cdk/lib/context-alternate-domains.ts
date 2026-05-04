@@ -20,5 +20,5 @@ export function fanWebAlternateDomainNamesFromContext(scope: Construct): string[
 
 export function oauthCallbacksForHost(hostname: string): string[] {
   const h = hostname.replace(/\.$/, '').toLowerCase();
-  return [`https://${h}/`, `https://${h}/callback`];
+  return [`https://${h}/`, `https://${h}/auth/callback`];
 }
