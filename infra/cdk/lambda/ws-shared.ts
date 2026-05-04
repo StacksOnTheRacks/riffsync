@@ -1,4 +1,8 @@
-import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
+import {
+  ApiGatewayManagementApiClient,
+  GoneException,
+  PostToConnectionCommand,
+} from '@aws-sdk/client-apigatewaymanagementapi';
 import { DynamoDBDocumentClient, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 export function wsManagementClient(): ApiGatewayManagementApiClient {
@@ -49,7 +53,10 @@ export async function postToConnections(
         }),
       );
     } catch (err) {
-      if (err instanceof GoneException || (err as { name?: string }).name === 'GoneException') {
+      const gone =
+        err instanceof GoneException ||
+        (typeof err === 'object' && err !== null && (err as { name?: string }).name === 'GoneException');
+      if (gone) {
         await doc.send(
           new DeleteCommand({
             TableName: connectionsTable,
