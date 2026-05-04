@@ -34,17 +34,12 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
         <div className="gen-bottom-header riffsync-header__compact-strip">
           <div className="container">
             <div className="riffsync-header-compact-inner">
-              <NavLink className="riffsync-brand riffsync-brand--compact" to="/" end>
-                RiffSync
-              </NavLink>
-              <nav className="riffsync-header-compact-nav" aria-label="Primary">
-                <NavLink to="/">Home</NavLink>
-                <NavLink to="/catalog">Catalog</NavLink>
-                <NavLink to="/lobby">Lobby</NavLink>
-                <NavLink to="/admin" end={false}>
-                  Admin
+              <div className="riffsync-header-compact-brandline">
+                <NavLink className="riffsync-brand riffsync-brand--compact" to="/" end>
+                  RiffSync
                 </NavLink>
-              </nav>
+                <span className="riffsync-header-compact-sub">Watch Party</span>
+              </div>
             </div>
           </div>
         </div>
