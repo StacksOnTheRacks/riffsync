@@ -22,11 +22,38 @@ function PrimaryNavItem({
   )
 }
 
-export function SiteHeader() {
+export function SiteHeader({ compact = false }: { compact?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  if (compact) {
+    return (
+      <header
+        id="gen-header"
+        className="gen-header-style-1 gen-has-sticky gen-header-sticky riffsync-header riffsync-header--compact"
+      >
+        <div className="gen-bottom-header riffsync-header__compact-strip">
+          <div className="container">
+            <div className="riffsync-header-compact-inner">
+              <NavLink className="riffsync-brand riffsync-brand--compact" to="/" end>
+                RiffSync
+              </NavLink>
+              <nav className="riffsync-header-compact-nav" aria-label="Primary">
+                <NavLink to="/">Home</NavLink>
+                <NavLink to="/catalog">Catalog</NavLink>
+                <NavLink to="/lobby">Lobby</NavLink>
+                <NavLink to="/admin" end={false}>
+                  Admin
+                </NavLink>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </header>
+    )
+  }
+
   return (
-    <header id="gen-header" className="gen-header-style-1 gen-has-sticky gen-header-sticky">
+    <header id="gen-header" className="gen-header-style-1 gen-has-sticky gen-header-sticky riffsync-header">
       <div className="gen-bottom-header">
         <div className="container">
           <div className="row">

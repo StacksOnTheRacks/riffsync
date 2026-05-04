@@ -675,170 +675,253 @@ export function RoomPage() {
   }
 
   const title = catalogEp?.title ?? room.catalogEpisodeId
+  const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
 
   return (
-    <div className="container riffsync-room-page">
-      <h1>{title}</h1>
-      <p className="riffsync-room-page__meta">
-        You are <strong>{displayName}</strong> (<code>{sessionId.slice(0, 8)}…</code>){' '}
-        {isPublisher ? <span>— hosting</span> : <span>— guest</span>}
-      </p>
-      <p>
-        <PlaybackExpectationBadge expectation={roomPlaybackForBadge(room.playbackExpectation)} />
-      </p>
-
-      {!wsBase && (
-        <p role="status" className="riffsync-muted">
-          Set <code>VITE_PUBLIC_WS_URL</code> for chat and synchronized watch parties.
-        </p>
-      )}
-      {isPublisher ? (
-        <p className="riffsync-muted" role="note">
-          Second browser for testing? Use a <strong>signed-out</strong> or <strong>Incognito</strong> window as the
-          guest. If it signs in with the <strong>same</strong> account that created the room, that tab is also{' '}
-          <strong>host</strong>—it never sends a WebRTC <code>ready</code>, so DevTools looks idle and video sync
-          fails.
-        </p>
-      ) : null}
-      {wsBase ? (
-        <p className="riffsync-muted" role="status">
-          Realtime: <code>{wsStatus}</code>
-          {!isPublisher ? (
-            <>
-              {' '}
-              · When <code>open</code>, you should see outbound <code>signaling</code> (<code>ready</code>) immediately,
-              then <code>ping</code> (~25s apart).
-            </>
-          ) : null}
-        </p>
+    <div
+      className={
+        backdropImageUrl ? 'riffsync-room-shell riffsync-room-shell--backdrop' : 'riffsync-room-shell'
+      }
+    >
+      {backdropImageUrl ? (
+        <div
+          className="riffsync-room-shell__backdrop"
+          style={{
+            backgroundImage: `linear-gradient(
+              rgb(13 17 23 / 0.88),
+              rgb(13 17 23 / 0.92)
+            ), url(${JSON.stringify(backdropImageUrl)})`,
+            backgroundSize: 'cover,cover',
+            backgroundPosition: 'center,center',
+            backgroundRepeat: 'no-repeat,no-repeat',
+          }}
+          aria-hidden
+        />
       ) : null}
 
-      <p>
-        <button type="button" className="gen-button" onClick={() => void copyShare()}>
-          Copy room link
-        </button>
-        {shareHint ? <span className="riffsync-room-page__hint"> {shareHint}</span> : null}
-      </p>
+      <div className="container riffsync-room-page">
+        <div className="riffsync-room-page__stage">
+          <div className="riffsync-room-page__theater">
+            <header className="riffsync-room-page__masthead">
+              <div className="riffsync-room-page__masthead-text">
+                <h1 className="riffsync-room-page__title">{title}</h1>
+                <p className="riffsync-room-page__identity">
+                  <strong>{displayName}</strong>{' '}
+                  <span className="riffsync-room-page__identity-id">
+                    (<code>{sessionId.slice(0, 8)}…</code>)
+                  </span>{' '}
+                  {isPublisher ? (
+                    <span className="riffsync-muted">Hosting</span>
+                  ) : (
+                    <span className="riffsync-muted">Guest</span>
+                  )}
+                </p>
+              </div>
+              <div className="riffsync-room-page__masthead-chips">
+                <PlaybackExpectationBadge expectation={roomPlaybackForBadge(room.playbackExpectation)} />
+                {wsBase ? (
+                  <span className="riffsync-room-page__ws-pill riffsync-muted">
+                    Realtime{' '}
+                    <code className={wsStatus === 'open' ? 'riffsync-room-page__ws-open' : undefined}>{wsStatus}</code>
+                  </span>
+                ) : null}
+                <Link to="/lobby" className="riffsync-room-page__lobby-link">
+                  Lobby
+                </Link>
+              </div>
+            </header>
 
-      {isPublisher ? (
-        <section className="riffsync-room-page__host" aria-label="Host controls">
-          <h2>Host</h2>
-          {patchErr ? <p role="alert">{patchErr}</p> : null}
-          <div className="riffsync-room-page__picker">
-            <label htmlFor="episode-picker">Episode</label>
-            <select
-              id="episode-picker"
-              value={room.catalogEpisodeId}
-              onChange={(e) => void onEpisodeChange(e.target.value)}
-              disabled={catalogList.length === 0}
-            >
-              {catalogList.map((e) => (
-                <option key={e.id} value={e.id}>
-                  #{e.experimentNumber} — {e.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <p>
-            {captureStream ? (
-              <>
-                <span role="status">
-                  Screen share is <strong>on</strong> — guests will see this once they join and WebRTC connects.
-                </span>{' '}
-                <button type="button" className="gen-button" onClick={stopCapture}>
-                  Stop sharing
-                </button>
-              </>
+            {!wsBase ? (
+              <p role="status" className="riffsync-room-page__banner riffsync-muted">
+                Set <code>VITE_PUBLIC_WS_URL</code> for chat and watch parties.
+              </p>
+            ) : null}
+
+            {isPublisher ? (
+              <details className="riffsync-room-page__collapsible riffsync-muted">
+                <summary>Testing two browsers?</summary>
+                <p role="note">
+                  Use a <strong>signed-out</strong> or <strong>Incognito</strong> window as the guest. If the guest
+                  signs in with the <strong>same</strong> account that created the room, that tab is also{' '}
+                  <strong>host</strong>—it never sends a WebRTC <code>ready</code>, so signaling stays idle.
+                </p>
+                {wsBase ? (
+                  <p role="note">
+                    WebSocket Messages: pings ~25s; when guests connect expect <code>signaling</code> (
+                    <code>ready</code>, <code>offer</code>, …).
+                  </p>
+                ) : null}
+              </details>
+            ) : wsBase ? (
+              <details className="riffsync-room-page__collapsible riffsync-muted">
+                <summary>Realtime tip</summary>
+                <p role="note">
+                  When the socket is <code>open</code>, you should see outbound <code>signaling</code> (
+                  <code>ready</code>) right away, then <code>ping</code> (~25s apart).
+                </p>
+              </details>
+            ) : null}
+
+            {isPublisher ? (
+              <section className="riffsync-room-page__playback" aria-label="Hosted playback">
+                <div className="riffsync-room-page__player-shell">
+                  <SoloYouTubePlayer key={room.youtubeVideoId} videoId={room.youtubeVideoId} titleHint={title} />
+                </div>
+
+                <div className="riffsync-room-page__host-strip" aria-label="Host controls">
+                  {patchErr ? (
+                    <p className="riffsync-room-page__host-strip-alert" role="alert">
+                      {patchErr}
+                    </p>
+                  ) : null}
+                  <div className="riffsync-room-page__host-strip-row">
+                    <div className="riffsync-room-page__picker">
+                      <label htmlFor="episode-picker">Episode</label>
+                      <select
+                        id="episode-picker"
+                        value={room.catalogEpisodeId}
+                        onChange={(e) => void onEpisodeChange(e.target.value)}
+                        disabled={catalogList.length === 0}
+                      >
+                        {catalogList.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            #{e.experimentNumber} — {e.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="riffsync-room-page__share-status" role="status">
+                      {captureStream ? (
+                        <>
+                          Share <strong>on</strong>. Guests receive this tab over WebRTC. Use{' '}
+                          <strong>Room ▸ Stop sharing</strong> to end.
+                        </>
+                      ) : (
+                        <>
+                          Not sharing yet — use <strong>Room ▸ Share this tab</strong> so guests see video.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  {captureErr ? (
+                    <p className="riffsync-room-page__capture-err" role="alert">
+                      {captureErr}
+                    </p>
+                  ) : null}
+                </div>
+
+                <details className="riffsync-room-page__collapsible riffsync-muted">
+                  <summary>About screen capture and the media picker</summary>
+                  <p>
+                    Capture the tab that shows this embedded player so everyone sees consistent pixels—including
+                    on-screen cues. If this tab does not appear in Chrome&apos;s picker, choose{' '}
+                    <strong>Window</strong> and pick this browser window.
+                  </p>
+                </details>
+              </section>
             ) : (
-              <button type="button" className="gen-button" onClick={() => void startCapture()}>
-                Share this tab (video + audio)
-              </button>
+              <section className="riffsync-room-page__playback" aria-label="Guest playback">
+                <p className="riffsync-room-page__guest-lede">
+                  Viewing the host&apos;s shared tab. If playback does not start automatically, tap Play (autoplay
+                  rules).
+                </p>
+                {guestPlayHint ? (
+                  <p className="riffsync-room-page__guest-actions">
+                    <button type="button" className="gen-button" onClick={() => void playGuestVideo()}>
+                      Play video
+                    </button>
+                  </p>
+                ) : null}
+                <div className="riffsync-room-page__player-shell riffsync-room-page__player-shell--guest">
+                  <video
+                    ref={videoRef}
+                    className="riffsync-room-page__guest-video"
+                    playsInline
+                    controls
+                    muted={false}
+                  />
+                </div>
+                <p className="riffsync-room-page__guest-foot riffsync-muted">
+                  {fanToken ? (
+                    <>Signed in as a guest — only the party creator can administer this room.</>
+                  ) : (
+                    <>
+                      Hosts sign in with Facebook via Cognito to create rooms.{' '}
+                      <button
+                        type="button"
+                        className="gen-button"
+                        onClick={() =>
+                          void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
+                        }
+                      >
+                        Sign in (optional)
+                      </button>
+                    </>
+                  )}
+                </p>
+              </section>
             )}
-          </p>
-          {captureErr ? <p role="alert">{captureErr}</p> : null}
-          <p className="riffsync-muted">
-            {captureStream
-              ? 'In DevTools → Network → WebSocket → Messages: expect a ping right after connect, then roughly every 25s; once a real guest joins, add signaling frames (ready, offer, answer, ice).'
-              : 'Capture the browser tab showing the embedded player so guests receive one consistent picture—including any on-screen honor-system cues. If you still do not see this tab in the picker, use Window and choose this Chrome window, or share another tab that has the video full screen.'}
-          </p>
-          <div className="riffsync-room-page__embed">
-            <SoloYouTubePlayer key={room.youtubeVideoId} videoId={room.youtubeVideoId} titleHint={title} />
+
+            {showRealtimeDiagPanel() ? <RoomRealtimeDiagnosticsPanel /> : null}
           </div>
-        </section>
-      ) : (
-        <>
-          <p>
-            You are viewing the host&apos;s shared tab. If playback does not start automatically, tap Play (
-            autoplay/browser policies).
-          </p>
-          {guestPlayHint ? (
-            <p>
-              <button type="button" className="gen-button" onClick={() => void playGuestVideo()}>
-                Play video
-              </button>
-            </p>
-          ) : null}
-          <video
-            ref={videoRef}
-            className="riffsync-room-page__guest-video"
-            playsInline
-            controls
-            muted={false}
-          />
-          <p className="riffsync-muted">
-            {fanToken ? (
-              <>You are signed in, but only the party creator can administer this room.</>
-            ) : (
-              <>
-                Hosts sign in with Facebook via Cognito to create rooms.{' '}
-                <button
-                  type="button"
-                  className="gen-button"
-                  onClick={() =>
-                    void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
-                  }
-                >
-                  Sign in (optional)
+
+          <aside className="riffsync-room-page__chat-column" aria-label="Chat sidebar">
+            <section className="riffsync-room-page__chat" aria-label="Chat">
+              <div className="riffsync-room-page__chat-toolbar">
+                <h2 className="riffsync-room-page__chat-heading">Chat</h2>
+                <details className="riffsync-room-page__room-menu">
+                  <summary className="riffsync-room-page__room-menu-trigger">Room</summary>
+                  <div className="riffsync-room-page__room-menu-panel">
+                    <button type="button" className="gen-button gen-button-wide" onClick={() => void copyShare()}>
+                      Copy room link
+                    </button>
+                    {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
+                    {isPublisher ? (
+                      captureStream ? (
+                        <button type="button" className="gen-button gen-button-wide" onClick={stopCapture}>
+                          Stop sharing
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="gen-button gen-button-wide"
+                          onClick={() => void startCapture()}
+                        >
+                          Share this tab (video + audio)
+                        </button>
+                      )
+                    ) : null}
+                  </div>
+                </details>
+              </div>
+              <ul className="riffsync-room-chat-log">
+                {chat.map((m) => (
+                  <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
+                    <span className="riffsync-room-chat-log__who">{m.sessionId.slice(0, 6)}…</span>
+                    {': '}
+                    {m.text}
+                  </li>
+                ))}
+              </ul>
+              <div className="riffsync-room-chat-compose">
+                <input
+                  type="text"
+                  maxLength={2000}
+                  value={chatDraft}
+                  placeholder="Say something…"
+                  onChange={(e) => setChatDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') sendChat()
+                  }}
+                />
+                <button type="button" className="gen-button" onClick={sendChat}>
+                  Send
                 </button>
-              </>
-            )}
-          </p>
-        </>
-      )}
-
-      {showRealtimeDiagPanel() ? <RoomRealtimeDiagnosticsPanel /> : null}
-
-      <section className="riffsync-room-page__chat" aria-label="Chat">
-        <h2>Chat</h2>
-        <ul className="riffsync-room-chat-log">
-          {chat.map((m) => (
-            <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
-              <span className="riffsync-room-chat-log__who">{m.sessionId.slice(0, 6)}…</span>
-              {': '}
-              {m.text}
-            </li>
-          ))}
-        </ul>
-        <div className="riffsync-room-chat-compose">
-          <input
-            type="text"
-            maxLength={2000}
-            value={chatDraft}
-            placeholder="Say something…"
-            onChange={(e) => setChatDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') sendChat()
-            }}
-          />
-          <button type="button" className="gen-button" onClick={sendChat}>
-            Send
-          </button>
+              </div>
+            </section>
+          </aside>
         </div>
-      </section>
-
-      <p>
-        <Link to="/lobby">← Lobby</Link>
-      </p>
+      </div>
     </div>
   )
 }

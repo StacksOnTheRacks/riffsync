@@ -1,8 +1,36 @@
 import { Link } from 'react-router-dom'
 
-export function SiteFooter() {
+export function SiteFooter({ compact = false }: { compact?: boolean }) {
+  const year = new Date().getFullYear()
+
+  if (compact) {
+    return (
+      <footer id="gen-footer" className="riffsync-footer riffsync-footer--compact">
+        <div className="gen-copyright-footer riffsync-footer--compact-inner">
+          <div className="container">
+            <nav className="riffsync-footer-compact-nav" aria-label="Footer">
+              <span className="gen-copyright">© {year} RiffSync</span>
+              <span aria-hidden className="riffsync-footer-compact-dot">
+                ·
+              </span>
+              <Link to="/">Home</Link>
+              <span aria-hidden>·</span>
+              <Link to="/catalog">Catalog</Link>
+              <span aria-hidden>·</span>
+              <Link to="/lobby">Lobby</Link>
+              <span aria-hidden>·</span>
+              <a href="https://github.com/StacksOnTheRacks/riffsync" rel="noopener noreferrer">
+                GitHub
+              </a>
+            </nav>
+          </div>
+        </div>
+      </footer>
+    )
+  }
+
   return (
-    <footer id="gen-footer">
+    <footer id="gen-footer" className="riffsync-footer">
       <div className="gen-footer-style-1">
         <div className="gen-footer-top">
           <div className="container">
@@ -85,7 +113,7 @@ export function SiteFooter() {
           <div className="container">
             <div className="row">
               <div className="col-md-12 align-self-center">
-                <span className="gen-copyright">© {new Date().getFullYear()} RiffSync</span>
+                <span className="gen-copyright">© {year} RiffSync</span>
               </div>
             </div>
           </div>
