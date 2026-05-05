@@ -183,7 +183,7 @@ Stack **`RiffSyncSesInbound`** is **environment-agnostic**: one **SNS** topic (*
 | Piece | Behavior |
 | --- | --- |
 | **Receipt rule** | Matching **`recipients`** (default **`riffsync.tv`** → all addresses on that domain) → **`Sns`** (**UTF-8** notification body) → **`Stop`** |
-| **Active rule set** | **`AWS::SES::ActiveReceiptRuleSet`** unless **`sesInboundActivateRuleSet`** is **`false`** / **`none`**. **Only one** active inbound rule set per Region/account. |
+| **Active rule set** | **`AwsCustomResource`** calls **`ses:SetActiveReceiptRuleSet`** (CloudFormation **`AWS::SES::ActiveReceiptRuleSet`** is not available in every Region/spec — e.g. **cfn-lint E3006** in **`us-east-1`**). Skip with **`sesInboundActivateRuleSet`** = **`false`** / **`none`**. **Only one** active inbound rule set per Region/account. |
 | **MX** | If **`fanWebHostedZoneId`** / **`fanWebZoneName`** are set **and** **`sesInboundMailDomain`** is the zone apex or a subdomain of **`fanWebZoneName`**, CDK creates **`MxRecord`** priority **10** → **`inbound-smtp.<region>.amazonaws.com`**. |
 
 **Outputs:** **`SesInboundTopicArn`**, **`SesInboundReceiptRuleSetName`**, **`SesInboundSesMxHint`**.
@@ -192,7 +192,7 @@ Stack **`RiffSyncSesInbound`** is **environment-agnostic**: one **SNS** topic (*
 
 | Context | Purpose |
 | --- | --- |
-| **`sesInboundActivateRuleSet`** | **`false`** \| **`none`** — skip **`AWS::SES::ActiveReceiptRuleSet`** (default: activate). |
+| **`sesInboundActivateRuleSet`** | **`false`** \| **`none`** — skip **`ses:SetActiveReceiptRuleSet`** custom resource (default: activate after rules exist). |
 | **`sesInboundMailDomain`** | Verified receive domain (default **`riffsync.tv`**). |
 | **`sesInboundRecipients`** | Comma-separated domains / addresses for the receipt rule (default **`sesInboundMailDomain`** only). |
 | **`sesInboundRuleSetName`** | Override receipt rule set name (default **`riffsync-ses-inbound`**). |
@@ -238,7 +238,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 - **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
 - **`RiffSyncApi-*` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**); **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
 - **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA). Pool **`EmailConfiguration`** sends verification / recovery mail through **Amazon SES** (**`DEVELOPER`** / **`SourceArn`** `identity/<domain>`); verify that identity **in the deploy Region** before go-live.
-- **`RiffSyncSesInbound` —** shared **SNS** topic + **SES** **`ReceiptRuleSet`** / **`ReceiptRule`** (**inbound → SNS**) + optional **`AWS::SES::ActiveReceiptRuleSet`** + optional Route 53 **MX** when hosted-zone context aligns with **`sesInboundMailDomain`** (emitted only from **`environment=prod`** synth). Deploy role needs **`ses:*`** receipt-rule APIs for your organization policies.
+- **`RiffSyncSesInbound` —** shared **SNS** topic + **SES** **`ReceiptRuleSet`** / **`ReceiptRule`** + **`AwsCustomResource`** (**`ses:SetActiveReceiptRuleSet`**) + optional Route 53 **MX** when hosted-zone context aligns with **`sesInboundMailDomain`** (emitted only from **`environment=prod`** synth). Deploy role needs **`ses:*`** receipt-rule APIs for your organization policies.
 
 Older milestone copy: **M1** alone only created the static stack.
 

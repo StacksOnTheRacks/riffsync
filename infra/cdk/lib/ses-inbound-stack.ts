@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as cr from 'aws-cdk-lib/custom-resources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as ses from 'aws-cdk-lib/aws-ses';
@@ -50,8 +51,9 @@ function mxRecordLabel(mailDomain: string, zoneName: string): string | undefined
 }
 
 /**
- * Whether to emit **`AWS::SES::ActiveReceiptRuleSet`** (default **true**).
- * Set **`sesInboundActivateRuleSet`** context to **`false`** or **`none`** to manage activation elsewhere.
+ * Whether to activate the receipt rule set via **`ses:SetActiveReceiptRuleSet`** (default **true**).
+ * CloudFormation does not expose **`AWS::SES::ActiveReceiptRuleSet`** in all Regions/specs — we use **`AwsCustomResource`** instead.
+ * Set **`sesInboundActivateRuleSet`** context to **`false`** or **`none`** to skip activation.
  */
 export function sesInboundReceiptRulesActivated(app: cdk.App): boolean {
   const raw = app.node.tryGetContext('sesInboundActivateRuleSet');
@@ -133,20 +135,49 @@ export class SesInboundStack extends cdk.Stack {
     });
 
     if (activateReceiptRuleSet) {
-      const active = new cdk.CfnResource(this, 'ActiveReceiptRuleSet', {
-        type: 'AWS::SES::ActiveReceiptRuleSet',
-        properties: {
-          RuleSetName: ruleSet.receiptRuleSetName,
+      const activateInbound = new cr.AwsCustomResource(this, 'ActivateInboundReceiptRuleSet', {
+        onCreate: {
+          service: 'SES',
+          action: 'setActiveReceiptRuleSet',
+          parameters: { RuleSetName: receiptRuleSetName },
+          physicalResourceId: cr.PhysicalResourceId.of(
+            `ses-active-ruleset:${receiptRuleSetName}`,
+          ),
         },
+        onUpdate: {
+          service: 'SES',
+          action: 'setActiveReceiptRuleSet',
+          parameters: { RuleSetName: receiptRuleSetName },
+          physicalResourceId: cr.PhysicalResourceId.of(
+            `ses-active-ruleset:${receiptRuleSetName}`,
+          ),
+        },
+        onDelete: {
+          service: 'SES',
+          action: 'setActiveReceiptRuleSet',
+          parameters: {},
+          physicalResourceId: cr.PhysicalResourceId.of(
+            `ses-active-ruleset:${receiptRuleSetName}`,
+          ),
+        },
+        policy: cr.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ['ses:SetActiveReceiptRuleSet'],
+            resources: ['*'],
+          }),
+        ]),
+        installLatestAwsSdk: false,
       });
+
       const cfnRuleSet = ruleSet.node.tryFindChild('Resource') as ses.CfnReceiptRuleSet | undefined;
       if (cfnRuleSet) {
-        active.node.addDependency(cfnRuleSet);
+        activateInbound.node.addDependency(cfnRuleSet);
       }
       for (const child of ruleSet.node.children) {
         const cfnRule = child.node.tryFindChild('Resource');
         if (cfnRule instanceof ses.CfnReceiptRule) {
-          active.node.addDependency(cfnRule);
+          activateInbound.node.addDependency(cfnRule);
         }
       }
     }
@@ -183,7 +214,8 @@ export class SesInboundStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'SesInboundReceiptRuleSetName', {
       value: ruleSet.receiptRuleSetName,
-      description: 'Receipt rule set name (must be active for inbound mail — see ActiveReceiptRuleSet in template when enabled).',
+      description:
+        'Receipt rule set name (activated via Custom Resource calling ses:SetActiveReceiptRuleSet when activation is enabled).',
     });
 
     new cdk.CfnOutput(this, 'SesInboundSesMxHint', {
