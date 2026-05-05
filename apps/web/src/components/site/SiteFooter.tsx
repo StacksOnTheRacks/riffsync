@@ -48,9 +48,10 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                     <div className="col-sm-12">
                       <span className="riffsync-footer-wordmark">RiffSync</span>
                       <p>
-                        Open-source fan catalog and watch parties for riff-style episodes—lawful
-                        YouTube embeds, anonymous guests in watch rooms, and hosts who broadcast
-                        over WebRTC.
+                        A fan-built, open-source catalog and watch-party lounge for riff-style
+                        episodes. Queue the cheesy feature, gather your crew in one room, and
+                        stay on the same laugh track together. Host-friendly, guest-simple, and
+                        grounded in lawful playback - no bone-shaped satellite required.
                       </p>
                     </div>
                   </div>
@@ -71,7 +72,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                         <Link to="/lobby">Lobby</Link>
                       </li>
                       <li className="menu-item">
-                        <Link to="/how-to-host-a-watchparty">Host a party — how-to</Link>
+                        <Link to="/how-to-host-a-watchparty">How to Host</Link>
                       </li>
                     </ul>
                   </div>
@@ -94,11 +95,11 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               </div>
               <div className="col-xl-3 col-md-6">
                 <div className="widget">
-                  <h4 className="footer-title">Contribute</h4>
+                  <h4 className="footer-title">Make it Better</h4>
                   <p>
                     RiffSync is built in public, by the fans, for the fans.{' '}
-                    <a href="https://github.com/StacksOnTheRacks/riffsync" rel="noopener noreferrer">
-                      Issues and pull requests on GitHub
+                    <a href="https://github.com/StacksOnTheRacks/riffsync/discussions" rel="noopener noreferrer">
+                      Discussions on GitHub
                     </a>{' '}
                     are currently the best way to improve the catalog and watch experience.
                   </p>
