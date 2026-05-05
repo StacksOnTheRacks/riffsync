@@ -825,6 +825,12 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   object-fit: contain;
 }
 
+.riffsync-room-page__guest-audio-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  max-width: 42rem;
+}
+
 .riffsync-room-page__host-preview-placeholder {
   position: absolute;
   inset: 0;

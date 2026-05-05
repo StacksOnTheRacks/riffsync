@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import type { MutableRefObject } from 'react'
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RoomSnapshot } from '../api/roomsApi'
 import { fetchRoom, patchRoom } from '../api/roomsApi'
@@ -47,10 +47,30 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
+function receiverLiveTracks(pc: RTCPeerConnection): MediaStreamTrack[] {
+  return pc
+    .getReceivers()
+    .map((r) => r.track)
+    .filter((t): t is MediaStreamTrack => Boolean(t && t.readyState === 'live'))
+}
+
+/** Some browsers omit `track` streams on `track`; recover from RTP receivers once ICE connects. */
+function syncGuestRemoteFromReceiversIfNeeded(
+  pc: RTCPeerConnection,
+  setGuestRemote: Dispatch<SetStateAction<MediaStream | null>>,
+) {
+  setGuestRemote((prev: MediaStream | null) => {
+    if (prev?.getTracks().some((t: MediaStreamTrack) => t.readyState === 'live')) return prev
+    const tracks = receiverLiveTracks(pc)
+    if (tracks.length === 0) return prev
+    return new MediaStream(tracks)
+  })
+}
+
 /**
  * True when the guest should ask the host to (re)publish.
- * Avoid sending `ready` while an RTCPeerConnection already finished SDP but React hasn't attached `guestRemote`
- * yet — otherwise `ensureHostPeerNegotiated` on the host tears down the PC and breaks playback.
+ * Avoid sending `ready` during early ICE (`new`/`connecting`) when SDP is already applied — tearing down then
+ * races `ontrack`. Once `connected`, missing React state is handled via receiver fallback instead of suppressing forever.
  */
 function guestNeedsHostNegotiation(remote: MediaStream | null, pc: RTCPeerConnection | null): boolean {
   if (!remote) {
@@ -59,7 +79,7 @@ function guestNeedsHostNegotiation(remote: MediaStream | null, pc: RTCPeerConnec
       pc.signalingState !== 'closed' &&
       pc.remoteDescription &&
       pc.localDescription &&
-      ['connecting', 'new', 'connected'].includes(pc.connectionState)
+      ['connecting', 'new'].includes(pc.connectionState)
     ) {
       return false
     }
@@ -185,7 +205,7 @@ async function handleGuestSignal(ctx: {
   sendJson: (payload: Record<string, unknown>) => void
   guestPcRef: MutableRefObject<RTCPeerConnection | null>
   pendingIceRef: MutableRefObject<RTCIceCandidateInit[]>
-  setGuestRemote: (s: MediaStream | null) => void
+  setGuestRemote: Dispatch<SetStateAction<MediaStream | null>>
   envelope: Record<string, unknown>
 }): Promise<void> {
   const kind = ctx.envelope.kind
@@ -204,8 +224,17 @@ async function handleGuestSignal(ctx: {
     ctx.guestPcRef.current = pc
 
     pc.ontrack = (ev) => {
-      const [stream] = ev.streams
-      if (stream) ctx.setGuestRemote(stream)
+      const direct = ev.streams[0]
+      if (direct && direct.getTracks().length > 0) {
+        ctx.setGuestRemote(direct)
+        return
+      }
+      ctx.setGuestRemote((prev: MediaStream | null) => {
+        const merged = [...(prev?.getTracks() ?? [])]
+        const ids = new Set(merged.map((t) => t.id))
+        if (!ids.has(ev.track.id)) merged.push(ev.track)
+        return new MediaStream(merged)
+      })
     }
     pc.onicecandidate = (e) => {
       if (e.candidate) {
@@ -218,6 +247,15 @@ async function handleGuestSignal(ctx: {
           },
         })
       }
+    }
+
+    pc.onconnectionstatechange = () => {
+      if (pc !== ctx.guestPcRef.current) return
+      if (pc.connectionState !== 'connected') return
+      queueMicrotask(() => {
+        if (pc !== ctx.guestPcRef.current) return
+        syncGuestRemoteFromReceiversIfNeeded(pc, ctx.setGuestRemote)
+      })
     }
 
     try {
@@ -920,7 +958,8 @@ export function RoomPage() {
             ) : (
               <section className="riffsync-room-page__playback" aria-label="Guest playback">
                 <span className="sr-only">
-                  Watching the shared video stream from this room&apos;s host. Use Play if the browser blocks autoplay.
+                  Watching the shared video stream from this room&apos;s host. Playback starts muted so your browser may autoplay;
+                  turn sound on with the player controls.
                 </span>
                 <h2 className="riffsync-room-page__theater-heading">{nowPlayingLabel}</h2>
                 {guestPlayHint ? (
@@ -936,9 +975,14 @@ export function RoomPage() {
                     className="riffsync-room-page__guest-video"
                     playsInline
                     controls
-                    muted={false}
+                    muted
                   />
                 </div>
+                {guestRemote ? (
+                  <p className="riffsync-room-page__guest-audio-hint riffsync-muted">
+                    Stream starts muted for autoplay — use the player&apos;s volume control when you want sound.
+                  </p>
+                ) : null}
                 {fanToken ? (
                   <p className="sr-only">
                     You are signed in as a guest. Only the party creator can rename the room and share video.
