@@ -47,10 +47,27 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-/** True when the guest should ask the host to (re)publish — no stream yet or all remote tracks have ended. */
-function guestNeedsHostNegotiation(remote: MediaStream | null): boolean {
-  if (!remote) return true
-  return !remote.getTracks().some((t) => t.readyState === 'live')
+/**
+ * True when the guest should ask the host to (re)publish.
+ * Avoid sending `ready` while an RTCPeerConnection already finished SDP but React hasn't attached `guestRemote`
+ * yet — otherwise `ensureHostPeerNegotiated` on the host tears down the PC and breaks playback.
+ */
+function guestNeedsHostNegotiation(remote: MediaStream | null, pc: RTCPeerConnection | null): boolean {
+  if (!remote) {
+    if (
+      pc &&
+      pc.signalingState !== 'closed' &&
+      pc.remoteDescription &&
+      pc.localDescription &&
+      ['connecting', 'new', 'connected'].includes(pc.connectionState)
+    ) {
+      return false
+    }
+    return true
+  }
+  const tracks = remote.getTracks()
+  if (tracks.some((t) => t.readyState === 'live')) return false
+  return true
 }
 
 type HostNegotiateCtx = {
@@ -201,19 +218,6 @@ async function handleGuestSignal(ctx: {
           },
         })
       }
-    }
-
-    pc.onconnectionstatechange = () => {
-      if (pc !== ctx.guestPcRef.current) return
-      if (pc.connectionState !== 'failed') return
-      ctx.pendingIceRef.current = []
-      ctx.guestPcRef.current = null
-      try {
-        pc.close()
-      } catch {
-        /* ignore */
-      }
-      ctx.setGuestRemote(null)
     }
 
     try {
@@ -530,7 +534,7 @@ export function RoomPage() {
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
     const sendReady = () => {
-      if (!guestNeedsHostNegotiation(guestRemoteRef.current)) return
+      if (!guestNeedsHostNegotiation(guestRemoteRef.current, guestPcRef.current)) return
       sendJson({
         action: 'signaling',
         envelope: { guestSignaling: true, kind: 'ready' },
@@ -541,10 +545,10 @@ export function RoomPage() {
     return () => window.clearInterval(id)
   }, [isPublisher, wsStatus, sendJson])
 
-  /** Re-arm host negotiation as soon as the guest has no live remote share (fast path vs 8s poll). */
+  /** Ping host immediately when playback was cleared — avoids waiting up to 8s for `ready`. */
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
-    if (!guestNeedsHostNegotiation(guestRemote)) return
+    if (guestRemote !== null) return
     sendJson({
       action: 'signaling',
       envelope: { guestSignaling: true, kind: 'ready' },
