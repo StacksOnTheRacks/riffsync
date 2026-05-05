@@ -95,6 +95,7 @@ export function useRoomWebSocket(options: {
         webrtcLog('ws opening', {
           urlChars: wsUrlBase.length,
           hasAccessToken: Boolean(accessToken),
+          socketRole: accessToken ? 'publisher (JWT on query)' : 'guest/anonymous (expected)',
         })
       }
       let ws: WebSocket

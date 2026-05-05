@@ -2,6 +2,7 @@ import { jwtPayload } from './jwtDecode'
 
 const LS_ACCESS = 'riffsync.fanAccessToken'
 const LS_EXPIRES = 'riffsync.fanAccessTokenExp'
+const LS_REFRESH = 'riffsync.fanRefreshToken'
 
 export interface FanTokenBundle {
   accessToken: string
@@ -18,6 +19,16 @@ function resolvedExpiresAtSec(accessToken: string, storedExpirySec: number): num
   if (jwtOk) return jwtOk
   if (storedOk) return storedOk
   return null
+}
+
+/** JWT / stored-clock expiry used for proactive Cognito refresh. */
+export function fanAccessExpiryEpochSec(bundle: FanTokenBundle): number | null {
+  return resolvedExpiresAtSec(bundle.accessToken, bundle.expiresAtSec)
+}
+
+export function getFanRefreshToken(): string | null {
+  const t = localStorage.getItem(LS_REFRESH)
+  return t && t.length > 0 ? t : null
 }
 
 export function getFanTokenBundle(): FanTokenBundle | null {
@@ -39,13 +50,21 @@ export function getFanAccessToken(): string | null {
   return b.accessToken
 }
 
-export function setFanTokenBundle(accessToken: string, expiresInSec: number): void {
+export function setFanTokenBundle(
+  accessToken: string,
+  expiresInSec: number,
+  opts?: { refreshToken?: string },
+): void {
   const now = Math.floor(Date.now() / 1000)
   localStorage.setItem(LS_ACCESS, accessToken)
   localStorage.setItem(LS_EXPIRES, String(now + expiresInSec))
+  if (opts?.refreshToken !== undefined && opts.refreshToken.length > 0) {
+    localStorage.setItem(LS_REFRESH, opts.refreshToken)
+  }
 }
 
 export function clearFanTokens(): void {
   localStorage.removeItem(LS_ACCESS)
   localStorage.removeItem(LS_EXPIRES)
+  localStorage.removeItem(LS_REFRESH)
 }

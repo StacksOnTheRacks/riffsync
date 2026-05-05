@@ -1,4 +1,10 @@
-import { setFanTokenBundle } from './fanTokens'
+import {
+  clearFanTokens,
+  getFanRefreshToken,
+  getFanTokenBundle,
+  setFanTokenBundle,
+  fanAccessExpiryEpochSec,
+} from './fanTokens'
 
 const PKCE_VERIFIER = 'riffsync.pkceVerifier'
 const OAUTH_STATE = 'riffsync.oauthState'
@@ -108,9 +114,89 @@ export async function exchangeFanAuthorizationCode(
     throw new Error(`Token exchange failed (${res.status}): ${t}`)
   }
 
-  const json = (await res.json()) as { access_token?: string; expires_in?: number }
+  const json = (await res.json()) as {
+    access_token?: string
+    expires_in?: number
+    refresh_token?: string
+  }
   if (!json.access_token || typeof json.expires_in !== 'number') {
     throw new Error('Token response missing access_token / expires_in')
   }
-  setFanTokenBundle(json.access_token, json.expires_in)
+  setFanTokenBundle(json.access_token, json.expires_in, {
+    ...(typeof json.refresh_token === 'string' && json.refresh_token.length > 0
+      ? { refreshToken: json.refresh_token }
+      : {}),
+  })
+}
+
+const REFRESH_LEEWAY_SEC = 300
+
+let refreshFanTokensInFlight: Promise<void> | null = null
+
+/**
+ * Uses Cognito **`refresh_token`** (stored after sign-in) to obtain a new **`access_token`**
+ * before the current one expires. No-op without env, refresh token, or when access is still fresh.
+ *
+ * Requires the User Pool app client to issue refresh tokens (non-zero refresh token expiry in Cognito).
+ */
+export function refreshFanTokensIfStale(): Promise<void> {
+  if (refreshFanTokensInFlight) return refreshFanTokensInFlight
+  refreshFanTokensInFlight = refreshFanTokensIfStaleBody().finally(() => {
+    refreshFanTokensInFlight = null
+  })
+  return refreshFanTokensInFlight
+}
+
+async function refreshFanTokensIfStaleBody(): Promise<void> {
+  const domainRaw = import.meta.env.VITE_COGNITO_HOSTED_UI_DOMAIN?.trim()
+  const cid = import.meta.env.VITE_COGNITO_CLIENT_ID?.trim()
+  if (!domainRaw || !cid) return
+
+  const rt = getFanRefreshToken()
+  if (!rt) return
+
+  const domain = domainRaw.replace(/^https?:\/\//, '')
+  const bundle = getFanTokenBundle()
+  const now = Math.floor(Date.now() / 1000)
+  const exp = bundle ? fanAccessExpiryEpochSec(bundle) : null
+
+  const needsRefresh = exp === null || now >= exp - REFRESH_LEEWAY_SEC || now >= exp - 30
+  if (!needsRefresh) return
+
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    client_id: cid,
+    refresh_token: rt,
+  })
+
+  try {
+    const res = await fetch(`https://${domain}/oauth2/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    })
+
+    if (!res.ok) {
+      if (res.status === 400 || res.status === 401) clearFanTokens()
+      return
+    }
+
+    const refreshed = (await res.json()) as {
+      access_token?: string
+      expires_in?: number
+      refresh_token?: string
+    }
+    if (!refreshed.access_token || typeof refreshed.expires_in !== 'number') {
+      clearFanTokens()
+      return
+    }
+
+    setFanTokenBundle(refreshed.access_token, refreshed.expires_in, {
+      ...(typeof refreshed.refresh_token === 'string' && refreshed.refresh_token.length > 0
+        ? { refreshToken: refreshed.refresh_token }
+        : {}),
+    })
+  } catch {
+    /* Network blip — retain tokens; interval / visibility will retry. */
+  }
 }

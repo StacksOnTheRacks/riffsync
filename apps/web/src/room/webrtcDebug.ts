@@ -34,6 +34,13 @@ export function announceWebrtcDebugOnRoomMount(): void {
 export function summarizeEnvelope(envelope: Record<string, unknown>): Record<string, unknown> {
   const kind = envelope.kind
   const guest = envelope.guestSignaling === true
+  if (kind === 'ready') {
+    return {
+      kind,
+      guestSignaling: guest,
+      hint: 'guest ping — SDP/ICE appear only on host offer + guest answer / trickle',
+    }
+  }
   const sdp = envelope.sdp
   const sdpLen = typeof (sdp as { sdp?: string })?.sdp === 'string' ? (sdp as { sdp: string }).sdp.length : 0
   const target =
