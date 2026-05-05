@@ -59,6 +59,7 @@ type HostNegotiateCtx = {
   sendJson: (payload: Record<string, unknown>) => void
   peerByGuestRef: MutableRefObject<Map<string, RTCPeerConnection>>
   pendingReadyGuestsRef: MutableRefObject<Set<string>>
+  pendingGuestIceRef: MutableRefObject<Map<string, RTCIceCandidateInit[]>>
 }
 
 async function ensureHostPeerNegotiated(
@@ -79,6 +80,7 @@ async function ensureHostPeerNegotiated(
     }
     existing.close()
   }
+  ctx.pendingGuestIceRef.current.delete(guestSessionId)
   const pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
   attachPcStateLogging(pc, `host→${guestSessionId.slice(0, 8)}…`)
   ctx.peerByGuestRef.current.set(guestSessionId, pc)
@@ -120,7 +122,11 @@ async function flushHostPending(
 }
 
 async function handleHostSignal(
-  ctx: HostNegotiateCtx & { captureStream: MediaStream | null; fromSessionId: string; envelope: Record<string, unknown> },
+  ctx: HostNegotiateCtx & {
+    captureStream: MediaStream | null
+    fromSessionId: string
+    envelope: Record<string, unknown>
+  },
 ): Promise<void> {
   const guestSignaling = ctx.envelope.guestSignaling === true
   const kind = ctx.envelope.kind
@@ -137,6 +143,7 @@ async function handleHostSignal(
         sendJson: ctx.sendJson,
         peerByGuestRef: ctx.peerByGuestRef,
         pendingReadyGuestsRef: ctx.pendingReadyGuestsRef,
+        pendingGuestIceRef: ctx.pendingGuestIceRef,
       },
       ctx.fromSessionId,
     ).catch(() => undefined)
@@ -153,6 +160,14 @@ async function handleHostSignal(
         await pc.setRemoteDescription(
           new RTCSessionDescription(sdp as unknown as RTCSessionDescriptionInit),
         )
+        const sid = ctx.fromSessionId
+        const queued = ctx.pendingGuestIceRef.current.get(sid)
+        ctx.pendingGuestIceRef.current.delete(sid)
+        if (queued?.length) {
+          for (const init of queued) {
+            await pc.addIceCandidate(new RTCIceCandidate(init)).catch(() => undefined)
+          }
+        }
       } catch {
         /* ignore malformed SDP */
       }
@@ -162,12 +177,19 @@ async function handleHostSignal(
 
   if (guestSignaling && kind === 'ice') {
     const cand = ctx.envelope.candidate
-    if (isRecord(cand)) {
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(cand as RTCIceCandidateInit))
-      } catch {
-        /* ignore stale / invalid candidate */
-      }
+    if (!isRecord(cand)) return
+    const init = cand as RTCIceCandidateInit
+    if (!pc.currentRemoteDescription) {
+      const m = ctx.pendingGuestIceRef.current
+      const arr = m.get(ctx.fromSessionId) ?? []
+      arr.push(init)
+      m.set(ctx.fromSessionId, arr)
+      return
+    }
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(init))
+    } catch {
+      /* ignore stale / invalid candidate */
     }
   }
 }
@@ -190,7 +212,7 @@ async function handleGuestSignal(ctx: {
 
     const prev = ctx.guestPcRef.current
     prev?.close()
-    ctx.pendingIceRef.current = []
+    if (prev) ctx.pendingIceRef.current = []
 
     const pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
     attachPcStateLogging(pc, 'guest')
@@ -254,9 +276,13 @@ async function handleGuestSignal(ctx: {
 
   if (kind === 'ice' && ctx.envelope.targetSessionId === ctx.mySessionId) {
     const cand = ctx.envelope.candidate
-    const pc = ctx.guestPcRef.current
-    if (!pc || !isRecord(cand)) return
+    if (!isRecord(cand)) return
     const init = cand as RTCIceCandidateInit
+    const pc = ctx.guestPcRef.current
+    if (!pc) {
+      ctx.pendingIceRef.current.push(init)
+      return
+    }
     if (!pc.remoteDescription) {
       ctx.pendingIceRef.current.push(init)
       return
@@ -307,6 +333,8 @@ export function RoomPage() {
   const hostCaptureVideoRef = useRef<HTMLVideoElement>(null)
   const peerByGuestRef = useRef(new Map<string, RTCPeerConnection>())
   const pendingReadyGuestsRef = useRef(new Set<string>())
+  const hostPendingGuestIceRef = useRef(new Map<string, RTCIceCandidateInit[]>())
+  const hostSigQRef = useRef<Promise<void>>(Promise.resolve())
   const guestPcRef = useRef<RTCPeerConnection | null>(null)
   const guestPendingIceRef = useRef<RTCIceCandidateInit[]>([])
   const guestSigQRef = useRef<Promise<void>>(Promise.resolve())
@@ -328,6 +356,16 @@ export function RoomPage() {
   useEffect(() => {
     guestPendingIceRef.current = []
     guestSigQRef.current = Promise.resolve()
+    hostSigQRef.current = Promise.resolve()
+    hostPendingGuestIceRef.current.clear()
+    guestPcRef.current?.close()
+    guestPcRef.current = null
+    queueMicrotask(() => setGuestRemote(null))
+    for (const pc of peerByGuestRef.current.values()) {
+      pc.close()
+    }
+    peerByGuestRef.current.clear()
+    pendingReadyGuestsRef.current.clear()
   }, [roomId])
 
   const peopleShown = useMemo(() => {
@@ -483,15 +521,21 @@ export function RoomPage() {
       }
 
       if (role !== 'guest') return
-      void handleHostSignal({
-        fromSessionId,
-        envelope,
-        captureStream,
-        iceServers,
-        sendJson: (payload) => sendJsonRef.current(payload),
-        peerByGuestRef,
-        pendingReadyGuestsRef,
-      }).catch(() => undefined)
+      hostSigQRef.current = hostSigQRef.current
+        .then(() =>
+          handleHostSignal({
+            fromSessionId,
+            envelope,
+            captureStream,
+            iceServers,
+            sendJson: (payload) => sendJsonRef.current(payload),
+            peerByGuestRef,
+            pendingReadyGuestsRef,
+            pendingGuestIceRef: hostPendingGuestIceRef,
+          }).catch(() => undefined),
+        )
+        .catch(() => undefined)
+      return
     },
     [captureStream, iceServers, isPublisher, roomId, sessionId],
   )
@@ -528,12 +572,14 @@ export function RoomPage() {
     if (!isPublisher) return
     const peerMap = peerByGuestRef.current
     const pend = pendingReadyGuestsRef.current
+    const pendingIceByGuest = hostPendingGuestIceRef.current
     return () => {
       for (const pc of peerMap.values()) {
         pc.close()
       }
       peerMap.clear()
       pend.clear()
+      pendingIceByGuest.clear()
     }
   }, [isPublisher])
 
@@ -594,6 +640,7 @@ export function RoomPage() {
       sendJson: (payload) => sendJsonRef.current(payload),
       peerByGuestRef,
       pendingReadyGuestsRef,
+      pendingGuestIceRef: hostPendingGuestIceRef,
     }).catch(() => undefined)
   }, [captureStream, iceServers, isPublisher, wsStatus])
 
@@ -642,6 +689,7 @@ export function RoomPage() {
     }
     peerByGuestRef.current.clear()
     pendingReadyGuestsRef.current.clear()
+    hostPendingGuestIceRef.current.clear()
   }
 
   const startCapture = async () => {
