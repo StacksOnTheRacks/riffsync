@@ -7,7 +7,7 @@ function PrimaryNavItem({
   children,
 }: {
   to: string
-  /** When false, active for nested paths (e.g. `/admin/*`). Default true (exact). */
+  /** When false, active for nested paths. Default true (exact). */
   end?: boolean
   children: string
 }) {
@@ -68,9 +68,6 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
                       </PrimaryNavItem>
                       <PrimaryNavItem to="/catalog">Catalog</PrimaryNavItem>
                       <PrimaryNavItem to="/lobby">Lobby</PrimaryNavItem>
-                      <PrimaryNavItem to="/admin" end={false}>
-                        Admin
-                      </PrimaryNavItem>
                     </ul>
                   </div>
                 </div>

@@ -22,11 +22,12 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               <Link to="/privacy">Privacy</Link>
               <span aria-hidden>·</span>
               <Link to="/terms">Terms</Link>
-              <span aria-hidden>·</span>
-              <a href="https://github.com/StacksOnTheRacks/riffsync" rel="noopener noreferrer">
-                GitHub
-              </a>
             </nav>
+            <p className="riffsync-footer-compact-contribute">
+              <a href="https://github.com/StacksOnTheRacks/riffsync" rel="noopener noreferrer">
+                Contribute on GitHub
+              </a>
+            </p>
           </div>
         </div>
       </footer>
@@ -49,16 +50,6 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                         YouTube embeds, anonymous guests in watch rooms, and hosts who broadcast
                         over WebRTC.
                       </p>
-                      <ul className="social-link">
-                        <li>
-                          <a
-                            href="https://github.com/StacksOnTheRacks/riffsync"
-                            rel="noopener noreferrer"
-                          >
-                            GitHub
-                          </a>
-                        </li>
-                      </ul>
                     </div>
                   </div>
                 </div>
@@ -87,11 +78,6 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                   <div className="menu-about-container">
                     <ul className="menu">
                       <li className="menu-item">
-                        <a href="https://riffsync.tv" rel="noopener noreferrer">
-                          riffsync.tv
-                        </a>
-                      </li>
-                      <li className="menu-item">
                         <Link to="/privacy">Privacy Policy</Link>
                       </li>
                       <li className="menu-item">
@@ -105,8 +91,11 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                 <div className="widget">
                   <h4 className="footer-title">Contribute</h4>
                   <p>
-                    RiffSync is built in public, by the fans, for the fans. Issues and pull requests on GitHub are currently the best
-                    way to improve the catalog and watch experience.
+                    RiffSync is built in public, by the fans, for the fans.{' '}
+                    <a href="https://github.com/StacksOnTheRacks/riffsync" rel="noopener noreferrer">
+                      Issues and pull requests on GitHub
+                    </a>{' '}
+                    are currently the best way to improve the catalog and watch experience.
                   </p>
                 </div>
               </div>

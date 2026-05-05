@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/useCatalogQuery'
+import { formatCatalogEraLabel } from '../catalog/catalogTypes'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 
 const PARTY_CAPTURE_ANIMATION = 'riffsyncPartyCaptureBannerFadeOut'
@@ -182,7 +183,7 @@ export function SoloWatchPage() {
               <span aria-hidden> · </span>
               <span>Experiment #{episode.experimentNumber}</span>
               <span aria-hidden> · </span>
-              <span className="riffsync-solo-watch__toolbar-era">{episode.era}</span>
+              <span className="riffsync-solo-watch__toolbar-era">{formatCatalogEraLabel(episode.era)}</span>
             </nav>
           </header>
         ) : null}

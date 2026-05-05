@@ -47,6 +47,12 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
+/** True when the guest should ask the host to (re)publish — no stream yet or all remote tracks have ended. */
+function guestNeedsHostNegotiation(remote: MediaStream | null): boolean {
+  if (!remote) return true
+  return !remote.getTracks().some((t) => t.readyState === 'live')
+}
+
 type HostNegotiateCtx = {
   iceServers: RTCIceServer[]
   sendJson: (payload: Record<string, unknown>) => void
@@ -195,6 +201,19 @@ async function handleGuestSignal(ctx: {
           },
         })
       }
+    }
+
+    pc.onconnectionstatechange = () => {
+      if (pc !== ctx.guestPcRef.current) return
+      if (pc.connectionState !== 'failed') return
+      ctx.pendingIceRef.current = []
+      ctx.guestPcRef.current = null
+      try {
+        pc.close()
+      } catch {
+        /* ignore */
+      }
+      ctx.setGuestRemote(null)
     }
 
     try {
@@ -511,7 +530,7 @@ export function RoomPage() {
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
     const sendReady = () => {
-      if (guestRemoteRef.current) return
+      if (!guestNeedsHostNegotiation(guestRemoteRef.current)) return
       sendJson({
         action: 'signaling',
         envelope: { guestSignaling: true, kind: 'ready' },
@@ -521,6 +540,41 @@ export function RoomPage() {
     const id = window.setInterval(sendReady, 8000)
     return () => window.clearInterval(id)
   }, [isPublisher, wsStatus, sendJson])
+
+  /** Re-arm host negotiation as soon as the guest has no live remote share (fast path vs 8s poll). */
+  useEffect(() => {
+    if (isPublisher || wsStatus !== 'open') return
+    if (!guestNeedsHostNegotiation(guestRemote)) return
+    sendJson({
+      action: 'signaling',
+      envelope: { guestSignaling: true, kind: 'ready' },
+    })
+  }, [guestRemote, isPublisher, wsStatus, sendJson])
+
+  useEffect(() => {
+    if (!guestRemote || isPublisher) return
+
+    const clearIfAllEnded = () => {
+      const s = guestRemoteRef.current
+      if (!s || s.getTracks().some((t) => t.readyState === 'live')) return
+      guestPcRef.current?.close()
+      guestPcRef.current = null
+      guestPendingIceRef.current = []
+      setGuestRemote(null)
+    }
+
+    const subs: Array<{ track: MediaStreamTrack; fn: () => void }> = []
+    for (const track of guestRemote.getTracks()) {
+      const fn = () => clearIfAllEnded()
+      track.addEventListener('ended', fn)
+      subs.push({ track, fn })
+    }
+    return () => {
+      for (const { track, fn } of subs) {
+        track.removeEventListener('ended', fn)
+      }
+    }
+  }, [guestRemote, isPublisher])
 
   useEffect(() => {
     if (!captureStream || !isPublisher || wsStatus !== 'open') return
@@ -544,10 +598,16 @@ export function RoomPage() {
 
   useEffect(() => {
     const v = videoRef.current
-    if (!v || !guestRemote || isPublisher) return
-    setGuestPlayHint(false)
+    if (!v || isPublisher) return
+    if (!guestRemote) {
+      v.srcObject = null
+      return
+    }
     v.srcObject = guestRemote
-    void v.play().catch(() => setGuestPlayHint(true))
+    void v
+      .play()
+      .then(() => setGuestPlayHint(false))
+      .catch(() => setGuestPlayHint(true))
   }, [guestRemote, isPublisher])
 
   useEffect(() => {

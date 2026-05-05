@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useCatalogCarouselQuery, useCatalogEntriesQuery } from '../catalog/useCatalogQuery'
+import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import {
   buildHeroSlides,
   catalogEntriesWithYoutubeLink,
@@ -18,8 +19,11 @@ import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
  * Era strips take the first **10** per Joel / Mike / Jonah from that playable set.
  */
 export function HomePage() {
+  const navigate = useNavigate()
   const { data, isPending, isError, error } = useCatalogEntriesQuery()
   const carouselQ = useCatalogCarouselQuery()
+
+  useResumePendingPartyRoom(data, navigate)
 
   if (isPending) {
     return (

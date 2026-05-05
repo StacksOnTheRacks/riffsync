@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom'
-import type { CatalogEpisode } from '../../catalog/catalogTypes'
+import { formatCatalogEraLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
 import { catalogCardImageUrl } from '../../catalog/mockCatalog'
-
-const eraLabel = (era: string) => era.replace(/^./, (c) => c.toUpperCase())
+import { EpisodeTileActions } from '../../components/catalog/EpisodeTileActions'
 
 export function HomeMovieCard({ episode }: { episode: CatalogEpisode }) {
   const img = catalogCardImageUrl(episode)
@@ -12,16 +11,8 @@ export function HomeMovieCard({ episode }: { episode: CatalogEpisode }) {
         <div className="gen-movie-contain">
           <div className="gen-movie-img">
             <img src={img} alt="" loading="lazy" />
-            <div className="gen-movie-action">
-              <Link
-                to={`/watch/${episode.id}`}
-                className="gen-button"
-                aria-label={`Watch ${episode.title}`}
-              >
-                <i className="fa fa-play" aria-hidden />
-              </Link>
-            </div>
           </div>
+          <EpisodeTileActions episode={episode} />
           <div className="gen-info-contain">
             <div className="gen-movie-info">
               <h3>
@@ -33,7 +24,7 @@ export function HomeMovieCard({ episode }: { episode: CatalogEpisode }) {
                 <li>#{episode.experimentNumber}</li>
                 <li>
                   <Link to={`/watch/${episode.id}`}>
-                    <span>{eraLabel(episode.era)}</span>
+                    <span>{formatCatalogEraLabel(episode.era)}</span>
                   </Link>
                 </li>
               </ul>

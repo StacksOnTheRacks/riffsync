@@ -51,6 +51,8 @@ export function catalogCardImageUrl(ep: CatalogEpisode): string {
 
 export interface HeroSlide {
   episodeId: string
+  /** Full catalog row for party creation + tile actions */
+  episode: CatalogEpisode
   backgroundUrl: string
   title: string
   taglineHtml: string
@@ -68,6 +70,7 @@ export function buildHeroSlides(entries: CatalogEpisode[]): HeroSlide[] {
       `Experiment #${ep.experimentNumber}: Joel, Mike, Jonah, and friends riff on the film—in the not-too-distant future, this copy comes from the catalog API.`
     return {
       episodeId: ep.id,
+      episode: ep,
       backgroundUrl: catalogStillImageUrl(ep),
       title: ep.title,
       taglineHtml: blurb,

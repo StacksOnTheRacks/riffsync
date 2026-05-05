@@ -4,6 +4,8 @@ import 'swiper/css'
 import 'swiper/css/navigation'
 import { Link } from 'react-router-dom'
 import type { HeroSlide } from '../../catalog/mockCatalog'
+import { formatCatalogEraLabel } from '../../catalog/catalogTypes'
+import { EpisodeTileActions } from '../../components/catalog/EpisodeTileActions'
 
 export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
   return (
@@ -31,7 +33,7 @@ export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
                             <div className="col-xl-6">
                               <div className="gen-tag-line">
                                 <span>
-                                  Experiment {s.experimentNumber} · {s.era}
+                                  Experiment {s.experimentNumber} · {formatCatalogEraLabel(s.episode.era)}
                                 </span>
                               </div>
                               <div className="gen-movie-info">
@@ -42,26 +44,17 @@ export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
                                   <li className="gen-sen-rating">
                                     <span>MST</span>
                                   </li>
-                                  <li>RiffSync catalog</li>
-                                  <li>
-                                    <img src="/design/images/asset-2.png" alt="" />
-                                    <span>★</span>
-                                  </li>
-                                  <li>—</li>
+                                  <li>RiffSync Catalog</li>
                                   <li>
                                     <Link to={`/watch/${s.episodeId}`}>
-                                      <span>{s.era}</span>
+                                      <span>{formatCatalogEraLabel(s.episode.era)}</span>
                                     </Link>
                                   </li>
                                 </ul>
                                 <p>{s.taglineHtml}</p>
                               </div>
                               <div className="gen-movie-action">
-                                <div className="gen-btn-container button-1">
-                                  <Link to={`/watch/${s.episodeId}`} className="gen-button">
-                                    <span className="text">Watch now</span>
-                                  </Link>
-                                </div>
+                                <EpisodeTileActions episode={s.episode} layout="inline" />
                               </div>
                             </div>
                           </div>

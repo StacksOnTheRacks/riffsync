@@ -3,8 +3,9 @@ import { Autoplay, Pagination } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/pagination'
 import { Link } from 'react-router-dom'
-import type { CatalogEpisode } from '../../catalog/catalogTypes'
 import { catalogStillImageUrl } from '../../catalog/mockCatalog'
+import { formatCatalogEraLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
+import { EpisodeTileActions } from '../../components/catalog/EpisodeTileActions'
 
 function tagForIndex(i: number): string {
   if (i === 0) return 'New Release'
@@ -56,35 +57,20 @@ export function HomeSpotlightBanner({ episodes }: { episodes: CatalogEpisode[] }
                                   <li className="gen-sen-rating">
                                     <span>MST</span>
                                   </li>
-                                  <li>#{ep.experimentNumber}</li>
-                                  <li>
-                                    <img src="/design/images/asset-2.png" alt="" />
-                                    <span>★</span>
-                                  </li>
-                                  <li>—</li>
+                                  <li>RiffSync Catalog</li>
                                   <li>
                                     <Link to={`/watch/${ep.id}`}>
-                                      <span>{ep.era}</span>
+                                      <span>{formatCatalogEraLabel(ep.era)}</span>
                                     </Link>
                                   </li>
                                 </ul>
                                 <p>
                                   {ep.tagline?.trim() ||
-                                    'Watch this experiment solo with the official YouTube player, or join a room from the lobby when friends are online.'}
+                                    'Watch this experiment solo with the official YouTube player, or start a party when you’re signed in.'}
                                 </p>
                               </div>
                               <div className="gen-movie-action">
-                                <div className="gen-btn-container button-1">
-                                  <Link to={`/watch/${ep.id}`} className="gen-button">
-                                    <i aria-hidden className="ion ion-play" />
-                                    <span className="text">Watch solo</span>
-                                  </Link>
-                                </div>
-                                <div className="gen-btn-container button-2">
-                                  <Link to="/room/demo-room" className="gen-button gen-button-link">
-                                    <span className="text">Room (demo)</span>
-                                  </Link>
-                                </div>
+                                <EpisodeTileActions episode={ep} layout="inline" />
                               </div>
                             </div>
                           </div>

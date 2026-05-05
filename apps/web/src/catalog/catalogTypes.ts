@@ -4,6 +4,11 @@
  */
 export type CatalogEra = 'joel' | 'mike' | 'jonah' | 'emily' | 'other'
 
+/** Title-case label for chips and banners (e.g. `joel` → Joel). */
+export function formatCatalogEraLabel(era: CatalogEra): string {
+  return era.replace(/^./, (c) => c.toUpperCase())
+}
+
 /** Honor-system expectation for US-P0-07 (not verified server-side). */
 export type PlaybackExpectation = 'premium' | 'ad_supported' | 'unknown'
 
