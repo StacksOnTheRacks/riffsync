@@ -1,4 +1,6 @@
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as ses from 'aws-cdk-lib/aws-ses';
+import * as sns from 'aws-cdk-lib/aws-sns';
 import * as cdk from 'aws-cdk-lib';
 import type { Construct } from 'constructs';
 
@@ -41,9 +43,8 @@ const DEFAULT_FAN_SES_DOMAIN = 'riffsync.tv';
  * - **`fanAuthSesFromEmail`** — sender address on that domain (default **`noreply@<domain>`**).
  * - **`fanAuthSesFromName`** — display name (default **`RiffSync`**).
  * - **`fanAuthSesRegion`** — SES identity region when it differs from the stack region.
- * - **`fanAuthSesConfigurationSet`** — SES configuration set name for Cognito-sent mail.
  */
-function fanPoolSesEmail(scope: Construct): cognito.UserPoolEmail {
+function fanPoolSesEmail(scope: Construct, sesConfigurationSetName: string): cognito.UserPoolEmail {
   const domainRaw = scope.node.tryGetContext('fanAuthSesVerifiedDomain');
   const sesVerifiedDomain =
     typeof domainRaw === 'string' && domainRaw.trim() !== ''
@@ -66,18 +67,12 @@ function fanPoolSesEmail(scope: Construct): cognito.UserPoolEmail {
       ? sesRegionRaw.trim()
       : undefined;
 
-  const configSetRaw = scope.node.tryGetContext('fanAuthSesConfigurationSet');
-  const configurationSetName =
-    typeof configSetRaw === 'string' && configSetRaw.trim() !== ''
-      ? configSetRaw.trim()
-      : undefined;
-
   return cognito.UserPoolEmail.withSES({
     fromEmail,
     fromName,
     sesVerifiedDomain,
     ...(sesRegion !== undefined ? { sesRegion } : {}),
-    ...(configurationSetName !== undefined ? { configurationSetName } : {}),
+    configurationSetName: sesConfigurationSetName,
   });
 }
 
@@ -89,6 +84,8 @@ function fanPoolSesEmail(scope: Construct): cognito.UserPoolEmail {
 export class FanAuthStack extends cdk.Stack {
   public readonly fanUserPool: cognito.UserPool;
   public readonly fanUserPoolClient: cognito.UserPoolClient;
+  /** SES configuration set wired to Cognito + **`SES_CONFIGURATION_SET_NAME`** on **`PrivacyRemovalRequestFn`**. */
+  public readonly sesSendingConfigurationSetName: string;
 
   constructor(scope: Construct, id: string, props: FanAuthStackProps) {
     super(scope, id, props);
@@ -100,6 +97,31 @@ export class FanAuthStack extends cdk.Stack {
     cdk.Tags.of(this).add('Project', 'RiffSync');
     cdk.Tags.of(this).add('Environment', environment);
 
+    const sesSendingTopic = new sns.Topic(this, 'SesSendingEventsTopic', {
+      topicName: `riffsync-ses-send-events-${environment}`,
+      displayName: `RiffSync SES outbound events (${environment})`,
+    });
+
+    const sesSendingConfigSet = new ses.ConfigurationSet(this, 'SesSendingEventsConfigSet', {
+      configurationSetName: `riffsync-ses-send-${environment}`,
+      suppressionReasons: ses.SuppressionReasons.BOUNCES_AND_COMPLAINTS,
+      reputationMetrics: true,
+    });
+    this.sesSendingConfigurationSetName = sesSendingConfigSet.configurationSetName;
+
+    const sesSendingEventDestination = sesSendingConfigSet.addEventDestination('SnsReputationEvents', {
+      configurationSetEventDestinationName: 'sns-reputation-events',
+      destination: ses.EventDestination.snsTopic(sesSendingTopic),
+      events: [
+        ses.EmailSendingEvent.BOUNCE,
+        ses.EmailSendingEvent.COMPLAINT,
+        ses.EmailSendingEvent.DELIVERY,
+        ses.EmailSendingEvent.REJECT,
+        ses.EmailSendingEvent.RENDERING_FAILURE,
+        ses.EmailSendingEvent.DELIVERY_DELAY,
+      ],
+    });
+
     this.fanUserPool = new cognito.UserPool(this, 'FanUserPool', {
       userPoolName: `riffsync-fan-${environment}`,
       selfSignUpEnabled: true,
@@ -107,10 +129,16 @@ export class FanAuthStack extends cdk.Stack {
       autoVerify: { email: true },
       // Omit `standardAttributes.email`: CDK omits `AttributeDataType` on standard attrs, which breaks Cognito updates (Invalid AttributeDataType).
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
-      email: fanPoolSesEmail(this),
+      email: fanPoolSesEmail(this, this.sesSendingConfigurationSetName),
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       deletionProtection: environment === 'prod',
     });
+
+    const poolCfn = this.fanUserPool.node.defaultChild as cognito.CfnUserPool;
+    const evtCfn = sesSendingEventDestination.node.defaultChild;
+    if (evtCfn instanceof cdk.CfnResource) {
+      poolCfn.addDependency(evtCfn);
+    }
 
     const stagingCallbackLogoutBase = [
       'https://riffsync.tv/',
@@ -201,6 +229,17 @@ export class FanAuthStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'FanHostedUiBaseUrl', {
       value: `https://${domainPrefix}.auth.${cdk.Stack.of(this).region}.amazoncognito.com`,
       description: 'Base URL for Hosted UI (**append** **`/oauth2/authorize`** with query params from docs).',
+    });
+
+    new cdk.CfnOutput(this, 'SesSendingEventsTopicArn', {
+      value: sesSendingTopic.topicArn,
+      description:
+        'SNS topic receiving SES send events (**bounce**, **complaint**, **delivery**, **reject**, …) for this environment’s configuration set.',
+    });
+
+    new cdk.CfnOutput(this, 'SesSendingConfigurationSetName', {
+      value: this.sesSendingConfigurationSetName,
+      description: 'SES configuration set wired to Cognito and **`PrivacyRemovalRequestFn`** (**`SES_CONFIGURATION_SET_NAME`**).',
     });
   }
 }

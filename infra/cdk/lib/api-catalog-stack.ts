@@ -27,6 +27,8 @@ export interface ApiCatalogStackProps extends cdk.StackProps {
    */
   readonly fanUserPool: cognito.IUserPool;
   readonly fanUserPoolClient: cognito.IUserPoolClient;
+  /** SES sending configuration set — Cognito + privacy-removal **`SendEmail`** emit events to SNS via this set. */
+  readonly sesSendingConfigurationSetName: string;
 }
 
 function parseOriginsFromContext(scope: Construct): string[] {
@@ -88,7 +90,8 @@ export class ApiCatalogStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiCatalogStackProps) {
     super(scope, id, props);
 
-    const { environment, extraCorsOrigins = [], fanUserPool, fanUserPoolClient } = props;
+    const { environment, extraCorsOrigins = [], fanUserPool, fanUserPoolClient, sesSendingConfigurationSetName } =
+      props;
     const contextExtras = parseOriginsFromContext(this);
     const allowOrigins = corsAllowOrigins(environment, [...extraCorsOrigins, ...contextExtras], this);
     const staleRoomMs = staleRoomMsFromContext(this);
@@ -301,6 +304,7 @@ export class ApiCatalogStack extends cdk.Stack {
       handler: 'handler',
       environment: {
         PRIVACY_ROUTING_SECRET_ARN: privacyRoutingSecret.secretArn,
+        SES_CONFIGURATION_SET_NAME: sesSendingConfigurationSetName,
         NODE_OPTIONS: '--enable-source-maps',
       },
     });

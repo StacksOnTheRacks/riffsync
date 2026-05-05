@@ -85,8 +85,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const reqId = event.requestContext.requestId;
 
   try {
+    const configurationSetName = process.env.SES_CONFIGURATION_SET_NAME?.trim();
+
     await ses.send(
       new SendEmailCommand({
+        ...(configurationSetName !== undefined && configurationSetName !== ''
+          ? { ConfigurationSetName: configurationSetName }
+          : {}),
         Source: routing.fromEmail,
         Destination: { ToAddresses: [routing.notifyEmail] },
         ReplyToAddresses: [contactEmail],

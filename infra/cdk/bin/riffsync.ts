@@ -63,16 +63,18 @@ const fanAuth = new FanAuthStack(app, `RiffSyncFanAuth-${environment}`, {
   },
 });
 
-new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
+const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
   description: `RiffSync HTTP API + Catalog + Rooms + WebSocket (${environment}) — DynamoDB + Lambda`,
   environment,
   fanUserPool: fanAuth.fanUserPool,
   fanUserPoolClient: fanAuth.fanUserPoolClient,
+  sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
 });
+apiCatalog.addDependency(fanAuth);
 
 new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
   description: `RiffSync static SPA hosting (${environment}) — S3 (private) + CloudFront OAC`,
