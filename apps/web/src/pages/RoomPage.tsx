@@ -14,6 +14,7 @@ import { getPublicOrigin } from '../config/publicOrigin'
 import { getRtcIceServers } from '../config/iceServers'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
+import { hostShouldSkipRenegotiation } from '../room/hostRenegotiationPolicy'
 import {
   attachPcStateLogging,
   summarizeEnvelope,
@@ -65,11 +66,20 @@ async function ensureHostPeerNegotiated(
   guestSessionId: string,
 ): Promise<void> {
   const stream = ctx.captureStream
-  let pc = ctx.peerByGuestRef.current.get(guestSessionId)
-  if (pc && pc.signalingState !== 'closed') {
-    pc.close()
+  const existing = ctx.peerByGuestRef.current.get(guestSessionId)
+  if (existing && existing.signalingState !== 'closed') {
+    if (
+      hostShouldSkipRenegotiation({
+        signalingState: existing.signalingState,
+        connectionState: existing.connectionState,
+        hasRemoteDescription: existing.currentRemoteDescription != null,
+      })
+    ) {
+      return
+    }
+    existing.close()
   }
-  pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
+  const pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
   attachPcStateLogging(pc, `host→${guestSessionId.slice(0, 8)}…`)
   ctx.peerByGuestRef.current.set(guestSessionId, pc)
   for (const t of stream.getTracks()) {
@@ -531,7 +541,7 @@ export function RoomPage() {
     if (isPublisher || wsStatus !== 'open') return
     const sendReady = () => {
       if (!guestNeedsHostNegotiation(guestRemoteRef.current)) return
-      sendJson({
+      sendJsonRef.current({
         action: 'signaling',
         envelope: { guestSignaling: true, kind: 'ready' },
       })
@@ -539,17 +549,17 @@ export function RoomPage() {
     sendReady()
     const id = window.setInterval(sendReady, 8000)
     return () => window.clearInterval(id)
-  }, [isPublisher, wsStatus, sendJson])
+  }, [isPublisher, wsStatus])
 
   /** Re-arm host negotiation as soon as the guest has no live remote share (fast path vs 8s poll). */
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
     if (!guestNeedsHostNegotiation(guestRemote)) return
-    sendJson({
+    sendJsonRef.current({
       action: 'signaling',
       envelope: { guestSignaling: true, kind: 'ready' },
     })
-  }, [guestRemote, isPublisher, wsStatus, sendJson])
+  }, [guestRemote, isPublisher, wsStatus])
 
   useEffect(() => {
     if (!guestRemote || isPublisher) return

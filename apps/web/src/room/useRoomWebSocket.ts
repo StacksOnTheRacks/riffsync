@@ -32,7 +32,7 @@ export function useRoomWebSocket(options: {
   const wsRef = useRef<WebSocket | null>(null)
   const pingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const backoffRef = useRef(1000)
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectTimerRef = useRef<number | null>(null)
   const [status, setStatus] = useState<WsStatus>('idle')
   const onMessageRef = useRef(onMessage)
 
