@@ -1001,23 +1001,25 @@ export function RoomPage() {
             <p className="riffsync-room-modal__lede riffsync-muted">
               This updates the lobby listing and &quot;Now playing&quot; label for everyone in the party.
             </p>
-            <label className="riffsync-room-modal__label" htmlFor="riffsync-rename-room-input">
-              Room name / now playing
-            </label>
-            <input
-              id="riffsync-rename-room-input"
-              className="riffsync-room-modal__field"
-              maxLength={DISPLAY_TITLE_MAX_LEN}
-              value={renameModalDraft}
-              onChange={(e) => setRenameModalDraft(e.target.value)}
-              autoComplete="off"
-              autoFocus
-            />
-            {patchErr ? (
-              <p className="riffsync-room-modal__err" role="alert">
-                {patchErr}
-              </p>
-            ) : null}
+            <div className="riffsync-room-modal__form">
+              <label className="riffsync-room-modal__label" htmlFor="riffsync-rename-room-input">
+                Room name / now playing
+              </label>
+              <input
+                id="riffsync-rename-room-input"
+                className="riffsync-room-modal__field"
+                maxLength={DISPLAY_TITLE_MAX_LEN}
+                value={renameModalDraft}
+                onChange={(e) => setRenameModalDraft(e.target.value)}
+                autoComplete="off"
+                autoFocus
+              />
+              {patchErr ? (
+                <p className="riffsync-room-modal__err" role="alert">
+                  {patchErr}
+                </p>
+              ) : null}
+            </div>
             <div className="riffsync-room-modal__actions">
               <button
                 type="button"

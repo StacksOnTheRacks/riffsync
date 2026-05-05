@@ -665,12 +665,22 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   width: min(26rem, 100%);
   padding: 1.1rem 1.25rem 1rem;
   border-radius: 10px;
   border: 1px solid rgb(255 255 255 / 0.12);
   background: rgb(14 17 23 / 0.98);
   box-shadow: 0 26px 60px rgb(0 0 0 / 0.5);
+}
+
+.riffsync-room-modal__form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 .riffsync-room-modal__heading {
@@ -697,9 +707,11 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-modal__field {
+  display: block;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0;
   padding: 0.5rem 0.55rem;
   border-radius: 6px;
   border: 1px solid rgb(255 255 255 / 0.14);
@@ -720,6 +732,13 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   align-items: center;
   justify-content: flex-end;
   gap: 0.45rem 0.65rem;
+  width: 100%;
+  margin-top: 0.85rem;
+  flex-shrink: 0;
+}
+
+.riffsync-room-modal__actions .gen-button {
+  flex: 0 1 auto;
 }
 
 /* Same global `section` padding applies to the chat panel */
