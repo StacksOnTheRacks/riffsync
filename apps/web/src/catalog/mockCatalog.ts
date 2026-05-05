@@ -2,6 +2,15 @@ import type { CatalogEra, CatalogEpisode } from './catalogTypes'
 
 const ERA_YOUTUBE_ROW_CAP = 10
 
+/** True when the episode has a non-empty YouTube video id (in-app watch + thumbnails). */
+export function episodeHasYoutubeLink(ep: CatalogEpisode): boolean {
+  return ep.youtubeVideoId != null && ep.youtubeVideoId.trim() !== ''
+}
+
+export function catalogEntriesWithYoutubeLink(entries: CatalogEpisode[]): CatalogEpisode[] {
+  return entries.filter(episodeHasYoutubeLink)
+}
+
 /**
  * Episodes for a host era that have a playable YouTube id, in experiment order.
  * Uses the full **`GET /v1/catalog`** list (already loaded on the home page).
@@ -12,12 +21,7 @@ export function firstEpisodesWithYoutubeForEra(
   limit: number = ERA_YOUTUBE_ROW_CAP,
 ): CatalogEpisode[] {
   return entries
-    .filter(
-      (e) =>
-        e.era === era &&
-        e.youtubeVideoId != null &&
-        e.youtubeVideoId.trim() !== '',
-    )
+    .filter((e) => e.era === era && episodeHasYoutubeLink(e))
     .sort((a, b) => a.experimentNumber - b.experimentNumber)
     .slice(0, limit)
 }

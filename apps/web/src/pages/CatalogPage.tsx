@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useCatalogEntriesQuery } from '../catalog/useCatalogQuery'
-import { catalogCardImageUrl } from '../catalog/mockCatalog'
+import { catalogCardImageUrl, catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { catalogToRoomPlayback, createRoom } from '../api/roomsApi'
@@ -144,7 +144,8 @@ export function CatalogPage() {
     )
   }
 
-  const entries = data ?? []
+  const allEntries = data ?? []
+  const entries = catalogEntriesWithYoutubeLink(allEntries)
 
   return (
     <div className="container riffsync-catalog-page">
@@ -155,7 +156,13 @@ export function CatalogPage() {
           <CatalogGridCard key={ep.id} episode={ep} />
         ))}
       </div>
-      {entries.length === 0 && <p>No episodes in the catalog yet.</p>}
+      {entries.length === 0 && (
+        <p>
+          {allEntries.length === 0
+            ? 'No episodes in the catalog yet.'
+            : 'No episodes with a YouTube link are listed yet.'}
+        </p>
+      )}
       <p>
         <Link to="/">← Home</Link>
       </p>

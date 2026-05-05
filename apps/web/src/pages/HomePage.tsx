@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useCatalogCarouselQuery, useCatalogEntriesQuery } from '../catalog/useCatalogQuery'
 import {
   buildHeroSlides,
+  catalogEntriesWithYoutubeLink,
   cycleSlice,
   firstEpisodesWithYoutubeForEra,
 } from '../catalog/mockCatalog'
@@ -13,7 +14,8 @@ import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
  * Catalog landing (/) — full list from **`GET /v1/catalog`**; hero + spotlight from
  * **`GET /v1/catalog?carousel=true`** when **`VITE_PUBLIC_API_BASE_URL`** is set.
  * In **`vite dev`** without that var, both load from **`data/catalog/episodes.json`** (carousel rows filtered client-side).
- * Era strips (Joel / Mike / Jonah) take the first **10** entries per era that include a **YouTube** id from the full catalog response.
+ * Rows use only episodes that include a **YouTube** id (same filter as **`/catalog`**).
+ * Era strips take the first **10** per Joel / Mike / Jonah from that playable set.
  */
 export function HomePage() {
   const { data, isPending, isError, error } = useCatalogEntriesQuery()
@@ -48,6 +50,8 @@ export function HomePage() {
   const entries = data ?? []
   const carouselEntries =
     carouselQ.isSuccess ? (carouselQ.data ?? []) : carouselQ.isError ? [] : []
+  const playableEntries = catalogEntriesWithYoutubeLink(entries)
+  const carouselWithYoutube = catalogEntriesWithYoutubeLink(carouselEntries)
 
   if (entries.length === 0) {
     return (
@@ -57,11 +61,19 @@ export function HomePage() {
     )
   }
 
-  const heroSlides = buildHeroSlides(carouselEntries)
+  if (playableEntries.length === 0) {
+    return (
+      <div className="riffsync-home">
+        <p className="container">No episodes with a YouTube link are available yet.</p>
+      </div>
+    )
+  }
 
-  const joelYoutubeRow = firstEpisodesWithYoutubeForEra(entries, 'joel', 10)
-  const mikeYoutubeRow = firstEpisodesWithYoutubeForEra(entries, 'mike', 10)
-  const jonahYoutubeRow = firstEpisodesWithYoutubeForEra(entries, 'jonah', 10)
+  const heroSlides = buildHeroSlides(carouselWithYoutube)
+
+  const joelYoutubeRow = firstEpisodesWithYoutubeForEra(playableEntries, 'joel', 10)
+  const mikeYoutubeRow = firstEpisodesWithYoutubeForEra(playableEntries, 'mike', 10)
+  const jonahYoutubeRow = firstEpisodesWithYoutubeForEra(playableEntries, 'jonah', 10)
 
   return (
     <div className="riffsync-home">
@@ -69,14 +81,14 @@ export function HomePage() {
       <HomeMovieRowSection
         sectionId="home-most-popular"
         title="Most Popular"
-        episodes={cycleSlice(entries, 0, 12)}
+        episodes={cycleSlice(playableEntries, 0, 12)}
       />
       <HomeMovieRowSection
         sectionId="home-most-viewed"
         title="Most Viewed"
-        episodes={cycleSlice(entries, 12, 12)}
+        episodes={cycleSlice(playableEntries, 12, 12)}
       />
-      <HomeSpotlightBanner episodes={carouselEntries} />
+      <HomeSpotlightBanner episodes={carouselWithYoutube} />
       {joelYoutubeRow.length > 0 ? (
         <HomeMovieRowSection
           sectionId="home-joel-era"
