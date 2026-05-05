@@ -69,17 +69,18 @@ function syncGuestRemoteFromReceiversIfNeeded(
 
 /**
  * True when the guest should ask the host to (re)publish.
- * Avoid sending `ready` during early ICE (`new`/`connecting`) when SDP is already applied — tearing down then
- * races `ontrack`. Once `connected`, missing React state is handled via receiver fallback instead of suppressing forever.
+ * Never send `ready` while we already have a PC with **both** SDP descriptions and the connection is not
+ * **failed** — the host runs `ensureHostPeerNegotiated` on every `ready`, which **closes** the peer and
+ * re-sends offers. Spacing `ready` every 8s in the `connected` + `guestRemote===null` gap was thrashing ICE
+ * and blocking video entirely.
  */
 function guestNeedsHostNegotiation(remote: MediaStream | null, pc: RTCPeerConnection | null): boolean {
   if (!remote) {
+    if (!pc || pc.signalingState === 'closed') return true
     if (
-      pc &&
-      pc.signalingState !== 'closed' &&
       pc.remoteDescription &&
       pc.localDescription &&
-      ['connecting', 'new'].includes(pc.connectionState)
+      pc.connectionState !== 'failed'
     ) {
       return false
     }
@@ -211,7 +212,16 @@ async function handleGuestSignal(ctx: {
   const kind = ctx.envelope.kind
 
   if (kind === 'offer') {
-    if (ctx.envelope.targetSessionId !== ctx.mySessionId) return
+    const target = ctx.envelope.targetSessionId
+    if (typeof target === 'string' && target.length > 0 && target !== ctx.mySessionId) {
+      if (webrtcDebugEnabled()) {
+        webrtcLog('guest ignoring offer — different targetSessionId', {
+          mine: `${ctx.mySessionId.slice(0, 8)}…`,
+          target: `${target.slice(0, 8)}…`,
+        })
+      }
+      return
+    }
     const sdp = ctx.envelope.sdp
     if (!isRecord(sdp) || typeof sdp.sdp !== 'string' || typeof sdp.type !== 'string') return
 
@@ -258,6 +268,15 @@ async function handleGuestSignal(ctx: {
       })
     }
 
+    pc.oniceconnectionstatechange = () => {
+      if (pc !== ctx.guestPcRef.current) return
+      if (pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') return
+      queueMicrotask(() => {
+        if (pc !== ctx.guestPcRef.current) return
+        syncGuestRemoteFromReceiversIfNeeded(pc, ctx.setGuestRemote)
+      })
+    }
+
     try {
       await pc.setRemoteDescription(
         new RTCSessionDescription(sdp as unknown as RTCSessionDescriptionInit),
@@ -270,6 +289,7 @@ async function handleGuestSignal(ctx: {
       }
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
+      queueMicrotask(() => syncGuestRemoteFromReceiversIfNeeded(pc, ctx.setGuestRemote))
       ctx.sendJson({
         action: 'signaling',
         envelope: {
@@ -284,7 +304,9 @@ async function handleGuestSignal(ctx: {
     return
   }
 
-  if (kind === 'ice' && ctx.envelope.targetSessionId === ctx.mySessionId) {
+  if (kind === 'ice') {
+    const target = ctx.envelope.targetSessionId
+    if (typeof target === 'string' && target.length > 0 && target !== ctx.mySessionId) return
     const cand = ctx.envelope.candidate
     const pc = ctx.guestPcRef.current
     if (!pc || !isRecord(cand)) return
@@ -587,6 +609,7 @@ export function RoomPage() {
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
     if (guestRemote !== null) return
+    if (!guestNeedsHostNegotiation(null, guestPcRef.current)) return
     sendJson({
       action: 'signaling',
       envelope: { guestSignaling: true, kind: 'ready' },
