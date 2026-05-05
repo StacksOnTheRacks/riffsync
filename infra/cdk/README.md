@@ -10,6 +10,7 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
+| `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) — **one** topic/rule set for all tiers; synthesized only with **`environment=prod`** |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
 | `lambda/room-*.ts` | **`POST/PATCH`** room + **`GET`** lobby/read (**`authorization.md`**) |
 | `lambda/ws-*.ts` | WebSocket **`$connect`** / **`$disconnect`** / message routes |
@@ -175,6 +176,31 @@ Hosted stacks **`RiffSyncFanAuth-staging`** / **`RiffSyncFanAuth-prod`** provisi
 
 **Deploy IAM:** the OIDC deploy role needs **Cognito** create/update permissions for this stack (extend the role if **`cdk deploy`** fails on **`cognito-idp:*`**).
 
+### SES inbound → SNS (receive mail — shared)
+
+Stack **`RiffSyncSesInbound`** is **environment-agnostic**: one **SNS** topic (**`riffsync-ses-inbound`**), one receipt rule set (**`riffsync-ses-inbound`**), shared by staging and prod **applications**. It appears **only** when **`cdk synth|deploy`** runs with **`--context environment=prod`** (staging assemblies omit it entirely).
+
+| Piece | Behavior |
+| --- | --- |
+| **Receipt rule** | Matching **`recipients`** (default **`riffsync.tv`** → all addresses on that domain) → **`Sns`** (**UTF-8** notification body) → **`Stop`** |
+| **Active rule set** | **`AWS::SES::ActiveReceiptRuleSet`** unless **`sesInboundActivateRuleSet`** is **`false`** / **`none`**. **Only one** active inbound rule set per Region/account. |
+| **MX** | If **`fanWebHostedZoneId`** / **`fanWebZoneName`** are set **and** **`sesInboundMailDomain`** is the zone apex or a subdomain of **`fanWebZoneName`**, CDK creates **`MxRecord`** priority **10** → **`inbound-smtp.<region>.amazonaws.com`**. |
+
+**Outputs:** **`SesInboundTopicArn`**, **`SesInboundReceiptRuleSetName`**, **`SesInboundSesMxHint`**.
+
+**Optional CDK context:**
+
+| Context | Purpose |
+| --- | --- |
+| **`sesInboundActivateRuleSet`** | **`false`** \| **`none`** — skip **`AWS::SES::ActiveReceiptRuleSet`** (default: activate). |
+| **`sesInboundMailDomain`** | Verified receive domain (default **`riffsync.tv`**). |
+| **`sesInboundRecipients`** | Comma-separated domains / addresses for the receipt rule (default **`sesInboundMailDomain`** only). |
+| **`sesInboundRuleSetName`** | Override receipt rule set name (default **`riffsync-ses-inbound`**). |
+
+SES **must** treat the domain as authorized for **receiving** (console verification). Subscribe **Lambda**, **SQS**, email, etc. to **`SesInboundTopicArn`** for validation workflows.
+
+Migrating from the older **`RiffSyncSesInbound-prod`** stack: destroy that stack (or remove its resources manually) after adopting **`RiffSyncSesInbound`** to avoid duplicate topics/rule sets; update any SNS subscriptions to the new **`SesInboundTopicArn`** output.
+
 ## Prerequisites
 
 - **Node.js** LTS (**≥ 20**) on your machine for **`npm`/`cdk`**; synthesized **Lambda** runtimes are **Node.js 24** (matches **`cfn-lint`** / AWS deprecation policy).
@@ -212,6 +238,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 - **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
 - **`RiffSyncApi-*` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**); **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
 - **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA). Pool **`EmailConfiguration`** sends verification / recovery mail through **Amazon SES** (**`DEVELOPER`** / **`SourceArn`** `identity/<domain>`); verify that identity **in the deploy Region** before go-live.
+- **`RiffSyncSesInbound` —** shared **SNS** topic + **SES** **`ReceiptRuleSet`** / **`ReceiptRule`** (**inbound → SNS**) + optional **`AWS::SES::ActiveReceiptRuleSet`** + optional Route 53 **MX** when hosted-zone context aligns with **`sesInboundMailDomain`** (emitted only from **`environment=prod`** synth). Deploy role needs **`ses:*`** receipt-rule APIs for your organization policies.
 
 Older milestone copy: **M1** alone only created the static stack.
 

@@ -2,6 +2,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { ApiCatalogStack } from '../lib/api-catalog-stack';
 import { FanAuthStack } from '../lib/fan-auth-stack';
+import { SesInboundStack, sesInboundReceiptRulesActivated } from '../lib/ses-inbound-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
 
 function trimContext(app: cdk.App, key: string): string | undefined {
@@ -87,3 +88,17 @@ new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
     region: process.env.CDK_DEFAULT_REGION,
   },
 });
+
+/** Shared SES receive pipeline — one stack name/topic/rule set for all app tiers (staging uses same mail infra). */
+if (environment === 'prod') {
+  new SesInboundStack(app, 'RiffSyncSesInbound', {
+    description: 'RiffSync SES inbound → SNS (shared across staging/prod apps)',
+    hostedZoneId: fanWebHostedZoneId,
+    hostedZoneName: fanWebZoneName,
+    activateReceiptRuleSet: sesInboundReceiptRulesActivated(app),
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+  });
+}
