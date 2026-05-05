@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import './styles/riffsync-app.css'
 import { FanSessionKeepAlive } from './auth/FanSessionKeepAlive'
+import { ScrollToTop } from './components/ScrollToTop'
 import { AppRoutes } from './AppRoutes.tsx'
 
 const queryClient = new QueryClient()
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ScrollToTop />
         <FanSessionKeepAlive />
         <AppRoutes />
       </BrowserRouter>
