@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/useCatalogQuery'
+import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 
 const PARTY_CAPTURE_ANIMATION = 'riffsyncPartyCaptureBannerFadeOut'
 
@@ -39,6 +40,36 @@ export function SoloWatchPage() {
   const partyCapture = searchParams.get('partyCapture') === '1'
 
   const { data: episode, isPending, isError, error } = useCatalogEpisodeQuery(catalogEpisodeId)
+
+  useEffect(() => {
+    const prev = document.title
+    let next: string
+    if (!catalogEpisodeId) {
+      next = `Watch · ${SITE_DOCUMENT_TITLE}`
+    } else if (isPending) {
+      next = partyCapture
+        ? `Share this tab · loading… · ${SITE_DOCUMENT_TITLE}`
+        : `Watch · loading… · ${SITE_DOCUMENT_TITLE}`
+    } else if (isError) {
+      const hint = catalogEpisodeId ? trimTabTitleSegment(catalogEpisodeId, 28) : 'error'
+      next = partyCapture
+        ? `Share this tab · ${hint} · ${SITE_DOCUMENT_TITLE}`
+        : `Watch · ${hint} · ${SITE_DOCUMENT_TITLE}`
+    } else if (!episode) {
+      next = partyCapture
+        ? `Share this tab · not found · ${SITE_DOCUMENT_TITLE}`
+        : `Watch · not found · ${SITE_DOCUMENT_TITLE}`
+    } else {
+      const label = trimTabTitleSegment(episode.title)
+      next = partyCapture
+        ? `Share this tab · ${label} · ${SITE_DOCUMENT_TITLE}`
+        : `Watch · ${label} · ${SITE_DOCUMENT_TITLE}`
+    }
+    document.title = next
+    return () => {
+      document.title = prev
+    }
+  }, [catalogEpisodeId, episode, isError, isPending, partyCapture])
 
   if (isPending) {
     if (partyCapture) {

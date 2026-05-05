@@ -12,6 +12,7 @@ import { ensureGuestSession } from '../session/guestSession'
 import { getPublicWsUrl } from '../config/wsUrl'
 import { getPublicOrigin } from '../config/publicOrigin'
 import { getRtcIceServers } from '../config/iceServers'
+import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
 import {
   attachPcStateLogging,
@@ -348,6 +349,32 @@ export function RoomPage() {
       .then(setCatalogEp)
       .catch(() => setCatalogEp(null))
   }, [room?.catalogEpisodeId])
+
+  useEffect(() => {
+    const prev = document.title
+    let next: string
+    if (!roomId) {
+      next = `Room · ${SITE_DOCUMENT_TITLE}`
+    } else if (room === undefined && !roomErr) {
+      next = `Watch party · Loading… · ${SITE_DOCUMENT_TITLE}`
+    } else if (roomErr || room === null) {
+      next = `Watch party · unavailable · ${SITE_DOCUMENT_TITLE}`
+    } else if (room.roomId !== roomId) {
+      next = `Watch party · Loading… · ${SITE_DOCUMENT_TITLE}`
+    } else {
+      const primary =
+        room.displayTitle ??
+        (catalogEp?.id === room.catalogEpisodeId ? catalogEp.title : undefined) ??
+        room.catalogEpisodeId ??
+        'Episode'
+      const label = trimTabTitleSegment(primary)
+      next = `Watch party · ${label} · ${SITE_DOCUMENT_TITLE}`
+    }
+    document.title = next
+    return () => {
+      document.title = prev
+    }
+  }, [catalogEp, room, room?.roomId, roomErr, roomId])
 
   useEffect(() => {
     if (!renameModalOpen) return
