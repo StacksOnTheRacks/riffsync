@@ -110,7 +110,7 @@ export class FanAuthStack extends cdk.Stack {
     this.sesSendingConfigurationSetName = sesSendingConfigSet.configurationSetName;
 
     const sesSendingEventDestination = sesSendingConfigSet.addEventDestination('SnsReputationEvents', {
-      configurationSetEventDestinationName: 'sns-reputation-events',
+      configurationSetEventDestinationName: `sns-reputation-events-${environment}`,
       destination: ses.EventDestination.snsTopic(sesSendingTopic),
       events: [
         ses.EmailSendingEvent.BOUNCE,
