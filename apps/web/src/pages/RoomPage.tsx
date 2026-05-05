@@ -359,13 +359,16 @@ export function RoomPage() {
       next = `Watch party · Loading… · ${SITE_DOCUMENT_TITLE}`
     } else if (roomErr || room === null) {
       next = `Watch party · unavailable · ${SITE_DOCUMENT_TITLE}`
+    } else if (!room) {
+      next = `Watch party · Loading… · ${SITE_DOCUMENT_TITLE}`
     } else if (room.roomId !== roomId) {
       next = `Watch party · Loading… · ${SITE_DOCUMENT_TITLE}`
     } else {
+      const r = room
       const primary =
-        room.displayTitle ??
-        (catalogEp?.id === room.catalogEpisodeId ? catalogEp.title : undefined) ??
-        room.catalogEpisodeId ??
+        r.displayTitle ??
+        (catalogEp?.id === r.catalogEpisodeId ? catalogEp.title : undefined) ??
+        r.catalogEpisodeId ??
         'Episode'
       const label = trimTabTitleSegment(primary)
       next = `Watch party · ${label} · ${SITE_DOCUMENT_TITLE}`
