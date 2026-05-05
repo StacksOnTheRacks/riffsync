@@ -63,7 +63,15 @@ export function attachPcStateLogging(pc: RTCPeerConnection, label: string): void
   }
   log('created')
   pc.addEventListener('connectionstatechange', () => log('connectionstatechange'))
-  pc.addEventListener('iceconnectionstatechange', () => log('iceconnectionstatechange'))
+  pc.addEventListener('iceconnectionstatechange', () => {
+    log('iceconnectionstatechange')
+    if (webrtcDebugEnabled() && pc.iceConnectionState === 'failed') {
+      webrtcLog(
+        label,
+        'ICE failed — restrictive NAT/firewalls usually need TURN in VITE_WEBRTC_ICE_SERVERS_JSON (see apps/web/.env.example).',
+      )
+    }
+  })
   pc.addEventListener('icegatheringstatechange', () => log('icegatheringstatechange'))
   pc.addEventListener('signalingstatechange', () => log('signalingstatechange'))
 }

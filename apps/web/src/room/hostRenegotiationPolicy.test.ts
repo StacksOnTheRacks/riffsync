@@ -12,21 +12,21 @@ describe('hostShouldSkipRenegotiation', () => {
     ).toBe(true)
   })
 
-  it('skips when stable with remote and ICE/link still settling', () => {
+  it('does not skip stable+SDP paired until connected so stuck ICE can retry on guest ready', () => {
     expect(
       hostShouldSkipRenegotiation({
         signalingState: 'stable',
         connectionState: 'new',
         hasRemoteDescription: true,
       }),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       hostShouldSkipRenegotiation({
         signalingState: 'stable',
         connectionState: 'connecting',
         hasRemoteDescription: true,
       }),
-    ).toBe(true)
+    ).toBe(false)
     expect(
       hostShouldSkipRenegotiation({
         signalingState: 'stable',
