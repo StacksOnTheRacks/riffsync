@@ -82,7 +82,7 @@ export function TermsOfServicePage() {
             You must be able to form a binding contract in your jurisdiction to use parts of the
             Service that require registration or hosting. Some features may allow anonymous or
             pseudonymous participation (for example, guests in a room). Where you sign in through an
-            identity provider (such as Amazon Cognito Hosted UI or Facebook Login), your use of that
+            identity provider (such as Amazon Cognito Hosted UI), your use of that
             sign-in is also subject to the provider&rsquo;s terms and policies.
           </p>
           <p>

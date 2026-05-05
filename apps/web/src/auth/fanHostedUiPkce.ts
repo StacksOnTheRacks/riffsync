@@ -43,7 +43,7 @@ function redirectUri(): string {
 }
 
 /**
- * PKCE + Cognito Hosted UI (Facebook IdP). Redirects the browser.
+ * PKCE + Cognito Hosted UI (local user pool sign-in / sign-up). Redirects the browser.
  */
 export async function startFanHostedUiSignIn(returnPath: string): Promise<void> {
   const verifier = randomString(64)
@@ -61,7 +61,6 @@ export async function startFanHostedUiSignIn(returnPath: string): Promise<void> 
     state,
     code_challenge: challenge,
     code_challenge_method: 'S256',
-    identity_provider: 'Facebook',
   })
 
   const url = `https://${hostedDomain()}/oauth2/authorize?${params.toString()}`

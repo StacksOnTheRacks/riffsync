@@ -9,7 +9,7 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `bin/riffsync.ts` | App entry; validates `environment` context |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
-| `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + **Facebook** IdP + SPA app client (**no** native password auth) |
+| `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
 | `lambda/room-*.ts` | **`POST/PATCH`** room + **`GET`** lobby/read (**`authorization.md`**) |
 | `lambda/ws-*.ts` | WebSocket **`$connect`** / **`$disconnect`** / message routes |
@@ -102,7 +102,7 @@ With a **wildcard** ACM cert (**`*.riffsync.tv`**), a single name like **`stagin
 **Local / CLI:**  
 `--context fanWebAlternateDomainNames=riffsync.tv --context fanWebCanonicalHostname=www.riffsync.tv` (with **`fanWebCustomDomain=www.riffsync.tv`**).
 
-CORS and Cognito callback allowlists include **`https://www.riffsync.tv`** and **`https://www-staging.riffsync.tv`** by default; **`fanWebAlternateDomainNames`** still adds any other names on the cert. If your **Meta (Facebook) app** restricts **Valid OAuth redirect URIs**, add the **`www`** URLs there as needed.
+CORS and Cognito callback allowlists include **`https://www.riffsync.tv`** and **`https://www-staging.riffsync.tv`** by default; **`fanWebAlternateDomainNames`** still adds any other names on the cert.
 
 ### Route 53 + CloudFormation: `DELETE_IN_PROGRESS` and when **both** apex + `www` disappear
 
@@ -147,27 +147,20 @@ Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as cat
 
 **Housekeeping:** lobby staleness uses **read-time filtering** (**US-P0-08**) — optional EventBridge TTL/sweeper deferred.
 
-### Fan Cognito + Facebook Hosted UI (M5+)
+### Fan Cognito Hosted UI (M5+)
 
 Hosted stacks **`RiffSyncFanAuth-staging`** / **`RiffSyncFanAuth-prod`** provision a **fan-only** pool suitable for **`POST /v1/rooms`** and room-admin JWTs per **`.forge/integration/authorization.md`** (stable **`sub`** for **`hostSub`**). **Staff** `/v1/admin/*` pool remains a **separate** future stack.
 
 | Decision | Choice |
 | --- | --- |
-| **Native email/password** | **Off** for MVP — **Hosted UI + Facebook** only (`authFlows.userPassword` / `userSrp` disabled). |
-| **Meta app secret** | **Secrets Manager** secret **`riffsync/<env>/facebook-app-secret`** (template **`REPLACE_WITH_META_APP_SECRET`**). **Never** put the app secret in the SPA. |
-| **Meta app ID** | **CDK context** **`facebookAppId`** (public). CI **`cdk synth`** omits it and uses a numeric **placeholder**; real deploys should pass **`--context facebookAppId=<meta-app-id>`** (or set in **`cdk.json`** / deploy env). |
+| **Sign-up / sign-in** | **Hosted UI** — users create a **local** Cognito profile (**email** alias + password). **`selfSignUpEnabled`** is **on**; Cognito sends **email verification** on registration (default Cognito mail limits apply — move to **SES** when volume demands). |
+| **App client** | **Public** SPA client (**no** secret); **`ALLOW_USER_SRP_AUTH`** + **`ALLOW_USER_PASSWORD_AUTH`** enabled for Hosted UI; **`supportedIdentityProviders`** = **COGNITO** only. |
 | **Callback / sign-out URLs** | **Prod:** **`https://riffsync.tv/`** and **`https://riffsync.tv/auth/callback`** (SPA route; must match **`fanHostedUiPkce`** **`redirect_uri`**). **Staging:** those plus **`https://staging.riffsync.tv/*`**, **localhost** Vite ports, and optional extras via **`--context fanAuthOAuthExtras=https://d111111abcdef8.cloudfront.net/,https://d111111abcdef8.cloudfront.net/auth/callback`**. |
 | **Hosted domain prefix** | Default **`riffsync-fan-staging`** / **`riffsync-fan-prod`** (must be **unique** in the Region). Override collision: **`--context fanAuthCognitoDomainPrefix=your-prefix`**. |
 
-**CloudFormation outputs:** **`FanUserPoolId`**, **`FanUserPoolClientId`**, **`FanHostedUiDomainPrefix`**, **`FanHostedUiBaseUrl`**, **`FanFacebookAppSecretSecretArn`**.
+**CloudFormation outputs:** **`FanUserPoolId`**, **`FanUserPoolClientId`**, **`FanHostedUiDomainPrefix`**, **`FanHostedUiBaseUrl`**.
 
-**Meta developer app (manual):**
-
-1. Create a **Meta** app with **Facebook Login** and add **Cognito’s** redirect URI exactly: **`https://<FanHostedUiDomainPrefix>.auth.<region>.amazoncognito.com/oauth2/idpresponse`** (use **`FanHostedUiBaseUrl`** output + **`/oauth2/idpresponse`**).
-2. Set **Privacy Policy** and **Data deletion** URLs on the Meta app to your public policy pages (align with **`docs/architecture.frontend.md`** / product legal). Complete Meta **Data Use Checkup** when required.
-3. Put the live **app secret** in Secrets Manager at **`FanFacebookAppSecretSecretArn`** **before** expecting federated sign-in to succeed (replace the template placeholder).
-
-**Smoke (staging):** open **`FanHostedUiBaseUrl`** in the console flow or build the **`/oauth2/authorize`** link (response_type **`code`**, client_id **`FanUserPoolClientId`**, redirect_uri **must** match an allowlisted SPA URL, scope **`openid email profile`**, identity_provider **`Facebook`**). After sign-in, inspect **`id_token`** / **`access_token`** (`sub` is the host id). **Do not** commit tokens.
+**Smoke (staging):** build the **`/oauth2/authorize`** link with **PKCE** (response_type **`code`**, client_id **`FanUserPoolClientId`**, redirect_uri **must** match an allowlisted SPA URL, scope **`openid email profile`** — **omit** **`identity_provider`** so Hosted UI shows the pool sign-in / sign-up pages). Complete sign-up, verify email, sign in, exchange the code at **`/oauth2/token`**, then inspect **`access_token`** (`sub` is the host id). **Do not** commit tokens.
 
 **Deploy IAM:** the OIDC deploy role needs **Cognito** create/update permissions for this stack (extend the role if **`cdk deploy`** fails on **`cognito-idp:*`**).
 
@@ -207,7 +200,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 - **`RiffSyncStatic-*` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
 - **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
 - **`RiffSyncApi-*` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**); **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
-- **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **Facebook** `UserPoolIdentityProvider` + **UserPoolClient** (OAuth) + **Secrets Manager** secret for Meta app secret.
+- **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA).
 
 Older milestone copy: **M1** alone only created the static stack.
 
@@ -272,7 +265,6 @@ Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`
 
 | Variable | Used by |
 | --- | --- |
-| **`META_FACEBOOK_APP_ID`** | Meta **App ID** (public). **Deploy** workflows pass **`--context facebookAppId=…`** to CDK so Cognito’s Facebook IdP matches your Meta app. **Not** the app secret (that stays in Secrets Manager). |
 | **`AWS_DEPLOY_ROLE_ARN_STAGING`** | IAM role ARN assumable via OIDC for **staging** **`cdk deploy`** |
 | **`AWS_DEPLOY_ROLE_ARN_PROD`** | IAM role ARN assumable via OIDC for **production** **`cdk deploy`** |
 | **`AWS_REGION`** (optional) | Target region (**default `us-east-1`** when unset — override as needed.) |

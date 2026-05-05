@@ -22,7 +22,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      META_FACEBOOK_APP_ID: ${{ vars.META_FACEBOOK_APP_ID }}
       PROD_FAN_WEB_HOSTNAME: ${{ vars.PROD_FAN_WEB_HOSTNAME }}
       PROD_FAN_WEB_CERTIFICATE_ARN: ${{ vars.PROD_FAN_WEB_CERTIFICATE_ARN }}
       PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES: ${{ vars.PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES }}
@@ -46,13 +45,6 @@ jobs:
         run: |
           if [ -z "$ROLE" ]; then
             echo "::error::Set repository Variable AWS_DEPLOY_ROLE_ARN_PROD to the IAM role ARN trusted via GitHub OIDC (see infra/cdk/README.md)."
-            exit 1
-          fi
-
-      - name: Require Meta Facebook App ID (Cognito IdP)
-        run: |
-          if [ -z "${META_FACEBOOK_APP_ID:-}" ]; then
-            echo "::error::Set repository Variable META_FACEBOOK_APP_ID to your Meta App ID (see infra/cdk/README.md — passed as CDK --context facebookAppId)."
             exit 1
           fi
 
@@ -91,7 +83,6 @@ jobs:
           if [ -n "${PROD_FAN_WEB_CANONICAL_HOSTNAME:-}" ]; then
             ARGS+=(--context "fanWebCanonicalHostname=${PROD_FAN_WEB_CANONICAL_HOSTNAME}")
           fi
-          ARGS+=(--context "facebookAppId=${META_FACEBOOK_APP_ID}")
           if [ -z "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] || [ -z "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
             echo "::notice::RiffSync: RIFFSYNC_ROUTE53_HOSTED_ZONE_ID / RIFFSYNC_ROUTE53_ZONE_NAME unset — static stack will not create Route 53 aliases (FanWebRoute53AliasRecordCount will be 0)."
           fi
@@ -116,7 +107,6 @@ jobs:
           if [ -n "${PROD_FAN_WEB_CANONICAL_HOSTNAME:-}" ]; then
             ARGS+=(--context "fanWebCanonicalHostname=${PROD_FAN_WEB_CANONICAL_HOSTNAME}")
           fi
-          ARGS+=(--context "facebookAppId=${META_FACEBOOK_APP_ID}")
           SITE_URL="$(aws cloudformation describe-stacks --stack-name RiffSyncStatic-prod \
             --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
           echo "Adding ${SITE_URL} to HTTP API CORS and Cognito SPA callbacks"

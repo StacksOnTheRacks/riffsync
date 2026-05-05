@@ -182,21 +182,18 @@ export function PrivacyPolicyPage() {
             to that browser profile.
           </p>
           <p>
-            If you signed in with Facebook or another linked provider, see{' '}
-            <a href="#user-data-deletion">User data deletion</a> below for how to disconnect the app and
-            request removal of information we hold.
+            If you created a hosted account through Amazon Cognito, see{' '}
+            <a href="#user-data-deletion">User data deletion</a> below for how to request removal of
+            information we hold.
           </p>
         </section>
 
         <section id="user-data-deletion">
           <h2>12. User data deletion</h2>
           <p>
-            If you used <strong>Facebook Login</strong> (or another social login we offer), you can remove
-            RiffSync&rsquo;s connection to your Facebook account at any time in your{' '}
-            <a href="https://www.facebook.com/settings?tab=applications" rel="noopener noreferrer">
-              Facebook settings under Apps and Websites
-            </a>
-            . That stops future access through that login connection; it does not by itself delete data we
+            If you signed up with email and password through our Cognito Hosted UI, you can use Cognito&rsquo;s
+            screens (for example <strong>Forgot your password?</strong>) to manage credentials on the sign-in
+            domain operated by AWS for our app. Closing access that way does not by itself delete data we
             already processed while you used the Service.
           </p>
           <p>

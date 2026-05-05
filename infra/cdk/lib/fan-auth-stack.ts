@@ -1,5 +1,4 @@
 import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as cdk from 'aws-cdk-lib';
 import type { Construct } from 'constructs';
 
@@ -7,11 +6,6 @@ import { fanWebAlternateDomainNamesFromContext, oauthCallbacksForHost } from './
 
 export interface FanAuthStackProps extends cdk.StackProps {
   readonly environment: 'staging' | 'prod';
-  /**
-   * Meta (Facebook) App ID (public). CI uses a placeholder; set a real value for deploy.
-   * Example: `--context facebookAppId=1234567890123456`
-   */
-  readonly facebookAppId?: string;
   /**
    * Extra OAuth callback / sign-out URLs (e.g. staging CloudFront `https://dxxxx.cloudfront.net/`).
    * Comma-separated in CDK context `fanAuthOAuthExtras`.
@@ -34,19 +28,8 @@ function parseExtrasFromContext(scope: Construct): string[] {
     .filter(Boolean);
 }
 
-function resolveFacebookAppId(scope: Construct, explicit: string | undefined): string {
-  if (typeof explicit === 'string' && explicit.trim() !== '') {
-    return explicit.trim();
-  }
-  const ctx = scope.node.tryGetContext('facebookAppId');
-  if (typeof ctx === 'string' && ctx.trim() !== '') {
-    return ctx.trim();
-  }
-  return '0000000000000000';
-}
-
 /**
- * **Fan-facing** Cognito user pool — **Hosted UI + Facebook federation** only (no native password sign-in).
+ * **Fan-facing** Cognito user pool — **Hosted UI** with **local** sign-up/sign-in (email + password).
  *
  * Aligns with **`.forge/integration/authorization.md`** (host JWT **`sub`** → **`hostSub`**). Staff pool stays out of scope.
  */
@@ -57,40 +40,22 @@ export class FanAuthStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FanAuthStackProps) {
     super(scope, id, props);
 
-    const { environment, facebookAppId: facebookAppIdProp, cognitoDomainPrefix } = props;
+    const { environment, cognitoDomainPrefix } = props;
     const contextExtras = parseExtrasFromContext(this);
     const extraOAuthUrls = [...(props.extraOAuthUrls ?? []), ...contextExtras];
-
-    const facebookAppId = resolveFacebookAppId(this, facebookAppIdProp);
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
     cdk.Tags.of(this).add('Environment', environment);
 
-    const facebookAppSecret = new secretsmanager.Secret(this, 'FacebookAppSecretForCognito', {
-      secretName: `riffsync/${environment}/facebook-app-secret`,
-      description:
-        'Meta (Facebook) app secret referenced by Cognito Facebook IdP (never embed in SPA; rotate via Secrets Manager)',
-      secretStringValue: cdk.SecretValue.unsafePlainText('REPLACE_WITH_META_APP_SECRET'),
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
-
-    /** MVP:** federated Hosted UI only — **no Cognito-native password/SRP**. */
-    const selfSignUpEnabled = false;
-
     this.fanUserPool = new cognito.UserPool(this, 'FanUserPool', {
       userPoolName: `riffsync-fan-${environment}`,
-      selfSignUpEnabled,
+      selfSignUpEnabled: true,
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      standardAttributes: { email: { required: true, mutable: true } },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       deletionProtection: environment === 'prod',
-      signInAliases: { email: true },
-      standardAttributes: { email: { required: false, mutable: true } },
-    });
-
-    const facebookIdp = new cognito.UserPoolIdentityProviderFacebook(this, 'FacebookIdp', {
-      userPool: this.fanUserPool,
-      clientId: facebookAppId,
-      clientSecret: facebookAppSecret.secretValue.toString(),
-      scopes: ['public_profile', 'email'],
     });
 
     const stagingCallbackLogoutBase = [
@@ -143,8 +108,8 @@ export class FanAuthStack extends cdk.Stack {
       userPoolClientName: `riffsync-fan-web-${environment}`,
       generateSecret: false,
       authFlows: {
-        userSrp: false,
-        userPassword: false,
+        userSrp: true,
+        userPassword: true,
         adminUserPassword: false,
       },
       oAuth: {
@@ -157,11 +122,8 @@ export class FanAuthStack extends cdk.Stack {
         callbackUrls,
         logoutUrls,
       },
-      supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.FACEBOOK],
+      supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
     });
-
-    // Cognito rejects the client if it references Facebook before the IdP resource exists — enforce order.
-    this.fanUserPoolClient.node.addDependency(facebookIdp);
 
     new cdk.CfnOutput(this, 'FanUserPoolId', {
       value: this.fanUserPool.userPoolId,
@@ -180,11 +142,6 @@ export class FanAuthStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'FanHostedUiDomainPrefix', {
       value: domainPrefix,
       description: 'Cognito Hosted UI domain prefix (**{prefix}.auth.<region>.amazoncognito.com**).',
-    });
-
-    new cdk.CfnOutput(this, 'FanFacebookAppSecretSecretArn', {
-      value: facebookAppSecret.secretArn,
-      description: 'Put Meta app **`client_secret`** here before relying on Hosted UI (**never** paste into SPA)',
     });
 
     new cdk.CfnOutput(this, 'FanHostedUiBaseUrl', {
