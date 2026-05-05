@@ -1,4 +1,26 @@
-import type { CatalogEpisode } from './catalogTypes'
+import type { CatalogEra, CatalogEpisode } from './catalogTypes'
+
+const ERA_YOUTUBE_ROW_CAP = 10
+
+/**
+ * Episodes for a host era that have a playable YouTube id, in experiment order.
+ * Uses the full **`GET /v1/catalog`** list (already loaded on the home page).
+ */
+export function firstEpisodesWithYoutubeForEra(
+  entries: CatalogEpisode[],
+  era: CatalogEra,
+  limit: number = ERA_YOUTUBE_ROW_CAP,
+): CatalogEpisode[] {
+  return entries
+    .filter(
+      (e) =>
+        e.era === era &&
+        e.youtubeVideoId != null &&
+        e.youtubeVideoId.trim() !== '',
+    )
+    .sort((a, b) => a.experimentNumber - b.experimentNumber)
+    .slice(0, limit)
+}
 
 /** YouTube poster fallback when `posterImageUrl` / `backdropImageUrl` are null (dev/catalog seed). */
 export function catalogStillImageUrl(ep: CatalogEpisode): string {

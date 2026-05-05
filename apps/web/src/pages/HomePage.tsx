@@ -3,6 +3,7 @@ import { useCatalogCarouselQuery, useCatalogEntriesQuery } from '../catalog/useC
 import {
   buildHeroSlides,
   cycleSlice,
+  firstEpisodesWithYoutubeForEra,
 } from '../catalog/mockCatalog'
 import { HomeHeroBanner } from './home/HomeHeroBanner'
 import { HomeMovieRowSection } from './home/HomeMovieRowSection'
@@ -12,6 +13,7 @@ import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
  * Catalog landing (/) — full list from **`GET /v1/catalog`**; hero + spotlight from
  * **`GET /v1/catalog?carousel=true`** when **`VITE_PUBLIC_API_BASE_URL`** is set.
  * In **`vite dev`** without that var, both load from **`data/catalog/episodes.json`** (carousel rows filtered client-side).
+ * Era strips (Joel / Mike / Jonah) take the first **10** entries per era that include a **YouTube** id from the full catalog response.
  */
 export function HomePage() {
   const { data, isPending, isError, error } = useCatalogEntriesQuery()
@@ -57,6 +59,10 @@ export function HomePage() {
 
   const heroSlides = buildHeroSlides(carouselEntries)
 
+  const joelYoutubeRow = firstEpisodesWithYoutubeForEra(entries, 'joel', 10)
+  const mikeYoutubeRow = firstEpisodesWithYoutubeForEra(entries, 'mike', 10)
+  const jonahYoutubeRow = firstEpisodesWithYoutubeForEra(entries, 'jonah', 10)
+
   return (
     <div className="riffsync-home">
       {heroSlides.length > 0 ? <HomeHeroBanner slides={heroSlides} /> : null}
@@ -71,11 +77,27 @@ export function HomePage() {
         episodes={cycleSlice(entries, 12, 12)}
       />
       <HomeSpotlightBanner episodes={carouselEntries} />
-      <HomeMovieRowSection
-        sectionId="home-joel-era"
-        title="Joel-era experiments"
-        episodes={cycleSlice(entries, 24, 12)}
-      />
+      {joelYoutubeRow.length > 0 ? (
+        <HomeMovieRowSection
+          sectionId="home-joel-era"
+          title="Joel-era experiments"
+          episodes={joelYoutubeRow}
+        />
+      ) : null}
+      {mikeYoutubeRow.length > 0 ? (
+        <HomeMovieRowSection
+          sectionId="home-mike-era"
+          title="Mike-era experiments"
+          episodes={mikeYoutubeRow}
+        />
+      ) : null}
+      {jonahYoutubeRow.length > 0 ? (
+        <HomeMovieRowSection
+          sectionId="home-jonah-era"
+          title="Jonah-era experiments"
+          episodes={jonahYoutubeRow}
+        />
+      ) : null}
     </div>
   )
 }

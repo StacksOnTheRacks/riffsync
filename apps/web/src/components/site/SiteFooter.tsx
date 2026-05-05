@@ -105,7 +105,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                 <div className="widget">
                   <h4 className="footer-title">Contribute</h4>
                   <p>
-                    RiffSync is built in public, by the fans, for the fans. Issues and pull requests on GitHub are currentlythe best
+                    RiffSync is built in public, by the fans, for the fans. Issues and pull requests on GitHub are currently the best
                     way to improve the catalog and watch experience.
                   </p>
                 </div>
