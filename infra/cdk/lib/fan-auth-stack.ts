@@ -105,9 +105,7 @@ export class FanAuthStack extends cdk.Stack {
       selfSignUpEnabled: true,
       signInAliases: { email: true },
       autoVerify: { email: true },
-      // Do not set `standardAttributes.email` here: CDK emits a partial `Schema` entry (no `AttributeDataType`),
-      // and CloudFormation updates then fail with Cognito **Invalid AttributeDataType**. Email is implied by
-      // **sign-in alias** (`UsernameAttributes`: email).
+      // Omit `standardAttributes.email`: CDK omits `AttributeDataType` on standard attrs, which breaks Cognito updates (Invalid AttributeDataType).
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       email: fanPoolSesEmail(this),
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
