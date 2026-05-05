@@ -28,6 +28,59 @@ function parseExtrasFromContext(scope: Construct): string[] {
     .filter(Boolean);
 }
 
+/** Aligns with `.forge/project.json` `public_domain`; override via `--context fanAuthSesVerifiedDomain=…`. */
+const DEFAULT_FAN_SES_DOMAIN = 'riffsync.tv';
+
+/**
+ * Cognito verification / recovery email via Amazon SES (`EmailSendingAccount` DEVELOPER).
+ *
+ * Prerequisites in AWS: SES **domain or address identity** verified in the **same Region** as the user pool.
+ *
+ * Optional CDK context:
+ * - **`fanAuthSesVerifiedDomain`** — verified SES domain (default **`riffsync.tv`**).
+ * - **`fanAuthSesFromEmail`** — sender address on that domain (default **`noreply@<domain>`**).
+ * - **`fanAuthSesFromName`** — display name (default **`RiffSync`**).
+ * - **`fanAuthSesRegion`** — SES identity region when it differs from the stack region.
+ * - **`fanAuthSesConfigurationSet`** — SES configuration set name for Cognito-sent mail.
+ */
+function fanPoolSesEmail(scope: Construct): cognito.UserPoolEmail {
+  const domainRaw = scope.node.tryGetContext('fanAuthSesVerifiedDomain');
+  const sesVerifiedDomain =
+    typeof domainRaw === 'string' && domainRaw.trim() !== ''
+      ? domainRaw.trim().toLowerCase()
+      : DEFAULT_FAN_SES_DOMAIN;
+
+  const fromEmailRaw = scope.node.tryGetContext('fanAuthSesFromEmail');
+  const fromEmail =
+    typeof fromEmailRaw === 'string' && fromEmailRaw.trim() !== ''
+      ? fromEmailRaw.trim().toLowerCase()
+      : `noreply@${sesVerifiedDomain}`;
+
+  const nameRaw = scope.node.tryGetContext('fanAuthSesFromName');
+  const fromName =
+    typeof nameRaw === 'string' && nameRaw.trim() !== '' ? nameRaw.trim() : 'RiffSync';
+
+  const sesRegionRaw = scope.node.tryGetContext('fanAuthSesRegion');
+  const sesRegion =
+    typeof sesRegionRaw === 'string' && sesRegionRaw.trim() !== ''
+      ? sesRegionRaw.trim()
+      : undefined;
+
+  const configSetRaw = scope.node.tryGetContext('fanAuthSesConfigurationSet');
+  const configurationSetName =
+    typeof configSetRaw === 'string' && configSetRaw.trim() !== ''
+      ? configSetRaw.trim()
+      : undefined;
+
+  return cognito.UserPoolEmail.withSES({
+    fromEmail,
+    fromName,
+    sesVerifiedDomain,
+    ...(sesRegion !== undefined ? { sesRegion } : {}),
+    ...(configurationSetName !== undefined ? { configurationSetName } : {}),
+  });
+}
+
 /**
  * **Fan-facing** Cognito user pool — **Hosted UI** with **local** sign-up/sign-in (email + password).
  *
@@ -54,6 +107,7 @@ export class FanAuthStack extends cdk.Stack {
       autoVerify: { email: true },
       standardAttributes: { email: { required: true, mutable: true } },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      email: fanPoolSesEmail(this),
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       deletionProtection: environment === 'prod',
     });

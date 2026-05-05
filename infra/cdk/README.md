@@ -153,12 +153,23 @@ Hosted stacks **`RiffSyncFanAuth-staging`** / **`RiffSyncFanAuth-prod`** provisi
 
 | Decision | Choice |
 | --- | --- |
-| **Sign-up / sign-in** | **Hosted UI** — users create a **local** Cognito profile (**email** alias + password). **`selfSignUpEnabled`** is **on**; Cognito sends **email verification** on registration (default Cognito mail limits apply — move to **SES** when volume demands). |
+| **Sign-up / sign-in** | **Hosted UI** — users create a **local** Cognito profile (**email** alias + password). **`selfSignUpEnabled`** is **on**; Cognito sends **verification** and **recovery** email via **SES** (see next row). |
+| **Transactional email** | **Amazon SES** via **`UserPoolEmail.withSES`** — **`EmailSendingAccount` DEVELOPER**. Defaults: verified domain **`riffsync.tv`**, **`From`** **`RiffSync <noreply@riffsync.tv>`**, SES identity ARN in the **same Region** as the pool (see optional **`fanAuthSes*`** context keys below). **SES sandbox:** only verified recipient addresses receive mail until production access is granted. |
 | **App client** | **Public** SPA client (**no** secret); **`ALLOW_USER_SRP_AUTH`** + **`ALLOW_USER_PASSWORD_AUTH`** enabled for Hosted UI; **`supportedIdentityProviders`** = **COGNITO** only. |
 | **Callback / sign-out URLs** | **Prod:** **`https://riffsync.tv/`** and **`https://riffsync.tv/auth/callback`** (SPA route; must match **`fanHostedUiPkce`** **`redirect_uri`**). **Staging:** those plus **`https://staging.riffsync.tv/*`**, **localhost** Vite ports, and optional extras via **`--context fanAuthOAuthExtras=https://d111111abcdef8.cloudfront.net/,https://d111111abcdef8.cloudfront.net/auth/callback`**. |
 | **Hosted domain prefix** | Default **`riffsync-fan-staging`** / **`riffsync-fan-prod`** (must be **unique** in the Region). Override collision: **`--context fanAuthCognitoDomainPrefix=your-prefix`**. |
 
-**CloudFormation outputs:** **`FanUserPoolId`**, **`FanUserPoolClientId`**, **`FanHostedUiDomainPrefix`**, **`FanHostedUiBaseUrl`**.
+**SES prerequisites:** Verify **`riffsync.tv`** (or override domain) as an SES identity **in the deploy Region** before relying on sign-up / forgot-password mail. Cognito wires **`SourceArn`** to **`arn:aws:ses:<region>:<account>:identity/<domain>`** — Amazon Cognito manages the IAM trust to send via SES when using **`DEVELOPER`** mode.
+
+**Optional CDK context** (all strings):
+
+| Context key | Purpose |
+| --- | --- |
+| **`fanAuthSesVerifiedDomain`** | SES verified domain (**default `riffsync.tv`**) |
+| **`fanAuthSesFromEmail`** | Local-part must live on that domain (**default `noreply@<domain>`**) |
+| **`fanAuthSesFromName`** | Display name (**default `RiffSync`**) |
+| **`fanAuthSesRegion`** | SES identity Region if different from stack Region |
+| **`fanAuthSesConfigurationSet`** | SES configuration set name for Cognito-sent messages |
 
 **Smoke (staging):** build the **`/oauth2/authorize`** link with **PKCE** (response_type **`code`**, client_id **`FanUserPoolClientId`**, redirect_uri **must** match an allowlisted SPA URL, scope **`openid email profile`** — **omit** **`identity_provider`** so Hosted UI shows the pool sign-in / sign-up pages). Complete sign-up, verify email, sign in, exchange the code at **`/oauth2/token`**, then inspect **`access_token`** (`sub` is the host id). **Do not** commit tokens.
 
@@ -200,7 +211,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 - **`RiffSyncStatic-*` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
 - **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
 - **`RiffSyncApi-*` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**); **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
-- **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA).
+- **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA). Pool **`EmailConfiguration`** sends verification / recovery mail through **Amazon SES** (**`DEVELOPER`** / **`SourceArn`** `identity/<domain>`); verify that identity **in the deploy Region** before go-live.
 
 Older milestone copy: **M1** alone only created the static stack.
 
