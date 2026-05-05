@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
+import type { MutableRefObject } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RoomSnapshot } from '../api/roomsApi'
 import { fetchRoom, patchRoom } from '../api/roomsApi'
@@ -47,48 +47,10 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-function receiverLiveTracks(pc: RTCPeerConnection): MediaStreamTrack[] {
-  return pc
-    .getReceivers()
-    .map((r) => r.track)
-    .filter((t): t is MediaStreamTrack => Boolean(t && t.readyState === 'live'))
-}
-
-/** Some browsers omit `track` streams on `track`; recover from RTP receivers once ICE connects. */
-function syncGuestRemoteFromReceiversIfNeeded(
-  pc: RTCPeerConnection,
-  setGuestRemote: Dispatch<SetStateAction<MediaStream | null>>,
-) {
-  setGuestRemote((prev: MediaStream | null) => {
-    if (prev?.getTracks().some((t: MediaStreamTrack) => t.readyState === 'live')) return prev
-    const tracks = receiverLiveTracks(pc)
-    if (tracks.length === 0) return prev
-    return new MediaStream(tracks)
-  })
-}
-
-/**
- * True when the guest should ask the host to (re)publish.
- * Never send `ready` while we already have a PC with **both** SDP descriptions and the connection is not
- * **failed** — the host runs `ensureHostPeerNegotiated` on every `ready`, which **closes** the peer and
- * re-sends offers. Spacing `ready` every 8s in the `connected` + `guestRemote===null` gap was thrashing ICE
- * and blocking video entirely.
- */
-function guestNeedsHostNegotiation(remote: MediaStream | null, pc: RTCPeerConnection | null): boolean {
-  if (!remote) {
-    if (!pc || pc.signalingState === 'closed') return true
-    if (
-      pc.remoteDescription &&
-      pc.localDescription &&
-      pc.connectionState !== 'failed'
-    ) {
-      return false
-    }
-    return true
-  }
-  const tracks = remote.getTracks()
-  if (tracks.some((t) => t.readyState === 'live')) return false
-  return true
+/** True when the guest should ask the host to (re)publish — no stream yet or all remote tracks have ended. */
+function guestNeedsHostNegotiation(remote: MediaStream | null): boolean {
+  if (!remote) return true
+  return !remote.getTracks().some((t) => t.readyState === 'live')
 }
 
 type HostNegotiateCtx = {
@@ -206,22 +168,13 @@ async function handleGuestSignal(ctx: {
   sendJson: (payload: Record<string, unknown>) => void
   guestPcRef: MutableRefObject<RTCPeerConnection | null>
   pendingIceRef: MutableRefObject<RTCIceCandidateInit[]>
-  setGuestRemote: Dispatch<SetStateAction<MediaStream | null>>
+  setGuestRemote: (s: MediaStream | null) => void
   envelope: Record<string, unknown>
 }): Promise<void> {
   const kind = ctx.envelope.kind
 
   if (kind === 'offer') {
-    const target = ctx.envelope.targetSessionId
-    if (typeof target === 'string' && target.length > 0 && target !== ctx.mySessionId) {
-      if (webrtcDebugEnabled()) {
-        webrtcLog('guest ignoring offer — different targetSessionId', {
-          mine: `${ctx.mySessionId.slice(0, 8)}…`,
-          target: `${target.slice(0, 8)}…`,
-        })
-      }
-      return
-    }
+    if (ctx.envelope.targetSessionId !== ctx.mySessionId) return
     const sdp = ctx.envelope.sdp
     if (!isRecord(sdp) || typeof sdp.sdp !== 'string' || typeof sdp.type !== 'string') return
 
@@ -234,17 +187,8 @@ async function handleGuestSignal(ctx: {
     ctx.guestPcRef.current = pc
 
     pc.ontrack = (ev) => {
-      const direct = ev.streams[0]
-      if (direct && direct.getTracks().length > 0) {
-        ctx.setGuestRemote(direct)
-        return
-      }
-      ctx.setGuestRemote((prev: MediaStream | null) => {
-        const merged = [...(prev?.getTracks() ?? [])]
-        const ids = new Set(merged.map((t) => t.id))
-        if (!ids.has(ev.track.id)) merged.push(ev.track)
-        return new MediaStream(merged)
-      })
+      const [stream] = ev.streams
+      if (stream) ctx.setGuestRemote(stream)
     }
     pc.onicecandidate = (e) => {
       if (e.candidate) {
@@ -261,20 +205,15 @@ async function handleGuestSignal(ctx: {
 
     pc.onconnectionstatechange = () => {
       if (pc !== ctx.guestPcRef.current) return
-      if (pc.connectionState !== 'connected') return
-      queueMicrotask(() => {
-        if (pc !== ctx.guestPcRef.current) return
-        syncGuestRemoteFromReceiversIfNeeded(pc, ctx.setGuestRemote)
-      })
-    }
-
-    pc.oniceconnectionstatechange = () => {
-      if (pc !== ctx.guestPcRef.current) return
-      if (pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') return
-      queueMicrotask(() => {
-        if (pc !== ctx.guestPcRef.current) return
-        syncGuestRemoteFromReceiversIfNeeded(pc, ctx.setGuestRemote)
-      })
+      if (pc.connectionState !== 'failed') return
+      ctx.pendingIceRef.current = []
+      ctx.guestPcRef.current = null
+      try {
+        pc.close()
+      } catch {
+        /* ignore */
+      }
+      ctx.setGuestRemote(null)
     }
 
     try {
@@ -289,7 +228,6 @@ async function handleGuestSignal(ctx: {
       }
       const answer = await pc.createAnswer()
       await pc.setLocalDescription(answer)
-      queueMicrotask(() => syncGuestRemoteFromReceiversIfNeeded(pc, ctx.setGuestRemote))
       ctx.sendJson({
         action: 'signaling',
         envelope: {
@@ -304,9 +242,7 @@ async function handleGuestSignal(ctx: {
     return
   }
 
-  if (kind === 'ice') {
-    const target = ctx.envelope.targetSessionId
-    if (typeof target === 'string' && target.length > 0 && target !== ctx.mySessionId) return
+  if (kind === 'ice' && ctx.envelope.targetSessionId === ctx.mySessionId) {
     const cand = ctx.envelope.candidate
     const pc = ctx.guestPcRef.current
     if (!pc || !isRecord(cand)) return
@@ -594,7 +530,7 @@ export function RoomPage() {
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
     const sendReady = () => {
-      if (!guestNeedsHostNegotiation(guestRemoteRef.current, guestPcRef.current)) return
+      if (!guestNeedsHostNegotiation(guestRemoteRef.current)) return
       sendJson({
         action: 'signaling',
         envelope: { guestSignaling: true, kind: 'ready' },
@@ -605,11 +541,10 @@ export function RoomPage() {
     return () => window.clearInterval(id)
   }, [isPublisher, wsStatus, sendJson])
 
-  /** Ping host immediately when playback was cleared — avoids waiting up to 8s for `ready`. */
+  /** Re-arm host negotiation as soon as the guest has no live remote share (fast path vs 8s poll). */
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
-    if (guestRemote !== null) return
-    if (!guestNeedsHostNegotiation(null, guestPcRef.current)) return
+    if (!guestNeedsHostNegotiation(guestRemote)) return
     sendJson({
       action: 'signaling',
       envelope: { guestSignaling: true, kind: 'ready' },
@@ -981,8 +916,7 @@ export function RoomPage() {
             ) : (
               <section className="riffsync-room-page__playback" aria-label="Guest playback">
                 <span className="sr-only">
-                  Watching the shared video stream from this room&apos;s host. Playback starts muted so your browser may autoplay;
-                  turn sound on with the player controls.
+                  Watching the shared video stream from this room&apos;s host. Use Play if the browser blocks autoplay.
                 </span>
                 <h2 className="riffsync-room-page__theater-heading">{nowPlayingLabel}</h2>
                 {guestPlayHint ? (
@@ -998,14 +932,9 @@ export function RoomPage() {
                     className="riffsync-room-page__guest-video"
                     playsInline
                     controls
-                    muted
+                    muted={false}
                   />
                 </div>
-                {guestRemote ? (
-                  <p className="riffsync-room-page__guest-audio-hint riffsync-muted">
-                    Stream starts muted for autoplay — use the player&apos;s volume control when you want sound.
-                  </p>
-                ) : null}
                 {fanToken ? (
                   <p className="sr-only">
                     You are signed in as a guest. Only the party creator can rename the room and share video.
