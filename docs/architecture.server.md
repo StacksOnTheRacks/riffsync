@@ -129,7 +129,7 @@ Operator-facing **admin HTTP** reporting endpoints (**`architecture.admin.md`**)
 
 - **CI:** GitHub Actions runs tests, **`cdk synth`**, and lint on **pull requests** (recommended).
 - **Staging:** **`workflow_dispatch`** (manual) deploys **`main`** to the **staging** CDK stack/environment on demand.
-- **Production:** Separate **manual** workflow deploys from a **semver** git tag (**`vMajor.Minor.Patch`** per [Semantic Versioning](https://semver.org/)); **no** production deploy from an untagged branch by policy. Prefer **OIDC** from GitHub → AWS over static access keys.
+- **Production:** Separate **manual** workflow deploys **`main`** on demand (**same promotion model as staging**). Prefer **OIDC** from GitHub → AWS over static access keys.
 - Full workflow layout: **`.forge/operations/build_packaging.md`** and **`.forge/operations/deployment_environments.md`**.
 
 ---

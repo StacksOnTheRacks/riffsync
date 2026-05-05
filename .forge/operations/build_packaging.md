@@ -14,11 +14,11 @@
 | Workflow (conceptual) | Trigger | Target | Versioning |
 | --- | --- | --- | --- |
 | **Deploy staging** | **Manual** (“Run workflow”) against **`main`** | **`cdk deploy`** (or equivalent) to **staging** account/region/context | Deploys **commit SHA** at workflow run (not necessarily a tag). |
-| **Deploy production** | **Manual** workflow that **requires a semver git tag** (`vMajor.Minor.Patch`, e.g. **`v1.2.0`**) — commonly `workflow_dispatch` with **tag name input** validated by regex, **or** discrete “deploy this ref” after tag push | **`cdk deploy`** to **prod** | **[Semantic versioning](https://semver.org/)** defines what is releasable to prod; branch-only deploys to prod are **out of policy**. |
+| **Deploy production** | **Manual** (**`workflow_dispatch`**) aligned with staging: **`main` only**, deploy **commit SHA** at run time | **`cdk deploy`** to **prod** | Same as staging: no tag gate; versioning for changelog/releases can stay informal until you tighten policy again. |
 
 **Practice**
 
-- **Tags** are the **release artifacts** for production; **GitHub Releases** may mirror tags for notes (optional).
+- **Optional:** **semver tags** / **GitHub Releases** remain useful for changelog and communication; they no longer gate the production deploy workflow.
 - **OIDC** federation from GitHub Actions → AWS IAM role is preferred over long-lived **AWS_ACCESS_KEY_ID** in secrets (implement in first pipeline story).
 - **`cdk synth` / `diff` / tests** on **`pull_request`** to **`main`** recommended; does not deploy.
 

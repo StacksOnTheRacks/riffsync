@@ -229,7 +229,7 @@ Deployment policy (**`.forge/operations/build_packaging.md`**, **`deployment_env
 | Target | Trigger | Notes |
 | --- | --- | --- |
 | **Staging** | Manual workflow [**`deploy-staging.yml`**](../../.github/workflows/deploy-staging.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. Runs **`cdk deploy`** for **staging**, then **builds `apps/web`**, **`aws s3 sync`** to the stack bucket (**`--delete`**), and **CloudFront invalidation** (`/*`). |
-| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Input must be an existing semver tag** matching **`vMajor.Minor.Patch`**. Deploys **prod** CDK, then publishes the SPA with **`VITE_PUBLIC_ORIGIN=https://riffsync.tv`**, **`s3 sync`**, and invalidation. **No deploy from arbitrary branch SHAs.** |
+| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`** (same pattern as staging). Deploys **prod** CDK, then **`aws s3 sync`** and CloudFront invalidation using stack outputs (**`FanWebSiteUrl`** for **`VITE_PUBLIC_ORIGIN`** and related env at build time). |
 | **Local** | **AWS CLI credential profile** via **`cdk deploy`** + manual **`s3 sync`** | Matches how engineers run **`cdk bootstrap`** / **`deploy`** interactively outside CI. |
 
 ### Fan SPA publish (S3 sync + invalidation)
@@ -345,10 +345,10 @@ npx cdk bootstrap aws://ACCOUNT/REGION   # uses your CLI profile credentials
 cd infra/cdk && npm ci && npm run build && npx cdk deploy --all --context environment=staging
 ```
 
-Production from a workstation should **checkout the semver tag**, then **`cdk deploy`** with **`--context environment=prod`**:
+Production from a workstation should **checkout `main`** (or whatever commit CI would deploy), then **`cdk deploy`** with **`--context environment=prod`**:
 
 ```bash
-git fetch --tags && git checkout v1.2.0
+git checkout main && git pull
 cd infra/cdk && npm ci && npm run build && npx cdk deploy --all --context environment=prod
 ```
 

@@ -46,4 +46,4 @@ Illustrative—final list in IaC:
 ## Primary code pointers (optional)
 
 - `.env.example` (local only); **AWS CDK** app context (**`staging` / `prod`** only for hosted stacks).
-- **`.github/workflows/`** — **manual** deploy **`main`** → **staging**, **semver tags** → **prod** (**`build_packaging.md`**).
+- **`.github/workflows/`** — **manual** deploy **`main`** → **staging** and **`main`** → **prod** (**`build_packaging.md`**).
