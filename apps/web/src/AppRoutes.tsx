@@ -10,6 +10,7 @@ import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { TermsOfServicePage } from './pages/TermsOfServicePage'
 import { DataRemovalRequestPage } from './pages/DataRemovalRequestPage'
+import { HowToHostWatchPartyPage } from './pages/HowToHostWatchPartyPage'
 
 export function AppRoutes() {
   return (
@@ -20,6 +21,7 @@ export function AppRoutes() {
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/how-to-host-a-watchparty" element={<HowToHostWatchPartyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/privacy/data-removal" element={<DataRemovalRequestPage />} />

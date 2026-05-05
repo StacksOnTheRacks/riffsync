@@ -19,6 +19,8 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               <span aria-hidden>·</span>
               <Link to="/lobby">Lobby</Link>
               <span aria-hidden>·</span>
+              <Link to="/how-to-host-a-watchparty">Host help</Link>
+              <span aria-hidden>·</span>
               <Link to="/privacy">Privacy</Link>
               <span aria-hidden>·</span>
               <Link to="/terms">Terms</Link>
@@ -67,6 +69,9 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                       </li>
                       <li className="menu-item">
                         <Link to="/lobby">Lobby</Link>
+                      </li>
+                      <li className="menu-item">
+                        <Link to="/how-to-host-a-watchparty">Host a party — how-to</Link>
                       </li>
                     </ul>
                   </div>

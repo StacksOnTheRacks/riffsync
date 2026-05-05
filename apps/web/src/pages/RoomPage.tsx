@@ -23,19 +23,6 @@ import {
 } from '../room/webrtcDebug'
 const DISPLAY_TITLE_MAX_LEN = 120
 
-function hostShareDismissStorageKey(roomId: string): string {
-  return `riffsync_hostShareDismiss_${roomId}`
-}
-
-function readHostShareInstructionsOpen(roomId: string): boolean {
-  if (!roomId) return true
-  try {
-    return sessionStorage.getItem(hostShareDismissStorageKey(roomId)) !== '1'
-  } catch {
-    return true
-  }
-}
-
 type ChatMsg = { sessionId: string; text: string; ts: number }
 
 type PresenceMember = {
@@ -308,10 +295,6 @@ export function RoomPage() {
   const [chatDraft, setChatDraft] = useState('')
   const [patchErr, setPatchErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
-  const [showHostShareInstructions, setShowHostShareInstructions] = useState(() =>
-    readHostShareInstructionsOpen(roomId),
-  )
-  const [shareInstrRoomId, setShareInstrRoomId] = useState(roomId)
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
   const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
@@ -343,11 +326,6 @@ export function RoomPage() {
   const wsBase = getPublicWsUrl()
   const fanToken = getFanAccessToken()
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
-
-  if (roomId !== shareInstrRoomId) {
-    setShareInstrRoomId(roomId)
-    setShowHostShareInstructions(readHostShareInstructionsOpen(roomId))
-  }
 
   useEffect(() => {
     guestRemoteRef.current = guestRemote
@@ -803,15 +781,6 @@ export function RoomPage() {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
-  const dismissHostShareInstructions = () => {
-    try {
-      sessionStorage.setItem(hostShareDismissStorageKey(roomId), '1')
-    } catch {
-      /* ignore private mode */
-    }
-    setShowHostShareInstructions(false)
-  }
-
   const playGuestVideo = async () => {
     const v = videoRef.current
     if (!v) return
@@ -892,35 +861,6 @@ export function RoomPage() {
           <div className="riffsync-room-page__theater">
             {isPublisher ? (
               <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
-                {showHostShareInstructions ? (
-                  <div
-                    className="riffsync-room-page__host-share-panel"
-                    role="region"
-                    aria-label="How to broadcast"
-                  >
-                    <h3>How to broadcast</h3>
-                    <div className="riffsync-room-page__host-share-panel-body riffsync-muted">
-                      <p>
-                        Start with <strong>Open Source Tab</strong> below, then{' '}
-                        <strong>Share Source Tab</strong> and pick that player tab in the browser picker — not this tab.
-                        Guests will see whatever you preview in the theater frame below.
-                      </p>
-                    </div>
-                    <p className="riffsync-room-page__host-share-footnote riffsync-muted">
-                      When you&apos;re done sharing, use your browser&apos;s <strong>Stop sharing</strong> control — it appears
-                      at the top of this tab while broadcast is live. You can open or close the source tab anytime.
-                    </p>
-                    <div className="riffsync-room-page__host-share-actions">
-                      <button
-                        type="button"
-                        className="gen-button gen-button--ghost"
-                        onClick={dismissHostShareInstructions}
-                      >
-                        Dismiss for this session
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
                 <h2 className="riffsync-room-page__theater-heading">{nowPlayingLabel}</h2>
                 {captureStream && hostCapturePlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
@@ -940,9 +880,8 @@ export function RoomPage() {
                     />
                   ) : (
                     <div className="riffsync-room-page__host-preview-placeholder">
-                      <p className="riffsync-room-page__host-preview-placeholder__instructions riffsync-muted">
-                        Nothing shared yet. Choose <strong>Share Source Tab</strong>, then pick your{' '}
-                        <strong>player tab</strong> in the picker — not this tab.
+                      <p className="riffsync-room-page__host-preview-intro">
+                        This is your presentation screen. Whatever appears here is what your guests see in the theater.
                       </p>
                       <div className="riffsync-room-page__center-share-buttons">
                         <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
@@ -951,6 +890,17 @@ export function RoomPage() {
                         <button type="button" className="gen-button" onClick={() => void startCapture()}>
                           Share Source Tab
                         </button>
+                        <Link
+                          className="gen-button"
+                          to="/how-to-host-a-watchparty"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            if (roomMenuDetailsRef.current) roomMenuDetailsRef.current.open = false
+                          }}
+                        >
+                          FAQ
+                        </Link>
                       </div>
                     </div>
                   )}
@@ -1047,6 +997,17 @@ export function RoomPage() {
                       <button type="button" className="gen-button gen-button-wide" onClick={openRenameModal}>
                         Rename room
                       </button>
+                    ) : null}
+                    {isPublisher ? (
+                      <Link
+                        className="gen-button gen-button-wide"
+                        to="/how-to-host-a-watchparty"
+                        onClick={() => {
+                          if (roomMenuDetailsRef.current) roomMenuDetailsRef.current.open = false
+                        }}
+                      >
+                        Hosting tips &amp; FAQ
+                      </Link>
                     ) : null}
                     {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
                   </div>
