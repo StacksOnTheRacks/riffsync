@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { SITE_DOCUMENT_TITLE } from '../config/documentTitle'
 
 export function HowToHostWatchPartyPage() {
@@ -26,9 +25,6 @@ export function HowToHostWatchPartyPage() {
             <strong>share that tab</strong> back into the watch party room. Guests see the same picture
             and hear the same audio as that tab—including ads or buffering—without running their own
             YouTube player in sync.
-          </p>
-          <p>
-            This page replaces the old in-room instruction banners. Bookmark it if you host often.
           </p>
         </section>
 
@@ -119,19 +115,6 @@ export function HowToHostWatchPartyPage() {
           <p>
             No, but it can be convenient: one screen for the room + chat and one for the player. A
             single monitor works if you switch tabs or stack windows.
-          </p>
-        </section>
-
-        <section>
-          <h2>Related</h2>
-          <p>
-            <Link to="/catalog">Browse catalog</Link>
-            {' · '}
-            <Link to="/lobby">Lobby</Link>
-            {' · '}
-            <Link to="/privacy">Privacy</Link> (includes how screen capture is described)
-            {' · '}
-            <Link to="/terms">Terms</Link>
           </p>
         </section>
       </div>

@@ -883,6 +883,11 @@ export function RoomPage() {
                       <p className="riffsync-room-page__host-preview-intro">
                         This is your presentation screen. Whatever appears here is what your guests see in the theater.
                       </p>
+                      <p className="riffsync-room-page__host-preview-intro">
+                        First open a source media tab by clicking <strong>Open Source Tab</strong>. Then come back
+                        to this tab and click <strong>Share Source Tab</strong>. In the picker, choose the tab
+                        whose title starts with <strong>Share this tab</strong>.
+                      </p>
                       <div className="riffsync-room-page__center-share-buttons">
                         <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
                           Open Source Tab
