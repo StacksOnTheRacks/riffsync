@@ -53,6 +53,39 @@ function staleRoomMsFromContext(scope: Construct): number {
   return Number.isFinite(n) && n > 0 ? n : 45 * 60 * 1000;
 }
 
+function turnHostFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('turnHost');
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function turnPortFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('turnPort');
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(n) && n > 0 && n <= 65535 ? String(n) : '3478';
+}
+
+/** Empty string → omit `turns:` URIs from ICE config. */
+function turnTlsPortFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('turnTlsPort');
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(n) && n > 0 && n <= 65535 ? String(n) : '';
+}
+
+function stunServersJsonFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('stunServersJson');
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    return raw.trim();
+  }
+  return '[{"urls":"stun:stun.l.google.com:19302"}]';
+}
+
+function turnCredentialTtlSecondsFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('turnCredentialTtlSeconds');
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number.parseInt(raw, 10) : Number.NaN;
+  const ttl = Number.isFinite(n) && n >= 300 && n <= 86400 * 7 ? n : 43_200;
+  return String(ttl);
+}
+
 function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[], scope: Construct): string[] {
   const altOrigins = fanWebAlternateDomainNamesFromContext(scope).map((h) => `https://${h}`);
   const base =
@@ -86,6 +119,7 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly httpApi: apigwv2.HttpApi;
   public readonly webSocketApi: apigwv2.WebSocketApi;
   public readonly tmdbApiTokenSecret: secretsmanager.ISecret;
+  public readonly turnSharedSecret: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: ApiCatalogStackProps) {
     super(scope, id, props);
@@ -149,6 +183,14 @@ export class ApiCatalogStack extends cdk.Stack {
       secretStringValue: cdk.SecretValue.unsafePlainText(
         '{"notifyEmail":"REPLACE_WITH_NOTIFY_EMAIL","fromEmail":"REPLACE_WITH_VERIFIED_SES_FROM"}',
       ),
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.turnSharedSecret = new secretsmanager.Secret(this, 'TurnSharedSecret', {
+      secretName: `riffsync/${environment}/turn-static-auth-secret`,
+      description:
+        'Plaintext shared secret for coturn use-auth-secret / TURN REST credentials (must match EC2 turnserver.conf).',
+      secretStringValue: cdk.SecretValue.unsafePlainText('REPLACE_WITH_TURN_STATIC_AUTH_SECRET'),
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
@@ -316,6 +358,25 @@ export class ApiCatalogStack extends cdk.Stack {
       }),
     );
 
+    const webrtcIceConfigFn = new lambdaNodejs.NodejsFunction(this, 'WebrtcIceConfigFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(5),
+      memorySize: 128,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/webrtc-ice-config.ts'),
+      handler: 'handler',
+      environment: {
+        TURN_SHARED_SECRET_ARN: this.turnSharedSecret.secretArn,
+        TURN_HOST: turnHostFromContext(this),
+        TURN_PORT: turnPortFromContext(this),
+        TURN_TLS_PORT: turnTlsPortFromContext(this),
+        STUN_SERVERS_JSON: stunServersJsonFromContext(this),
+        TURN_CREDENTIAL_TTL_SECONDS: turnCredentialTtlSecondsFromContext(this),
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.turnSharedSecret.grantRead(webrtcIceConfigFn);
+
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
@@ -430,6 +491,7 @@ export class ApiCatalogStack extends cdk.Stack {
       'PrivacyRemovalInt',
       privacyRemovalFn,
     );
+    const webrtcIceIntegration = new integrations.HttpLambdaIntegration('WebrtcIceInt', webrtcIceConfigFn);
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -475,6 +537,20 @@ export class ApiCatalogStack extends cdk.Stack {
       integration: privacyRemovalIntegration,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/webrtc/ice',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: webrtcIceIntegration,
+    });
+
+    const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
+    if (httpStageL1) {
+      httpStageL1.defaultRouteSettings = {
+        throttlingBurstLimit: 100,
+        throttlingRateLimit: 50,
+      };
+    }
+
     new cdk.CfnOutput(this, 'CatalogTableName', {
       value: this.catalogTable.tableName,
       description: 'DynamoDB Catalog table — partition key `id` (episode slug).',
@@ -490,7 +566,8 @@ export class ApiCatalogStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
-      description: 'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`.',
+      description:
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {
@@ -515,6 +592,12 @@ export class ApiCatalogStack extends cdk.Stack {
       value: privacyRoutingSecret.secretArn,
       description:
         'JSON with notifyEmail + SES-verified fromEmail for POST /v1/privacy-removal-request (see secret description).',
+    });
+
+    new cdk.CfnOutput(this, 'TurnSharedSecretArn', {
+      value: this.turnSharedSecret.secretArn,
+      description:
+        'Plaintext coturn static-auth-secret — replace placeholder; must match EC2 turnserver.conf (see infra/coturn).',
     });
 
     new cdk.CfnOutput(this, 'TmdbReconcileFnName', {

@@ -28,6 +28,10 @@ jobs:
       PROD_FAN_WEB_CANONICAL_HOSTNAME: ${{ vars.PROD_FAN_WEB_CANONICAL_HOSTNAME }}
       RIFFSYNC_ROUTE53_HOSTED_ZONE_ID: ${{ vars.RIFFSYNC_ROUTE53_HOSTED_ZONE_ID }}
       RIFFSYNC_ROUTE53_ZONE_NAME: ${{ vars.RIFFSYNC_ROUTE53_ZONE_NAME }}
+      PROD_TURN_HOST: ${{ vars.PROD_TURN_HOST }}
+      PROD_TURN_PORT: ${{ vars.PROD_TURN_PORT }}
+      PROD_TURN_TLS_PORT: ${{ vars.PROD_TURN_TLS_PORT }}
+      PROD_TURN_CREDENTIAL_TTL_SECONDS: ${{ vars.PROD_TURN_CREDENTIAL_TTL_SECONDS }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,6 +87,18 @@ jobs:
           if [ -n "${PROD_FAN_WEB_CANONICAL_HOSTNAME:-}" ]; then
             ARGS+=(--context "fanWebCanonicalHostname=${PROD_FAN_WEB_CANONICAL_HOSTNAME}")
           fi
+          if [ -n "${PROD_TURN_HOST:-}" ]; then
+            ARGS+=(--context "turnHost=${PROD_TURN_HOST}")
+          fi
+          if [ -n "${PROD_TURN_PORT:-}" ]; then
+            ARGS+=(--context "turnPort=${PROD_TURN_PORT}")
+          fi
+          if [ -n "${PROD_TURN_TLS_PORT:-}" ]; then
+            ARGS+=(--context "turnTlsPort=${PROD_TURN_TLS_PORT}")
+          fi
+          if [ -n "${PROD_TURN_CREDENTIAL_TTL_SECONDS:-}" ]; then
+            ARGS+=(--context "turnCredentialTtlSeconds=${PROD_TURN_CREDENTIAL_TTL_SECONDS}")
+          fi
           if [ -z "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] || [ -z "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
             echo "::notice::RiffSync: RIFFSYNC_ROUTE53_HOSTED_ZONE_ID / RIFFSYNC_ROUTE53_ZONE_NAME unset — static stack will not create Route 53 aliases (FanWebRoute53AliasRecordCount will be 0)."
           fi
@@ -106,6 +122,18 @@ jobs:
           fi
           if [ -n "${PROD_FAN_WEB_CANONICAL_HOSTNAME:-}" ]; then
             ARGS+=(--context "fanWebCanonicalHostname=${PROD_FAN_WEB_CANONICAL_HOSTNAME}")
+          fi
+          if [ -n "${PROD_TURN_HOST:-}" ]; then
+            ARGS+=(--context "turnHost=${PROD_TURN_HOST}")
+          fi
+          if [ -n "${PROD_TURN_PORT:-}" ]; then
+            ARGS+=(--context "turnPort=${PROD_TURN_PORT}")
+          fi
+          if [ -n "${PROD_TURN_TLS_PORT:-}" ]; then
+            ARGS+=(--context "turnTlsPort=${PROD_TURN_TLS_PORT}")
+          fi
+          if [ -n "${PROD_TURN_CREDENTIAL_TTL_SECONDS:-}" ]; then
+            ARGS+=(--context "turnCredentialTtlSeconds=${PROD_TURN_CREDENTIAL_TTL_SECONDS}")
           fi
           SITE_URL="$(aws cloudformation describe-stacks --stack-name RiffSyncStatic-prod \
             --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"

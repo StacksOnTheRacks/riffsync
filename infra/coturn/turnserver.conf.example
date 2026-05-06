@@ -1,0 +1,36 @@
+# Example coturn configuration for RiffSync (copy to /etc/turnserver.conf or merge with package defaults).
+# Replace PLACEHOLDER elastic IP / hostname and secrets before use. Match TURN_SHARED_SECRET with
+# AWS Secrets Manager secret riffsync/{staging|prod}/turn-static-auth-secret.
+
+listening-port=3478
+tls-listening-port=5349
+# fingerprint is required for WebRTC in many setups
+fingerprint
+
+# Replace with your Elastic IP (public). On AWS, relay-ip often matches external-ip when not behind DNAT.
+#listening-ip=0.0.0.0
+#relay-ip=YOUR_ELASTIC_IP
+external-ip=YOUR_ELASTIC_IP_OR_HOST
+
+realm=turn.example.com
+server-name=turn.example.com
+
+# Long-term credentials via static auth secret (TURN REST — same secret as Lambda)
+use-auth-secret
+static-auth-secret=REPLACE_WITH_SAME_VALUE_AS_SECRETS_MANAGER
+
+# Relay port range must match EC2 security group (49152-65535 UDP and TCP).
+min-port=49152
+max-port=65535
+
+verbose
+no-cli
+# no-loopback-peers
+# no-multicast-peers
+
+# Optional: cap bandwidth (bytes per second) to control egress cost
+# max-bps=1000000
+
+# TLS: point at fullchain + key if using turns:
+# cert=/etc/letsencrypt/live/turn.example.com/fullchain.pem
+# pkey=/etc/letsencrypt/live/turn.example.com/privkey.pem

@@ -4,13 +4,13 @@ overview: Self-host coturn on EC2 with a short-lived TURN REST credential flow, 
 todos:
   - id: ec2-coturn
     content: Provision EC2 + Elastic IP + SG (3478, relay range, optional 5349); install/configure coturn with use-auth-secret; align secret with AWS Secrets Manager
-    status: pending
+    status: completed
   - id: lambda-ice
     content: Add Secrets Manager secret, webrtc-ice-config Lambda (TURN REST creds + STUN list), GET /v1/webrtc/ice route + throttle/WAF notes in api-catalog-stack.ts
-    status: pending
+    status: completed
   - id: web-ice-fetch
     content: Fetch ICE from API with fallback; await before newConnection in RoomPage (ensureHostPeerNegotiated + guest offer path); update .env.example
-    status: pending
+    status: completed
 isProject: false
 ---
 

@@ -11,7 +11,7 @@ import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
 import { ensureGuestSession } from '../session/guestSession'
 import { getPublicWsUrl } from '../config/wsUrl'
 import { getPublicOrigin } from '../config/publicOrigin'
-import { getRtcIceServers } from '../config/iceServers'
+import { fetchRtcIceServers } from '../config/fetchRtcIceServers'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
 import { hostShouldSkipRenegotiation } from '../room/hostRenegotiationPolicy'
@@ -42,7 +42,7 @@ function guestNeedsHostNegotiation(remote: MediaStream | null): boolean {
 }
 
 type HostNegotiateCtx = {
-  iceServers: RTCIceServer[]
+  getIceServers: () => Promise<RTCIceServer[]>
   sendJson: (payload: Record<string, unknown>) => void
   peerByGuestRef: MutableRefObject<Map<string, RTCPeerConnection>>
   pendingReadyGuestsRef: MutableRefObject<Set<string>>
@@ -68,7 +68,8 @@ async function ensureHostPeerNegotiated(
     existing.close()
   }
   ctx.pendingGuestIceRef.current.delete(guestSessionId)
-  const pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
+  const iceServers = await ctx.getIceServers()
+  const pc = new RTCPeerConnection({ iceServers })
   attachPcStateLogging(pc, `host→${guestSessionId.slice(0, 8)}…`)
   ctx.peerByGuestRef.current.set(guestSessionId, pc)
   for (const t of stream.getTracks()) {
@@ -126,7 +127,7 @@ async function handleHostSignal(
     await ensureHostPeerNegotiated(
       {
         captureStream: ctx.captureStream,
-        iceServers: ctx.iceServers,
+        getIceServers: ctx.getIceServers,
         sendJson: ctx.sendJson,
         peerByGuestRef: ctx.peerByGuestRef,
         pendingReadyGuestsRef: ctx.pendingReadyGuestsRef,
@@ -183,7 +184,7 @@ async function handleHostSignal(
 
 async function handleGuestSignal(ctx: {
   mySessionId: string
-  iceServers: RTCIceServer[]
+  getIceServers: () => Promise<RTCIceServer[]>
   sendJson: (payload: Record<string, unknown>) => void
   guestPcRef: MutableRefObject<RTCPeerConnection | null>
   pendingIceRef: MutableRefObject<RTCIceCandidateInit[]>
@@ -201,7 +202,8 @@ async function handleGuestSignal(ctx: {
     prev?.close()
     if (prev) ctx.pendingIceRef.current = []
 
-    const pc = new RTCPeerConnection({ iceServers: ctx.iceServers })
+    const iceServers = await ctx.getIceServers()
+    const pc = new RTCPeerConnection({ iceServers })
     attachPcStateLogging(pc, 'guest')
     ctx.guestPcRef.current = pc
 
@@ -361,7 +363,15 @@ export function RoomPage() {
     return list
   }, [presenceRoster.members, presenceRoster.roomId, roomId, sessionId, displayName, isPublisher])
 
-  const iceServers = useMemo(() => getRtcIceServers(), [])
+  const icePromiseByRoomRef = useRef<{ roomId: string; promise: Promise<RTCIceServer[]> } | null>(null)
+  const getIceServers = useCallback((): Promise<RTCIceServer[]> => {
+    let entry = icePromiseByRoomRef.current
+    if (!entry || entry.roomId !== roomId) {
+      entry = { roomId, promise: fetchRtcIceServers() }
+      icePromiseByRoomRef.current = entry
+    }
+    return entry.promise
+  }, [roomId])
 
   const loadRoom = useCallback(async () => {
     if (!roomId) return
@@ -485,7 +495,7 @@ export function RoomPage() {
           .then(() =>
             handleGuestSignal({
               mySessionId: sessionId,
-              iceServers,
+              getIceServers,
               sendJson: (payload) => sendJsonRef.current(payload),
               guestPcRef,
               pendingIceRef: guestPendingIceRef,
@@ -504,7 +514,7 @@ export function RoomPage() {
             fromSessionId,
             envelope,
             captureStream,
-            iceServers,
+            getIceServers,
             sendJson: (payload) => sendJsonRef.current(payload),
             peerByGuestRef,
             pendingReadyGuestsRef,
@@ -514,7 +524,7 @@ export function RoomPage() {
         .catch(() => undefined)
       return
     },
-    [captureStream, iceServers, isPublisher, roomId, sessionId],
+    [captureStream, getIceServers, isPublisher, roomId, sessionId],
   )
 
   const { status: wsStatus, sendJson: wsSendJson } = useRoomWebSocket({
@@ -613,13 +623,13 @@ export function RoomPage() {
     if (!captureStream || !isPublisher || wsStatus !== 'open') return
     void flushHostPending({
       captureStream,
-      iceServers,
+      getIceServers,
       sendJson: (payload) => sendJsonRef.current(payload),
       peerByGuestRef,
       pendingReadyGuestsRef,
       pendingGuestIceRef: hostPendingGuestIceRef,
     }).catch(() => undefined)
-  }, [captureStream, iceServers, isPublisher, wsStatus])
+  }, [captureStream, getIceServers, isPublisher, wsStatus])
 
   useEffect(() => {
     if (isPublisher) return

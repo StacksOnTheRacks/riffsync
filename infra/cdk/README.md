@@ -14,6 +14,7 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
 | `lambda/room-*.ts` | **`POST/PATCH`** room + **`GET`** lobby/read (**`authorization.md`**) |
 | `lambda/ws-*.ts` | WebSocket **`$connect`** / **`$disconnect`** / message routes |
+| `lambda/webrtc-ice-config.ts` | **`GET /v1/webrtc/ice`** — STUN + TURN REST credentials |
 | `lambda/room-shared.ts` | Shared parsing + **`STALE_ROOM_MS`** (**lobby staleness**) |
 | `lambda/tmdb-reconcile-*.ts` | Scheduled **`GET /configuration`**, **`/search/movie`**, **`/movie/{id}`** enrichment (**`docs/contracts.tmdb.md`**) |
 | `scripts/copy-catalog-dynamodb.ts` | **`npm run copy:catalog`** — scan one catalog table, **`BatchWriteItem`** into another (staging → prod migration) |
@@ -142,11 +143,74 @@ Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as cat
 | **`GET /v1/rooms/{roomId}`** | Anonymous | Reads room snapshot (**client merges catalog** if needed). |
 | **`PATCH /v1/rooms/{roomId}`** | JWT | **`403`** unless **`JWT.sub === room.hostSub`**; optimistic **`version`** check (`409`). |
 | **`GET /v1/lobby`** | Anonymous (`X-Session-Id` ignored here—reserved for quotas later) | **Query** **`PublicLobbyIndex`** + **`FilterExpression`** hides stale rows (**`lastActivityAt ≤ now − STALE_ROOM_MS`**). Default **`STALE_ROOM_MS`** = **`45 × 60 × 1000`**; synth/deploy **`--context staleRoomMs=…`** or Lambda env **`STALE_ROOM_MS`**. Hydrates **`catalog`** preview via **`BatchGetItem`**. Outputs **`staleRoomMsHint`**, **`cutoffActivityAfter`**. |
+| **`GET /v1/webrtc/ice`** | Anonymous | **`iceServers`** for WebRTC (STUN + time-limited TURN when **`turnHost`** context is set — see **Self-hosted TURN**). |
 | **`POST /v1/privacy-removal-request`** | Anonymous | JSON body **`contactEmail`**, **`message`** (10–8000 chars), optional honeypot **`website`** (must be empty). Sends mail via **SES** using **`riffsync/<env>/privacy-removal-routing`** (JSON **`notifyEmail`** + SES-verified **`fromEmail`**). Uses environment SES configuration set (**`SesSendingConfigurationSetName`**) so **bounce**/**complaint**/**delivery** events publish to **`SesSendingEventsTopicArn`**. Configure **SES** identities and replace secret placeholders before relying on the SPA form. |
 
 **WebSocket**: outputs **`WebSocketUrl`** (**`wss://…/{staging|prod}`**). Contracts: **`../../docs/contracts.websocket.md`**. **`execute-api:ManageConnections`** attaches only to this stack’s WebSocket API (**`…/*/*/@connections/*`**, parameterized by **`WebSocketApiId`**), not arbitrary `*` resources.
 
 **Housekeeping:** lobby staleness uses **read-time filtering** (**US-P0-08**) — optional EventBridge TTL/sweeper deferred.
+
+### Self-hosted TURN (coturn on EC2)
+
+WebRTC mesh screen share uses **`GET /v1/webrtc/ice`** to fetch **`iceServers`** (STUN + short-lived TURN REST credentials when configured). Coturn runs **in your AWS account** on **EC2** (not a third-party TURN SaaS).
+
+| Route | Auth | Behavior |
+| --- | --- | --- |
+| **`GET /v1/webrtc/ice`** | Anonymous | Returns `{ "version": 1, "iceServers": RTCIceServer[] }`. If **`turnHost`** is unset, response is **STUN-only**. If **`turnHost`** is set, the Lambda loads **`riffsync/<env>/turn-static-auth-secret`**; placeholder / unreadable value → **`503`** with **`{"error":"ice_unavailable"}`**. |
+
+**Deploy path:** CDK updates (**including `turnHost`**) are applied only via **GitHub Actions** — **[`Deploy CDK (staging)`](../../.github/workflows/deploy-staging.yml)** and **[`Deploy CDK (production)`](../../.github/workflows/deploy-prod.yml)** (**`workflow_dispatch`** on **`main`**). Do not rely on local **`cdk deploy`** for your environments unless you intentionally operate outside that pipeline.
+
+**GitHub repository Variables** (optional — **Settings → Secrets and variables → Actions → Variables**). When set, workflows pass **`--context`** into **both** the full **`cdk deploy --all`** and the follow-up **`RiffSyncApi-*`** deploy that refreshes CORS:
+
+| Variable (staging) | Variable (production) | CDK context | Notes |
+| --- | --- | --- | --- |
+| **`STAGING_TURN_HOST`** | **`PROD_TURN_HOST`** | **`turnHost`** | Public **hostname or Elastic IP** browsers use in **`turn:`** URIs (e.g. **`turn.staging.example.com`**). **Omit both** until coturn is reachable; API then stays STUN-only. |
+| **`STAGING_TURN_PORT`** | **`PROD_TURN_PORT`** | **`turnPort`** | Optional; default **`3478`** in CDK when unset. |
+| **`STAGING_TURN_TLS_PORT`** | **`PROD_TURN_TLS_PORT`** | **`turnTlsPort`** | Optional; set (e.g. **`5349`**) to add **`turns:`** TCP entries. |
+| **`STAGING_TURN_CREDENTIAL_TTL_SECONDS`** | **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | **`turnCredentialTtlSeconds`** | Optional; default **`43200`** (12h) when unset. |
+
+Advanced overrides (**`stunServersJson`**, etc.) use CDK context keys in **`api-catalog-stack.ts`**; add matching **`--context`** lines in the workflows if you need them (mind shell quoting for JSON).
+
+**AWS Secrets Manager — what to put in the secret (not GitHub)**
+
+These live in **AWS** in the **same account/region** as the deployed **`RiffSyncApi-{staging|prod}`** stack. **Do not** store the coturn shared secret in **GitHub Actions secrets** — the Lambda reads **Secrets Manager** at runtime.
+
+1. **Find the secret after the first successful API deploy via Actions**  
+   - **Console:** **Secrets Manager** → secret name **`riffsync/staging/turn-static-auth-secret`** (or **`riffsync/prod/turn-static-auth-secret`** for production).  
+   - **CLI:** same id as **`put-secret-value --secret-id`** below.
+
+2. **Generate a strong shared secret** (example — use any CSPRNG you trust):  
+   `openssl rand -base64 32`
+
+3. **Store it as plaintext only**  
+   - **Format:** one line, **no JSON object**, no quotes in the stored value unless they are part of the secret itself.  
+   - **Length:** at least **16** characters; the stack template seeds a placeholder; the Lambda rejects values that still contain **`REPLACE_WITH_TURN`**.  
+   - **Must match coturn:** the **exact same string** goes in **`static-auth-secret`** (or **`use-auth-secret`** flow) in **`infra/coturn/turnserver.conf.example`** on the EC2 instance. Any mismatch → TURN auth failures in the browser.
+
+4. **Set the value in AWS** (pick one):
+
+   **Console:** open the secret → **Retrieve secret value** → **Edit** → paste the plaintext → save.
+
+   **CLI (staging example):**
+
+   ```bash
+   aws secretsmanager put-secret-value \
+     --region us-east-1 \
+     --secret-id riffsync/staging/turn-static-auth-secret \
+     --secret-string 'PASTE_THE_PLAINTEXT_SAME_AS_COTURN_CONF'
+   ```
+
+5. **Order of operations:**  
+   - Deploy stacks via Actions (creates the secret resource).  
+   - Set the **real** secret value in AWS (steps above).  
+   - Set **`STAGING_TURN_HOST`** / **`PROD_TURN_HOST`** (or equivalent) and **re-run** the deploy workflow so Lambda env has the hostname.  
+   - Confirm: **`curl`** your **`HttpApiUrl`** + **`/v1/webrtc/ice`** — expect **`200`** and a TURN entry with **`username`** / **`credential`** when **`turnHost`** is set.
+
+**CloudFormation output:** **`TurnSharedSecretArn`** points at the same secret for IAM/auditing.
+
+**HTTP API throttling:** default stage limits apply; add **WAF** rate-based rules on the API if you need stricter caps.
+
+**EC2 operator checklist:** Elastic IP; security group **3478** UDP+TCP, relay range **49152–65535** UDP+TCP, optional **5349** TCP for TLS; align **`realm`** / **`external-ip`** with your public hostname or IP — see **`infra/coturn/turnserver.conf.example`**.
 
 ### Fan Cognito Hosted UI (M5+)
 
@@ -323,10 +387,20 @@ Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`
 | **`STAGING_FAN_WEB_CANONICAL_HOSTNAME`** | Optional; same behavior as prod (usually omit for staging) |
 | **`RIFFSYNC_ROUTE53_HOSTED_ZONE_ID`** | Public hosted zone for **`RIFFSYNC_ROUTE53_ZONE_NAME`** (optional) |
 | **`RIFFSYNC_ROUTE53_ZONE_NAME`** | e.g. **`riffsync.tv`** — with zone id; CDK creates Route 53 alias **A** records for **`fanWebCustomDomain`** and each **`fanWebAlternateDomainNames`** host |
+| **`STAGING_TURN_HOST`** | Public **`turn:`** hostname or IP for coturn (**staging**). See **Self-hosted TURN** — omit until EC2 + secret are ready. |
+| **`STAGING_TURN_PORT`** | Optional; overrides default **`3478`**. |
+| **`STAGING_TURN_TLS_PORT`** | Optional; e.g. **`5349`** for **`turns:`**. |
+| **`STAGING_TURN_CREDENTIAL_TTL_SECONDS`** | Optional; TURN username lifetime (default **`43200`**). |
+| **`PROD_TURN_HOST`** | Same as staging, for **production** account / **`RiffSyncApi-prod`**. |
+| **`PROD_TURN_PORT`** | Optional production TURN port. |
+| **`PROD_TURN_TLS_PORT`** | Optional production TLS port. |
+| **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | Optional production credential TTL. |
 
 **DNS:** If **`STAGING_*/PROD_*_FAN_WEB_HOSTNAME`** (and cert) are set but **`RIFFSYNC_ROUTE53_*`** are **omitted**, the stack **still** attaches custom domains to CloudFront, but it **does not** create or retain Route 53 records — **`FanWebSiteUrl`** will show the custom URL while **`FanWebRoute53AliasRecordCount`** output is **`0`**. A later deploy that drops the zone vars can **remove** previously managed records from the template. Set **both** Route 53 variables whenever you want this stack to own the aliases.
 
-Request the ACM cert in **us-east-1**, complete **DNS validation**, then run the deploy workflow. Omit the Route 53 variables if you create the **CNAME/alias** yourself. **Stack output `FanWebSiteUrl`** is the canonical **`https://…`** used for **`VITE_PUBLIC_ORIGIN`** and API/Cognito allowlists (workflows read it from CloudFormation).
+Request the ACM cert in **us-east-1**, complete **DNS validation**, then run the **Deploy CDK** workflow for that environment. Omit the Route 53 variables if you create the **CNAME/alias** yourself. **Stack output `FanWebSiteUrl`** is the canonical **`https://…`** used for **`VITE_PUBLIC_ORIGIN`** and API/Cognito allowlists (workflows read it from CloudFormation).
+
+**Local `cdk deploy` (not the normal staging/prod path):** engineers may still run **`npx cdk`** from a workstation for debugging or bootstrap; **your hosted staging and production** should track **`main`** via the **Deploy CDK** workflows only.
 
 Local deploy with custom hostname:
 

@@ -75,7 +75,7 @@ export function attachPcStateLogging(pc: RTCPeerConnection, label: string): void
     if (webrtcDebugEnabled() && pc.iceConnectionState === 'failed') {
       webrtcLog(
         label,
-        'ICE failed — restrictive NAT/firewalls usually need TURN in VITE_WEBRTC_ICE_SERVERS_JSON (see apps/web/.env.example).',
+        'ICE failed — restrictive NAT/firewalls need TURN (`GET /v1/webrtc/ice` when API URL set, else `VITE_WEBRTC_ICE_SERVERS_JSON` — see apps/web/.env.example).',
       )
     }
   })
