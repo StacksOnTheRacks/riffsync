@@ -12,21 +12,21 @@ describe('hostShouldSkipRenegotiation', () => {
     ).toBe(true)
   })
 
-  it('does not skip stable+SDP paired until connected so stuck ICE can retry on guest ready', () => {
+  it('skips stable+SDP paired while ICE is still warming so guest ready pings do not reset the PC', () => {
     expect(
       hostShouldSkipRenegotiation({
         signalingState: 'stable',
         connectionState: 'new',
         hasRemoteDescription: true,
       }),
-    ).toBe(false)
+    ).toBe(true)
     expect(
       hostShouldSkipRenegotiation({
         signalingState: 'stable',
         connectionState: 'connecting',
         hasRemoteDescription: true,
       }),
-    ).toBe(false)
+    ).toBe(true)
     expect(
       hostShouldSkipRenegotiation({
         signalingState: 'stable',
@@ -41,6 +41,16 @@ describe('hostShouldSkipRenegotiation', () => {
       hostShouldSkipRenegotiation({
         signalingState: 'stable',
         connectionState: 'failed',
+        hasRemoteDescription: true,
+      }),
+    ).toBe(false)
+  })
+
+  it('does not skip when disconnected so guest ready can rebuild', () => {
+    expect(
+      hostShouldSkipRenegotiation({
+        signalingState: 'stable',
+        connectionState: 'disconnected',
         hasRemoteDescription: true,
       }),
     ).toBe(false)
