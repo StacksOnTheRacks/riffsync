@@ -23,6 +23,11 @@ import {
 } from '../room/webrtcDebug'
 const DISPLAY_TITLE_MAX_LEN = 120
 
+/** Guest `ready` signaling: first poke at 2.5s cadence, then exponential backoff (cap 30s). */
+const GUEST_READY_BASE_MS = 2500
+const GUEST_READY_MAX_MS = 30_000
+const GUEST_READY_BACKOFF_FACTOR = 1.5
+
 type ChatMsg = { sessionId: string; text: string; ts: number }
 
 type PresenceMember = {
@@ -589,29 +594,54 @@ export function RoomPage() {
     }
   }, [isPublisher])
 
+  /**
+   * Guest: prompt the host to (re)negotiate until we have a live remote share.
+   * Backoff reduces signaling load when ICE is slow; `guestRemote` in deps resets the chain when
+   * the stream is cleared or replaced (fast re-arm after loss).
+   */
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
+    let cancelled = false
+    let tid: number | null = null
+    let delayMs = GUEST_READY_BASE_MS
+
+    const clear = () => {
+      if (tid !== null) {
+        clearTimeout(tid)
+        tid = null
+      }
+    }
+
     const sendReady = () => {
-      if (!guestNeedsHostNegotiation(guestRemoteRef.current)) return
       sendJsonRef.current({
         action: 'signaling',
         envelope: { guestSignaling: true, kind: 'ready' },
       })
     }
-    sendReady()
-    const id = window.setInterval(sendReady, 2500)
-    return () => window.clearInterval(id)
-  }, [isPublisher, wsStatus])
 
-  /** Re-arm host negotiation as soon as the guest has no live remote share (fast path vs periodic ready). */
-  useEffect(() => {
-    if (isPublisher || wsStatus !== 'open') return
-    if (!guestNeedsHostNegotiation(guestRemote)) return
-    sendJsonRef.current({
-      action: 'signaling',
-      envelope: { guestSignaling: true, kind: 'ready' },
-    })
-  }, [guestRemote, isPublisher, wsStatus])
+    function tick(): void {
+      if (cancelled) return
+      tid = null
+      if (!guestNeedsHostNegotiation(guestRemoteRef.current)) {
+        delayMs = GUEST_READY_BASE_MS
+        return
+      }
+      sendReady()
+      delayMs = Math.min(Math.round(delayMs * GUEST_READY_BACKOFF_FACTOR), GUEST_READY_MAX_MS)
+      tid = window.setTimeout(tick, delayMs)
+    }
+
+    if (guestNeedsHostNegotiation(guestRemoteRef.current)) {
+      sendReady()
+      delayMs = Math.min(Math.round(delayMs * GUEST_READY_BACKOFF_FACTOR), GUEST_READY_MAX_MS)
+      tid = window.setTimeout(tick, delayMs)
+    }
+
+    return () => {
+      cancelled = true
+      clear()
+    }
+  }, [isPublisher, wsStatus, guestRemote])
 
   useEffect(() => {
     if (!guestRemote || isPublisher) return

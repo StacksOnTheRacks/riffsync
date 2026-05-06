@@ -46,14 +46,14 @@ describe('hostShouldSkipRenegotiation', () => {
     ).toBe(false)
   })
 
-  it('does not skip when disconnected so guest ready can rebuild', () => {
+  it('skips when disconnected while SDP paired so flaky networks do not force endless re-offers', () => {
     expect(
       hostShouldSkipRenegotiation({
         signalingState: 'stable',
         connectionState: 'disconnected',
         hasRemoteDescription: true,
       }),
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it('does not skip when there is no in-flight or completed pairing', () => {
