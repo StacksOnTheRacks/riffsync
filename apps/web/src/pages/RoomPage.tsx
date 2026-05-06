@@ -307,10 +307,9 @@ export function RoomPage() {
     roomId: '',
     members: [],
   }))
-  const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people'>('chat')
+  const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people' | 'room'>('chat')
   const [renameModalOpen, setRenameModalOpen] = useState(false)
   const [renameModalDraft, setRenameModalDraft] = useState('')
-  const roomMenuDetailsRef = useRef<HTMLDetailsElement>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const hostCaptureVideoRef = useRef<HTMLVideoElement>(null)
@@ -753,7 +752,6 @@ export function RoomPage() {
     setPatchErr(null)
     setRenameModalDraft(room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId ?? '')
     setRenameModalOpen(true)
-    if (roomMenuDetailsRef.current) roomMenuDetailsRef.current.open = false
   }
 
   const sendChat = () => {
@@ -833,6 +831,7 @@ export function RoomPage() {
 
   const nowPlayingLabel = room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId
   const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
+  const viewerCount = peopleShown.length
 
   return (
     <div
@@ -899,9 +898,6 @@ export function RoomPage() {
                           to="/how-to-host-a-watchparty"
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={() => {
-                            if (roomMenuDetailsRef.current) roomMenuDetailsRef.current.open = false
-                          }}
                         >
                           FAQ
                         </Link>
@@ -971,7 +967,7 @@ export function RoomPage() {
                 </p>
               ) : null}
 
-              <div className="riffsync-room-page__chat-toolbar riffsync-room-page__chat-toolbar--split">
+              <div className="riffsync-room-page__chat-toolbar">
                 <div className="riffsync-room-page__tabs">
                   <button
                     type="button"
@@ -987,38 +983,21 @@ export function RoomPage() {
                     aria-pressed={roomSidebarTab === 'people'}
                     onClick={() => setRoomSidebarTab('people')}
                   >
-                    People
+                    People ({viewerCount})
+                  </button>
+                  <button
+                    type="button"
+                    className={`riffsync-room-page__tab${roomSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
+                    aria-pressed={roomSidebarTab === 'room'}
+                    onClick={() => setRoomSidebarTab('room')}
+                  >
+                    Room
                   </button>
                 </div>
-                <details ref={roomMenuDetailsRef} className="riffsync-room-page__room-menu">
-                  <summary className="riffsync-room-page__room-menu-trigger">Room</summary>
-                  <div className="riffsync-room-page__room-menu-panel">
-                    <button type="button" className="gen-button gen-button-wide" onClick={() => void copyShare()}>
-                      Copy room link
-                    </button>
-                    {isPublisher ? (
-                      <button type="button" className="gen-button gen-button-wide" onClick={openRenameModal}>
-                        Rename room
-                      </button>
-                    ) : null}
-                    {isPublisher ? (
-                      <Link
-                        className="gen-button gen-button-wide"
-                        to="/how-to-host-a-watchparty"
-                        onClick={() => {
-                          if (roomMenuDetailsRef.current) roomMenuDetailsRef.current.open = false
-                        }}
-                      >
-                        Hosting tips &amp; FAQ
-                      </Link>
-                    ) : null}
-                    {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
-                  </div>
-                </details>
               </div>
 
               {roomSidebarTab === 'chat' ? (
-                <>
+                <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
                   <ul className="riffsync-room-chat-log">
                     {chat.map((m) => (
                       <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
@@ -1067,28 +1046,49 @@ export function RoomPage() {
                       </div>
                     ) : null}
                   </div>
-                </>
-              ) : (
-                <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
-                  {peopleShown.map((p) => (
-                    <li key={p.sessionId}>
-                      <span className="riffsync-room-page__person-label">
-                        {p.isHost ? (
-                          <>
-                            <strong>{p.displayName}</strong>
-                            <span className="riffsync-muted"> (Host)</span>
-                          </>
-                        ) : (
-                          p.displayName
-                        )}
-                        {p.sessionId === sessionId ? (
-                          <span className="riffsync-muted"> · you</span>
-                        ) : null}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                </div>
+              ) : null}
+              {roomSidebarTab === 'people' ? (
+                <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
+                  <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
+                    {peopleShown.map((p) => (
+                      <li key={p.sessionId}>
+                        <span className="riffsync-room-page__person-label">
+                          {p.isHost ? (
+                            <>
+                              <strong>{p.displayName}</strong>
+                              <span className="riffsync-muted"> (Host)</span>
+                            </>
+                          ) : (
+                            p.displayName
+                          )}
+                          {p.sessionId === sessionId ? (
+                            <span className="riffsync-muted"> · you</span>
+                          ) : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {roomSidebarTab === 'room' ? (
+                <div className="riffsync-room-page__tab-panel riffsync-room-page__room-panel">
+                  <button type="button" className="gen-button gen-button-wide" onClick={() => void copyShare()}>
+                    Copy room link
+                  </button>
+                  {isPublisher ? (
+                    <button type="button" className="gen-button gen-button-wide" onClick={openRenameModal}>
+                      Rename room
+                    </button>
+                  ) : null}
+                  {isPublisher ? (
+                    <Link className="gen-button gen-button-wide" to="/how-to-host-a-watchparty">
+                      Hosting tips &amp; FAQ
+                    </Link>
+                  ) : null}
+                  {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
+                </div>
+              ) : null}
             </section>
           </aside>
         </div>

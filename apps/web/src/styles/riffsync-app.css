@@ -592,7 +592,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-room-page__stage {
   display: grid;
   gap: 1rem 1.25rem;
-  align-items: flex-start;
+  align-items: stretch;
   grid-template-columns: 1fr;
 }
 
@@ -684,6 +684,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   font-weight: 600;
   line-height: 1.35;
   color: rgb(237 243 251 / 0.95);
+  flex-shrink: 0;
 }
 
 .riffsync-room-page__sidebar-now-playing-muted {
@@ -940,41 +941,46 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-page__chat-column {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .riffsync-room-page__chat {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: 8px;
   border: 1px solid rgb(255 255 255 / 0.08);
   background: rgb(7 10 14 / 0.72);
   backdrop-filter: blur(8px);
-  min-height: 280px;
-  max-height: min(640px, 78vh);
   overflow: hidden;
+}
+
+@media (max-width: 991px) {
+  .riffsync-room-page__chat {
+    /* Stacked below the player — approximate 16:9 min height at full content width */
+    min-height: min(420px, calc((100vw - 2.5rem) * 9 / 16));
+  }
 }
 
 .riffsync-room-page__chat-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.65rem;
   padding: 0.55rem 0.65rem;
   border-bottom: 1px solid rgb(255 255 255 / 0.08);
-}
-
-.riffsync-room-page__chat-toolbar--split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 0.65rem;
-  row-gap: 0.4rem;
+  flex-shrink: 0;
 }
 
 .riffsync-room-page__tabs {
   display: flex;
   align-items: stretch;
+  width: 100%;
+  min-width: 0;
 }
 
 .riffsync-room-page__tab {
@@ -982,12 +988,19 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   appearance: none;
   border: 1px solid rgb(255 255 255 / 0.14);
   margin: 0;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.8rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.25;
   color: inherit;
   background: rgb(255 255 255 / 0.04);
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.riffsync-room-page__tab:not(:first-of-type):not(:last-of-type) {
+  border-radius: 0;
 }
 
 .riffsync-room-page__tab:first-of-type {
@@ -1010,8 +1023,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-room-page__people-list {
   list-style: none;
   flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  max-height: min(460px, 56vh);
   padding: 0.5rem 0.65rem;
   margin: 0;
   font-size: 0.875rem;
@@ -1031,6 +1044,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   padding: 0.45rem 0.65rem 0.65rem;
   font-size: 0.8125rem;
   line-height: 1.4;
+  flex-shrink: 0;
 }
 
 .riffsync-room-page__picker--host-only {
@@ -1043,56 +1057,38 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   font-size: 0.9rem;
 }
 
+.riffsync-room-page__tab-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.riffsync-room-page__tab-panel--chat .riffsync-room-chat-log {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.riffsync-room-page__room-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.65rem;
+  gap: 0.35rem;
+}
+
+.riffsync-room-page__room-panel .gen-button-wide {
+  width: 100%;
+  justify-content: center;
+}
+
 .riffsync-room-page__chat-heading {
   margin: 0;
   font-family: var(--title-fonts);
   font-size: 1rem;
-}
-
-.riffsync-room-page__room-menu {
-  position: relative;
-}
-
-.riffsync-room-page__room-menu-trigger {
-  cursor: pointer;
-  list-style: none;
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: 4px;
-  background: rgb(255 255 255 / 0.06);
-}
-
-.riffsync-room-page__room-menu-trigger::-webkit-details-marker {
-  display: none;
-}
-
-.riffsync-room-page__room-menu-trigger:hover {
-  background: rgb(255 255 255 / 0.1);
-}
-
-.riffsync-room-page__room-menu-panel {
-  position: absolute;
-  right: 0;
-  min-width: 220px;
-  margin-top: 0.35rem;
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid rgb(255 255 255 / 0.12);
-  background: rgb(18 21 26 / 0.98);
-  box-shadow: 0 14px 32px rgb(0 0 0 / 45%);
-  z-index: 4;
-}
-
-.riffsync-room-page__room-menu-panel .gen-button {
-  margin: 0.15rem 0;
-}
-
-@media (max-width: 991px) {
-  .riffsync-room-page__room-menu-panel {
-    left: 0;
-    right: auto;
-  }
 }
 
 .riffsync-room-page__hint {
@@ -1105,8 +1101,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-room-page__chat .riffsync-room-chat-log {
   list-style: none;
   flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  max-height: min(420px, 52vh);
   padding: 0.5rem 0.65rem;
   margin: 0;
   font-size: 0.875rem;

@@ -26,7 +26,7 @@ export function SiteLayout() {
       <main id="riffsync-main" className={`riffsync-main${compactChrome ? ' riffsync-main--room' : ''}`}>
         <Outlet />
       </main>
-      <SiteFooter compact={compactChrome} />
+      {!roomMatch ? <SiteFooter compact={false} /> : null}
     </div>
   )
 }
