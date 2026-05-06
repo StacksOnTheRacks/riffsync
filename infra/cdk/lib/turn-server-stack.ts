@@ -84,8 +84,11 @@ export class TurnServerStack extends cdk.Stack {
     const secretArn = this.turnSharedSecret.secretArn;
     const region = this.region;
 
+    // Coturn is not in AL2023 default repos; SPAL enables `dnf install coturn`.
+    // https://docs.aws.amazon.com/linux/al2023/ug/configure-spal-repository.html
     userData.addCommands(
       'set -euxo pipefail',
+      'dnf install -y spal-release',
       'dnf install -y coturn',
       `SECRET_ARN='${secretArn}'`,
       `AWS_REGION='${region}'`,
