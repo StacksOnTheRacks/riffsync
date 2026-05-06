@@ -1,0 +1,68 @@
+name: Deploy CDK (TURN server only)
+
+# Singleton stack **`RiffSyncTurn`** (coturn + shared secret) for **staging + prod** in one AWS account.
+# Use when you changed **`turn-server-stack.ts`** / UserData only—no need to run full staging/prod app deploys.
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Git ref to deploy (must be main)'
+        required: true
+        default: 'main'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: cdk-deploy-turn
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
+      - name: Require main-aligned ref
+        if: ${{ github.event.inputs.git_ref != 'main' }}
+        run: |
+          echo "::error::Turn deploy policy is main only (requested: ${{ github.event.inputs.git_ref }}). See infra/cdk/README.md"
+          exit 1
+
+      - name: Require OIDC role (staging role — same account as prod)
+        env:
+          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN_STAGING }}
+        run: |
+          if [ -z "$ROLE" ]; then
+            echo "::error::Set repository Variable AWS_DEPLOY_ROLE_ARN_STAGING (same account must be able to deploy stack RiffSyncTurn)."
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_STAGING }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: infra/cdk/package-lock.json
+
+      - run: npm ci
+        working-directory: infra/cdk
+      - run: npm run build
+        working-directory: infra/cdk
+
+      - name: Deploy RiffSyncTurn
+        working-directory: infra/cdk
+        run: |
+          set -euo pipefail
+          # **`bin/riffsync.ts`** requires `--context environment=staging|prod`; only **`RiffSyncTurn`** is deployed.
+          npx cdk deploy RiffSyncTurn \
+            --context environment=staging \
+            --require-approval never

@@ -4,6 +4,7 @@ import { ApiCatalogStack } from '../lib/api-catalog-stack';
 import { FanAuthStack } from '../lib/fan-auth-stack';
 import { SesInboundStack, sesInboundReceiptRulesActivated } from '../lib/ses-inbound-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
+import { TurnServerStack } from '../lib/turn-server-stack';
 
 function trimContext(app: cdk.App, key: string): string | undefined {
   const v = app.node.tryGetContext(key);
@@ -63,18 +64,29 @@ const fanAuth = new FanAuthStack(app, `RiffSyncFanAuth-${environment}`, {
   },
 });
 
+const turnServer = new TurnServerStack(app, 'RiffSyncTurn', {
+  description:
+    'RiffSync coturn TURN relay (shared staging+prod) — EC2 + EIP; secret riffsync/turn-static-auth-secret',
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});
+
 const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
   description: `RiffSync HTTP API + Catalog + Rooms + WebSocket (${environment}) — DynamoDB + Lambda`,
   environment,
   fanUserPool: fanAuth.fanUserPool,
   fanUserPoolClient: fanAuth.fanUserPoolClient,
   sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
+  turnSharedSecret: turnServer.turnSharedSecret,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
 });
 apiCatalog.addDependency(fanAuth);
+apiCatalog.addDependency(turnServer);
 
 new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
   description: `RiffSync static SPA hosting (${environment}) — S3 (private) + CloudFront OAC`,

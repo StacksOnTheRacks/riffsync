@@ -29,6 +29,10 @@ export interface ApiCatalogStackProps extends cdk.StackProps {
   readonly fanUserPoolClient: cognito.IUserPoolClient;
   /** SES sending configuration set — Cognito + privacy-removal **`SendEmail`** emit events to SNS via this set. */
   readonly sesSendingConfigurationSetName: string;
+  /**
+   * Shared TURN/coturn auth secret — owned by **[`TurnServerStack`](./turn-server-stack.ts)** (**`riffsync/turn-static-auth-secret`**).
+   */
+  readonly turnSharedSecret: secretsmanager.ISecret;
 }
 
 function parseOriginsFromContext(scope: Construct): string[] {
@@ -124,8 +128,14 @@ export class ApiCatalogStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiCatalogStackProps) {
     super(scope, id, props);
 
-    const { environment, extraCorsOrigins = [], fanUserPool, fanUserPoolClient, sesSendingConfigurationSetName } =
-      props;
+    const {
+      environment,
+      extraCorsOrigins = [],
+      fanUserPool,
+      fanUserPoolClient,
+      sesSendingConfigurationSetName,
+      turnSharedSecret,
+    } = props;
     const contextExtras = parseOriginsFromContext(this);
     const allowOrigins = corsAllowOrigins(environment, [...extraCorsOrigins, ...contextExtras], this);
     const staleRoomMs = staleRoomMsFromContext(this);
@@ -186,13 +196,7 @@ export class ApiCatalogStack extends cdk.Stack {
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
-    this.turnSharedSecret = new secretsmanager.Secret(this, 'TurnSharedSecret', {
-      secretName: `riffsync/${environment}/turn-static-auth-secret`,
-      description:
-        'Plaintext shared secret for coturn use-auth-secret / TURN REST credentials (must match EC2 turnserver.conf).',
-      secretStringValue: cdk.SecretValue.unsafePlainText('REPLACE_WITH_TURN_STATIC_AUTH_SECRET'),
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-    });
+    this.turnSharedSecret = turnSharedSecret;
 
     const catalogListFn = new lambdaNodejs.NodejsFunction(this, 'CatalogListFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -597,7 +601,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TurnSharedSecretArn', {
       value: this.turnSharedSecret.secretArn,
       description:
-        'Plaintext coturn static-auth-secret — replace placeholder; must match EC2 turnserver.conf (see infra/coturn).',
+        'Cross-stack ref to **`riffsync/turn-static-auth-secret`** (owned by **`RiffSyncTurn`**) — same value for staging+prod ICE Lambdas.',
     });
 
     new cdk.CfnOutput(this, 'TmdbReconcileFnName', {

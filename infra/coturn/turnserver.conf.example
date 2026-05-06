@@ -1,9 +1,11 @@
-# Example coturn configuration for RiffSync (copy to /etc/turnserver.conf or merge with package defaults).
-# Replace PLACEHOLDER elastic IP / hostname and secrets before use. Match TURN_SHARED_SECRET with
-# AWS Secrets Manager secret riffsync/{staging|prod}/turn-static-auth-secret.
+# Reference coturn configuration for RiffSync (manual installs or debugging).
+# **Hosted:** Singleton CDK stack **`RiffSyncTurn`** UserData installs coturn on Amazon Linux 2023,
+# fetches **`riffsync/turn-static-auth-secret`**, and writes **`/etc/coturn/turnserver.conf`** (staging + prod ICE Lambdas share this secret).
+# Use this file only if you run coturn outside that stack.
 
 listening-port=3478
-tls-listening-port=5349
+# Optional TLS (requires cert paths below); the CDK EC2 template currently uses plain UDP/TCP on 3478 only.
+#tls-listening-port=5349
 # fingerprint is required for WebRTC in many setups
 fingerprint
 

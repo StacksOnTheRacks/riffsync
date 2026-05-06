@@ -9,6 +9,7 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `bin/riffsync.ts` | App entry; validates `environment` context |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
+| `lib/turn-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **coturn** on **EC2** + **`riffsync/turn-static-auth-secret`** (shared **staging + prod** in one account) |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
 | `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) — **one** topic/rule set for all tiers; synthesized only with **`environment=prod`** |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
@@ -152,65 +153,51 @@ Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as cat
 
 ### Self-hosted TURN (coturn on EC2)
 
-WebRTC mesh screen share uses **`GET /v1/webrtc/ice`** to fetch **`iceServers`** (STUN + short-lived TURN REST credentials when configured). Coturn runs **in your AWS account** on **EC2** (not a third-party TURN SaaS).
+Designed for **one AWS account** hosting both **`RiffSyncApi-staging`** and **`RiffSyncApi-prod`**: a **singleton** stack **[`RiffSyncTurn`](lib/turn-server-stack.ts)** (not suffixed by environment) provides **one** **t3.micro** instance, **one** **Elastic IP**, and **one** Secrets Manager secret (**`riffsync/turn-static-auth-secret`**). Both ICE Lambdas use **that** secret for TURN REST credentials; both should use the **same** **`turnHost`** (the EIP, or DNS to it).
+
+**Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncTurn`** is created **before** **`RiffSyncApi-*`**; each API stack **depends on** **`RiffSyncTurn`** so the secret exists before Lambdas reference it.
+
+**Deploy:** **`cdk deploy --all`** in **[`deploy-staging.yml`](../../.github/workflows/deploy-staging.yml)** / **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** updates **`RiffSyncTurn`** on **every** run (usually a no-op after the first). For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses the staging OIDC role — same account).
+
+**Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`** (Turn stack; API stacks also echo the cross-stack ARN).
+
+**Session Manager:** no inbound **SSH**; use **SSM** for troubleshooting (**`/var/log/cloud-init-output.log`** if UserData fails).
+
+**Secret rotation / first-boot placeholder:** UserData runs **once**. After you set the real value for **`riffsync/turn-static-auth-secret`**, use **Session Manager** to re-fetch into **`/etc/coturn/turnserver.conf`** and **`sudo systemctl restart coturn`**, or replace the instance.
+
+**Migrating from older `RiffSyncTurn-staging` / `RiffSyncTurn-prod`:** delete those stacks after this change, copy secret material from **`riffsync/staging/turn-static-auth-secret`** (or prod) into **`riffsync/turn-static-auth-secret`**, then deploy **`RiffSyncTurn`**. Per-environment turn secrets are **removed** from **`RiffSyncApi-*`** templates (old AWS secrets may **RETAIN** — clean up manually if desired).
+
+WebRTC mesh screen share uses **`GET /v1/webrtc/ice`** for **`iceServers`**.
 
 | Route | Auth | Behavior |
 | --- | --- | --- |
-| **`GET /v1/webrtc/ice`** | Anonymous | Returns `{ "version": 1, "iceServers": RTCIceServer[] }`. If **`turnHost`** is unset, response is **STUN-only**. If **`turnHost`** is set, the Lambda loads **`riffsync/<env>/turn-static-auth-secret`**; placeholder / unreadable value → **`503`** with **`{"error":"ice_unavailable"}`**. |
-
-**Deploy path:** CDK updates (**including `turnHost`**) are applied only via **GitHub Actions** — **[`Deploy CDK (staging)`](../../.github/workflows/deploy-staging.yml)** and **[`Deploy CDK (production)`](../../.github/workflows/deploy-prod.yml)** (**`workflow_dispatch`** on **`main`**). Do not rely on local **`cdk deploy`** for your environments unless you intentionally operate outside that pipeline.
+| **`GET /v1/webrtc/ice`** | Anonymous | Returns `{ "version": 1, "iceServers": RTCIceServer[] }`. If **`turnHost`** is unset, response is **STUN-only**. If **`turnHost`** is set, the Lambda loads **`riffsync/turn-static-auth-secret`**; placeholder / unreadable value → **`503`** with **`{"error":"ice_unavailable"}`**. |
 
 **GitHub repository Variables** (optional — **Settings → Secrets and variables → Actions → Variables**). When set, workflows pass **`--context`** into **both** the full **`cdk deploy --all`** and the follow-up **`RiffSyncApi-*`** deploy that refreshes CORS:
 
 | Variable (staging) | Variable (production) | CDK context | Notes |
 | --- | --- | --- | --- |
-| **`STAGING_TURN_HOST`** | **`PROD_TURN_HOST`** | **`turnHost`** | Public **hostname or Elastic IP** browsers use in **`turn:`** URIs (e.g. **`turn.staging.example.com`**). **Omit both** until coturn is reachable; API then stays STUN-only. |
-| **`STAGING_TURN_PORT`** | **`PROD_TURN_PORT`** | **`turnPort`** | Optional; default **`3478`** in CDK when unset. |
-| **`STAGING_TURN_TLS_PORT`** | **`PROD_TURN_TLS_PORT`** | **`turnTlsPort`** | Optional; set (e.g. **`5349`**) to add **`turns:`** TCP entries. |
-| **`STAGING_TURN_CREDENTIAL_TTL_SECONDS`** | **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | **`turnCredentialTtlSeconds`** | Optional; default **`43200`** (12h) when unset. |
+| **`STAGING_TURN_HOST`** | **`PROD_TURN_HOST`** | **`turnHost`** | Prefer the **same** **`TurnServerElasticIp`** (or hostname) for **both** so staging and prod share one coturn. **Omit** both for STUN-only ICE. |
+| **`STAGING_TURN_PORT`** | **`PROD_TURN_PORT`** | **`turnPort`** | Optional; default **`3478`** (**must match** EC2 **`listening-port`**). |
+| **`STAGING_TURN_TLS_PORT`** | **`PROD_TURN_TLS_PORT`** | **`turnTlsPort`** | Optional **Lambda/ICE only**; CDK EC2 does **not** serve **`turns:`** yet. |
+| **`STAGING_TURN_CREDENTIAL_TTL_SECONDS`** | **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | **`turnCredentialTtlSeconds`** | Optional; default **`43200`** (12h). |
 
-Advanced overrides (**`stunServersJson`**, etc.) use CDK context keys in **`api-catalog-stack.ts`**; add matching **`--context`** lines in the workflows if you need them (mind shell quoting for JSON).
+**Optional CDK context:** **`turnRealm`** (coturn **`realm`** / **`server-name`**; default **`riffsync-turn`**).
 
-**AWS Secrets Manager — what to put in the secret (not GitHub)**
+Advanced overrides (**`stunServersJson`**, etc.) use CDK context keys in **`api-catalog-stack.ts`**; extend workflows if needed (mind JSON quoting).
 
-These live in **AWS** in the **same account/region** as the deployed **`RiffSyncApi-{staging|prod}`** stack. **Do not** store the coturn shared secret in **GitHub Actions secrets** — the Lambda reads **Secrets Manager** at runtime.
+**AWS Secrets Manager — shared secret (not GitHub)**
 
-1. **Find the secret after the first successful API deploy via Actions**  
-   - **Console:** **Secrets Manager** → secret name **`riffsync/staging/turn-static-auth-secret`** (or **`riffsync/prod/turn-static-auth-secret`** for production).  
-   - **CLI:** same id as **`put-secret-value --secret-id`** below.
+1. **Name:** **`riffsync/turn-static-auth-secret`** (owned by **`RiffSyncTurn`**; **RETAIN**).
+2. **Generate** (example): `openssl rand -base64 32`
+3. **Format:** one-line **plaintext**, no JSON wrapper. Lambda rejects **`REPLACE_WITH_TURN`**.
+4. **Set** via Console or **`aws secretsmanager put-secret-value --secret-id riffsync/turn-static-auth-secret --secret-string '…'`**
 
-2. **Generate a strong shared secret** (example — use any CSPRNG you trust):  
-   `openssl rand -base64 32`
+5. **Recommended order:** Deploy **`RiffSyncTurn`** (or **`cdk deploy --all`**), set the **real** secret, ensure coturn has it (SSM if needed), set **`STAGING_TURN_HOST`** and **`PROD_TURN_HOST`** to the **same** EIP, re-run **staging** and **prod** app deploys so both Lambdas get **`turnHost`**, then **`curl`** each **`/v1/webrtc/ice`**.
 
-3. **Store it as plaintext only**  
-   - **Format:** one line, **no JSON object**, no quotes in the stored value unless they are part of the secret itself.  
-   - **Length:** at least **16** characters; the stack template seeds a placeholder; the Lambda rejects values that still contain **`REPLACE_WITH_TURN`**.  
-   - **Must match coturn:** the **exact same string** goes in **`static-auth-secret`** (or **`use-auth-secret`** flow) in **`infra/coturn/turnserver.conf.example`** on the EC2 instance. Any mismatch → TURN auth failures in the browser.
+**HTTP API throttling:** default stage limits; add **WAF** if needed.
 
-4. **Set the value in AWS** (pick one):
-
-   **Console:** open the secret → **Retrieve secret value** → **Edit** → paste the plaintext → save.
-
-   **CLI (staging example):**
-
-   ```bash
-   aws secretsmanager put-secret-value \
-     --region us-east-1 \
-     --secret-id riffsync/staging/turn-static-auth-secret \
-     --secret-string 'PASTE_THE_PLAINTEXT_SAME_AS_COTURN_CONF'
-   ```
-
-5. **Order of operations:**  
-   - Deploy stacks via Actions (creates the secret resource).  
-   - Set the **real** secret value in AWS (steps above).  
-   - Set **`STAGING_TURN_HOST`** / **`PROD_TURN_HOST`** (or equivalent) and **re-run** the deploy workflow so Lambda env has the hostname.  
-   - Confirm: **`curl`** your **`HttpApiUrl`** + **`/v1/webrtc/ice`** — expect **`200`** and a TURN entry with **`username`** / **`credential`** when **`turnHost`** is set.
-
-**CloudFormation output:** **`TurnSharedSecretArn`** points at the same secret for IAM/auditing.
-
-**HTTP API throttling:** default stage limits apply; add **WAF** rate-based rules on the API if you need stricter caps.
-
-**EC2 operator checklist:** Elastic IP; security group **3478** UDP+TCP, relay range **49152–65535** UDP+TCP, optional **5349** TCP for TLS; align **`realm`** / **`external-ip`** with your public hostname or IP — see **`infra/coturn/turnserver.conf.example`**.
+**Manual reference:** [`../coturn/turnserver.conf.example`](../coturn/turnserver.conf.example).
 
 ### Fan Cognito Hosted UI (M5+)
 
@@ -327,6 +314,7 @@ Deployment policy (**`.forge/operations/build_packaging.md`**, **`deployment_env
 | --- | --- | --- |
 | **Staging** | Manual workflow [**`deploy-staging.yml`**](../../.github/workflows/deploy-staging.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. Runs **`cdk deploy`** for **staging**, then **builds `apps/web`**, **`aws s3 sync`** to the stack bucket (**`--delete`**), and **CloudFront invalidation** (`/*`). |
 | **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`** (same pattern as staging). Deploys **prod** CDK, then **`aws s3 sync`** and CloudFront invalidation using stack outputs (**`FanWebSiteUrl`** for **`VITE_PUBLIC_ORIGIN`** and related env at build time). |
+| **TURN EC2 only** | Manual [**`deploy-turn.yml`**](../../.github/workflows/deploy-turn.yml) | **`cdk deploy RiffSyncTurn`** only (**`main`**). Same account as full deploys; uses **`AWS_DEPLOY_ROLE_ARN_STAGING`**. |
 | **Local** | **AWS CLI credential profile** via **`cdk deploy`** + manual **`s3 sync`** | Matches how engineers run **`cdk bootstrap`** / **`deploy`** interactively outside CI. |
 
 ### Fan SPA publish (S3 sync + invalidation)
