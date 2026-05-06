@@ -62,7 +62,7 @@ export class TurnServerStack extends cdk.Stack {
 
     const sg = new ec2.SecurityGroup(this, 'TurnSg', {
       vpc,
-      description: 'RiffSync coturn (shared) — STUN/TURN + relay range',
+      description: 'RiffSync coturn (shared) - STUN/TURN + relay range',
       allowAllOutbound: true,
     });
     sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.udp(3478), 'STUN/TURN UDP');
@@ -149,7 +149,7 @@ export class TurnServerStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TurnServerElasticIp', {
       value: eip.ref,
       description:
-        'Public TURN address — set STAGING_TURN_HOST and PROD_TURN_HOST (GitHub Variables) to this, or DNS pointing here.',
+        'Public TURN address - set STAGING_TURN_HOST and PROD_TURN_HOST (GitHub Variables) to this, or DNS pointing here.',
     });
 
     new cdk.CfnOutput(this, 'TurnServerInstanceId', {
@@ -162,7 +162,8 @@ export class TurnServerStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'TurnSharedSecretArn', {
       value: this.turnSharedSecret.secretArn,
-      description: 'Same ARN ICE Lambdas use — replace placeholder in Secrets Manager before relying on TURN.',
+      description:
+        'Same ARN ICE Lambdas use - replace placeholder in Secrets Manager before relying on TURN.',
     });
   }
 }

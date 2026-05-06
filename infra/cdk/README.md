@@ -159,7 +159,7 @@ Designed for **one AWS account** hosting both **`RiffSyncApi-staging`** and **`R
 
 **Deploy:** **`cdk deploy --all`** in **[`deploy-staging.yml`](../../.github/workflows/deploy-staging.yml)** / **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** updates **`RiffSyncTurn`** on **every** run (usually a no-op after the first). For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses the staging OIDC role — same account).
 
-**Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`** (Turn stack; API stacks also echo the cross-stack ARN).
+**Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`** (Turn stack only; duplicating this output on API stacks triggers CloudFormation lint **W6001** when the value is a cross-stack import).
 
 **Session Manager:** no inbound **SSH**; use **SSM** for troubleshooting (**`/var/log/cloud-init-output.log`** if UserData fails).
 

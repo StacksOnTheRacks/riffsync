@@ -598,12 +598,6 @@ export class ApiCatalogStack extends cdk.Stack {
         'JSON with notifyEmail + SES-verified fromEmail for POST /v1/privacy-removal-request (see secret description).',
     });
 
-    new cdk.CfnOutput(this, 'TurnSharedSecretArn', {
-      value: this.turnSharedSecret.secretArn,
-      description:
-        'Cross-stack ref to **`riffsync/turn-static-auth-secret`** (owned by **`RiffSyncTurn`**) — same value for staging+prod ICE Lambdas.',
-    });
-
     new cdk.CfnOutput(this, 'TmdbReconcileFnName', {
       value: tmdbReconcileFn.functionName,
       description: 'Invoke manually: aws lambda invoke --function-name … out.json',
