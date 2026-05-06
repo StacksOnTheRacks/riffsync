@@ -208,8 +208,21 @@ async function handleGuestSignal(ctx: {
     ctx.guestPcRef.current = pc
 
     pc.ontrack = (ev) => {
-      const [stream] = ev.streams
-      if (stream) ctx.setGuestRemote(stream)
+      const stream =
+        ev.streams[0] ??
+        (() => {
+          const ms = new MediaStream()
+          ms.addTrack(ev.track)
+          return ms
+        })()
+      ctx.setGuestRemote(stream)
+      if (webrtcDebugEnabled()) {
+        webrtcLog('guest ontrack', {
+          trackKind: ev.track.kind,
+          streamsLen: ev.streams.length,
+          trackReadyState: ev.track.readyState,
+        })
+      }
     }
     pc.onicecandidate = (e) => {
       if (e.candidate) {
@@ -257,8 +270,8 @@ async function handleGuestSignal(ctx: {
           sdp: { type: answer.type, sdp: answer.sdp ?? '' },
         },
       })
-    } catch {
-      /* ignore handshake failure */
+    } catch (e) {
+      if (webrtcDebugEnabled()) webrtcLog('guest SDP handshake failed', e)
     }
     return
   }
@@ -654,10 +667,27 @@ export function RoomPage() {
       return
     }
     v.srcObject = guestRemote
-    void v
-      .play()
-      .then(() => setGuestPlayHint(false))
-      .catch(() => setGuestPlayHint(true))
+    let cancelled = false
+    void (async () => {
+      v.muted = false
+      try {
+        await v.play()
+        if (!cancelled) setGuestPlayHint(false)
+        return
+      } catch {
+        /* autoplay policy often blocks unmuted remote playback */
+      }
+      try {
+        v.muted = true
+        await v.play()
+        if (!cancelled) setGuestPlayHint(false)
+      } catch {
+        if (!cancelled) setGuestPlayHint(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [guestRemote, isPublisher])
 
   useEffect(() => {
@@ -798,7 +828,16 @@ export function RoomPage() {
   const playGuestVideo = async () => {
     const v = videoRef.current
     if (!v) return
+    v.muted = false
     try {
+      await v.play()
+      setGuestPlayHint(false)
+      return
+    } catch {
+      /* continue */
+    }
+    try {
+      v.muted = true
       await v.play()
       setGuestPlayHint(false)
     } catch {
@@ -940,7 +979,9 @@ export function RoomPage() {
             ) : (
               <section className="riffsync-room-page__playback" aria-label="Guest playback">
                 <span className="sr-only">
-                  Watching the shared video stream from this room&apos;s host. Use Play if the browser blocks autoplay.
+                  Watching the shared video stream from this room&apos;s host. If playback stays black, confirm the
+                  host is sharing in another browser; use Play if prompted. If you hear no audio, check that the
+                  video is not muted in the player controls.
                 </span>
                 {guestPlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
