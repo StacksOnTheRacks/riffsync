@@ -50,8 +50,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                       <p>
                         A fan-built, open-source catalog and watch-party lounge for riff-style
                         episodes. Queue the cheesy feature, gather your crew in one room, and
-                        stay on the same laugh track together. Host-friendly, guest-simple, and
-                        grounded in lawful playback - no bone-shaped satellite required.
+                        stay on the same laugh track together.
                       </p>
                     </div>
                   </div>
@@ -95,7 +94,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               </div>
               <div className="col-xl-3 col-md-6">
                 <div className="widget">
-                  <h4 className="footer-title">Make it Better</h4>
+                  <h4 className="footer-title">Community</h4>
                   <p>
                     RiffSync is built in public, by the fans, for the fans.{' '}
                     <a href="https://github.com/StacksOnTheRacks/riffsync/discussions" rel="noopener noreferrer">

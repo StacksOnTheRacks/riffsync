@@ -173,7 +173,7 @@ export function SoloWatchPage() {
         />
       ) : null}
       <div className={innerChrome}>
-        <h1 className="sr-only">{episode.title}</h1>
+        {partyCapture ? <h1 className="sr-only">{episode.title}</h1> : null}
         {!partyCapture ? (
           <header className="riffsync-solo-watch__header">
             <nav aria-label="Breadcrumb" className="riffsync-solo-watch__toolbar">
@@ -187,6 +187,7 @@ export function SoloWatchPage() {
             </nav>
           </header>
         ) : null}
+        {!partyCapture ? <h1 className="riffsync-theater-heading">{episode.title}</h1> : null}
         {!vid && (
           <p role="status">Playback unavailable — no YouTube video is linked for this catalog entry.</p>
         )}

@@ -861,7 +861,6 @@ export function RoomPage() {
           <div className="riffsync-room-page__theater">
             {isPublisher ? (
               <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
-                <h2 className="riffsync-room-page__theater-heading">{nowPlayingLabel}</h2>
                 {captureStream && hostCapturePlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
                     <button type="button" className="gen-button" onClick={() => void playHostCapturePreview()}>
@@ -931,7 +930,6 @@ export function RoomPage() {
                 <span className="sr-only">
                   Watching the shared video stream from this room&apos;s host. Use Play if the browser blocks autoplay.
                 </span>
-                <h2 className="riffsync-room-page__theater-heading">{nowPlayingLabel}</h2>
                 {guestPlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
                     <button type="button" className="gen-button" onClick={() => void playGuestVideo()}>

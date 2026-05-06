@@ -275,6 +275,10 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   margin-bottom: 0.35rem;
 }
 
+.riffsync-solo-watch .riffsync-theater-heading {
+  margin-bottom: 0.65rem;
+}
+
 .riffsync-solo-watch__toolbar {
   margin: 0;
   padding: 0;
@@ -688,7 +692,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   opacity: 0.88;
 }
 
-.riffsync-room-page__theater-heading {
+/* Prominent episode / room title above the theater (watch page; formerly room page). */
+.riffsync-theater-heading {
   margin: 0;
   text-align: center;
   font-family: var(--title-fonts);
