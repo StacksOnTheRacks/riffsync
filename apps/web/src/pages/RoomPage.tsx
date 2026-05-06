@@ -537,6 +537,12 @@ export function RoomPage() {
     onMessage: onWsMessage,
   })
 
+  /** Warm ICE early so negotiation is faster and /v1/webrtc/ice appears in Network as soon as the room is live. */
+  useEffect(() => {
+    if (!roomId || !room || wsStatus !== 'open') return
+    void getIceServers().catch(() => undefined)
+  }, [roomId, room, wsStatus, getIceServers])
+
   const sendJson = useCallback(
     (payload: Record<string, unknown>) => {
       if (
@@ -580,11 +586,11 @@ export function RoomPage() {
       })
     }
     sendReady()
-    const id = window.setInterval(sendReady, 8000)
+    const id = window.setInterval(sendReady, 2500)
     return () => window.clearInterval(id)
   }, [isPublisher, wsStatus])
 
-  /** Re-arm host negotiation as soon as the guest has no live remote share (fast path vs 8s poll). */
+  /** Re-arm host negotiation as soon as the guest has no live remote share (fast path vs periodic ready). */
   useEffect(() => {
     if (isPublisher || wsStatus !== 'open') return
     if (!guestNeedsHostNegotiation(guestRemote)) return

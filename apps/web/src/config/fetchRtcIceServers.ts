@@ -25,11 +25,22 @@ export async function fetchRtcIceServers(): Promise<RTCIceServer[]> {
   if (!base) return getRtcIceServers()
   try {
     const res = await fetch(`${base}${ICE_PATH}`, { credentials: 'omit' })
-    if (!res.ok) return getRtcIceServers()
+    if (!res.ok) {
+      console.warn(
+        '[riffsync] GET /v1/webrtc/ice failed; falling back to env/STUN only:',
+        res.status,
+        res.statusText,
+      )
+      return getRtcIceServers()
+    }
     const json: unknown = await res.json()
     const parsed = parseIceResponse(json)
+    if (!parsed) {
+      console.warn('[riffsync] GET /v1/webrtc/ice: unexpected JSON shape; falling back to env/STUN only')
+    }
     return parsed ?? getRtcIceServers()
-  } catch {
+  } catch (e) {
+    console.warn('[riffsync] GET /v1/webrtc/ice error; falling back to env/STUN only:', e)
     return getRtcIceServers()
   }
 }
