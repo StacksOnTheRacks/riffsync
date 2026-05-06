@@ -1080,9 +1080,18 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   gap: 0.35rem;
 }
 
-.riffsync-room-page__room-panel .gen-button-wide {
-  width: 100%;
+/*
+ * Room panel: primary buttons + Link share gen-button; template uses line-height: 2 + inline-block
+ * which sits text low on anchors. Flex + normal line-height matches Copy / Rename visually.
+ */
+.riffsync-room-page__room-panel .gen-button.gen-button-wide {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .riffsync-room-page__chat-heading {

@@ -1083,7 +1083,7 @@ export function RoomPage() {
                   ) : null}
                   {isPublisher ? (
                     <Link className="gen-button gen-button-wide" to="/how-to-host-a-watchparty">
-                      Hosting tips &amp; FAQ
+                      Hosting Tips
                     </Link>
                   ) : null}
                   {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
