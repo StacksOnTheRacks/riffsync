@@ -36,6 +36,8 @@ export function useRoomWebSocket(options: {
   const [status, setStatus] = useState<WsStatus>('idle')
   const onMessageRef = useRef(onMessage)
 
+  /** `accessToken` is in the connect effect deps on purpose — when Cognito rotates the JWT the socket reconnects as publisher. */
+
   useEffect(() => {
     onMessageRef.current = onMessage
   }, [onMessage])

@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router-dom'
-import type { MutableRefObject } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RoomSnapshot } from '../api/roomsApi'
 import { fetchRoom, patchRoom } from '../api/roomsApi'
@@ -14,19 +13,27 @@ import { getPublicOrigin } from '../config/publicOrigin'
 import { fetchRtcIceServers } from '../config/fetchRtcIceServers'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
-import { hostShouldSkipRenegotiation } from '../room/hostRenegotiationPolicy'
+import { flushHostPending, handleHostSignal } from '../room/sharing/hostSignaling'
+import { handleGuestSignal } from '../room/sharing/guestSignaling'
+import type { GuestSignalingRefs } from '../room/sharing/guestSignaling'
+import { guestNeedsHostNegotiation } from '../room/sharing/guestNegotiation'
 import {
-  attachPcStateLogging,
+  GUEST_READY_BACKOFF_FACTOR,
+  GUEST_READY_BASE_MS,
+  GUEST_READY_MAX_MS,
+} from '../room/sharing/constants'
+import { collectInboundVideoHealth } from '../room/shareDiag'
+import { installShareDiagnostics } from '../room/sharing/installShareDiag'
+import { deriveShareFsm, summarizePcForFsm, type ShareSessionFsm } from '../room/sharing/shareSessionFsm'
+import { SHARE_SIGNAL_PROTOCOL_VERSION } from '../room/sharing/types'
+import {
+  announceWebrtcDebugOnRoomMount,
   summarizeEnvelope,
   webrtcDebugEnabled,
   webrtcLog,
 } from '../room/webrtcDebug'
-const DISPLAY_TITLE_MAX_LEN = 120
 
-/** Guest `ready` signaling: first poke at 2.5s cadence, then exponential backoff (cap 30s). */
-const GUEST_READY_BASE_MS = 2500
-const GUEST_READY_MAX_MS = 30_000
-const GUEST_READY_BACKOFF_FACTOR = 1.5
+const DISPLAY_TITLE_MAX_LEN = 120
 
 type ChatMsg = { sessionId: string; text: string; ts: number }
 
@@ -40,265 +47,23 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-/** True when the guest should ask the host to (re)publish — no stream yet or all remote tracks have ended. */
-function guestNeedsHostNegotiation(remote: MediaStream | null): boolean {
-  if (!remote) return true
-  return !remote.getTracks().some((t) => t.readyState === 'live')
-}
-
-type HostNegotiateCtx = {
-  getIceServers: () => Promise<RTCIceServer[]>
-  sendJson: (payload: Record<string, unknown>) => void
-  peerByGuestRef: MutableRefObject<Map<string, RTCPeerConnection>>
-  pendingReadyGuestsRef: MutableRefObject<Set<string>>
-  pendingGuestIceRef: MutableRefObject<Map<string, RTCIceCandidateInit[]>>
-}
-
-async function ensureHostPeerNegotiated(
-  ctx: HostNegotiateCtx & { captureStream: MediaStream },
-  guestSessionId: string,
-): Promise<void> {
-  const stream = ctx.captureStream
-  const existing = ctx.peerByGuestRef.current.get(guestSessionId)
-  if (existing && existing.signalingState !== 'closed') {
-    if (
-      hostShouldSkipRenegotiation({
-        signalingState: existing.signalingState,
-        connectionState: existing.connectionState,
-        hasRemoteDescription: existing.currentRemoteDescription != null,
-      })
-    ) {
-      return
-    }
-    existing.close()
-  }
-  ctx.pendingGuestIceRef.current.delete(guestSessionId)
-  const iceServers = await ctx.getIceServers()
-  const pc = new RTCPeerConnection({ iceServers })
-  attachPcStateLogging(pc, `host→${guestSessionId.slice(0, 8)}…`)
-  ctx.peerByGuestRef.current.set(guestSessionId, pc)
-  for (const t of stream.getTracks()) {
-    pc.addTrack(t, stream)
-  }
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      ctx.sendJson({
-        action: 'signaling',
-        envelope: {
-          kind: 'ice',
-          candidate: e.candidate.toJSON(),
-          targetSessionId: guestSessionId,
-        },
-      })
-    }
-  }
-  const offer = await pc.createOffer()
-  await pc.setLocalDescription(offer)
-  ctx.sendJson({
-    action: 'signaling',
-    envelope: {
-      kind: 'offer',
-      sdp: { type: offer.type, sdp: offer.sdp ?? '' },
-      targetSessionId: guestSessionId,
-    },
-  })
-}
-
-async function flushHostPending(
-  opts: HostNegotiateCtx & { captureStream: MediaStream },
-): Promise<void> {
-  const ids = [...opts.pendingReadyGuestsRef.current]
-  opts.pendingReadyGuestsRef.current.clear()
-  for (const sid of ids) {
-    await ensureHostPeerNegotiated(opts, sid).catch(() => undefined)
-  }
-}
-
-async function handleHostSignal(
-  ctx: HostNegotiateCtx & {
-    captureStream: MediaStream | null
-    fromSessionId: string
-    envelope: Record<string, unknown>
-  },
-): Promise<void> {
-  const guestSignaling = ctx.envelope.guestSignaling === true
-  const kind = ctx.envelope.kind
-
-  if (guestSignaling && kind === 'ready') {
-    if (!ctx.captureStream) {
-      ctx.pendingReadyGuestsRef.current.add(ctx.fromSessionId)
-      return
-    }
-    await ensureHostPeerNegotiated(
-      {
-        captureStream: ctx.captureStream,
-        getIceServers: ctx.getIceServers,
-        sendJson: ctx.sendJson,
-        peerByGuestRef: ctx.peerByGuestRef,
-        pendingReadyGuestsRef: ctx.pendingReadyGuestsRef,
-        pendingGuestIceRef: ctx.pendingGuestIceRef,
-      },
-      ctx.fromSessionId,
-    ).catch(() => undefined)
-    return
-  }
-
-  const pc = ctx.peerByGuestRef.current.get(ctx.fromSessionId)
-  if (!pc) return
-
-  if (guestSignaling && kind === 'answer') {
-    const sdp = ctx.envelope.sdp
-    if (isRecord(sdp) && typeof sdp.sdp === 'string' && typeof sdp.type === 'string') {
-      try {
-        await pc.setRemoteDescription(
-          new RTCSessionDescription(sdp as unknown as RTCSessionDescriptionInit),
-        )
-        const sid = ctx.fromSessionId
-        const queued = ctx.pendingGuestIceRef.current.get(sid)
-        ctx.pendingGuestIceRef.current.delete(sid)
-        if (queued?.length) {
-          for (const init of queued) {
-            await pc.addIceCandidate(new RTCIceCandidate(init)).catch(() => undefined)
-          }
-        }
-      } catch {
-        /* ignore malformed SDP */
-      }
-    }
-    return
-  }
-
-  if (guestSignaling && kind === 'ice') {
-    const cand = ctx.envelope.candidate
-    if (!isRecord(cand)) return
-    const init = cand as RTCIceCandidateInit
-    if (!pc.currentRemoteDescription) {
-      const m = ctx.pendingGuestIceRef.current
-      const arr = m.get(ctx.fromSessionId) ?? []
-      arr.push(init)
-      m.set(ctx.fromSessionId, arr)
-      return
-    }
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(init))
-    } catch {
-      /* ignore stale / invalid candidate */
-    }
-  }
-}
-
-async function handleGuestSignal(ctx: {
-  mySessionId: string
-  getIceServers: () => Promise<RTCIceServer[]>
-  sendJson: (payload: Record<string, unknown>) => void
-  guestPcRef: MutableRefObject<RTCPeerConnection | null>
-  pendingIceRef: MutableRefObject<RTCIceCandidateInit[]>
-  setGuestRemote: (s: MediaStream | null) => void
-  envelope: Record<string, unknown>
-}): Promise<void> {
-  const kind = ctx.envelope.kind
-
-  if (kind === 'offer') {
-    if (ctx.envelope.targetSessionId !== ctx.mySessionId) return
-    const sdp = ctx.envelope.sdp
-    if (!isRecord(sdp) || typeof sdp.sdp !== 'string' || typeof sdp.type !== 'string') return
-
-    const prev = ctx.guestPcRef.current
-    prev?.close()
-    if (prev) ctx.pendingIceRef.current = []
-
-    const iceServers = await ctx.getIceServers()
-    const pc = new RTCPeerConnection({ iceServers })
-    attachPcStateLogging(pc, 'guest')
-    ctx.guestPcRef.current = pc
-
-    pc.ontrack = (ev) => {
-      const stream =
-        ev.streams[0] ??
-        (() => {
-          const ms = new MediaStream()
-          ms.addTrack(ev.track)
-          return ms
-        })()
-      ctx.setGuestRemote(stream)
-      if (webrtcDebugEnabled()) {
-        webrtcLog('guest ontrack', {
-          trackKind: ev.track.kind,
-          streamsLen: ev.streams.length,
-          trackReadyState: ev.track.readyState,
-        })
-      }
-    }
-    pc.onicecandidate = (e) => {
-      if (e.candidate) {
-        ctx.sendJson({
-          action: 'signaling',
-          envelope: {
-            guestSignaling: true,
-            kind: 'ice',
-            candidate: e.candidate.toJSON(),
-          },
-        })
-      }
-    }
-
-    pc.onconnectionstatechange = () => {
-      if (pc !== ctx.guestPcRef.current) return
-      if (pc.connectionState !== 'failed') return
-      ctx.pendingIceRef.current = []
-      ctx.guestPcRef.current = null
-      try {
-        pc.close()
-      } catch {
-        /* ignore */
-      }
-      ctx.setGuestRemote(null)
-    }
-
-    try {
-      await pc.setRemoteDescription(
-        new RTCSessionDescription(sdp as unknown as RTCSessionDescriptionInit),
-      )
-      while (ctx.pendingIceRef.current.length > 0) {
-        const batch = ctx.pendingIceRef.current.splice(0)
-        for (const init of batch) {
-          await pc.addIceCandidate(new RTCIceCandidate(init)).catch(() => undefined)
-        }
-      }
-      const answer = await pc.createAnswer()
-      await pc.setLocalDescription(answer)
-      ctx.sendJson({
-        action: 'signaling',
-        envelope: {
-          guestSignaling: true,
-          kind: 'answer',
-          sdp: { type: answer.type, sdp: answer.sdp ?? '' },
-        },
-      })
-    } catch (e) {
-      if (webrtcDebugEnabled()) webrtcLog('guest SDP handshake failed', e)
-    }
-    return
-  }
-
-  if (kind === 'ice' && ctx.envelope.targetSessionId === ctx.mySessionId) {
-    const cand = ctx.envelope.candidate
-    if (!isRecord(cand)) return
-    const init = cand as RTCIceCandidateInit
-    const pc = ctx.guestPcRef.current
-    if (!pc) {
-      ctx.pendingIceRef.current.push(init)
-      return
-    }
-    if (!pc.remoteDescription) {
-      ctx.pendingIceRef.current.push(init)
-      return
-    }
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(init))
-    } catch {
-      /* ignore */
-    }
+function guestShareStatusLine(fsm: ReturnType<typeof deriveShareFsm>, wsDisconnected: boolean): string | null {
+  if (wsDisconnected) return 'Reconnecting chat… Video may pause briefly.'
+  switch (fsm) {
+    case 'idle':
+      return 'Negotiating connection with host…'
+    case 'negotiating_ice':
+      return 'Establishing encrypted path…'
+    case 'verifying_media':
+      return 'Verifying video feed…'
+    case 'recovering_ice':
+      return 'Recovering after network glitch…'
+    case 'running':
+      return null
+    case 'failed':
+      return 'Video link failed — try refreshing once the host is sharing.'
+    default:
+      return null
   }
 }
 
@@ -331,6 +96,9 @@ export function RoomPage() {
   const [renameModalOpen, setRenameModalOpen] = useState(false)
   const [renameModalDraft, setRenameModalDraft] = useState('')
 
+  const [guestFsmPollTick, setGuestFsmPollTick] = useState(0)
+  const guestInboundHealthRef = useRef(false)
+  const [guestShareFsmUi, setGuestShareFsmUi] = useState<ShareSessionFsm>('idle')
   const videoRef = useRef<HTMLVideoElement>(null)
   const hostCaptureVideoRef = useRef<HTMLVideoElement>(null)
   const peerByGuestRef = useRef(new Map<string, RTCPeerConnection>())
@@ -341,6 +109,21 @@ export function RoomPage() {
   const guestPendingIceRef = useRef<RTCIceCandidateInit[]>([])
   const guestSigQRef = useRef<Promise<void>>(Promise.resolve())
   const guestRemoteRef = useRef<MediaStream | null>(null)
+  const shareGenerationRef = useRef(0)
+  const hostLastOfferGenByGuestRef = useRef(new Map<string, number>())
+  const acceptedOfferShareGenerationRef = useRef(0)
+  const lastDedupOfferGenerationRef = useRef(0)
+  const isPublisherRef = useRef(false)
+
+  const guestSignalingRefs = useMemo<GuestSignalingRefs>(
+    () => ({
+      guestPcRef,
+      pendingIceRef: guestPendingIceRef,
+      acceptedOfferShareGenerationRef,
+      lastDedupOfferGenerationRef,
+    }),
+    [],
+  )
 
   const wsBase = getPublicWsUrl()
   const fanToken = getFanAccessToken()
@@ -351,10 +134,96 @@ export function RoomPage() {
   }, [guestRemote])
 
   useEffect(() => {
+    isPublisherRef.current = isPublisher
+  }, [isPublisher])
+
+  /** Guest inbound stats drive “verifying” vs “running” for **`deriveShareFsm`**. */
+
+  useEffect(() => {
+    if (isPublisher) {
+      queueMicrotask(() => setGuestShareFsmUi('idle'))
+      guestInboundHealthRef.current = false
+      return undefined
+    }
+    queueMicrotask(() => {
+      const liveVideos =
+        guestRemote?.getTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
+      setGuestShareFsmUi(
+        deriveShareFsm(summarizePcForFsm(guestPcRef.current), {
+          recoveringIce: false,
+          hasLiveRemoteVideo: liveVideos,
+          mediaVerified: guestInboundHealthRef.current || liveVideos,
+        }),
+      )
+    })
+  }, [guestRemote, guestFsmPollTick, isPublisher])
+
+  useEffect(() => {
+    if (isPublisher) {
+      guestInboundHealthRef.current = false
+      return undefined
+    }
+    let cancelled = false
+    const tick = (): void => {
+      void collectInboundVideoHealth(guestPcRef.current).then((h) => {
+        guestInboundHealthRef.current =
+          Boolean(h.framesDecoded) ||
+          Boolean(h.framesReceived) ||
+          (typeof h.bytesReceived === 'number' && h.bytesReceived > 0)
+        if (!cancelled) setGuestFsmPollTick((n) => n + 1)
+      })
+    }
+    queueMicrotask(tick)
+    const interval = window.setInterval(() => tick(), 2300)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [isPublisher])
+
+  useEffect(() => {
+    announceWebrtcDebugOnRoomMount()
+  }, [])
+
+  useEffect(() => {
+    return installShareDiagnostics({
+      isPublisherRef,
+      shareGenerationRef,
+      deriveShareFsm: () => {
+        if (isPublisherRef.current) {
+          const firstPc = [...peerByGuestRef.current.values()][0]
+          const snap = summarizePcForFsm(firstPc ?? null)
+          return deriveShareFsm(snap, {
+            recoveringIce: false,
+            hasLiveRemoteVideo: Boolean(firstPc && firstPc.connectionState === 'connected'),
+            mediaVerified: true,
+          })
+        }
+        const liveVideos =
+          guestRemoteRef.current?.getTracks().some(
+            (t) => t.kind === 'video' && t.readyState === 'live',
+          ) ?? false
+        const snap = summarizePcForFsm(guestPcRef.current)
+        return deriveShareFsm(snap, {
+          recoveringIce: false,
+          hasLiveRemoteVideo: liveVideos,
+          mediaVerified: guestInboundHealthRef.current || liveVideos,
+        })
+      },
+      guestPcRef,
+      peerByGuestRef,
+    })
+  }, [])
+
+  useEffect(() => {
     guestPendingIceRef.current = []
     guestSigQRef.current = Promise.resolve()
     hostSigQRef.current = Promise.resolve()
     hostPendingGuestIceRef.current.clear()
+    hostLastOfferGenByGuestRef.current.clear()
+    shareGenerationRef.current = 0
+    acceptedOfferShareGenerationRef.current = 0
+    lastDedupOfferGenerationRef.current = 0
     guestPcRef.current?.close()
     guestPcRef.current = null
     queueMicrotask(() => setGuestRemote(null))
@@ -515,8 +384,7 @@ export function RoomPage() {
               mySessionId: sessionId,
               getIceServers,
               sendJson: (payload) => sendJsonRef.current(payload),
-              guestPcRef,
-              pendingIceRef: guestPendingIceRef,
+              refs: guestSignalingRefs,
               setGuestRemote,
               envelope,
             }),
@@ -537,12 +405,14 @@ export function RoomPage() {
             peerByGuestRef,
             pendingReadyGuestsRef,
             pendingGuestIceRef: hostPendingGuestIceRef,
+            shareGenerationRef,
+            hostLastOfferGenByGuestRef,
           }).catch(() => undefined),
         )
         .catch(() => undefined)
       return
     },
-    [captureStream, getIceServers, isPublisher, roomId, sessionId],
+    [captureStream, getIceServers, guestSignalingRefs, isPublisher, roomId, sessionId],
   )
 
   const { status: wsStatus, sendJson: wsSendJson } = useRoomWebSocket({
@@ -584,6 +454,7 @@ export function RoomPage() {
     const peerMap = peerByGuestRef.current
     const pend = pendingReadyGuestsRef.current
     const pendingIceByGuest = hostPendingGuestIceRef.current
+    const offerGenByGuest = hostLastOfferGenByGuestRef.current
     return () => {
       for (const pc of peerMap.values()) {
         pc.close()
@@ -591,6 +462,7 @@ export function RoomPage() {
       peerMap.clear()
       pend.clear()
       pendingIceByGuest.clear()
+      offerGenByGuest.clear()
     }
   }, [isPublisher])
 
@@ -613,9 +485,16 @@ export function RoomPage() {
     }
 
     const sendReady = () => {
+      const gen = acceptedOfferShareGenerationRef.current
       sendJsonRef.current({
         action: 'signaling',
-        envelope: { guestSignaling: true, kind: 'ready' },
+        envelope: {
+          guestSignaling: true,
+          kind: 'ready',
+          ...(gen > 0
+            ? { protocolVersion: SHARE_SIGNAL_PROTOCOL_VERSION, shareGeneration: gen }
+            : {}),
+        },
       })
     }
 
@@ -652,6 +531,8 @@ export function RoomPage() {
       guestPcRef.current?.close()
       guestPcRef.current = null
       guestPendingIceRef.current = []
+      acceptedOfferShareGenerationRef.current = 0
+      lastDedupOfferGenerationRef.current = 0
       setGuestRemote(null)
     }
 
@@ -677,6 +558,8 @@ export function RoomPage() {
       peerByGuestRef,
       pendingReadyGuestsRef,
       pendingGuestIceRef: hostPendingGuestIceRef,
+      shareGenerationRef,
+      hostLastOfferGenByGuestRef,
     }).catch(() => undefined)
   }, [captureStream, getIceServers, isPublisher, wsStatus])
 
@@ -685,6 +568,8 @@ export function RoomPage() {
     queueMicrotask(() => {
       guestPcRef.current?.close()
       guestPcRef.current = null
+      acceptedOfferShareGenerationRef.current = 0
+      lastDedupOfferGenerationRef.current = 0
       setGuestRemote(null)
     })
   }, [isPublisher])
@@ -733,6 +618,8 @@ export function RoomPage() {
 
   const stopCapture = () => {
     setHostCapturePlayHint(false)
+    shareGenerationRef.current = 0
+    hostLastOfferGenByGuestRef.current.clear()
     setCaptureStream((prev) => {
       if (prev) prev.getTracks().forEach((t) => t.stop())
       return null
@@ -749,6 +636,7 @@ export function RoomPage() {
     setCaptureErr(null)
 
     const applyStream = (stream: MediaStream) => {
+      shareGenerationRef.current += 1
       setHostCapturePlayHint(false)
       stream.getTracks().forEach((tr) => {
         tr.addEventListener('ended', () => {
@@ -756,7 +644,20 @@ export function RoomPage() {
         })
       })
       setCaptureStream(stream)
-      webrtcLog('getDisplayMedia OK, tracks:', stream.getTracks().length)
+      webrtcLog('capture stream applied, tracks:', stream.getTracks().length)
+    }
+
+    try {
+      if (import.meta.env.DEV) {
+        const isE2e = new URLSearchParams(window.location.search).get('riffsyncE2e') === '1'
+        if (isE2e) {
+          const { createSyntheticDisplayStream } = await import('../room/sharing/e2eCapture')
+          applyStream(createSyntheticDisplayStream())
+          return
+        }
+      }
+    } catch {
+      /* fall through to real capture */
     }
 
     try {
@@ -918,6 +819,11 @@ export function RoomPage() {
   const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
   const viewerCount = peopleShown.length
 
+  const guestVideoStatusSentence =
+    !isPublisher ?
+      guestShareStatusLine(guestShareFsmUi, Boolean(wsBase) && wsStatus !== 'open')
+    : null
+
   return (
     <div
       className={
@@ -1013,6 +919,11 @@ export function RoomPage() {
                   host is sharing in another browser; use Play if prompted. If you hear no audio, check that the
                   video is not muted in the player controls.
                 </span>
+                {guestVideoStatusSentence ?
+                  <p className="riffsync-muted" role="status">
+                    {guestVideoStatusSentence}
+                  </p>
+                : null}
                 {guestPlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
                     <button type="button" className="gen-button" onClick={() => void playGuestVideo()}>

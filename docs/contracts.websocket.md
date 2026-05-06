@@ -77,4 +77,17 @@ Hosts send **`signaling`** without **`guestSignaling`** (publisher path). Typica
 
 SDP and ICE blobs are forwarded without semantic validation (**SPA-owned** contract).
 
+#### Signaling protocol version 1 (optional)
+
+Clients MAY include on **`envelope`**:
+
+| Field | Type | Meaning |
+| ----- | ---- | ------- |
+| **`protocolVersion`** | `1` | Enables generation guards below. |
+| **`shareGeneration`** | positive integer | Monotonic **host capture session** id; host increments when a new share starts; guest echoes it on **`answer`** / **`ice`**. |
+
+**`ready`** MAY include these fields so the host can correlate (optional).
+
+When **`protocolVersion`** is absent or **`shareGeneration`** is missing / `0`, peers treat the message as **legacy** and apply only pre-v1 behavior.
+
 **`chat`** payloads are unchanged (**`Date.now()`** server timestamp).
