@@ -1035,8 +1035,76 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   margin-top: 0.35rem;
 }
 
+.riffsync-room-page__people-row {
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.035);
+}
+
+.riffsync-room-page__people-row--host {
+  border-left: 3px solid var(--primary-color);
+  background: rgb(255 255 255 / 0.07);
+}
+
+.riffsync-room-page__host-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.12rem 0.42rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  color: var(--primary-color);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  vertical-align: middle;
+}
+
 .riffsync-room-page__person-label strong {
   font-weight: 700;
+}
+
+.riffsync-room-page__tab-panel--profile {
+  padding: 0.65rem;
+  gap: 0.45rem;
+  overflow-y: auto;
+}
+
+.riffsync-room-page__profile-lede {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.riffsync-room-page__profile-label {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.riffsync-room-page__profile-field {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: rgb(7 10 14 / 0.72);
+  color: inherit;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.riffsync-room-page__profile-err {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--primary-color);
+}
+
+.riffsync-room-page__profile-save {
+  align-self: flex-start;
+  margin-top: 0.35rem;
 }
 
 .riffsync-room-page__ws-banner {

@@ -1,13 +1,18 @@
 import { Link, useParams } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RoomSnapshot } from '../api/roomsApi'
+import { fetchFanProfile, patchFanProfileDisplayName } from '../api/fanProfileApi'
 import { fetchRoom, patchRoom } from '../api/roomsApi'
 import { fetchCatalogEpisodeById } from '../catalog/catalogApi'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { cognitoSub } from '../auth/jwtDecode'
 import { getFanAccessToken } from '../auth/fanTokens'
 import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
-import { ensureGuestSession } from '../session/guestSession'
+import {
+  ensureGuestSession,
+  FAN_DISPLAY_NAME_MAX_LEN,
+  setGuestDisplayName,
+} from '../session/guestSession'
 import { getPublicWsUrl } from '../config/wsUrl'
 import { getPublicOrigin } from '../config/publicOrigin'
 import { fetchRtcIceServers } from '../config/fetchRtcIceServers'
@@ -71,7 +76,9 @@ export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
   const roomId = roomIdParam ? decodeURIComponent(roomIdParam) : ''
 
-  const [{ sessionId, displayName }] = useState(() => ensureGuestSession('room'))
+  const guestInitial = ensureGuestSession('room')
+  const [sessionId] = useState(guestInitial.sessionId)
+  const [displayName, setDisplayName] = useState(guestInitial.displayName)
 
   const [room, setRoom] = useState<RoomSnapshot | null | undefined>(undefined)
   const [roomErr, setRoomErr] = useState<string | null>(null)
@@ -92,9 +99,14 @@ export function RoomPage() {
     roomId: '',
     members: [],
   }))
-  const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people' | 'room'>('chat')
+  const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people' | 'room' | 'profile'>(
+    'chat',
+  )
   const [renameModalOpen, setRenameModalOpen] = useState(false)
   const [renameModalDraft, setRenameModalDraft] = useState('')
+  const [profileDraft, setProfileDraft] = useState('')
+  const [profileSaveErr, setProfileSaveErr] = useState<string | null>(null)
+  const [profileSaving, setProfileSaving] = useState(false)
 
   const [guestFsmPollTick, setGuestFsmPollTick] = useState(0)
   const guestInboundHealthRef = useRef(false)
@@ -114,6 +126,7 @@ export function RoomPage() {
   const acceptedOfferShareGenerationRef = useRef(0)
   const lastDedupOfferGenerationRef = useRef(0)
   const isPublisherRef = useRef(false)
+  const prevRoomSidebarTabRef = useRef<'chat' | 'people' | 'room' | 'profile'>('chat')
 
   const guestSignalingRefs = useMemo<GuestSignalingRefs>(
     () => ({
@@ -249,6 +262,45 @@ export function RoomPage() {
     })
     return list
   }, [presenceRoster.members, presenceRoster.roomId, roomId, sessionId, displayName, isPublisher])
+
+  const chatMemberLabels = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const p of peopleShown) {
+      m.set(p.sessionId, p.displayName)
+    }
+    return m
+  }, [peopleShown])
+
+  useEffect(() => {
+    if (!fanToken && roomSidebarTab === 'profile') {
+      setRoomSidebarTab('chat')
+    }
+  }, [fanToken, roomSidebarTab])
+
+  useEffect(() => {
+    if (!fanToken) return
+    let cancelled = false
+    void fetchFanProfile(fanToken)
+      .then((p) => {
+        if (cancelled) return
+        const dn = p.displayName?.trim()
+        if (!dn) return
+        const applied = setGuestDisplayName(dn)
+        setDisplayName(applied)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [fanToken])
+
+  useEffect(() => {
+    if (roomSidebarTab === 'profile' && prevRoomSidebarTabRef.current !== 'profile') {
+      setProfileDraft(displayName)
+      setProfileSaveErr(null)
+    }
+    prevRoomSidebarTabRef.current = roomSidebarTab
+  }, [roomSidebarTab, displayName])
 
   const icePromiseByRoomRef = useRef<{ roomId: string; promise: Promise<RTCIceServer[]> } | null>(null)
   const getIceServers = useCallback((): Promise<RTCIceServer[]> => {
@@ -739,6 +791,29 @@ export function RoomPage() {
     setChatDraft('')
   }
 
+  const saveProfileDisplayName = () => {
+    if (!fanToken) return
+    const trimmed = profileDraft.trim().slice(0, FAN_DISPLAY_NAME_MAX_LEN)
+    if (!trimmed) {
+      setProfileSaveErr('Display name cannot be empty.')
+      return
+    }
+    setProfileSaving(true)
+    setProfileSaveErr(null)
+    void patchFanProfileDisplayName(fanToken, trimmed)
+      .then(() => {
+        const applied = setGuestDisplayName(trimmed)
+        setDisplayName(applied)
+        setProfileDraft(applied)
+      })
+      .catch((e) => {
+        setProfileSaveErr(e instanceof Error ? e.message : 'Could not save profile.')
+      })
+      .finally(() => {
+        setProfileSaving(false)
+      })
+  }
+
   const copyShare = async () => {
     const url = `${getPublicOrigin()}/room/${encodeURIComponent(roomId)}`
     try {
@@ -991,6 +1066,16 @@ export function RoomPage() {
                   >
                     Room
                   </button>
+                  {fanToken ? (
+                    <button
+                      type="button"
+                      className={`riffsync-room-page__tab${roomSidebarTab === 'profile' ? ' riffsync-room-page__tab--on' : ''}`}
+                      aria-pressed={roomSidebarTab === 'profile'}
+                      onClick={() => setRoomSidebarTab('profile')}
+                    >
+                      Profile
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -999,7 +1084,9 @@ export function RoomPage() {
                   <ul className="riffsync-room-chat-log">
                     {chat.map((m) => (
                       <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
-                        <span className="riffsync-room-chat-log__who">{m.sessionId.slice(0, 6)}…</span>
+                        <span className="riffsync-room-chat-log__who">
+                          {chatMemberLabels.get(m.sessionId) ?? `${m.sessionId.slice(0, 6)}…`}
+                        </span>
                         {': '}
                         {m.text}
                       </li>
@@ -1050,12 +1137,17 @@ export function RoomPage() {
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
                   <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
                     {peopleShown.map((p) => (
-                      <li key={p.sessionId}>
+                      <li
+                        key={p.sessionId}
+                        className={`riffsync-room-page__people-row${p.isHost ? ' riffsync-room-page__people-row--host' : ''}`}
+                      >
                         <span className="riffsync-room-page__person-label">
                           {p.isHost ? (
                             <>
                               <strong>{p.displayName}</strong>
-                              <span className="riffsync-muted"> (Host)</span>
+                              <span className="riffsync-room-page__host-badge" aria-label="Host">
+                                Host
+                              </span>
                             </>
                           ) : (
                             p.displayName
@@ -1085,6 +1177,37 @@ export function RoomPage() {
                     </Link>
                   ) : null}
                   {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
+                </div>
+              ) : null}
+              {roomSidebarTab === 'profile' && fanToken ? (
+                <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--profile">
+                  <p className="riffsync-muted riffsync-room-page__profile-lede">
+                    This name appears in chat, the viewer list, and across devices when you&apos;re signed in.
+                  </p>
+                  <label className="riffsync-room-page__profile-label" htmlFor="riffsync-profile-display-name">
+                    Display name
+                  </label>
+                  <input
+                    id="riffsync-profile-display-name"
+                    className="riffsync-room-page__profile-field"
+                    maxLength={FAN_DISPLAY_NAME_MAX_LEN}
+                    value={profileDraft}
+                    onChange={(e) => setProfileDraft(e.target.value)}
+                    autoComplete="nickname"
+                  />
+                  {profileSaveErr ? (
+                    <p className="riffsync-room-page__profile-err" role="alert">
+                      {profileSaveErr}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="gen-button riffsync-room-page__profile-save"
+                    disabled={profileSaving}
+                    onClick={saveProfileDisplayName}
+                  >
+                    {profileSaving ? 'Saving…' : 'Save'}
+                  </button>
                 </div>
               ) : null}
             </section>

@@ -120,6 +120,7 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly catalogTable: dynamodb.Table;
   public readonly roomsTable: dynamodb.Table;
   public readonly connectionsTable: dynamodb.Table;
+  public readonly fanProfilesTable: dynamodb.Table;
   public readonly httpApi: apigwv2.HttpApi;
   public readonly webSocketApi: apigwv2.WebSocketApi;
   public readonly tmdbApiTokenSecret: secretsmanager.ISecret;
@@ -175,7 +176,16 @@ export class ApiCatalogStack extends cdk.Stack {
       indexName: 'RoomConnectionsIndex',
       partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'connectionId', type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.KEYS_ONLY,
+      projectionType: dynamodb.ProjectionType.INCLUDE,
+      nonKeyAttributes: ['sessionId', 'displayName', 'hostSub'],
+    });
+
+    this.fanProfilesTable = new dynamodb.Table(this, 'FanProfilesTable', {
+      partitionKey: { name: 'sub', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      pointInTimeRecoverySpecification:
+        environment === 'prod' ? { pointInTimeRecoveryEnabled: true } : undefined,
     });
 
     this.tmdbApiTokenSecret = new secretsmanager.Secret(this, 'TmdbApiToken', {
@@ -381,6 +391,33 @@ export class ApiCatalogStack extends cdk.Stack {
     });
     this.turnSharedSecret.grantRead(webrtcIceConfigFn);
 
+    const fanProfileGetFn = new lambdaNodejs.NodejsFunction(this, 'FanProfileGetFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(5),
+      memorySize: 128,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/fan-profile-get.ts'),
+      handler: 'handler',
+      environment: {
+        FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    const fanProfilePatchFn = new lambdaNodejs.NodejsFunction(this, 'FanProfilePatchFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(5),
+      memorySize: 128,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/fan-profile-patch.ts'),
+      handler: 'handler',
+      environment: {
+        FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.fanProfilesTable.grantReadData(fanProfileGetFn);
+    this.fanProfilesTable.grantReadWriteData(fanProfilePatchFn);
+
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
@@ -496,6 +533,11 @@ export class ApiCatalogStack extends cdk.Stack {
       privacyRemovalFn,
     );
     const webrtcIceIntegration = new integrations.HttpLambdaIntegration('WebrtcIceInt', webrtcIceConfigFn);
+    const fanProfileGetIntegration = new integrations.HttpLambdaIntegration('FanProfileGetInt', fanProfileGetFn);
+    const fanProfilePatchIntegration = new integrations.HttpLambdaIntegration(
+      'FanProfilePatchInt',
+      fanProfilePatchFn,
+    );
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -547,6 +589,20 @@ export class ApiCatalogStack extends cdk.Stack {
       integration: webrtcIceIntegration,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/fans/me',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: fanProfileGetIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/fans/me',
+      methods: [apigwv2.HttpMethod.PATCH],
+      integration: fanProfilePatchIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
     const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     if (httpStageL1) {
       httpStageL1.defaultRouteSettings = {
@@ -568,10 +624,15 @@ export class ApiCatalogStack extends cdk.Stack {
       value: this.connectionsTable.tableName,
     });
 
+    new cdk.CfnOutput(this, 'FanProfilesTableName', {
+      value: this.fanProfilesTable.tableName,
+      description: 'DynamoDB FanProfiles — partition key `sub` (Cognito subject).',
+    });
+
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {

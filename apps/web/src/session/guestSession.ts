@@ -1,6 +1,9 @@
 const STORAGE_SESSION = 'riffsync.sessionId'
 const STORAGE_DISPLAY = 'riffsync.displayName'
 
+/** Matches WebSocket `$connect` / fan-profile Patch trim (`infra/cdk/lambda/ws-connect.ts`). */
+export const FAN_DISPLAY_NAME_MAX_LEN = 48
+
 const adjectives = ['Quick', 'Quiet', 'Brave', 'Bright', 'Calm', 'Cosmic', 'Clever', 'Daring']
 const nouns = ['MSTie', 'Crow', 'Tom', 'Joel', 'Gizmo', 'Riff', 'Party', 'Phantom']
 
@@ -32,6 +35,15 @@ export function ensureGuestSession(reason: 'lobby' | 'room'): { sessionId: strin
     localStorage.setItem(STORAGE_DISPLAY, displayName)
   }
   return { sessionId, displayName: displayName.trim() }
+}
+
+/** Persist guest/display label locally (also used as cache for signed-in profile mirror). */
+export function setGuestDisplayName(name: string): string {
+  const trimmed = name.trim().slice(0, FAN_DISPLAY_NAME_MAX_LEN)
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_DISPLAY, trimmed)
+  }
+  return trimmed
 }
 
 export function headersWithSession(reason: 'lobby' | 'room' = 'lobby'): Record<string, string> {
