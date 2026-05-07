@@ -122,7 +122,7 @@ export class TurnServerStack extends cdk.Stack {
     const instance = new ec2.Instance(this, 'TurnInstance', {
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      instanceType: new ec2.InstanceType('t3.micro'),
+      instanceType: new ec2.InstanceType('t3.small'),
       machineImage: ec2.MachineImage.latestAmazonLinux2023(),
       securityGroup: sg,
       role,

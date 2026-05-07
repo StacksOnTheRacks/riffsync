@@ -9,7 +9,7 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `bin/riffsync.ts` | App entry; validates `environment` context |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
-| `lib/turn-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **coturn** on **EC2** + **`riffsync/turn-static-auth-secret`** (shared **staging + prod** in one account) |
+| `lib/turn-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **coturn** on **EC2** (**`t3.small`**) + **`riffsync/turn-static-auth-secret`** (shared **staging + prod** in one account) |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
 | `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) — **one** topic/rule set for all tiers; synthesized only with **`environment=prod`** |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
@@ -153,7 +153,7 @@ Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as cat
 
 ### Self-hosted TURN (coturn on EC2)
 
-Designed for **one AWS account** hosting both **`RiffSyncApi-staging`** and **`RiffSyncApi-prod`**: a **singleton** stack **[`RiffSyncTurn`](lib/turn-server-stack.ts)** (not suffixed by environment) provides **one** **t3.micro** instance, **one** **Elastic IP**, and **one** Secrets Manager secret (**`riffsync/turn-static-auth-secret`**). Both ICE Lambdas use **that** secret for TURN REST credentials; both should use the **same** **`turnHost`** (the EIP, or DNS to it).
+Designed for **one AWS account** hosting both **`RiffSyncApi-staging`** and **`RiffSyncApi-prod`**: a **singleton** stack **[`RiffSyncTurn`](lib/turn-server-stack.ts)** (not suffixed by environment) provides **one** **`t3.small`** instance, **one** **Elastic IP**, and **one** Secrets Manager secret (**`riffsync/turn-static-auth-secret`**). Both ICE Lambdas use **that** secret for TURN REST credentials; both should use the **same** **`turnHost`** (the EIP, or DNS to it).
 
 **Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncTurn`** is created **before** **`RiffSyncApi-*`**; each API stack **depends on** **`RiffSyncTurn`** so the secret exists before Lambdas reference it.
 
