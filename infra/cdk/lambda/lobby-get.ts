@@ -11,7 +11,7 @@ async function countConnectionsForRoom(connectionsTable: string, roomId: string)
   const out = await client.send(
     new QueryCommand({
       TableName: connectionsTable,
-      IndexName: 'RoomConnectionsIndex',
+      IndexName: 'RoomConnectionsRosterIndex',
       KeyConditionExpression: 'roomId = :r',
       ExpressionAttributeValues: { ':r': roomId },
       Select: 'COUNT',

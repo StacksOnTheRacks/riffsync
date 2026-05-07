@@ -20,7 +20,7 @@ export async function queryRoomConnectionItems(
   const out = await doc.send(
     new QueryCommand({
       TableName: table,
-      IndexName: 'RoomConnectionsIndex',
+      IndexName: 'RoomConnectionsRosterIndex',
       KeyConditionExpression: 'roomId = :r',
       ExpressionAttributeValues: { ':r': roomId },
     }),

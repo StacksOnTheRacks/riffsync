@@ -172,8 +172,9 @@ export class ApiCatalogStack extends cdk.Stack {
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       timeToLiveAttribute: 'expiresAt',
     });
+    /** Lobby counts + presence roster: same partition/sort keys; INCLUDE avoids a second KEYS_ONLY GSI. */
     this.connectionsTable.addGlobalSecondaryIndex({
-      indexName: 'RoomConnectionsIndex',
+      indexName: 'RoomConnectionsRosterIndex',
       partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'connectionId', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.INCLUDE,

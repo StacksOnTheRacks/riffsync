@@ -134,7 +134,7 @@ Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as cat
 | Logical | PK | GSI |
 | --- | --- | --- |
 | **Rooms** | **`roomId`** | **`PublicLobbyIndex`**: **`lobbyPk=PUBLIC`**, **`lobbySk`** (sortable activity key) |
-| **Connections** | **`connectionId`** (**API Gateway**) | **`RoomConnectionsIndex`**: **`roomId`**, **`connectionId`** (fan-out queries) |
+| **Connections** | **`connectionId`** (**API Gateway**) | **`RoomConnectionsRosterIndex`**: **`roomId`**, **`connectionId`** + **`INCLUDE`** **`sessionId`**, **`displayName`**, **`hostSub`** (lobby counts + WS presence) |
 
 **HTTP** (JWT = **fan pool access token**, audience = **`FanUserPoolClientId`**)
 
