@@ -116,8 +116,7 @@ export class TurnServerStack extends cdk.Stack {
       '  echo "no-cli"',
       '} > /etc/coturn/turnserver.conf',
       'rm -f /tmp/riffsync-turn-secret.txt',
-      'systemctl enable coturn',
-      'systemctl restart coturn',
+      'systemctl enable --now coturn',
     );
 
     const instance = new ec2.Instance(this, 'TurnInstance', {
