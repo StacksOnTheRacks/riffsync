@@ -134,7 +134,9 @@ Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as cat
 | Logical | PK | GSI |
 | --- | --- | --- |
 | **Rooms** | **`roomId`** | **`PublicLobbyIndex`**: **`lobbyPk=PUBLIC`**, **`lobbySk`** (sortable activity key) |
-| **Connections** | **`connectionId`** (**API Gateway**) | **`RoomConnectionsRosterIndex`**: **`roomId`**, **`connectionId`** + **`INCLUDE`** **`sessionId`**, **`displayName`**, **`hostSub`** (lobby counts + WS presence) |
+| **Connections** | **`connectionId`** (**API Gateway**) | **`RoomConnectionsRosterIndex`** (**INCLUDE**: **`sessionId`**, **`displayName`**, **`hostSub`** for roster + lobby counts). **`RoomConnectionsIndex`** (**KEYS_ONLY**) is **temporary** during migration — remove after two-phase deploy (see operations note below). |
+
+**Connections migration (DynamoDB):** Only **one** GSI may be **created** or **deleted** per table CloudFormation update. To move from **`RoomConnectionsIndex`** → **`RoomConnectionsRosterIndex`**: (1) Deploy CDK that defines **both** GSIs. (2) After that succeeds everywhere, delete the **`RoomConnectionsIndex`** block from [`lib/api-catalog-stack.ts`](lib/api-catalog-stack.ts) and deploy again.
 
 **HTTP** (JWT = **fan pool access token**, audience = **`FanUserPoolClientId`**)
 
