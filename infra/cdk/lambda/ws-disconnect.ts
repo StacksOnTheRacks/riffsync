@@ -1,7 +1,7 @@
 import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { broadcastRoomPresence } from './ws-shared';
+import { broadcastRoomPresenceWithGsiRetry } from './ws-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -29,7 +29,9 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   );
 
   if (roomId) {
-    await broadcastRoomPresence({ doc: client, connectionsTable: connTable, roomId }).catch(() => undefined);
+    await broadcastRoomPresenceWithGsiRetry({ doc: client, connectionsTable: connTable, roomId }).catch(
+      () => undefined,
+    );
   }
 
   return { statusCode: 200, body: 'Disconnected' };

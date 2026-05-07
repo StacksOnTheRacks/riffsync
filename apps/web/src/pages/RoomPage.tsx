@@ -40,7 +40,7 @@ import {
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
-type ChatMsg = { sessionId: string; text: string; ts: number }
+type ChatMsg = { sessionId: string; text: string; ts: number; displayName?: string }
 
 type PresenceMember = {
   sessionId: string
@@ -141,6 +141,9 @@ export function RoomPage() {
   const wsBase = getPublicWsUrl()
   const fanToken = getFanAccessToken()
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
+
+  /** Prefer the room document id so WebSocket presence matches server fan-out even if the route param differed. */
+  const canonicalRoomId = useMemo(() => room?.roomId ?? roomId, [room?.roomId, roomId])
 
   useEffect(() => {
     guestRemoteRef.current = guestRemote
@@ -248,7 +251,7 @@ export function RoomPage() {
   }, [roomId])
 
   const peopleShown = useMemo(() => {
-    const roster = presenceRoster.roomId === roomId ? presenceRoster.members : []
+    const roster = presenceRoster.roomId === canonicalRoomId ? presenceRoster.members : []
     const merged = new Map<string, PresenceMember>()
     for (const m of roster) {
       merged.set(m.sessionId, m)
@@ -261,7 +264,7 @@ export function RoomPage() {
       return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
     })
     return list
-  }, [presenceRoster.members, presenceRoster.roomId, roomId, sessionId, displayName, isPublisher])
+  }, [presenceRoster.members, presenceRoster.roomId, canonicalRoomId, sessionId, displayName, isPublisher])
 
   const chatMemberLabels = useMemo(() => {
     const m = new Map<string, string>()
@@ -382,18 +385,20 @@ export function RoomPage() {
       const t = data.type
       if (t === 'chat' && typeof data.sessionId === 'string' && typeof data.text === 'string') {
         const ts = typeof data.ts === 'number' ? data.ts : Date.now()
+        const dn = typeof data.displayName === 'string' ? data.displayName : undefined
         setChat((prev) => [
           ...prev,
           {
             sessionId: data.sessionId as string,
             text: String(data.text),
             ts,
+            ...(dn !== undefined && dn !== '' ? { displayName: dn } : {}),
           },
         ])
         return
       }
       if (t === 'presence' && typeof data.roomId === 'string') {
-        if (data.roomId !== roomId) return
+        if (data.roomId !== canonicalRoomId) return
         const raw = data.members
         if (!Array.isArray(raw)) return
         const members: PresenceMember[] = []
@@ -458,16 +463,16 @@ export function RoomPage() {
         .catch(() => undefined)
       return
     },
-    [captureStream, getIceServers, guestSignalingRefs, isPublisher, roomId, sessionId],
+    [captureStream, getIceServers, guestSignalingRefs, isPublisher, canonicalRoomId, sessionId],
   )
 
   const { status: wsStatus, sendJson: wsSendJson } = useRoomWebSocket({
     url: wsBase,
-    roomId,
+    roomId: canonicalRoomId,
     sessionId,
     displayName,
     accessToken: isPublisher ? fanToken : null,
-    enabled: Boolean(wsBase && roomId && room),
+    enabled: Boolean(wsBase && canonicalRoomId && room),
     onMessage: onWsMessage,
   })
 
@@ -1082,7 +1087,10 @@ export function RoomPage() {
                     {chat.map((m) => (
                       <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
                         <span className="riffsync-room-chat-log__who">
-                          {chatMemberLabels.get(m.sessionId) ?? `${m.sessionId.slice(0, 6)}…`}
+                          {(m.displayName && m.displayName.trim() !== ''
+                            ? m.displayName
+                            : chatMemberLabels.get(m.sessionId)) ??
+                            `${m.sessionId.slice(0, 6)}…`}
                         </span>
                         {': '}
                         {m.text}

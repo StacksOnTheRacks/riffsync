@@ -2,7 +2,7 @@ import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyAccessToken } from './cognito-jwt';
-import { broadcastRoomPresence } from './ws-shared';
+import { broadcastRoomPresenceWithGsiRetry } from './ws-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -113,7 +113,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     }),
   );
 
-  await broadcastRoomPresence({ doc: client, connectionsTable: connTable, roomId }).catch(() => undefined);
+  await broadcastRoomPresenceWithGsiRetry({ doc: client, connectionsTable: connTable, roomId }).catch(() => undefined);
 
   return { statusCode: 200, body: 'Connected' };
 };

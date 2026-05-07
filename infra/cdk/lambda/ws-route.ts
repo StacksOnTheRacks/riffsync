@@ -11,7 +11,12 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { TextEncoder } from 'node:util';
 import { lobbySortKey, LOBBY_PARTITION } from './room-shared';
-import { postToConnections, queryConnectionsForRoom, wsManagementClient } from './ws-shared';
+import {
+  postToConnections,
+  presenceDisplayNameForSession,
+  queryConnectionsForRoom,
+  wsManagementClient,
+} from './ws-shared';
 
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const encoder = new TextEncoder();
@@ -110,10 +115,12 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     }
     const mgmt = wsManagementClient();
     const ids = await queryConnectionsForRoom(doc, connTable, roomId);
+    const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
     const out = {
       type: 'chat',
       roomId,
       sessionId,
+      displayName,
       text,
       ts: Date.now(),
     };

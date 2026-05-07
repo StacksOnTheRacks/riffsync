@@ -28,8 +28,17 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 ### Chat
 
 ```json
-{ "type": "chat", "roomId": "<id>", "sessionId": "<sender>", "text": "…", "ts": 0 }
+{
+  "type": "chat",
+  "roomId": "<id>",
+  "sessionId": "<sender>",
+  "displayName": "…",
+  "text": "…",
+  "ts": 0
+}
 ```
+
+**`displayName`** matches the sender’s connections-row label (same rules as roster: optional nickname from **`$connect`**, else **`Guest (sessionId-prefix…)`**).
 
 ### Presence (roster snapshot)
 

@@ -110,6 +110,14 @@ function guestLabelFallback(sessionId: string): string {
   return sessionId.length > 8 ? `Guest (${sessionId.slice(0, 8)}…)` : 'Guest';
 }
 
+/** Same rules as roster rows: explicit `displayName` from `$connect`, else `Guest (…)` from `sessionId`. */
+export function presenceDisplayNameForSession(sessionId: string, displayNameAttr: unknown): string {
+  if (typeof displayNameAttr === 'string' && displayNameAttr.trim() !== '') {
+    return displayNameAttr.trim().slice(0, 48);
+  }
+  return guestLabelFallback(sessionId);
+}
+
 /** Collapse multiple connections that share `sessionId` (e.g. two tabs): host flag dominates; keep a stable label. */
 export function rosterFromConnectionItems(items: readonly Record<string, unknown>[]): PresenceBroadcastMember[] {
   const merged = new Map<string, PresenceBroadcastMember>();
@@ -118,10 +126,7 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
     const sessionId = typeof it.sessionId === 'string' ? it.sessionId : '';
     if (sessionId === '') continue;
     const isHostConn = typeof it.hostSub === 'string' && (it.hostSub as string).length > 0;
-    let label =
-      typeof it.displayName === 'string' && it.displayName.trim() !== ''
-        ? it.displayName.trim().slice(0, 48)
-        : guestLabelFallback(sessionId);
+    let label = presenceDisplayNameForSession(sessionId, it.displayName);
 
     const cur = merged.get(sessionId);
     if (!cur) {
@@ -172,4 +177,20 @@ export async function broadcastRoomPresence(params: {
   } catch {
     console.warn(JSON.stringify({ riffsyncDiag: 'broadcast_presence_failed', roomIdHead: roomId.slice(0, 8) }));
   }
+}
+
+/**
+ * `RoomConnectionsRosterIndex` is eventually consistent; a Query right after Put/Delete can omit rows or
+ * include stale ones. A second fan-out after a short delay converges rosters so all tabs see the same list.
+ */
+const ROSTER_GSI_RETRY_MS = 800;
+
+export async function broadcastRoomPresenceWithGsiRetry(params: {
+  doc: DynamoDBDocumentClient;
+  connectionsTable: string;
+  roomId: string;
+}): Promise<void> {
+  await broadcastRoomPresence(params);
+  await new Promise((r) => setTimeout(r, ROSTER_GSI_RETRY_MS));
+  await broadcastRoomPresence(params);
 }
