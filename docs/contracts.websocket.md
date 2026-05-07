@@ -15,11 +15,12 @@ Malformed or mismatched JWT → **`403`**; missing room/session → **`400`**.
 
 ## Route selection (`$request.body.action`)
 
-Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `chat`, `signaling`). **`$default`** maps **`body.action`** when the route selector misses.
+Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, `signaling`). **`$default`** maps **`body.action`** when the route selector misses.
 
 | **`action`** | Purpose | Auth |
 | --- | --- | --- |
 | **`ping`** | Heartbeat — bumps **`lastActivityAt`** (and **`lobbySk`** when room is **`public`**). | **Guest OK** once connected. |
+| **`presence_request`** | Ask the server to fan out a fresh **`presence`** roster snapshot to **all** connections in this room (no body). Use after connect/reconnect or when the UI suspects a stale roster; idempotent. | **Guest OK** once connected. |
 | **`chat`** | Fan-out text to sockets in **`roomId`**. | Guests + host. Body: **`text`** (**required**, ≤ 2000 chars). |
 | **`signaling`** | WebRTC relay to peers (`**envelope`** JSON). | **Host:** publisher **`JWT`** on **`$connect`**. **Guest:** only **`guestSignaling`** with **`kind`** **`ready`**, **`answer`**, or **`ice`** (see below). |
 
@@ -42,7 +43,7 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 
 ### Presence (roster snapshot)
 
-Broadcast to **every** connection in **`roomId`** whenever the connection roster changes (**`$connect`** / **`$disconnect`**). Clients should **replace** local roster UI with **`members`**.
+Broadcast to **every** connection in **`roomId`** whenever the connection roster changes (**`$connect`** / **`$disconnect`**) or when any client sends **`presence_request`**. Clients should **replace** local roster UI with **`members`**.
 
 Optional **`displayName`** on **`$connect`** exists only on the WebSocket connections row until disconnect.
 

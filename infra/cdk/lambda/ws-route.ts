@@ -12,6 +12,7 @@ import {
 import { TextEncoder } from 'node:util';
 import { lobbySortKey, LOBBY_PARTITION } from './room-shared';
 import {
+  broadcastRoomPresence,
   postToConnections,
   presenceDisplayNameForSession,
   queryConnectionsForRoom,
@@ -105,6 +106,11 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
         ExpressionAttributeValues: values,
       }),
     );
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  if (routeKey === 'presence_request') {
+    await broadcastRoomPresence({ doc, connectionsTable: connTable, roomId }).catch(() => undefined);
     return { statusCode: 200, body: 'OK' };
   }
 

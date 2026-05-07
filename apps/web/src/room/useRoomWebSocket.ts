@@ -115,6 +115,9 @@ export function useRoomWebSocket(options: {
         setStatus('open')
         recordWsOpen()
         if (webrtcDebugEnabled()) webrtcLog('ws open')
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: 'presence_request' }))
+        }
         const ping = () => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ action: 'ping' }))
