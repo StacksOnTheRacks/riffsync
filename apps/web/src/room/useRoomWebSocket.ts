@@ -135,6 +135,13 @@ export function useRoomWebSocket(options: {
       })
 
       ws.addEventListener('close', (ev) => {
+        // Only the active socket may clear refs / schedule reconnect. A late `close` from a
+        // replaced socket (effect re-run, JWT query change) would otherwise null `wsRef` while
+        // the new socket is still OPEN — inbound `message` works but outbound ICE/signaling drops
+        // with readyState -1 in diagnostics.
+        if (wsRef.current !== ws) {
+          return
+        }
         clearPing()
         wsRef.current = null
         recordWsClose(ev.code, ev.reason !== '' ? ev.reason : undefined)
