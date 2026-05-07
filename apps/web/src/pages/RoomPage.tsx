@@ -272,12 +272,6 @@ export function RoomPage() {
   }, [peopleShown])
 
   useEffect(() => {
-    if (!fanToken && roomSidebarTab === 'profile') {
-      setRoomSidebarTab('chat')
-    }
-  }, [fanToken, roomSidebarTab])
-
-  useEffect(() => {
     if (!fanToken) return
     let cancelled = false
     void fetchFanProfile(fanToken)
@@ -893,6 +887,9 @@ export function RoomPage() {
   const nowPlayingLabel = room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId
   const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
   const viewerCount = peopleShown.length
+  /** Signed-out users cannot see Profile; avoid orphan tab selection without setState-in-effect. */
+  const activeSidebarTab =
+    !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
 
   const guestVideoStatusSentence =
     !isPublisher ?
@@ -1044,24 +1041,24 @@ export function RoomPage() {
                 <div className="riffsync-room-page__tabs">
                   <button
                     type="button"
-                    className={`riffsync-room-page__tab${roomSidebarTab === 'chat' ? ' riffsync-room-page__tab--on' : ''}`}
-                    aria-pressed={roomSidebarTab === 'chat'}
+                    className={`riffsync-room-page__tab${activeSidebarTab === 'chat' ? ' riffsync-room-page__tab--on' : ''}`}
+                    aria-pressed={activeSidebarTab === 'chat'}
                     onClick={() => setRoomSidebarTab('chat')}
                   >
                     Chat
                   </button>
                   <button
                     type="button"
-                    className={`riffsync-room-page__tab${roomSidebarTab === 'people' ? ' riffsync-room-page__tab--on' : ''}`}
-                    aria-pressed={roomSidebarTab === 'people'}
+                    className={`riffsync-room-page__tab${activeSidebarTab === 'people' ? ' riffsync-room-page__tab--on' : ''}`}
+                    aria-pressed={activeSidebarTab === 'people'}
                     onClick={() => setRoomSidebarTab('people')}
                   >
                     People ({viewerCount})
                   </button>
                   <button
                     type="button"
-                    className={`riffsync-room-page__tab${roomSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
-                    aria-pressed={roomSidebarTab === 'room'}
+                    className={`riffsync-room-page__tab${activeSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
+                    aria-pressed={activeSidebarTab === 'room'}
                     onClick={() => setRoomSidebarTab('room')}
                   >
                     Room
@@ -1069,8 +1066,8 @@ export function RoomPage() {
                   {fanToken ? (
                     <button
                       type="button"
-                      className={`riffsync-room-page__tab${roomSidebarTab === 'profile' ? ' riffsync-room-page__tab--on' : ''}`}
-                      aria-pressed={roomSidebarTab === 'profile'}
+                      className={`riffsync-room-page__tab${activeSidebarTab === 'profile' ? ' riffsync-room-page__tab--on' : ''}`}
+                      aria-pressed={activeSidebarTab === 'profile'}
                       onClick={() => setRoomSidebarTab('profile')}
                     >
                       Profile
@@ -1079,7 +1076,7 @@ export function RoomPage() {
                 </div>
               </div>
 
-              {roomSidebarTab === 'chat' ? (
+              {activeSidebarTab === 'chat' ? (
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
                   <ul className="riffsync-room-chat-log">
                     {chat.map((m) => (
@@ -1133,7 +1130,7 @@ export function RoomPage() {
                   </div>
                 </div>
               ) : null}
-              {roomSidebarTab === 'people' ? (
+              {activeSidebarTab === 'people' ? (
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
                   <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
                     {peopleShown.map((p) => (
@@ -1161,7 +1158,7 @@ export function RoomPage() {
                   </ul>
                 </div>
               ) : null}
-              {roomSidebarTab === 'room' ? (
+              {activeSidebarTab === 'room' ? (
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__room-panel">
                   <button type="button" className="gen-button gen-button-wide" onClick={() => void copyShare()}>
                     Copy room link
@@ -1179,7 +1176,7 @@ export function RoomPage() {
                   {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
                 </div>
               ) : null}
-              {roomSidebarTab === 'profile' && fanToken ? (
+              {activeSidebarTab === 'profile' ? (
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--profile">
                   <p className="riffsync-muted riffsync-room-page__profile-lede">
                     This name appears in chat, the viewer list, and across devices when you&apos;re signed in.
