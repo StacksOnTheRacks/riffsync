@@ -1,9 +1,9 @@
 name: RiffSync CDK prod setup
-description: Checkout ref, gate on main + OIDC role, AWS creds, npm ci + build (infra/cdk)
+description: Gate on main + OIDC role, AWS creds, npm ci + build (infra/cdk). Caller must run actions/checkout first so local composite actions can resolve.
 
 inputs:
   git_ref:
-    description: Git ref to checkout
+    description: Git ref being built (for main-branch policy gate)
     required: true
   aws_role_arn:
     description: IAM role ARN for GitHub OIDC (repository Variable AWS_DEPLOY_ROLE_ARN_PROD)
@@ -16,10 +16,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.git_ref }}
-
     - name: Require main-aligned ref
       if: ${{ inputs.git_ref != 'main' }}
       shell: bash

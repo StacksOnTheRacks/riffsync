@@ -42,6 +42,10 @@ jobs:
     name: CDK prod – TURN (VPC + coturn)
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
       - uses: ./.github/actions/riffsync-cdk-prod-setup
         with:
           git_ref: ${{ github.event.inputs.git_ref }}
@@ -66,6 +70,10 @@ jobs:
     needs: cdk-turn
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
       - uses: ./.github/actions/riffsync-cdk-prod-setup
         with:
           git_ref: ${{ github.event.inputs.git_ref }}
@@ -84,6 +92,10 @@ jobs:
     needs: cdk-platform
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
       - uses: ./.github/actions/riffsync-cdk-prod-setup
         with:
           git_ref: ${{ github.event.inputs.git_ref }}
@@ -102,6 +114,10 @@ jobs:
     needs: cdk-api
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
       - uses: ./.github/actions/riffsync-cdk-prod-setup
         with:
           git_ref: ${{ github.event.inputs.git_ref }}
@@ -120,6 +136,10 @@ jobs:
     needs: cdk-sfu
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
       - uses: ./.github/actions/riffsync-cdk-prod-setup
         with:
           git_ref: ${{ github.event.inputs.git_ref }}
