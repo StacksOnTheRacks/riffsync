@@ -369,8 +369,10 @@ Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`
 | **`PROD_TURN_PORT`** | Optional; overrides default **`3478`**. |
 | **`PROD_TURN_TLS_PORT`** | Optional; e.g. **`5349`** for **`turns:`**. |
 | **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | Optional; TURN username lifetime (default **`43200`**). |
-| **`PROD_SFU_PUBLIC_WS_URL`** | Optional; **`wss://`** URL for fan SPA mediasoup signaling. |
-| **`PROD_SFU_SIGNALING_HOSTNAME`** | Optional; SFU **`A`** record under **`RIFFSYNC_ROUTE53_ZONE_NAME`**. |
+| **`PROD_SFU_PUBLIC_WS_URL`** | Optional; sets CDK **`sfuPublicWsUrl`**. **Overrides** the **`wss://`** default built from **`PROD_SFU_SIGNALING_HOSTNAME`**. For production with Caddy, use the same host as signaling (e.g. **`wss://signal.riffsync.tv`**) or omit this variable so the default is **`wss://<PROD_SFU_SIGNALING_HOSTNAME>`**. Do not use raw **`IP:3000`** for **`wss://`** when the fan site is **`https://`**. |
+| **`PROD_SFU_SIGNALING_HOSTNAME`** | e.g. **`signal.riffsync.tv`** — single label under **`RIFFSYNC_ROUTE53_ZONE_NAME`**. CDK creates **`A`** → SFU EIP and Caddy terminates **`wss://`** on that name. Should match **`PROD_SFU_PUBLIC_WS_URL`** if you set the latter (same host, **`wss://`**). |
+
+**Prod signaling:** set **`PROD_SFU_SIGNALING_HOSTNAME=signal.riffsync.tv`**, and either omit **`PROD_SFU_PUBLIC_WS_URL`** or set **`PROD_SFU_PUBLIC_WS_URL=wss://signal.riffsync.tv`**. Remove any **`sfu.riffsync.tv`** values if you have moved to **`signal`**.
 
 **DNS:** If **`PROD_*_FAN_WEB_HOSTNAME`** (and cert) are set but **`RIFFSYNC_ROUTE53_*`** are **omitted**, the stack **still** attaches custom domains to CloudFront, but it **does not** create or retain Route 53 records — **`FanWebSiteUrl`** will show the custom URL while **`FanWebRoute53AliasRecordCount`** output is **`0`**. A later deploy that drops the zone vars can **remove** previously managed records from the template. Set **both** Route 53 variables whenever you want this stack to own the aliases.
 
