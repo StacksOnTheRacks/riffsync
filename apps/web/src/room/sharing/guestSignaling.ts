@@ -57,6 +57,8 @@ export async function handleGuestSignal(ctx: {
     }
 
     const prev = guestPcRef.current
+    /** If we only `close()` the previous PC, its `closed` handler can still see `guestPcRef === prev` until the new PC is assigned (after `await getIceServers`), and would wipe refs / remote video mid-handshake. */
+    guestPcRef.current = null
     prev?.close()
     if (prev) pendingIceRef.current = []
 
@@ -120,6 +122,7 @@ export async function handleGuestSignal(ctx: {
       lastDedupOfferGenerationRef.current = 0
       ctx.setGuestRemote(null)
     }
+    let sawConnected = false
     pc.onconnectionstatechange = () => {
       if (pc !== guestPcRef.current) return
       const s = pc.connectionState
@@ -132,6 +135,10 @@ export async function handleGuestSignal(ctx: {
         return
       }
       if (s === 'disconnected') {
+        if (!sawConnected) {
+          /* Initial ICE can sit in `disconnected` for a bit; do not tear down before first `connected`. */
+          return
+        }
         clearDisconnectTimer()
         disconnectTimer = globalThis.setTimeout(() => {
           disconnectTimer = null
@@ -144,6 +151,7 @@ export async function handleGuestSignal(ctx: {
         return
       }
       if (s === 'connected') {
+        sawConnected = true
         clearDisconnectTimer()
       }
     }
