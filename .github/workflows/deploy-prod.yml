@@ -2,9 +2,10 @@ name: Deploy CDK (production)
 
 # Policy: **`main` → production** (manual). See `.forge/operations/deployment_environments.md`.
 #
-# Stacks deploy in **sequential jobs** so media (TURN + SFU) and platform (auth, static, SES)
-# exist before **RiffSyncApi-prod**, and **Api** uses `--exclusively` so CDK does not reorder
-# ahead of that dependency graph (useful when breaking stale cross-stack exports).
+# Stacks deploy in **sequential jobs**: **TURN** and **platform** (fan auth, static, SES) before
+# **RiffSyncApi-prod --exclusively**, then **SFU**. SFU must not run before the **API** stack has
+# applied a template that drops stale **Fn::ImportValue** links to the SFU stack (or the SFU job
+# can fail with "export … is in use by RiffSyncApi-prod").
 on:
   workflow_dispatch:
     inputs:
@@ -37,8 +38,8 @@ env:
   PROD_SFU_SIGNALING_HOSTNAME: ${{ vars.PROD_SFU_SIGNALING_HOSTNAME }}
 
 jobs:
-  cdk-media:
-    name: CDK prod – Turn + SFU
+  cdk-turn:
+    name: CDK prod – TURN (VPC + coturn)
     runs-on: ubuntu-latest
     steps:
       - uses: ./.github/actions/riffsync-cdk-prod-setup
@@ -53,16 +54,16 @@ jobs:
             echo "::notice::RiffSync: RIFFSYNC_ROUTE53_HOSTED_ZONE_ID / RIFFSYNC_ROUTE53_ZONE_NAME unset — static stack will not create Route 53 aliases (FanWebRoute53AliasRecordCount will be 0)."
           fi
 
-      - name: Deploy RiffSyncTurn then RiffSyncSfu
+      - name: Deploy RiffSyncTurn
         working-directory: infra/cdk
         run: |
           set -euo pipefail
           mapfile -t CDK_CTX < <(bash scripts/cdk-prod-context-args.sh)
-          npx cdk deploy RiffSyncTurn RiffSyncSfu "${CDK_CTX[@]}" --require-approval never
+          npx cdk deploy RiffSyncTurn "${CDK_CTX[@]}" --require-approval never
 
   cdk-platform:
     name: CDK prod – Fan auth, static site, SES inbound
-    needs: cdk-media
+    needs: cdk-turn
     runs-on: ubuntu-latest
     steps:
       - uses: ./.github/actions/riffsync-cdk-prod-setup
@@ -96,9 +97,27 @@ jobs:
           mapfile -t CDK_CTX < <(bash scripts/cdk-prod-context-args.sh)
           npx cdk deploy RiffSyncApi-prod --exclusively "${CDK_CTX[@]}" --require-approval never
 
+  cdk-sfu:
+    name: CDK prod – SFU (mediasoup; after API drops cross-stack imports)
+    needs: cdk-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/riffsync-cdk-prod-setup
+        with:
+          git_ref: ${{ github.event.inputs.git_ref }}
+          aws_role_arn: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
+          aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy RiffSyncSfu
+        working-directory: infra/cdk
+        run: |
+          set -euo pipefail
+          mapfile -t CDK_CTX < <(bash scripts/cdk-prod-context-args.sh)
+          npx cdk deploy RiffSyncSfu "${CDK_CTX[@]}" --require-approval never
+
   cdk-oauth-cors:
     name: CDK prod – Cognito OAuth + API CORS from CloudFront URL
-    needs: cdk-api
+    needs: cdk-sfu
     runs-on: ubuntu-latest
     steps:
       - uses: ./.github/actions/riffsync-cdk-prod-setup

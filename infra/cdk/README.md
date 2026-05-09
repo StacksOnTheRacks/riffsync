@@ -153,7 +153,7 @@ Designed for **one AWS account** hosting **`RiffSyncApi-prod`**: a **singleton**
 
 **Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncTurn`** is created **before** **`RiffSyncApi-prod`**; the API stack **depends on** **`RiffSyncTurn`** so the secret exists before Lambdas reference it.
 
-**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **`cdk deploy`** in **sequence** (Turn + SFU, then fan auth + static + SES, then **`RiffSyncApi-prod --exclusively`**, then OAuth/CORS + API again from **`FanWebSiteUrl`**), so **`RiffSyncTurn`** is included on **every** run (usually a no-op after the first). For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses **`AWS_DEPLOY_ROLE_ARN_PROD`**).
+**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **`cdk deploy`** in **sequence** (Turn, then fan auth + static + SES, **`RiffSyncApi-prod --exclusively`**, **SFU**, then OAuth/CORS + API again from **`FanWebSiteUrl`**). **SFU runs after API** so CloudFormation can drop stale SFU exports before the SFU stack updates. For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses **`AWS_DEPLOY_ROLE_ARN_PROD`**).
 
 **Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`** (Turn stack only; duplicating this output on API stacks triggers CloudFormation lint **W6001** when the value is a cross-stack import).
 
