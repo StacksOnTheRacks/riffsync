@@ -102,15 +102,9 @@ export async function handleGuestSignal(ctx: {
       })
     }
 
-    let disconnectTimer: ReturnType<typeof setTimeout> | null = null
-    const clearDisconnectTimer = () => {
-      if (disconnectTimer !== null) {
-        clearTimeout(disconnectTimer)
-        disconnectTimer = null
-      }
-    }
-    const teardownGuestPeer = () => {
-      clearDisconnectTimer()
+    pc.onconnectionstatechange = () => {
+      if (pc !== guestPcRef.current) return
+      if (pc.connectionState !== 'failed') return
       pendingIceRef.current = []
       guestPcRef.current = null
       try {
@@ -121,39 +115,6 @@ export async function handleGuestSignal(ctx: {
       acceptedOfferShareGenerationRef.current = 0
       lastDedupOfferGenerationRef.current = 0
       ctx.setGuestRemote(null)
-    }
-    let sawConnected = false
-    pc.onconnectionstatechange = () => {
-      if (pc !== guestPcRef.current) return
-      const s = pc.connectionState
-      if (s === 'failed') {
-        teardownGuestPeer()
-        return
-      }
-      if (s === 'closed') {
-        teardownGuestPeer()
-        return
-      }
-      if (s === 'disconnected') {
-        if (!sawConnected) {
-          /* Initial ICE can sit in `disconnected` for a bit; do not tear down before first `connected`. */
-          return
-        }
-        clearDisconnectTimer()
-        disconnectTimer = globalThis.setTimeout(() => {
-          disconnectTimer = null
-          if (pc !== guestPcRef.current) return
-          const cur = guestPcRef.current
-          if (!cur) return
-          if (cur.connectionState === 'connected' || cur.connectionState === 'connecting') return
-          teardownGuestPeer()
-        }, 1500)
-        return
-      }
-      if (s === 'connected') {
-        sawConnected = true
-        clearDisconnectTimer()
-      }
     }
 
     try {
