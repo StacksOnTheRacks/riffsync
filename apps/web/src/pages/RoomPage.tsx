@@ -37,12 +37,9 @@ import {
   webrtcDebugEnabled,
   webrtcLog,
 } from '../room/webrtcDebug'
-import { fetchSfuJoinToken } from '../api/webrtcSfuApi'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
-import { getPublicSfuWsUrl } from '../config/sfuWsUrl'
-import { connectSfuConsumer, connectSfuProducer } from '../room/sfu/mediasoupSharing'
-
-const USE_MEDIASOU_SFU = import.meta.env.VITE_WEBRTC_USE_MEDIASOU_SFU === 'true'
+import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/mediasoupSfuFeature'
+import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
@@ -94,6 +91,7 @@ export function RoomPage() {
   const [patchErr, setPatchErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [captureErr, setCaptureErr] = useState<string | null>(null)
+  const [sfuRoomErr, setSfuRoomErr] = useState<string | null>(null)
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
   const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
   const [guestPlayHint, setGuestPlayHint] = useState(false)
@@ -129,6 +127,7 @@ export function RoomPage() {
   const guestRemoteRef = useRef<MediaStream | null>(null)
   const shareGenerationRef = useRef(0)
   const hostLastOfferGenByGuestRef = useRef(new Map<string, number>())
+  const hostNegotiationMilestoneMsByGuestRef = useRef(new Map<string, number>())
   const acceptedOfferShareGenerationRef = useRef(0)
   const lastDedupOfferGenerationRef = useRef(0)
   const sfuSessionRef = useRef<{ close: () => void } | null>(null)
@@ -151,6 +150,8 @@ export function RoomPage() {
 
   /** Prefer the room document id so WebSocket presence matches server fan-out even if the route param differed. */
   const canonicalRoomId = useMemo(() => room?.roomId ?? roomId, [room?.roomId, roomId])
+  const sfuEnabled = isMediasoupSfuEnabled()
+  const meshUnsupportedProdBuild = import.meta.env.PROD && isMeshWatchPartyMediaEnabled()
 
   useEffect(() => {
     guestRemoteRef.current = guestRemote
@@ -168,7 +169,7 @@ export function RoomPage() {
       guestInboundHealthRef.current = false
       return undefined
     }
-    if (USE_MEDIASOU_SFU) {
+    if (sfuEnabled) {
       queueMicrotask(() => {
         const liveVideos =
           guestRemote?.getTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
@@ -193,14 +194,14 @@ export function RoomPage() {
         }),
       )
     })
-  }, [guestRemote, guestFsmPollTick, isPublisher])
+  }, [guestRemote, guestFsmPollTick, isPublisher, sfuEnabled])
 
   useEffect(() => {
     if (isPublisher) {
       guestInboundHealthRef.current = false
       return undefined
     }
-    if (USE_MEDIASOU_SFU) {
+    if (sfuEnabled) {
       let cancelled = false
       const tick = (): void => {
         const s = guestRemoteRef.current
@@ -232,7 +233,7 @@ export function RoomPage() {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [isPublisher])
+  }, [isPublisher, sfuEnabled])
 
   useEffect(() => {
     announceWebrtcDebugOnRoomMount()
@@ -274,6 +275,7 @@ export function RoomPage() {
     hostSigQRef.current = Promise.resolve()
     hostPendingGuestIceRef.current.clear()
     hostLastOfferGenByGuestRef.current.clear()
+    hostNegotiationMilestoneMsByGuestRef.current.clear()
     shareGenerationRef.current = 0
     acceptedOfferShareGenerationRef.current = 0
     lastDedupOfferGenerationRef.current = 0
@@ -464,7 +466,7 @@ export function RoomPage() {
         setGuestRemote(null)
         return
       }
-      if (t !== 'signaling' || USE_MEDIASOU_SFU) return
+      if (t !== 'signaling' || sfuEnabled) return
 
       const fromSessionId = typeof data.fromSessionId === 'string' ? data.fromSessionId : ''
       const role = data.role
@@ -510,12 +512,13 @@ export function RoomPage() {
             pendingGuestIceRef: hostPendingGuestIceRef,
             shareGenerationRef,
             hostLastOfferGenByGuestRef,
+            hostNegotiationMilestoneMsByGuestRef,
           }).catch(() => undefined),
         )
         .catch(() => undefined)
       return
     },
-    [captureStream, getIceServers, guestSignalingRefs, isPublisher, canonicalRoomId, sessionId],
+    [captureStream, getIceServers, guestSignalingRefs, isPublisher, canonicalRoomId, sessionId, sfuEnabled],
   )
 
   const { status: wsStatus, sendJson: wsSendJson } = useRoomWebSocket({
@@ -558,6 +561,7 @@ export function RoomPage() {
     const pend = pendingReadyGuestsRef.current
     const pendingIceByGuest = hostPendingGuestIceRef.current
     const offerGenByGuest = hostLastOfferGenByGuestRef.current
+    const milestoneByGuest = hostNegotiationMilestoneMsByGuestRef.current
     return () => {
       for (const pc of peerMap.values()) {
         pc.close()
@@ -566,6 +570,7 @@ export function RoomPage() {
       pend.clear()
       pendingIceByGuest.clear()
       offerGenByGuest.clear()
+      milestoneByGuest.clear()
     }
   }, [isPublisher])
 
@@ -575,7 +580,7 @@ export function RoomPage() {
    * the stream is cleared or replaced (fast re-arm after loss).
    */
   useEffect(() => {
-    if (USE_MEDIASOU_SFU || isPublisher || wsStatus !== 'open') return
+    if (sfuEnabled || isPublisher || wsStatus !== 'open') return
     let cancelled = false
     let tid: number | null = null
     let delayMs = GUEST_READY_BASE_MS
@@ -623,7 +628,7 @@ export function RoomPage() {
       cancelled = true
       clear()
     }
-  }, [isPublisher, wsStatus, guestRemote])
+  }, [isPublisher, wsStatus, guestRemote, sfuEnabled])
 
   useEffect(() => {
     if (!guestRemote || isPublisher) return
@@ -653,7 +658,7 @@ export function RoomPage() {
   }, [guestRemote, isPublisher])
 
   useEffect(() => {
-    if (USE_MEDIASOU_SFU || !captureStream || !isPublisher || wsStatus !== 'open') return
+    if (sfuEnabled || !captureStream || !isPublisher || wsStatus !== 'open') return
     void flushHostPending({
       captureStream,
       getIceServers,
@@ -663,84 +668,62 @@ export function RoomPage() {
       pendingGuestIceRef: hostPendingGuestIceRef,
       shareGenerationRef,
       hostLastOfferGenByGuestRef,
+      hostNegotiationMilestoneMsByGuestRef,
     }).catch(() => undefined)
-  }, [captureStream, getIceServers, isPublisher, wsStatus])
+  }, [captureStream, getIceServers, isPublisher, wsStatus, sfuEnabled])
 
   useEffect(() => {
-    if (!USE_MEDIASOU_SFU || !isPublisher || !captureStream || wsStatus !== 'open') return
+    if (!sfuEnabled || !isPublisher || !captureStream || wsStatus !== 'open') return
     const api = getPublicApiBaseUrl()
-    const configuredWs = getPublicSfuWsUrl()
     if (!api || !canonicalRoomId) return
-    let cancelled = false
-    void (async () => {
-      try {
-        const tok = await fetchSfuJoinToken({
-          apiBaseUrl: api,
-          roomId: canonicalRoomId,
-          sessionId,
-          accessToken: fanToken,
-        })
-        if (cancelled || tok.role !== 'producer') return
-        const wsUrl = tok.wsUrl ?? configuredWs
-        if (!wsUrl) {
-          console.warn('[riffsync] SFU: set VITE_PUBLIC_SFU_WS_URL or CDK context sfuPublicWsUrl')
-          return
-        }
-        sfuSessionRef.current?.close()
-        sfuSessionRef.current = await connectSfuProducer({
-          wsBaseUrl: wsUrl,
-          token: tok.token,
-          captureStream,
-          getIceServers,
-        })
-      } catch (e) {
-        console.warn('[riffsync] SFU producer error', e)
-      }
-    })()
-    return () => {
-      cancelled = true
-      sfuSessionRef.current?.close()
-      sfuSessionRef.current = null
-    }
-  }, [isPublisher, captureStream, wsStatus, canonicalRoomId, sessionId, fanToken, getIceServers])
+
+    const sfuMissingWsCopy =
+      'Video relay URL is missing. Set VITE_PUBLIC_SFU_WS_URL when building the fan app, or ensure POST /v1/webrtc/sfu-token returns wsUrl (CDK context sfuPublicWsUrl).'
+
+    const { cancel } = startSfuRoomSession({
+      role: 'producer',
+      apiBaseUrl: api,
+      roomId: canonicalRoomId,
+      sessionId,
+      accessToken: fanToken,
+      captureStream,
+      getIceServers,
+      assignSession: (s) => {
+        sfuSessionRef.current = s
+      },
+      onMissingWsUrl: () => setSfuRoomErr(sfuMissingWsCopy),
+      onTokenError: (msg) => setSfuRoomErr(msg),
+      onMediaError: (_code, msg) => setSfuRoomErr(msg),
+      onConnecting: () => setSfuRoomErr(null),
+    })
+    return cancel
+  }, [sfuEnabled, isPublisher, captureStream, wsStatus, canonicalRoomId, sessionId, fanToken, getIceServers])
 
   useEffect(() => {
-    if (!USE_MEDIASOU_SFU || isPublisher || wsStatus !== 'open') return
+    if (!sfuEnabled || isPublisher || wsStatus !== 'open') return
     const api = getPublicApiBaseUrl()
-    const configuredWs = getPublicSfuWsUrl()
     if (!api || !canonicalRoomId) return
-    let cancelled = false
-    void (async () => {
-      try {
-        const tok = await fetchSfuJoinToken({
-          apiBaseUrl: api,
-          roomId: canonicalRoomId,
-          sessionId,
-          accessToken: null,
-        })
-        if (cancelled || tok.role !== 'consumer') return
-        const wsUrl = tok.wsUrl ?? configuredWs
-        if (!wsUrl) {
-          console.warn('[riffsync] SFU: set VITE_PUBLIC_SFU_WS_URL or CDK context sfuPublicWsUrl')
-          return
-        }
-        sfuSessionRef.current?.close()
-        sfuSessionRef.current = await connectSfuConsumer({
-          wsBaseUrl: wsUrl,
-          token: tok.token,
-          getIceServers,
-          onRemoteStream: setGuestRemote,
-        })
-      } catch (e) {
-        console.warn('[riffsync] SFU consumer error', e)
-      }
-    })()
-    return () => {
-      cancelled = true
-      sfuSessionRef.current?.close()
-      sfuSessionRef.current = null
-    }
-  }, [isPublisher, wsStatus, canonicalRoomId, sessionId, getIceServers])
+
+    const sfuMissingWsCopy =
+      'Video relay URL is missing. Set VITE_PUBLIC_SFU_WS_URL when building the fan app, or ensure POST /v1/webrtc/sfu-token returns wsUrl (CDK context sfuPublicWsUrl).'
+
+    const { cancel } = startSfuRoomSession({
+      role: 'consumer',
+      apiBaseUrl: api,
+      roomId: canonicalRoomId,
+      sessionId,
+      getIceServers,
+      onRemoteStream: setGuestRemote,
+      assignSession: (s) => {
+        sfuSessionRef.current = s
+      },
+      onMissingWsUrl: () => setSfuRoomErr(sfuMissingWsCopy),
+      onTokenError: (msg) => setSfuRoomErr(msg),
+      onMediaError: (_code, msg) => setSfuRoomErr(msg),
+      onConnecting: () => setSfuRoomErr(null),
+    })
+    return cancel
+  }, [sfuEnabled, isPublisher, wsStatus, canonicalRoomId, sessionId, getIceServers])
 
   useEffect(() => {
     if (isPublisher) return
@@ -805,6 +788,7 @@ export function RoomPage() {
     })
     shareGenerationRef.current = 0
     hostLastOfferGenByGuestRef.current.clear()
+    hostNegotiationMilestoneMsByGuestRef.current.clear()
     sfuSessionRef.current?.close()
     sfuSessionRef.current = null
     setCaptureStream((prev) => {
@@ -1065,6 +1049,19 @@ export function RoomPage() {
       ) : null}
 
       <div className="container riffsync-room-page">
+        {meshUnsupportedProdBuild ? (
+          <p className="riffsync-room-page__ws-banner riffsync-muted" role="status">
+            This production build uses peer-to-peer mesh for watch-party video. That path is not supported for real
+            parties. Use the mediasoup SFU instead: leave <code>VITE_WEBRTC_USE_MEDIASOU_SFU</code> unset (defaults to
+            on in production) or set it to <code>true</code>, deploy <code>RiffSyncSfu</code>, and set{' '}
+            <code>VITE_PUBLIC_SFU_WS_URL</code> at build time.
+          </p>
+        ) : null}
+        {sfuEnabled && sfuRoomErr ? (
+          <p className="riffsync-room-page__host-feedback-alert" role="alert">
+            {sfuRoomErr}
+          </p>
+        ) : null}
         <div className="riffsync-room-page__stage">
           <div className="riffsync-room-page__theater">
             {isPublisher ? (

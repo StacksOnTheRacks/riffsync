@@ -13,9 +13,11 @@ import {
   attachTransportHandlers,
   closeSessionTransports,
   getOrCreateRoom,
+  getMediasoupHealthSnapshot,
   listProducerSummaries,
   removeProducer,
   roomKeyFromClaims,
+  shutdownMediasoup,
   transportListenIps,
   upsertProducer,
   verifySfuJoinToken,
@@ -25,9 +27,26 @@ import type { SfuJoinClaims } from './jwt.js';
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const JWT_SECRET = process.env.SFU_JWT_SECRET?.trim() ?? '';
+const MAX_TRANSPORTS = Math.max(1, Number.parseInt(process.env.SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION ?? '8', 10));
+const MAX_CONSUMERS = Math.max(1, Number.parseInt(process.env.SFU_MAX_CONSUMERS_PER_SESSION ?? '64', 10));
+
+function logJson(
+  level: 'info' | 'warn' | 'error',
+  msg: string,
+  fields: Record<string, unknown> | undefined,
+): void {
+  const row: Record<string, unknown> = { ts: new Date().toISOString(), level, msg, ...fields };
+  if (level === 'error') {
+    console.error(JSON.stringify(row));
+    return;
+  }
+  console.log(JSON.stringify(row));
+}
 
 type RoomSubscriber = { sessionId: string; ws: WebSocket };
 const subscribersByRoom = new Map<string, Set<RoomSubscriber>>();
+const liveSockets = new Set<WebSocket>();
+let acceptingUpgrades = true;
 
 function subscribersFor(roomKey: string): Set<RoomSubscriber> {
   let s = subscribersByRoom.get(roomKey);
@@ -93,13 +112,26 @@ type PendingSession = {
 
 function run(): void {
   if (!JWT_SECRET) {
-    console.error('SFU_JWT_SECRET is required');
+    console.error(JSON.stringify({ ts: new Date().toISOString(), level: 'error', msg: 'SFU_JWT_SECRET is required' }));
     process.exit(1);
   }
 
   const server = http.createServer((req, res) => {
     if (req.url === '/health' || req.url === '/healthz') {
-      res.writeHead(200, { 'content-type': 'text/plain' });
+      if (req.url === '/healthz') {
+        const snap = getMediasoupHealthSnapshot();
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(
+          JSON.stringify({
+            ok: true,
+            workerAlive: snap.workerAlive,
+            routerRoomCount: snap.roomCount,
+            signalingConnections: liveSockets.size,
+          }),
+        );
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
       res.end('ok');
       return;
     }
@@ -110,6 +142,11 @@ function run(): void {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (req, socket, head) => {
+    if (!acceptingUpgrades) {
+      socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
+      socket.destroy();
+      return;
+    }
     const host = req.headers.host ?? 'localhost';
     const token = readTokenFromUrl(`http://${host}${req.url ?? ''}`);
     if (!token) {
@@ -129,8 +166,30 @@ function run(): void {
   });
 
   server.listen(PORT, () => {
-    console.info(`riffsync-sfu listening on ${PORT} health=http://localhost:${PORT}/health`);
+    logJson('info', 'riffsync_sfu_listen', { port: PORT, maxTransports: MAX_TRANSPORTS, maxConsumers: MAX_CONSUMERS });
   });
+
+  const shutdown = (sig: string) => {
+    logJson('info', 'riffsync_sfu_shutdown_start', { signal: sig });
+    acceptingUpgrades = false;
+    for (const s of liveSockets) {
+      try {
+        s.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    void shutdownMediasoup()
+      .catch(() => undefined)
+      .finally(() => {
+        server.close(() => {
+          logJson('info', 'riffsync_sfu_shutdown_done', { signal: sig });
+          process.exit(0);
+        });
+      });
+  };
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
 }
 
 async function handleConnection(ws: WebSocket, claims: SfuJoinClaims): Promise<void> {
@@ -141,15 +200,19 @@ async function handleConnection(ws: WebSocket, claims: SfuJoinClaims): Promise<v
   const pending: PendingSession = { claims, roomKey, room, transports, consumers };
 
   registerSubscriber(roomKey, claims.sessionId, ws);
+  liveSockets.add(ws);
 
   ws.on('message', (raw) => {
     void onMessage(ws, pending, raw.toString());
   });
   ws.on('close', () => {
+    liveSockets.delete(ws);
+    logJson('info', 'sfu_socket_close', { roomKey, sessionId: claims.sessionId });
     unregisterSubscriber(roomKey, claims.sessionId, ws);
     void tearDownSession(pending);
   });
   ws.on('error', () => {
+    liveSockets.delete(ws);
     unregisterSubscriber(roomKey, claims.sessionId, ws);
     void tearDownSession(pending);
   });
@@ -192,11 +255,20 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
     return;
   }
   const id = typeof msg.id === 'number' ? msg.id : undefined;
+  const requestId = typeof msg.requestId === 'string' ? msg.requestId : undefined;
   const method = typeof msg.method === 'string' ? msg.method : '';
   const data =
     msg.data !== undefined && typeof msg.data === 'object' && msg.data !== null
       ? (msg.data as Record<string, unknown>)
       : {};
+
+  logJson('info', 'sfu_request', {
+    roomKey: p.roomKey,
+    sessionId: p.claims.sessionId,
+    method,
+    requestId,
+    id,
+  });
 
   try {
     switch (method) {
@@ -213,6 +285,10 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
         }
         if (p.claims.role === 'consumer' && !asConsumer) {
           send(ws, errResponse(id, 'guest transport must set consumer: true'));
+          return;
+        }
+        if (p.transports.size >= MAX_TRANSPORTS) {
+          send(ws, errResponse(id, 'transport limit reached'));
           return;
         }
         const transport = await p.room.router.createWebRtcTransport({
@@ -337,6 +413,10 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
           send(ws, errResponse(id, 'cannot consume'));
           return;
         }
+        if (p.consumers.size >= MAX_CONSUMERS) {
+          send(ws, errResponse(id, 'consumer limit reached'));
+          return;
+        }
         const consumer = await transport.consume({
           producerId,
           rtpCapabilities: caps,
@@ -363,6 +443,11 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
     }
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
+    logJson('error', 'sfu_request_failed', {
+      roomKey: p.roomKey,
+      sessionId: p.claims.sessionId,
+      error: m,
+    });
     send(ws, errResponse(id, m));
   }
 }

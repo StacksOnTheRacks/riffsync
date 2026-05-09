@@ -88,7 +88,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const role: 'producer' | 'consumer' = isHostSlot ? 'producer' : 'consumer';
 
   const now = Math.floor(Date.now() / 1000);
-  const ttlSec = 600;
+  const ttlSec = 900;
   const secret = await joinSecret();
   const token = signSfuJoinToken(
     {

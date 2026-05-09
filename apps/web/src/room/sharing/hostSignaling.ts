@@ -1,6 +1,10 @@
 import type { MutableRefObject } from 'react'
 import { hostShouldSkipRenegotiation } from '../hostRenegotiationPolicy'
 import { attachPcStateLogging } from '../webrtcDebug'
+import {
+  HOST_STALE_CONNECTING_AFTER_ANSWER_MS,
+  HOST_STALE_HAVE_LOCAL_OFFER_MS,
+} from './constants'
 import { attachHostPcIceRecovery } from './shareSessionRecovery'
 import { SHARE_SIGNAL_PROTOCOL_VERSION, readShareGeneration } from './types'
 
@@ -18,6 +22,11 @@ export type HostNegotiateCtx = {
   shareGenerationRef: MutableRefObject<number>
   /** Latest offer **`shareGeneration`** actually sent per guest ICE session. */
   hostLastOfferGenByGuestRef: MutableRefObject<Map<string, number>>
+  /**
+   * Last host signaling milestone per guest (ms since epoch): set after host `setLocalDescription(offer)`
+   * and refreshed when the guest's answer is applied — used to break `ready`/skip deadlocks.
+   */
+  hostNegotiationMilestoneMsByGuestRef: MutableRefObject<Map<string, number>>
 }
 
 function signalingEnvelopeExtras(shareGeneration: number): Record<string, unknown> {
@@ -27,6 +36,26 @@ function signalingEnvelopeExtras(shareGeneration: number): Record<string, unknow
   return {}
 }
 
+function hostShouldForceRenegotiationStale(
+  pc: RTCPeerConnection,
+  milestoneMs: number,
+): { stale: boolean; reason: string | null } {
+  if (milestoneMs <= 0) return { stale: false, reason: null }
+  const age = Date.now() - milestoneMs
+  if (pc.signalingState === 'have-local-offer' && age > HOST_STALE_HAVE_LOCAL_OFFER_MS) {
+    return { stale: true, reason: 'stale_have_local_offer' }
+  }
+  if (
+    pc.signalingState === 'stable' &&
+    pc.currentRemoteDescription != null &&
+    pc.connectionState === 'connecting' &&
+    age > HOST_STALE_CONNECTING_AFTER_ANSWER_MS
+  ) {
+    return { stale: true, reason: 'stale_connecting' }
+  }
+  return { stale: false, reason: null }
+}
+
 export async function ensureHostPeerNegotiated(
   ctx: HostNegotiateCtx & { captureStream: MediaStream },
   guestSessionId: string,
@@ -34,16 +63,23 @@ export async function ensureHostPeerNegotiated(
   const stream = ctx.captureStream
   const existing = ctx.peerByGuestRef.current.get(guestSessionId)
   if (existing && existing.signalingState !== 'closed') {
+    const milestone = ctx.hostNegotiationMilestoneMsByGuestRef.current.get(guestSessionId) ?? 0
+    const { stale, reason } = hostShouldForceRenegotiationStale(existing, milestone)
     if (
       hostShouldSkipRenegotiation({
         signalingState: existing.signalingState,
         connectionState: existing.connectionState,
         hasRemoteDescription: existing.currentRemoteDescription != null,
-      })
+      }) &&
+      !stale
     ) {
       return
     }
+    if (stale && reason !== null && import.meta.env.DEV) {
+      console.warn(`[riffsync] host re-offer (${reason}) for guest ${guestSessionId.slice(0, 8)}…`)
+    }
     existing.close()
+    ctx.hostNegotiationMilestoneMsByGuestRef.current.delete(guestSessionId)
   }
   ctx.pendingGuestIceRef.current.delete(guestSessionId)
   const shareGen = ctx.shareGenerationRef.current
@@ -78,6 +114,7 @@ export async function ensureHostPeerNegotiated(
 
   const offer = await pc.createOffer()
   await pc.setLocalDescription(offer)
+  ctx.hostNegotiationMilestoneMsByGuestRef.current.set(guestSessionId, Date.now())
   ctx.sendJson({
     action: 'signaling',
     envelope: {
@@ -124,6 +161,7 @@ export async function handleHostSignal(
         pendingGuestIceRef: ctx.pendingGuestIceRef,
         shareGenerationRef: ctx.shareGenerationRef,
         hostLastOfferGenByGuestRef: ctx.hostLastOfferGenByGuestRef,
+        hostNegotiationMilestoneMsByGuestRef: ctx.hostNegotiationMilestoneMsByGuestRef,
       },
       ctx.fromSessionId,
     ).catch(() => undefined)
@@ -145,6 +183,7 @@ export async function handleHostSignal(
         await pc.setRemoteDescription(
           new RTCSessionDescription(sdp as unknown as RTCSessionDescriptionInit),
         )
+        ctx.hostNegotiationMilestoneMsByGuestRef.current.set(ctx.fromSessionId, Date.now())
         const sid = ctx.fromSessionId
         const queued = ctx.pendingGuestIceRef.current.get(sid)
         ctx.pendingGuestIceRef.current.delete(sid)

@@ -131,6 +131,29 @@ export function removeProducer(roomKey: string, producerId: string): boolean {
   return removed;
 }
 
+export function getMediasoupHealthSnapshot(): { workerAlive: boolean; roomCount: number } {
+  return {
+    workerAlive: Boolean(worker && !worker.closed),
+    roomCount: roomMap.size,
+  };
+}
+
+export async function shutdownMediasoup(): Promise<void> {
+  for (const [, rt] of roomMap) {
+    if (rt.closeTimer) {
+      clearTimeout(rt.closeTimer);
+      rt.closeTimer = null;
+    }
+    rt.router.close();
+  }
+  roomMap.clear();
+  const w = worker;
+  worker = null;
+  if (w && !w.closed) {
+    w.close();
+  }
+}
+
 export function listProducerSummaries(roomKey: string): { producerId: string; kind: string }[] {
   const rt = roomMap.get(roomKey);
   if (!rt) return [];
