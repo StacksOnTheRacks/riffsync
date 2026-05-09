@@ -26,7 +26,19 @@ export async function fetchSfuJoinToken(options: {
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`sfu-token ${res.status}: ${text || res.statusText}`)
+    let detail = text || res.statusText
+    try {
+      const j = JSON.parse(text) as { error?: unknown; detail?: unknown }
+      if (typeof j.error === 'string') {
+        detail =
+          typeof j.detail === 'string' && j.detail.trim() !== ''
+            ? `${j.error} (${j.detail})`
+            : j.error
+      }
+    } catch {
+      /* keep raw body */
+    }
+    throw new Error(`sfu-token ${res.status}: ${detail}`)
   }
   return (await res.json()) as SfuTokenResponse
 }

@@ -39,7 +39,8 @@ function json(statusCode: number, body: JsonRecord): APIGatewayProxyResultV2 {
   };
 }
 
-const ROSTER_GSI_RETRY_MS = [0, 400, 900];
+/** GSI reads can lag behind the connect write; also the roster may list others before our row appears. */
+const ROSTER_GSI_RETRY_MS = [0, 400, 900, 2000];
 
 async function findMyConnectionRow(
   connTable: string,
@@ -53,8 +54,6 @@ async function findMyConnectionRow(
     const items = await queryRoomConnectionItems(doc, connTable, roomId);
     const mine = items.find((c) => c.sessionId === sessionId) as JsonRecord | undefined;
     if (mine) return mine;
-    /** `RoomConnectionsRosterIndex` is eventually consistent; only retry when the query is still empty. */
-    if (items.length > 0) return undefined;
   }
   return undefined;
 }

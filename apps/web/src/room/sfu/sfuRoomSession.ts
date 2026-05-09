@@ -43,8 +43,11 @@ export type StartSfuRoomSessionOpts = ProducerSessionOpts | ConsumerSessionOpts
 
 function formatSfuTokenError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
-  if (msg.includes('sfu-token 403')) {
-    return 'Video relay denied access. Open chat on this page first (wait until connected), then try again. If this persists, refresh or sign in again.'
+  const m403 = /^sfu-token 403:\s*(.+)$/s.exec(msg)
+  if (m403) {
+    const fromApi = m403[1].trim()
+    if (fromApi)
+      return `Video relay denied access. ${fromApi} If this persists, wait until the room shows connected, refresh, or sign in again.`
   }
   return msg
 }
