@@ -56,8 +56,9 @@ export class TurnServerStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    /** **`min 2`** AZs so an internet-facing **Application Load Balancer** (SFU **`wss://`**) can attach subnets per AWS ALB rules. */
     const vpc = new ec2.Vpc(this, 'TurnVpc', {
-      maxAzs: 1,
+      maxAzs: 2,
       natGateways: 0,
       subnetConfiguration: [{ name: 'public', subnetType: ec2.SubnetType.PUBLIC }],
     });

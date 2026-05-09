@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
+import * as route53 from 'aws-cdk-lib/aws-route53';
 import { ApiCatalogStack } from '../lib/api-catalog-stack';
 import { FanAuthStack } from '../lib/fan-auth-stack';
 import { SesInboundStack, sesInboundReceiptRulesActivated } from '../lib/ses-inbound-stack';
@@ -56,6 +57,22 @@ function parseFanWebAlternateDomains(a: cdk.App): string[] {
 const fanWebAlternateDomainNames = parseFanWebAlternateDomains(app);
 const fanWebCanonicalHostname = trimContext(app, 'fanWebCanonicalHostname');
 
+const sfuProdSignalingHostname = trimContext(app, 'sfuProdSignalingHostname');
+const sfuStagingSignalingHostname = trimContext(app, 'sfuStagingSignalingHostname');
+if ((sfuProdSignalingHostname || sfuStagingSignalingHostname) && !(fanWebHostedZoneId && fanWebZoneName)) {
+  throw new Error(
+    'sfuProdSignalingHostname / sfuStagingSignalingHostname require fanWebHostedZoneId and fanWebZoneName (Route 53 + ACM DNS validation).',
+  );
+}
+
+const sfuSignalingHostedZone =
+  sfuProdSignalingHostname && fanWebHostedZoneId && fanWebZoneName
+    ? route53.HostedZone.fromHostedZoneAttributes(app, 'RiffSyncSfuDnsZone', {
+        hostedZoneId: fanWebHostedZoneId,
+        zoneName: fanWebZoneName,
+      })
+    : undefined;
+
 const fanAuth = new FanAuthStack(app, `RiffSyncFanAuth-${environment}`, {
   description: `RiffSync fan Cognito (${environment}) — Hosted UI + local accounts (host JWT)`,
   environment,
@@ -78,6 +95,10 @@ const sfuServer = new SfuServerStack(app, 'RiffSyncSfu', {
   description:
     'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP + join JWT secret; same VPC as RiffSyncTurn',
   sharedMediaVpc: turnServer.sharedMediaVpc,
+  signalingHostedZone: sfuSignalingHostedZone,
+  signalingZoneName: sfuProdSignalingHostname && fanWebZoneName ? fanWebZoneName : undefined,
+  sfuProdSignalingHostname,
+  sfuStagingSignalingHostname,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
@@ -93,7 +114,10 @@ const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
   sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
   turnSharedSecret: turnServer.turnSharedSecret,
   sfuJoinTokenSecret: sfuServer.sfuJoinTokenSecret,
-  sfuDefaultSignalingWsUrl: `ws://${sfuServer.sfuElasticIp}:3000`,
+  sfuDefaultSignalingWsUrl:
+    environment === 'prod'
+      ? sfuServer.defaultSignalingWsUrlForProd
+      : sfuServer.defaultSignalingWsUrlForStaging,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,

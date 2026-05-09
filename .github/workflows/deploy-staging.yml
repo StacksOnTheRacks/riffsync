@@ -33,6 +33,8 @@ jobs:
       STAGING_TURN_TLS_PORT: ${{ vars.STAGING_TURN_TLS_PORT }}
       STAGING_TURN_CREDENTIAL_TTL_SECONDS: ${{ vars.STAGING_TURN_CREDENTIAL_TTL_SECONDS }}
       STAGING_SFU_PUBLIC_WS_URL: ${{ vars.STAGING_SFU_PUBLIC_WS_URL }}
+      PROD_SFU_SIGNALING_HOSTNAME: ${{ vars.PROD_SFU_SIGNALING_HOSTNAME }}
+      STAGING_SFU_SIGNALING_HOSTNAME: ${{ vars.STAGING_SFU_SIGNALING_HOSTNAME }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -103,6 +105,12 @@ jobs:
           if [ -n "${STAGING_SFU_PUBLIC_WS_URL:-}" ]; then
             ARGS+=(--context "sfuPublicWsUrl=${STAGING_SFU_PUBLIC_WS_URL}")
           fi
+          if [ -n "${PROD_SFU_SIGNALING_HOSTNAME:-}" ]; then
+            ARGS+=(--context "sfuProdSignalingHostname=${PROD_SFU_SIGNALING_HOSTNAME}")
+          fi
+          if [ -n "${STAGING_SFU_SIGNALING_HOSTNAME:-}" ]; then
+            ARGS+=(--context "sfuStagingSignalingHostname=${STAGING_SFU_SIGNALING_HOSTNAME}")
+          fi
           if [ -z "${RIFFSYNC_ROUTE53_HOSTED_ZONE_ID:-}" ] || [ -z "${RIFFSYNC_ROUTE53_ZONE_NAME:-}" ]; then
             echo "::notice::RiffSync: RIFFSYNC_ROUTE53_HOSTED_ZONE_ID / RIFFSYNC_ROUTE53_ZONE_NAME unset — static stack will not create Route 53 aliases (FanWebRoute53AliasRecordCount will be 0)."
           fi
@@ -141,6 +149,12 @@ jobs:
           fi
           if [ -n "${STAGING_SFU_PUBLIC_WS_URL:-}" ]; then
             ARGS+=(--context "sfuPublicWsUrl=${STAGING_SFU_PUBLIC_WS_URL}")
+          fi
+          if [ -n "${PROD_SFU_SIGNALING_HOSTNAME:-}" ]; then
+            ARGS+=(--context "sfuProdSignalingHostname=${PROD_SFU_SIGNALING_HOSTNAME}")
+          fi
+          if [ -n "${STAGING_SFU_SIGNALING_HOSTNAME:-}" ]; then
+            ARGS+=(--context "sfuStagingSignalingHostname=${STAGING_SFU_SIGNALING_HOSTNAME}")
           fi
           SITE_URL="$(aws cloudformation describe-stacks --stack-name RiffSyncStatic-staging \
             --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
