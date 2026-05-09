@@ -260,19 +260,20 @@ export class MediaServerStack extends cdk.Stack {
       description: 'RiffSync SFU instance role for S3 code bundle and join secret read',
     });
     /**
-     * Do not rely on **`grantRead(fromSecretNameV2)`** alone: CDK can emit partial ARNs that do not match
-     * **`GetSecretValue`** for the real secret id (same pattern as **`WebrtcSfuTokenFn`** in **`api-catalog-stack`**).
+     * Secret id **`riffsync/sfu-join-hmac-secret`** contains **`/`**. IAM **`Resource`** wildcards after
+     * **`secret:`** often do not match those ARNs the same way as simple names, so **`GetSecretValue`** is
+     * denied despite **`...secret*`** patterns. Scope by **`secretsmanager:SecretId`** (request value) instead.
      */
-    const smSmPrefix = `arn:${cdk.Aws.PARTITION}:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:`;
-    const sfuJoinSecretResources = [
-      cdk.Fn.join('', [smSmPrefix, SFU_JOIN_SECRET_NAME, '*']),
-      cdk.Fn.join('', [smSmPrefix, SFU_JOIN_SECRET_NAME, '-*']),
-    ];
     sfuRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
-        resources: sfuJoinSecretResources,
+        resources: ['*'],
+        conditions: {
+          StringLike: {
+            'secretsmanager:SecretId': `*${SFU_JOIN_SECRET_NAME}*`,
+          },
+        },
       }),
     );
     sfuRole.addToPolicy(
@@ -287,7 +288,6 @@ export class MediaServerStack extends cdk.Stack {
     codeBucket.grantRead(sfuRole);
     sfuRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'));
 
-    const sfuSecretArn = this.sfuJoinTokenSecret.secretArn;
     const bucketName = codeBucket.bucketName;
     const prodFqForCaddy = prodHost && tlsEnabled ? normalizeFqdn(prodHost) : '';
     const siteNamesForCaddy = tlsEnabled && prodFqForCaddy ? prodFqForCaddy : '';
@@ -298,13 +298,13 @@ export class MediaServerStack extends cdk.Stack {
       'dnf install -y gcc-c++ make python3 python3-pip',
       'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -',
       'dnf install -y nodejs awscli',
-      `SECRET_ARN='${sfuSecretArn}'`,
+      `SFU_JOIN_SECRET_ID='${SFU_JOIN_SECRET_NAME}'`,
       `AWS_REGION='${region}'`,
       `S3_BUCKET='${bucketName}'`,
       `RTC_MIN='${rtcMin}'`,
       `RTC_MAX='${rtcMax}'`,
       'install -d -m 0755 /opt/riffsync-sfu',
-      'SECRET=$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" --region "$AWS_REGION" --query SecretString --output text | tr -d \'\\n\\r\')',
+      'SECRET=$(aws secretsmanager get-secret-value --secret-id "$SFU_JOIN_SECRET_ID" --region "$AWS_REGION" --query=SecretString --output text | tr -d \'\\n\\r\')',
       'TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")',
       'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
       'printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" > /etc/riffsync-sfu.env',
