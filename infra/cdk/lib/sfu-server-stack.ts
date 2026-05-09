@@ -1,10 +1,6 @@
-import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as elbv2_targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
@@ -21,18 +17,18 @@ export interface SfuServerStackProps extends cdk.StackProps {
   /** VPC from **`TurnServerStack`** — one VPC for TURN + SFU (account VPC default limit). */
   readonly sharedMediaVpc: ec2.IVpc;
   /**
-   * Route 53 zone (import) for DNS-validated ACM + alias records. Required together with
-   * **`sfuProdSignalingHostname`** / zone name when enabling **`wss://`** via ALB.
+   * Route 53 zone (import) for **`A`** records to the SFU EIP. Required together with
+   * **`sfuProdSignalingHostname`** / zone name when enabling **`wss://`** (Caddy on the instance).
    */
   readonly signalingHostedZone?: route53.IHostedZone;
   /** Zone name matching **`signalingHostedZone`** (e.g. **`riffsync.tv`**). */
   readonly signalingZoneName?: string;
   /**
    * Primary FQDN for mediasoup signaling (**`wss://`**), e.g. **`sfu.riffsync.tv`**.
-   * Creates ALB + ACM + Route 53 alias to ALB.
+   * Creates Route 53 **`A`** to the SFU EIP and UserData **Caddy** (Let's Encrypt) → **`127.0.0.1:3000`**.
    */
   readonly sfuProdSignalingHostname?: string;
-  /** Optional second FQDN (SAN on cert + second alias), e.g. **`staging-sfu.riffsync.tv`**. */
+  /** Optional second name on the same Caddy site block, e.g. **`staging-sfu.riffsync.tv`**. */
   readonly sfuStagingSignalingHostname?: string;
 }
 
@@ -59,14 +55,14 @@ function normalizeFqdn(host: string): string {
 }
 
 /**
- * Shared-account **mediasoup** SFU — EC2 + EIP + optional **ALB TLS** for **`wss://`** signaling.
+ * Shared-account **mediasoup** SFU — EC2 + EIP + optional **Caddy `wss://`** on hostnames (**Route 53 `A` → EIP**).
  */
 export class SfuServerStack extends cdk.Stack {
   /** Pre-existing account secret **`riffsync/sfu-join-hmac-secret`** (not created by this stack). */
   public readonly sfuJoinTokenSecret: secretsmanager.ISecret;
   public readonly sfuElasticIp: string;
   public readonly sfuCodeBucket: s3.IBucket;
-  /** Default token / client signaling URL for **prod** API (`wss://` when ALB DNS is configured). */
+  /** Default token / client signaling URL for **prod** API (`wss://` when signaling hostnames are set). */
   public readonly defaultSignalingWsUrlForProd: string;
   /** Default token / client signaling URL for **staging** API. */
   public readonly defaultSignalingWsUrlForStaging: string;
@@ -140,20 +136,14 @@ export class SfuServerStack extends cdk.Stack {
 
     const tlsEnabled = Boolean(prodHost && signalingHostedZone && zName);
 
-    let albSg: ec2.SecurityGroup | undefined;
     const sg = new ec2.SecurityGroup(this, 'SfuSg', {
       vpc: sharedMediaVpc,
       description: 'RiffSync mediasoup: signaling TCP and RTC UDP/TCP port range',
       allowAllOutbound: true,
     });
     if (tlsEnabled) {
-      albSg = new ec2.SecurityGroup(this, 'SfuAlbSg', {
-        vpc: sharedMediaVpc,
-        description: 'RiffSync SFU ALB - HTTPS signaling',
-        allowAllOutbound: true,
-      });
-      albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'WSS (HTTPS)');
-      sg.addIngressRule(albSg, ec2.Port.tcp(3000), 'Signaling from ALB');
+      sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "Caddy HTTP (Let's Encrypt)");
+      sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'WSS (Caddy HTTPS)');
     } else {
       sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3000), 'SFU HTTP health + WebSocket signaling');
     }
@@ -171,6 +161,15 @@ export class SfuServerStack extends cdk.Stack {
     const region = this.region;
     const secretArn = this.sfuJoinTokenSecret.secretArn;
     const bucketName = codeBucket.bucketName;
+
+    const prodFqForCaddy = prodHost && tlsEnabled ? normalizeFqdn(prodHost) : '';
+    const stagingFqForCaddy = stagingHost && tlsEnabled ? normalizeFqdn(stagingHost) : '';
+    const siteNamesForCaddy =
+      tlsEnabled && prodFqForCaddy
+        ? stagingFqForCaddy
+          ? `${prodFqForCaddy}, ${stagingFqForCaddy}`
+          : prodFqForCaddy
+        : '';
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
@@ -209,6 +208,37 @@ EOUNIT`,
       'systemctl enable --now riffsync-sfu',
     );
 
+    if (tlsEnabled && siteNamesForCaddy) {
+      userData.addCommands(
+        'CADDY_VER=2.8.4',
+        'curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VER}/caddy_${CADDY_VER}_linux_amd64.tar.gz" | tar xz -C /usr/local/bin caddy',
+        'chmod +x /usr/local/bin/caddy',
+        'install -d -m 0755 /etc/caddy',
+        `cat > /etc/caddy/Caddyfile << 'CADDYEOF'
+${siteNamesForCaddy} {
+  reverse_proxy 127.0.0.1:3000
+}
+CADDYEOF`,
+        `cat > /etc/systemd/system/caddy.service << 'SVCEOF'
+[Unit]
+Description=Caddy (SFU signaling TLS)
+After=network-online.target riffsync-sfu.service
+Wants=riffsync-sfu.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF`,
+        'systemctl daemon-reload',
+        'systemctl enable --now caddy',
+      );
+    }
+
     const instance = new ec2.Instance(this, 'SfuInstance', {
       vpc: sharedMediaVpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
@@ -242,7 +272,7 @@ EOUNIT`,
 
     const ipFallbackWs = `ws://${eip.ref}:3000`;
 
-    if (tlsEnabled && prodHost && signalingHostedZone && albSg) {
+    if (tlsEnabled && prodHost && signalingHostedZone) {
       const prodFq = normalizeFqdn(prodHost);
       recordNameUnderZone(prodFq, zName);
       const stagingFq = stagingHost ? normalizeFqdn(stagingHost) : undefined;
@@ -250,46 +280,13 @@ EOUNIT`,
         recordNameUnderZone(stagingFq, zName);
       }
 
-      const cert = new acm.Certificate(this, 'SfuSignalingCert', {
-        domainName: prodFq,
-        subjectAlternativeNames: stagingFq ? [stagingFq] : [],
-        validation: acm.CertificateValidation.fromDns(signalingHostedZone),
-      });
-
-      const alb = new elbv2.ApplicationLoadBalancer(this, 'SfuAlb', {
-        vpc: sharedMediaVpc,
-        internetFacing: true,
-        loadBalancerName: 'riffsync-sfu',
-        securityGroup: albSg,
-      });
-      alb.setAttribute('idle_timeout.timeout_seconds', '3600');
-
-      const tg = new elbv2.ApplicationTargetGroup(this, 'SfuSignalingTg', {
-        vpc: sharedMediaVpc,
-        port: 3000,
-        protocol: elbv2.ApplicationProtocol.HTTP,
-        targets: [new elbv2_targets.InstanceTarget(instance, 3000)],
-        healthCheck: {
-          path: '/healthz',
-          healthyHttpCodes: '200',
-          interval: cdk.Duration.seconds(30),
-        },
-        deregistrationDelay: cdk.Duration.seconds(30),
-      });
-
-      alb.addListener('SfuHttps', {
-        port: 443,
-        protocol: elbv2.ApplicationProtocol.HTTPS,
-        certificates: [cert],
-        defaultTargetGroups: [tg],
-      });
-
       const aliasHostnames = stagingFq ? [prodFq, stagingFq] : [prodFq];
       for (const h of aliasHostnames) {
-        new route53.ARecord(this, `SfuSigAlias${dnsRecordConstructSuffix(h)}`, {
+        new route53.ARecord(this, `SfuSigA${dnsRecordConstructSuffix(h)}`, {
           zone: signalingHostedZone,
           recordName: recordNameUnderZone(h, zName),
-          target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(alb)),
+          target: route53.RecordTarget.fromIpAddresses(eip.ref),
+          ttl: cdk.Duration.minutes(5),
         });
       }
 
@@ -303,7 +300,7 @@ EOUNIT`,
     new cdk.CfnOutput(this, 'SfuElasticIp', {
       value: eip.ref,
       description:
-        'SFU public IP for RTC; signaling uses WSS via ALB when sfuProdSignalingHostname is set.',
+        'SFU public IP for RTC; signaling uses WSS via Caddy when sfuProdSignalingHostname is set.',
     });
     new cdk.CfnOutput(this, 'SfuJoinSecretArn', {
       value: this.sfuJoinTokenSecret.secretArn,
