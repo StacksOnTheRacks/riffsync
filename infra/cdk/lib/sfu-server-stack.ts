@@ -128,7 +128,7 @@ export class SfuServerStack extends cdk.Stack {
       allowAllOutbound: true,
     });
     if (tlsEnabled) {
-      sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), "Caddy HTTP (Let's Encrypt)");
+      sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80), 'Caddy HTTP for ACME / port 80');
       sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'WSS (Caddy HTTPS)');
     } else {
       sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3000), 'SFU HTTP health + WebSocket signaling');
