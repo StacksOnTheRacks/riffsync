@@ -2,10 +2,10 @@ name: Deploy CDK (production)
 
 # Policy: **`main` → production** (manual). See `.forge/operations/deployment_environments.md`.
 #
-# Stacks deploy in **sequential jobs**: **TURN** and **platform** (fan auth, static, SES) before
-# **RiffSyncApi-prod --exclusively**, then **SFU**. SFU must not run before the **API** stack has
-# applied a template that drops stale **Fn::ImportValue** links to the SFU stack (or the SFU job
-# can fail with "export … is in use by RiffSyncApi-prod").
+# CDK jobs follow the **dependency graph**, with **parallelism** where stacks are independent:
+# - **TURN** and **platform** (fan auth, static, SES) run together.
+# - **API** (exclusive) and **SFU** run together once their prerequisites exist (**API** also waits for platform).
+# Api must not import SFU exports (see **`bin/riffsync.ts`**) or SFU updates can fail when run in parallel with Api.
 on:
   workflow_dispatch:
     inputs:
@@ -67,7 +67,6 @@ jobs:
 
   cdk-platform:
     name: CDK prod – Fan auth, static site, SES inbound
-    needs: cdk-turn
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -89,7 +88,9 @@ jobs:
 
   cdk-api:
     name: CDK prod – API (exclusive; deps already deployed)
-    needs: cdk-platform
+    needs:
+      - cdk-turn
+      - cdk-platform
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,8 +111,9 @@ jobs:
           npx cdk deploy RiffSyncApi-prod --exclusively "${CDK_CTX[@]}" --require-approval never
 
   cdk-sfu:
-    name: CDK prod – SFU (mediasoup; after API drops cross-stack imports)
-    needs: cdk-api
+    name: CDK prod – SFU (mediasoup; parallel with API after Turn)
+    needs:
+      - cdk-turn
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,7 +135,8 @@ jobs:
 
   cdk-oauth-cors:
     name: CDK prod – Cognito OAuth + API CORS from CloudFront URL
-    needs: cdk-sfu
+    needs:
+      - cdk-api
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -162,7 +165,9 @@ jobs:
 
   fan-spa:
     name: Build and publish fan SPA (production)
-    needs: cdk-oauth-cors
+    needs:
+      - cdk-oauth-cors
+      - cdk-sfu
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

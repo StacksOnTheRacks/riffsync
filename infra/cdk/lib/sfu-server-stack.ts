@@ -219,7 +219,8 @@ SVCEOF`,
       );
     }
 
-    const instance = new ec2.Instance(this, 'SfuInstance', {
+    /** Distinct logical ID so a manually terminated instance does not leave a dead `AWS::EC2::Instance` ref. */
+    const instance = new ec2.Instance(this, 'MediasoupSfuHost', {
       vpc: sharedMediaVpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       instanceType: new ec2.InstanceType('t3.medium'),

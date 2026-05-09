@@ -153,7 +153,7 @@ Designed for **one AWS account** hosting **`RiffSyncApi-prod`**: a **singleton**
 
 **Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncTurn`** is created **before** **`RiffSyncApi-prod`**; the API stack **depends on** **`RiffSyncTurn`** so the secret exists before Lambdas reference it.
 
-**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **`cdk deploy`** in **sequence** (Turn, then fan auth + static + SES, **`RiffSyncApi-prod --exclusively`**, **SFU**, then OAuth/CORS + API again from **`FanWebSiteUrl`**). **SFU runs after API** so CloudFormation can drop stale SFU exports before the SFU stack updates. For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses **`AWS_DEPLOY_ROLE_ARN_PROD`**).
+**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **`cdk deploy`** with **parallel jobs** where the graph allows: **Turn** and **platform** (fan auth + static + SES) **together**; then **API** (`--exclusively`) and **SFU** **together** (each after **Turn**; API also after **platform**). OAuth/CORS + API runs after **API**; **fan SPA** waits on that **and** **SFU** so the bucket update tends to follow a live SFU. **Api must not import SFU** (see **`bin/riffsync.ts`**) or parallel SFU updates can fail. For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses **`AWS_DEPLOY_ROLE_ARN_PROD`**).
 
 **Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`** (Turn stack only; duplicating this output on API stacks triggers CloudFormation lint **W6001** when the value is a cross-stack import).
 
@@ -307,7 +307,7 @@ Deployment policy (**`.forge/operations/build_packaging.md`**, **`deployment_env
 
 | Target | Trigger | Notes |
 | --- | --- | --- |
-| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. **Sequenced** CDK jobs (Turn+SFU, platform, API, OAuth/CORS pass; see workflow file), then **`aws s3 sync`** and CloudFront invalidation using stack outputs (**`FanWebSiteUrl`** for **`VITE_PUBLIC_ORIGIN`** and related env at build time). |
+| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. **Parallel** CDK jobs where safe (see workflow file), then **`aws s3 sync`** and CloudFront invalidation. |
 | **TURN EC2 only** | Manual [**`deploy-turn.yml`**](../../.github/workflows/deploy-turn.yml) | **`cdk deploy RiffSyncTurn`** only (**`main`**). Uses **`AWS_DEPLOY_ROLE_ARN_PROD`**. |
 | **Local** | **AWS CLI credential profile** via **`cdk deploy`** + manual **`s3 sync`** | Matches how engineers run **`cdk bootstrap`** / **`deploy`** interactively outside CI. |
 
