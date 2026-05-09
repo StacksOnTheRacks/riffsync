@@ -76,12 +76,14 @@ const turnServer = new TurnServerStack(app, 'RiffSyncTurn', {
 
 const sfuServer = new SfuServerStack(app, 'RiffSyncSfu', {
   description:
-    'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP + join JWT secret',
+    'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP + join JWT secret; same VPC as RiffSyncTurn',
+  sharedMediaVpc: turnServer.sharedMediaVpc,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
 });
+sfuServer.addDependency(turnServer);
 
 const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
   description: `RiffSync HTTP API + Catalog + Rooms + WebSocket (${environment}) — DynamoDB + Lambda`,

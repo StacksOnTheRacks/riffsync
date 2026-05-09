@@ -10,6 +10,11 @@ import type { Construct } from 'constructs';
 /** Same secret name pattern as turn: one shared secret per account (staging + prod APIs). */
 export const SFU_JOIN_SECRET_NAME = 'riffsync/sfu-join-hmac-secret';
 
+export interface SfuServerStackProps extends cdk.StackProps {
+  /** VPC from **`TurnServerStack`** — one VPC for TURN + SFU (account VPC default limit). */
+  readonly sharedMediaVpc: ec2.IVpc;
+}
+
 /**
  * Shared-account **mediasoup** SFU — EC2 + EIP + deployment bundle in S3 (see **BucketDeployment**).
  * Signaling **ws://instance:3000/?token=…** (use TLS terminator in front for HTTPS SPAs).
@@ -19,11 +24,12 @@ export class SfuServerStack extends cdk.Stack {
   public readonly sfuElasticIp: string;
   public readonly sfuCodeBucket: s3.IBucket;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: SfuServerStackProps) {
+    const { sharedMediaVpc, ...stackProps } = props;
     super(scope, id, {
       description:
-        'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP; secret riffsync/sfu-join-hmac-secret',
-      ...props,
+        'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP in Turn VPC; secret riffsync/sfu-join-hmac-secret',
+      ...stackProps,
     });
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
@@ -57,16 +63,10 @@ export class SfuServerStack extends cdk.Stack {
       memoryLimit: 1024,
     });
 
-    const vpc = new ec2.Vpc(this, 'SfuVpc', {
-      maxAzs: 1,
-      natGateways: 0,
-      subnetConfiguration: [{ name: 'public', subnetType: ec2.SubnetType.PUBLIC }],
-    });
-
     const rtcMin = 40_000;
     const rtcMax = 40_199;
     const sg = new ec2.SecurityGroup(this, 'SfuSg', {
-      vpc,
+      vpc: sharedMediaVpc,
       description: 'RiffSync mediasoup: signaling TCP and RTC UDP/TCP port range',
       allowAllOutbound: true,
     });
@@ -124,7 +124,7 @@ EOUNIT`,
     );
 
     const instance = new ec2.Instance(this, 'SfuInstance', {
-      vpc,
+      vpc: sharedMediaVpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       instanceType: new ec2.InstanceType('t3.medium'),
       machineImage: ec2.MachineImage.latestAmazonLinux2023(),

@@ -34,6 +34,8 @@ export class TurnServerStack extends cdk.Stack {
   public readonly turnSharedSecret: secretsmanager.Secret;
   /** Elastic IP address — set **`STAGING_TURN_HOST`** and **`PROD_TURN_HOST`** to this value (or DNS). */
   public readonly turnElasticIp: string;
+  /** VPC shared with **`SfuServerStack`** so we do not create a second VPC per account. */
+  public readonly sharedMediaVpc: ec2.Vpc;
 
   constructor(scope: Construct, id: string, props: TurnServerStackProps) {
     super(scope, id, props);
@@ -59,6 +61,7 @@ export class TurnServerStack extends cdk.Stack {
       natGateways: 0,
       subnetConfiguration: [{ name: 'public', subnetType: ec2.SubnetType.PUBLIC }],
     });
+    this.sharedMediaVpc = vpc;
 
     const sg = new ec2.SecurityGroup(this, 'TurnSg', {
       vpc,
