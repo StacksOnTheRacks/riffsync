@@ -40,6 +40,20 @@ if ((fanWebHostedZoneId || fanWebZoneName) && !fanWebCustomDomain) {
   throw new Error('fanWebHostedZoneId / fanWebZoneName require fanWebCustomDomain + fanWebCertificateArn.');
 }
 
+/**
+ * Default **`SFU_PUBLIC_WS_URL`** for **`WebrtcSfuTokenFn`** must be a **plain synth-time string** — never
+ * **`sfuServer.defaultSignalingWsUrl`** when it embeds **`eip.ref`** (that creates a cross-stack export and
+ * blocks **`RiffSyncSfu`** updates while **`RiffSyncApi-prod`** imports it).
+ */
+function sfuDefaultSignalingWsUrlFromContext(app: cdk.App, sfuProdSignalingHost: string | undefined): string {
+  const fromCtx = trimContext(app, 'sfuPublicWsUrl');
+  if (fromCtx) return fromCtx;
+  if (sfuProdSignalingHost) {
+    return `wss://${sfuProdSignalingHost.replace(/\.$/, '').toLowerCase()}`;
+  }
+  return '';
+}
+
 function parseFanWebAlternateDomains(a: cdk.App): string[] {
   const raw = trimContext(a, 'fanWebAlternateDomainNames');
   if (!raw) return [];
@@ -108,8 +122,7 @@ const apiCatalog = new ApiCatalogStack(app, 'RiffSyncApi-prod', {
   fanUserPoolClient: fanAuth.fanUserPoolClient,
   sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
   turnSharedSecret: turnServer.turnSharedSecret,
-  sfuJoinTokenSecret: sfuServer.sfuJoinTokenSecret,
-  sfuDefaultSignalingWsUrl: sfuServer.defaultSignalingWsUrl,
+  sfuDefaultSignalingWsUrl: sfuDefaultSignalingWsUrlFromContext(app, sfuProdSignalingHostname),
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,

@@ -34,12 +34,8 @@ export interface ApiCatalogStackProps extends cdk.StackProps {
    */
   readonly turnSharedSecret: secretsmanager.ISecret;
   /**
-   * Shared SFU join HMAC secret — owned by **[`SfuServerStack`](./sfu-server-stack.ts)** (**`riffsync/sfu-join-hmac-secret`**).
-   */
-  readonly sfuJoinTokenSecret: secretsmanager.ISecret;
-  /**
-   * Default mediasoup signaling base (**`ws://{EIP}:3000`**) when CDK context **`sfuPublicWsUrl`** is unset.
-   * Context should override with **`wss://…`** for HTTPS fan sites (TLS in front of SFU).
+   * Default **`SFU_PUBLIC_WS_URL`** when context **`sfuPublicWsUrl`** is unset — must be a **literal** at synth time
+   * (see **`bin/riffsync.ts`**). SFU join HMAC is read by secret **name** **`riffsync/sfu-join-hmac-secret`** only (no cross-stack ARN).
    */
   readonly sfuDefaultSignalingWsUrl: string;
 }
@@ -49,7 +45,7 @@ function sfuPublicWsUrlFromContext(scope: Construct): string {
   return typeof raw === 'string' ? raw.trim() : '';
 }
 
-/** Context **`sfuPublicWsUrl`** wins; otherwise use **`RiffSyncSfu`** EIP default from **`bin/riffsync.ts`**. */
+/** Context **`sfuPublicWsUrl`** wins; otherwise use the literal default from **`bin/riffsync.ts`** (never an EIP token). */
 function resolveSfuPublicWsUrl(scope: Construct, defaultFromSfuStack: string): string {
   const fromCtx = sfuPublicWsUrlFromContext(scope);
   if (fromCtx.length > 0) return fromCtx;
@@ -151,7 +147,6 @@ export class ApiCatalogStack extends cdk.Stack {
       fanUserPoolClient,
       sesSendingConfigurationSetName,
       turnSharedSecret,
-      sfuJoinTokenSecret,
       sfuDefaultSignalingWsUrl,
     } = props;
     const environment = 'prod';
@@ -420,7 +415,6 @@ export class ApiCatalogStack extends cdk.Stack {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
         SFU_JOIN_SECRET_ID: SFU_JOIN_SECRET_NAME,
-        SFU_JOIN_SECRET_ARN: sfuJoinTokenSecret.secretArn,
         RIFFSYNC_API_ENV: environment,
         SFU_PUBLIC_WS_URL: sfuPublicWsUrl,
         COGNITO_USER_POOL_ID: fanUserPool.userPoolId,
