@@ -1,11 +1,17 @@
-import * as cdk from 'aws-cdk-lib';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as cdk from 'aws-cdk-lib';
 import * as path from 'node:path';
 import type { Construct } from 'constructs';
+
+import { dnsRecordConstructSuffix } from './cloudfront-canonical-redirect';
 
 /** Same secret name pattern as turn: one shared secret per account (staging + prod APIs). */
 export const SFU_JOIN_SECRET_NAME = 'riffsync/sfu-join-hmac-secret';
@@ -13,20 +19,86 @@ export const SFU_JOIN_SECRET_NAME = 'riffsync/sfu-join-hmac-secret';
 export interface SfuServerStackProps extends cdk.StackProps {
   /** VPC from **`TurnServerStack`** — one VPC for TURN + SFU (account VPC default limit). */
   readonly sharedMediaVpc: ec2.IVpc;
+  /**
+   * Route 53 zone (import) for DNS-validated ACM + alias records. Required together with
+   * **`sfuProdSignalingHostname`** / zone name when enabling **`wss://`** via ALB.
+   */
+  readonly signalingHostedZone?: route53.IHostedZone;
+  /** Zone name matching **`signalingHostedZone`** (e.g. **`riffsync.tv`**). */
+  readonly signalingZoneName?: string;
+  /**
+   * Primary FQDN for mediasoup signaling (**`wss://`**), e.g. **`sfu.riffsync.tv`**.
+   * Creates ALB + ACM + Route 53 alias to ALB.
+   */
+  readonly sfuProdSignalingHostname?: string;
+  /** Optional second FQDN (SAN on cert + second alias), e.g. **`staging-sfu.riffsync.tv`**. */
+  readonly sfuStagingSignalingHostname?: string;
+}
+
+/** Relative record name under zone, or **`undefined`** for zone apex. */
+function recordNameUnderZone(fqdn: string, zoneName: string): string | undefined {
+  const z = zoneName.replace(/\.$/, '').toLowerCase();
+  const f = fqdn.replace(/\.$/, '').toLowerCase();
+  if (f === z) return undefined;
+  const suffix = `.${z}`;
+  if (!f.endsWith(suffix)) {
+    throw new Error(`SFU signaling hostname (${fqdn}) must be the zone apex or a name under ${zoneName}.`);
+  }
+  const prefix = f.slice(0, -suffix.length);
+  if (prefix.includes('.')) {
+    throw new Error(
+      `Nested SFU hostnames under ${z} must be a single label (e.g. sfu.${z}), got ${fqdn}.`,
+    );
+  }
+  return prefix;
+}
+
+function normalizeFqdn(host: string): string {
+  return host.replace(/\.$/, '').toLowerCase();
 }
 
 /**
- * Shared-account **mediasoup** SFU — EC2 + EIP + deployment bundle in S3 (see **BucketDeployment**).
- * Signaling **ws://instance:3000/?token=…** (use TLS terminator in front for HTTPS SPAs).
+ * Shared-account **mediasoup** SFU — EC2 + EIP + optional **ALB TLS** for **`wss://`** signaling.
  */
 export class SfuServerStack extends cdk.Stack {
   /** Pre-existing account secret **`riffsync/sfu-join-hmac-secret`** (not created by this stack). */
   public readonly sfuJoinTokenSecret: secretsmanager.ISecret;
   public readonly sfuElasticIp: string;
   public readonly sfuCodeBucket: s3.IBucket;
+  /** Default token / client signaling URL for **prod** API (`wss://` when ALB DNS is configured). */
+  public readonly defaultSignalingWsUrlForProd: string;
+  /** Default token / client signaling URL for **staging** API. */
+  public readonly defaultSignalingWsUrlForStaging: string;
 
   constructor(scope: Construct, id: string, props: SfuServerStackProps) {
-    const { sharedMediaVpc, ...stackProps } = props;
+    const {
+      sharedMediaVpc,
+      signalingHostedZone,
+      signalingZoneName,
+      sfuProdSignalingHostname: prodHostRaw,
+      sfuStagingSignalingHostname: stagingHostRaw,
+      ...stackProps
+    } = props;
+
+    const prodHost = prodHostRaw?.trim();
+    const stagingHost = stagingHostRaw?.trim();
+
+    if (stagingHost && !prodHost) {
+      throw new Error('sfuStagingSignalingHostname requires sfuProdSignalingHostname.');
+    }
+    if ((prodHost || stagingHost) && !(signalingHostedZone && signalingZoneName?.trim())) {
+      throw new Error(
+        'SFU signaling hostnames require signalingHostedZone and signalingZoneName (same as fan Web DNS).',
+      );
+    }
+    if ((signalingHostedZone || signalingZoneName?.trim()) && !(prodHost && signalingHostedZone && signalingZoneName?.trim())) {
+      throw new Error(
+        'signalingHostedZone / signalingZoneName must be paired with sfuProdSignalingHostname.',
+      );
+    }
+
+    const zName = signalingZoneName?.trim() ?? '';
+
     super(scope, id, {
       description:
         'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP in Turn VPC; secret riffsync/sfu-join-hmac-secret',
@@ -37,7 +109,6 @@ export class SfuServerStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', 'shared');
     cdk.Tags.of(this).add('Component', 'sfu-server');
 
-    // One physical secret per account; a failed prior deploy may have left it behind. Reference only.
     this.sfuJoinTokenSecret = secretsmanager.Secret.fromSecretNameV2(
       this,
       'SfuJoinHmacSecret',
@@ -65,12 +136,26 @@ export class SfuServerStack extends cdk.Stack {
 
     const rtcMin = 40_000;
     const rtcMax = 40_199;
+
+    const tlsEnabled = Boolean(prodHost && signalingHostedZone && zName);
+
+    let albSg: ec2.SecurityGroup | undefined;
     const sg = new ec2.SecurityGroup(this, 'SfuSg', {
       vpc: sharedMediaVpc,
       description: 'RiffSync mediasoup: signaling TCP and RTC UDP/TCP port range',
       allowAllOutbound: true,
     });
-    sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3000), 'SFU HTTP health + WebSocket signaling');
+    if (tlsEnabled) {
+      albSg = new ec2.SecurityGroup(this, 'SfuAlbSg', {
+        vpc: sharedMediaVpc,
+        description: 'RiffSync SFU ALB - HTTPS signaling',
+        allowAllOutbound: true,
+      });
+      albSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'WSS (HTTPS)');
+      sg.addIngressRule(albSg, ec2.Port.tcp(3000), 'Signaling from ALB');
+    } else {
+      sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3000), 'SFU HTTP health + WebSocket signaling');
+    }
     sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcpRange(rtcMin, rtcMax), 'mediasoup RTC TCP');
     sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.udpRange(rtcMin, rtcMax), 'mediasoup RTC UDP');
 
@@ -154,16 +239,84 @@ EOUNIT`,
 
     this.sfuElasticIp = eip.ref;
 
+    const ipFallbackWs = `ws://${eip.ref}:3000`;
+
+    if (tlsEnabled && prodHost && signalingHostedZone && albSg) {
+      const prodFq = normalizeFqdn(prodHost);
+      recordNameUnderZone(prodFq, zName);
+      const stagingFq = stagingHost ? normalizeFqdn(stagingHost) : undefined;
+      if (stagingFq) {
+        recordNameUnderZone(stagingFq, zName);
+      }
+
+      const cert = new acm.Certificate(this, 'SfuSignalingCert', {
+        domainName: prodFq,
+        subjectAlternativeNames: stagingFq ? [stagingFq] : [],
+        validation: acm.CertificateValidation.fromDns(signalingHostedZone),
+      });
+
+      const alb = new elbv2.ApplicationLoadBalancer(this, 'SfuAlb', {
+        vpc: sharedMediaVpc,
+        internetFacing: true,
+        loadBalancerName: 'riffsync-sfu',
+        securityGroup: albSg,
+      });
+      alb.setAttribute('idle_timeout.timeout_seconds', '3600');
+
+      const tg = new elbv2.ApplicationTargetGroup(this, 'SfuSignalingTg', {
+        vpc: sharedMediaVpc,
+        port: 3000,
+        protocol: elbv2.ApplicationProtocol.HTTP,
+        targets: [new elbv2.InstanceTarget(instance, 3000)],
+        healthCheck: {
+          path: '/healthz',
+          healthyHttpCodes: '200',
+          interval: cdk.Duration.seconds(30),
+        },
+        deregistrationDelay: cdk.Duration.seconds(30),
+      });
+
+      alb.addListener('SfuHttps', {
+        port: 443,
+        protocol: elbv2.ApplicationProtocol.HTTPS,
+        certificates: [cert],
+        defaultTargetGroups: [tg],
+      });
+
+      const aliasHostnames = stagingFq ? [prodFq, stagingFq] : [prodFq];
+      for (const h of aliasHostnames) {
+        new route53.ARecord(this, `SfuSigAlias${dnsRecordConstructSuffix(h)}`, {
+          zone: signalingHostedZone,
+          recordName: recordNameUnderZone(h, zName),
+          target: route53.RecordTarget.fromAlias(new route53Targets.LoadBalancerTarget(alb)),
+        });
+      }
+
+      this.defaultSignalingWsUrlForProd = `wss://${prodFq}`;
+      this.defaultSignalingWsUrlForStaging = `wss://${stagingFq ?? prodFq}`;
+    } else {
+      this.defaultSignalingWsUrlForProd = ipFallbackWs;
+      this.defaultSignalingWsUrlForStaging = ipFallbackWs;
+    }
+
     new cdk.CfnOutput(this, 'SfuElasticIp', {
       value: eip.ref,
       description:
-        'SFU public IP (ws). Token query on signaling port; MEDIASOUP_ANNOUNCED_IP set in UserData.',
+        'SFU public IP for RTC; signaling uses WSS via ALB when sfuProdSignalingHostname is set.',
     });
     new cdk.CfnOutput(this, 'SfuJoinSecretArn', {
       value: this.sfuJoinTokenSecret.secretArn,
     });
     new cdk.CfnOutput(this, 'SfuCodeBucketName', {
       value: codeBucket.bucketName,
+    });
+    new cdk.CfnOutput(this, 'SfuDefaultSignalingWsUrlProd', {
+      value: this.defaultSignalingWsUrlForProd,
+      description: 'Use for PROD_SFU_PUBLIC_WS_URL when token default should match CDK.',
+    });
+    new cdk.CfnOutput(this, 'SfuDefaultSignalingWsUrlStaging', {
+      value: this.defaultSignalingWsUrlForStaging,
+      description: 'Use for STAGING_SFU_PUBLIC_WS_URL when token default should match CDK.',
     });
   }
 }
