@@ -271,7 +271,7 @@ export class MediaServerStack extends cdk.Stack {
     const sfuUserData = ec2.UserData.forLinux();
     sfuUserData.addCommands(
       'set -euxo pipefail',
-      'dnf install -y gcc-c++ make python3 py3-pip',
+      'dnf install -y gcc-c++ make python3 python3-pip',
       'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -',
       'dnf install -y nodejs awscli',
       `SECRET_ARN='${sfuSecretArn}'`,
