@@ -20,9 +20,11 @@ let cachedJoinSecret: string | null = null;
 
 async function joinSecret(): Promise<string> {
   if (cachedJoinSecret) return cachedJoinSecret;
-  const arn = process.env.SFU_JOIN_SECRET_ARN;
-  if (!arn) throw new Error('Missing SFU_JOIN_SECRET_ARN');
-  const out = await sm.send(new GetSecretValueCommand({ SecretId: arn }));
+  /** Prefer friendly **name**; CDK `fromSecretNameV2` can pass partial ARNs with `??????` suffix tokens that break IAM matching. */
+  const secretId =
+    process.env.SFU_JOIN_SECRET_ID?.trim() || process.env.SFU_JOIN_SECRET_ARN?.trim();
+  if (!secretId) throw new Error('Missing SFU_JOIN_SECRET_ID or SFU_JOIN_SECRET_ARN');
+  const out = await sm.send(new GetSecretValueCommand({ SecretId: secretId }));
   const s = typeof out.SecretString === 'string' ? out.SecretString.trim() : '';
   if (s === '') throw new Error('Empty SFU join secret');
   cachedJoinSecret = s;

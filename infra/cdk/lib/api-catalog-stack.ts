@@ -415,6 +415,7 @@ export class ApiCatalogStack extends cdk.Stack {
       environment: {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
+        SFU_JOIN_SECRET_ID: SFU_JOIN_SECRET_NAME,
         SFU_JOIN_SECRET_ARN: sfuJoinTokenSecret.secretArn,
         RIFFSYNC_API_ENV: environment,
         SFU_PUBLIC_WS_URL: sfuPublicWsUrl,
@@ -423,22 +424,27 @@ export class ApiCatalogStack extends cdk.Stack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
-    sfuJoinTokenSecret.grantRead(webrtcSfuTokenFn);
-    /** Physical secrets use `name-6chars` ARNs; imported-by-name grants can miss the suffix cross-stack. */
-    const sfuJoinSecretIamArn = cdk.Fn.join('', [
-      `arn:${cdk.Aws.PARTITION}:secretsmanager:`,
-      cdk.Aws.REGION,
-      ':',
-      cdk.Aws.ACCOUNT_ID,
-      ':secret:',
-      SFU_JOIN_SECRET_NAME,
-      '-*',
-    ]);
+    /** Do not rely on `grantRead` for `fromSecretNameV2` alone: CDK may emit `??????` suffix ARNs that IAM does not treat as wildcards. */
+    const smSmPrefix = `arn:${cdk.Aws.PARTITION}:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:`;
+    const sfuJoinSecretResources = [
+      cdk.Fn.join('', [smSmPrefix, SFU_JOIN_SECRET_NAME, '*']),
+      cdk.Fn.join('', [smSmPrefix, SFU_JOIN_SECRET_NAME, '-*']),
+    ];
     webrtcSfuTokenFn.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
-        resources: [sfuJoinSecretIamArn],
+        resources: sfuJoinSecretResources,
+      }),
+    );
+    /** Default secret uses AWS-managed CMK `alias/aws/secretsmanager` (some accounts require explicit decrypt). */
+    webrtcSfuTokenFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['kms:Decrypt', 'kms:DescribeKey'],
+        resources: [
+          `arn:${cdk.Aws.PARTITION}:kms:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:alias/aws/secretsmanager`,
+        ],
       }),
     );
     this.connectionsTable.grantReadData(webrtcSfuTokenFn);
