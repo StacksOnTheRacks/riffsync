@@ -22,7 +22,7 @@ export class SfuServerStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, {
       description:
-        'RiffSync mediasoup SFU (shared staging+prod) — EC2 + EIP; secret riffsync/sfu-join-hmac-secret',
+        'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP; secret riffsync/sfu-join-hmac-secret',
       ...props,
     });
 
@@ -67,7 +67,7 @@ export class SfuServerStack extends cdk.Stack {
     const rtcMax = 40_199;
     const sg = new ec2.SecurityGroup(this, 'SfuSg', {
       vpc,
-      description: 'RiffSync mediasoup — signaling TCP + RTC UDP/TCP range',
+      description: 'RiffSync mediasoup: signaling TCP and RTC UDP/TCP port range',
       allowAllOutbound: true,
     });
     sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3000), 'SFU HTTP health + WebSocket signaling');
@@ -76,7 +76,7 @@ export class SfuServerStack extends cdk.Stack {
 
     const role = new iam.Role(this, 'SfuInstanceRole', {
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
-      description: 'RiffSync SFU — S3 code bundle + join secret read',
+      description: 'RiffSync SFU instance role for S3 code bundle and join secret read',
     });
     this.sfuJoinTokenSecret.grantRead(role);
     codeBucket.grantRead(role);
@@ -156,7 +156,8 @@ EOUNIT`,
 
     new cdk.CfnOutput(this, 'SfuElasticIp', {
       value: eip.ref,
-      description: 'SFU public IP — ws://{this}/?token=… ; set MEDIASOUP_ANNOUNCED_IP via UserData.',
+      description:
+        'SFU public IP (ws). Token query on signaling port; MEDIASOUP_ANNOUNCED_IP set in UserData.',
     });
     new cdk.CfnOutput(this, 'SfuJoinSecretArn', {
       value: this.sfuJoinTokenSecret.secretArn,

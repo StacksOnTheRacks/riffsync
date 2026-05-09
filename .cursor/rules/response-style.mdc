@@ -1,0 +1,27 @@
+---
+description: Assistant reply style - ASCII dashes only, no emojis
+alwaysApply: true
+---
+
+# Assistant response style
+
+Applies to all chat replies from the agent in this project.
+
+## Dashes
+
+- **Do not** use the Unicode em dash (`—`, U+2014) or en dash (`–`, U+2013) in user-facing text.
+- **Use** the ASCII hyphen-minus (`-`, U+002D) for separators, ranges spelled out (e.g. "staging to prod"), or two hyphens when a visual pause is needed (`--`).
+
+```markdown
+BAD:  See the docs — section 2.
+GOOD: See the docs - section 2.
+```
+
+## Emojis
+
+- **Do not** include emojis, emoticons, or decorative Unicode symbols in replies (including headings, lists, and summaries).
+- Prefer plain words, punctuation, and structure (headings, bullets, code) instead.
+
+## Code and citations
+
+- These constraints apply to **prose you write** for the user. **Do not** change emoji or special characters inside **quoted code**, file contents, or third-party strings unless the task is explicitly to edit them.

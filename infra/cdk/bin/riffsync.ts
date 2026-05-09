@@ -76,7 +76,7 @@ const turnServer = new TurnServerStack(app, 'RiffSyncTurn', {
 
 const sfuServer = new SfuServerStack(app, 'RiffSyncSfu', {
   description:
-    'RiffSync mediasoup SFU (shared staging+prod) — EC2 + EIP + join JWT secret',
+    'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP + join JWT secret',
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
