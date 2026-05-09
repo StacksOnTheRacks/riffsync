@@ -406,7 +406,8 @@ export class ApiCatalogStack extends cdk.Stack {
 
     const webrtcSfuTokenFn = new lambdaNodejs.NodejsFunction(this, 'WebrtcSfuTokenFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
-      timeout: cdk.Duration.seconds(10),
+      /** Roster GSI retries can span ~12.6s sleeps + Dynamo round-trips. */
+      timeout: cdk.Duration.seconds(20),
       memorySize: 128,
       bundling: sharedLambdaBundle,
       entry: path.join(__dirname, '../lambda/webrtc-sfu-token.ts'),

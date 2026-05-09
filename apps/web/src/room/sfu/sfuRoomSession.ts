@@ -52,6 +52,15 @@ function formatSfuTokenError(e: unknown): string {
   return msg
 }
 
+/** Transient: WS is open but Dynamo roster GSI has not caught up yet (`webrtc-sfu-token` 403). */
+function isRosterConsistency403(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e)
+  return (
+    /sfu-token\s+403:/i.test(msg) &&
+    /open the room websocket first|unknown session for this room/i.test(msg)
+  )
+}
+
 async function sleepBackoffMs(ms: number, signal: AbortSignal): Promise<void> {
   const end = Date.now() + ms
   while (Date.now() < end && !signal.aborted) {
@@ -99,8 +108,16 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
         })
       } catch (e) {
         if (signal.aborted) break
-        opts.onTokenError(formatSfuTokenError(e))
-        await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
+        const rosterRace = isRosterConsistency403(e)
+        /** Avoid flashing a scary denial while the connections roster GSI catches up (or before deploy picks up longer server-side retries). */
+        if (!rosterRace || attempt >= 4) {
+          opts.onTokenError(formatSfuTokenError(e))
+        }
+        const delayMs = rosterRace
+          ? Math.min(2500, 200 + 350 * Math.max(0, attempt))
+          : nextSfuReconnectDelayMs(attempt)
+        await sleepBackoffMs(delayMs, signal)
+        attempt++
         continue
       }
 

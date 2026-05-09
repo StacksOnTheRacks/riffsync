@@ -39,20 +39,24 @@ function json(statusCode: number, body: JsonRecord): APIGatewayProxyResultV2 {
   };
 }
 
-/** GSI reads can lag behind the connect write; also the roster may list others before our row appears. */
-const ROSTER_GSI_RETRY_MS = [0, 400, 900, 2000];
+/**
+ * **`RoomConnectionsRosterIndex`** is eventually consistent: the browser can have WS **open** before
+ * the GSI lists the new **`$connect`** row. Wait long enough that almost all reads succeed in one HTTP request.
+ */
+const ROSTER_GSI_RETRY_MS = [0, 200, 400, 800, 1600, 3200, 6400];
 
 async function findMyConnectionRow(
   connTable: string,
   roomId: string,
   sessionId: string,
 ): Promise<JsonRecord | undefined> {
+  const want = sessionId.trim();
   for (const delayMs of ROSTER_GSI_RETRY_MS) {
     if (delayMs > 0) {
       await new Promise((r) => setTimeout(r, delayMs));
     }
     const items = await queryRoomConnectionItems(doc, connTable, roomId);
-    const mine = items.find((c) => c.sessionId === sessionId) as JsonRecord | undefined;
+    const mine = items.find((c) => String(c.sessionId ?? '').trim() === want) as JsonRecord | undefined;
     if (mine) return mine;
   }
   return undefined;
