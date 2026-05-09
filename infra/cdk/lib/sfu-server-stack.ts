@@ -20,7 +20,8 @@ export interface SfuServerStackProps extends cdk.StackProps {
  * Signaling **ws://instance:3000/?token=…** (use TLS terminator in front for HTTPS SPAs).
  */
 export class SfuServerStack extends cdk.Stack {
-  public readonly sfuJoinTokenSecret: secretsmanager.Secret;
+  /** Pre-existing account secret **`riffsync/sfu-join-hmac-secret`** (not created by this stack). */
+  public readonly sfuJoinTokenSecret: secretsmanager.ISecret;
   public readonly sfuElasticIp: string;
   public readonly sfuCodeBucket: s3.IBucket;
 
@@ -36,13 +37,12 @@ export class SfuServerStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', 'shared');
     cdk.Tags.of(this).add('Component', 'sfu-server');
 
-    this.sfuJoinTokenSecret = new secretsmanager.Secret(this, 'SfuJoinHmacSecret', {
-      secretName: SFU_JOIN_SECRET_NAME,
-      description:
-        'HMAC secret for short-lived SFU join JWTs (staging+prod Lambdas sign; SFU verifies).',
-      secretStringValue: cdk.SecretValue.unsafePlainText('REPLACE_WITH_SFU_JOIN_HMAC_SECRET'),
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
+    // One physical secret per account; a failed prior deploy may have left it behind. Reference only.
+    this.sfuJoinTokenSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'SfuJoinHmacSecret',
+      SFU_JOIN_SECRET_NAME,
+    );
 
     const codeBucket = new s3.Bucket(this, 'SfuCodeBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
