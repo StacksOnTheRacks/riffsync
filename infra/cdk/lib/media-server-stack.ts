@@ -259,7 +259,31 @@ export class MediaServerStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
       description: 'RiffSync SFU instance role for S3 code bundle and join secret read',
     });
-    this.sfuJoinTokenSecret.grantRead(sfuRole);
+    /**
+     * Do not rely on **`grantRead(fromSecretNameV2)`** alone: CDK can emit partial ARNs that do not match
+     * **`GetSecretValue`** for the real secret id (same pattern as **`WebrtcSfuTokenFn`** in **`api-catalog-stack`**).
+     */
+    const smSmPrefix = `arn:${cdk.Aws.PARTITION}:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:`;
+    const sfuJoinSecretResources = [
+      cdk.Fn.join('', [smSmPrefix, SFU_JOIN_SECRET_NAME, '*']),
+      cdk.Fn.join('', [smSmPrefix, SFU_JOIN_SECRET_NAME, '-*']),
+    ];
+    sfuRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+        resources: sfuJoinSecretResources,
+      }),
+    );
+    sfuRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['kms:Decrypt', 'kms:DescribeKey'],
+        resources: [
+          `arn:${cdk.Aws.PARTITION}:kms:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:alias/aws/secretsmanager`,
+        ],
+      }),
+    );
     codeBucket.grantRead(sfuRole);
     sfuRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'));
 
