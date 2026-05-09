@@ -57,7 +57,7 @@ Admin-only **write** APIs that mutate the canonical **catalog Dynamo** items mir
 
 - **`POST`**, **`PATCH`**, **`DELETE /v1/admin/catalog/episodes/:id`** (payload shape aligned with **`data/catalog/catalog.schema.json`** plus any Dynamo-only fields documented in **`architecture.catalog-images.md`**).
 - **Validation** reuse: same constraints as **`catalog.schema.json`** (or codegen types from schema in Lambdas later).
-- **Import**: **`POST /v1/admin/catalog/import`** streaming **multipart** or referencing **S3** versioned uploads for bulk replace — **staging** partition **before** flipping production pointer if you fear bad JSON.
+- **Import**: **`POST /v1/admin/catalog/import`** streaming **multipart** or referencing **S3** versioned uploads for bulk replace — validate on a **copy** of the catalog or in a **non-production** account before overwriting live production data if you fear bad JSON.
 - **Cache**: invalidate **ElastiCache** catalogue key + bump **ETag** on **`GET /v1/catalog`** when writers succeed.
 - Keep **seed `episodes.json` export** pipeline optional (**ops** script dumps Dynamo → CI comparison) — repo seed stays the **bootstrap** story from **`data/catalog/README.md`**.
 

@@ -128,8 +128,7 @@ Operator-facing **admin HTTP** reporting endpoints (**`architecture.admin.md`**)
 ## Delivery pipeline (GitHub Actions)
 
 - **CI:** GitHub Actions runs tests, **`cdk synth`**, and lint on **pull requests** (recommended).
-- **Staging:** **`workflow_dispatch`** (manual) deploys **`main`** to the **staging** CDK stack/environment on demand.
-- **Production:** Separate **manual** workflow deploys **`main`** on demand (**same promotion model as staging**). Prefer **OIDC** from GitHub → AWS over static access keys.
+- **Production:** **Manual** **`workflow_dispatch`** deploys **`main`** on demand. Prefer **OIDC** from GitHub → AWS over static access keys.
 - Full workflow layout: **`.forge/operations/build_packaging.md`** and **`.forge/operations/deployment_environments.md`**.
 
 ---

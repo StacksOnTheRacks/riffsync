@@ -1,12 +1,11 @@
 /**
  * Copies all items from **source** DynamoDB catalog table to **destination** (same primary key **`id`**).
- * Destination rows are **overwritten**. Use after prod table is empty or when you intentionally refresh prod.
+ * Destination rows are **overwritten**. Use when refreshing the prod catalog from a backup or another table.
  *
  * ```bash
  * export AWS_PROFILE=prod-admin
  * export AWS_REGION=us-east-1
- * SOURCE="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-staging \
- *   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
+ * SOURCE="<source_catalog_table_name>"
  * DEST="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-prod \
  *   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
  * npm run copy:catalog -- "$SOURCE" "$DEST"

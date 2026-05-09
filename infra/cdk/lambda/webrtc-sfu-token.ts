@@ -65,7 +65,7 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
   const apiEnv = process.env.RIFFSYNC_API_ENV;
   const publicWsUrl = process.env.SFU_PUBLIC_WS_URL?.trim() ?? '';
 
-  if (!roomsTable || !connTable || (apiEnv !== 'staging' && apiEnv !== 'prod')) {
+  if (!roomsTable || !connTable || apiEnv !== 'prod') {
     return json(500, { error: 'Server misconfigured' });
   }
 

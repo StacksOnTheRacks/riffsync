@@ -17,9 +17,8 @@ import { fanWebAlternateDomainNamesFromContext } from './context-alternate-domai
 import { SFU_JOIN_SECRET_NAME } from './sfu-server-stack';
 
 export interface ApiCatalogStackProps extends cdk.StackProps {
-  readonly environment: 'staging' | 'prod';
   /**
-   * Extra CORS origins (e.g. staging CloudFront `https://dxxxx.cloudfront.net`).
+   * Extra CORS origins (e.g. CloudFront default `https://dxxxx.cloudfront.net`).
    * Comma-separated in CDK context `catalogCorsOrigins`.
    */
   readonly extraCorsOrigins?: string[];
@@ -112,21 +111,16 @@ function turnCredentialTtlSecondsFromContext(scope: Construct): string {
   return String(ttl);
 }
 
-function corsAllowOrigins(environment: 'staging' | 'prod', extras: string[], scope: Construct): string[] {
+function corsAllowOrigins(extras: string[], scope: Construct): string[] {
   const altOrigins = fanWebAlternateDomainNamesFromContext(scope).map((h) => `https://${h}`);
-  const base =
-    environment === 'prod'
-      ? ['https://riffsync.tv', 'https://www.riffsync.tv']
-      : [
-          'https://riffsync.tv',
-          'https://www.riffsync.tv',
-          'https://staging.riffsync.tv',
-          'https://www-staging.riffsync.tv',
-          'http://localhost:5173',
-          'http://localhost:3000',
-          'http://127.0.0.1:5173',
-          'https://localhost:5173',
-        ];
+  const base = [
+    'https://riffsync.tv',
+    'https://www.riffsync.tv',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'https://localhost:5173',
+  ];
   return [...new Set([...base, ...altOrigins, ...extras])];
 }
 
@@ -152,7 +146,6 @@ export class ApiCatalogStack extends cdk.Stack {
     super(scope, id, props);
 
     const {
-      environment,
       extraCorsOrigins = [],
       fanUserPool,
       fanUserPoolClient,
@@ -161,27 +154,26 @@ export class ApiCatalogStack extends cdk.Stack {
       sfuJoinTokenSecret,
       sfuDefaultSignalingWsUrl,
     } = props;
+    const environment = 'prod';
     const contextExtras = parseOriginsFromContext(this);
-    const allowOrigins = corsAllowOrigins(environment, [...extraCorsOrigins, ...contextExtras], this);
+    const allowOrigins = corsAllowOrigins([...extraCorsOrigins, ...contextExtras], this);
     const staleRoomMs = staleRoomMsFromContext(this);
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
-    cdk.Tags.of(this).add('Environment', environment);
+    cdk.Tags.of(this).add('Environment', 'prod');
 
     this.catalogTable = new dynamodb.Table(this, 'CatalogTable', {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-      pointInTimeRecoverySpecification:
-        environment === 'prod' ? { pointInTimeRecoveryEnabled: true } : undefined,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
 
     this.roomsTable = new dynamodb.Table(this, 'RoomsTable', {
       partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-      pointInTimeRecoverySpecification:
-        environment === 'prod' ? { pointInTimeRecoveryEnabled: true } : undefined,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
     this.roomsTable.addGlobalSecondaryIndex({
       indexName: 'PublicLobbyIndex',
@@ -193,7 +185,7 @@ export class ApiCatalogStack extends cdk.Stack {
     this.connectionsTable = new dynamodb.Table(this, 'ConnectionsTable', {
       partitionKey: { name: 'connectionId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
       timeToLiveAttribute: 'expiresAt',
     });
     /** Lobby counts + WS presence (`INCLUDE` attributes required for roster fan-out). */
@@ -208,9 +200,8 @@ export class ApiCatalogStack extends cdk.Stack {
     this.fanProfilesTable = new dynamodb.Table(this, 'FanProfilesTable', {
       partitionKey: { name: 'sub', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-      pointInTimeRecoverySpecification:
-        environment === 'prod' ? { pointInTimeRecoveryEnabled: true } : undefined,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
 
     this.tmdbApiTokenSecret = new secretsmanager.Secret(this, 'TmdbApiToken', {
@@ -218,7 +209,7 @@ export class ApiCatalogStack extends cdk.Stack {
       description:
         'TMDB API bearer token for catalog reconcile (replace via AWS Console or put-secret-value).',
       secretStringValue: cdk.SecretValue.unsafePlainText('REPLACE_WITH_TMDB_BEARER_TOKEN'),
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     const privacyRoutingSecret = new secretsmanager.Secret(this, 'PrivacyRemovalRouting', {
@@ -228,7 +219,7 @@ export class ApiCatalogStack extends cdk.Stack {
       secretStringValue: cdk.SecretValue.unsafePlainText(
         '{"notifyEmail":"REPLACE_WITH_NOTIFY_EMAIL","fromEmail":"REPLACE_WITH_VERIFIED_SES_FROM"}',
       ),
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     this.turnSharedSecret = turnSharedSecret;

@@ -1,18 +1,25 @@
 # RiffSync AWS CDK (`infra/cdk`)
 
-AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and **`prod`**. There is **no** billable **`dev`** stack in AWS—see [`../../.forge/runtime/configuration.md`](../../.forge/runtime/configuration.md) and [`../../.forge/operations/deployment_environments.md`](../../.forge/operations/deployment_environments.md). **Local** development stays on the workstation (or CI `synth` without deploy).
+AWS CDK **v2** (TypeScript) for the **hosted production** footprint in AWS. There is **no** billable **`dev`** or **staging** stack—see [`../../.forge/runtime/configuration.md`](../../.forge/runtime/configuration.md) and [`../../.forge/operations/deployment_environments.md`](../../.forge/operations/deployment_environments.md). **Local** development stays on the workstation (or CI `synth` without deploy).
+
+## Decommissioning hosted staging
+
+The CDK app **no longer defines** `RiffSyncFanAuth-staging`, `RiffSyncApi-staging`, or `RiffSyncStatic-staging`. After you migrate any DynamoDB data you need and confirm DNS / clients do not use staging hostnames:
+
+1. Remove Route 53 records and ACM aliases that pointed only at staging, if applicable.
+2. Destroy the old stacks via **CloudFormation** ( **`aws cloudformation delete-stack --stack-name …`** ) or the console, in an order that respects dependencies (typically **`RiffSyncStatic-staging`**, then **`RiffSyncApi-staging`**, then **`RiffSyncFanAuth-staging`**). You cannot `cdk destroy` them from this repo revision because they are no longer in the CDK app; use an older git checkout only if you still have a matching synthesized app.
 
 ## Layout
 
 | Path | Role |
 | --- | --- |
-| `bin/riffsync.ts` | App entry; validates `environment` context |
+| `bin/riffsync.ts` | App entry; **`--context environment=prod`** (default in `cdk.json`) |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
-| `lib/turn-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **coturn** on **EC2** (**`t3.small`**) + **`riffsync/turn-static-auth-secret`** (shared **staging + prod** in one account) |
-| `lib/sfu-server-stack.ts` | **Singleton** **`RiffSyncSfu`** — **mediasoup** on **EC2** (**`t3.medium`**) + S3 **BucketDeployment** of **`services/riffsync-sfu`** + **`riffsync/sfu-join-hmac-secret`** (join JWT HMAC; shared **staging + prod**) |
+| `lib/turn-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **coturn** on **EC2** (**`t3.small`**) + **`riffsync/turn-static-auth-secret`** (account-wide) |
+| `lib/sfu-server-stack.ts` | **Singleton** **`RiffSyncSfu`** — **mediasoup** on **EC2** (**`t3.medium`**) + S3 **BucketDeployment** of **`services/riffsync-sfu`** + **`riffsync/sfu-join-hmac-secret`** (join JWT HMAC) |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
-| `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) — **one** topic/rule set for all tiers; synthesized only with **`environment=prod`** |
+| `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
 | `lambda/room-*.ts` | **`POST/PATCH`** room + **`GET`** lobby/read (**`authorization.md`**) |
 | `lambda/ws-*.ts` | WebSocket **`$connect`** / **`$disconnect`** / message routes |
@@ -20,18 +27,18 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `lambda/webrtc-sfu-token.ts` | **`POST /v1/webrtc/sfu-token`** — short-lived mediasoup join JWT (**requires** `X-Session-Id` + active WS connection; host uses `Authorization`) |
 | `lambda/room-shared.ts` | Shared parsing + **`STALE_ROOM_MS`** (**lobby staleness**) |
 | `lambda/tmdb-reconcile-*.ts` | Scheduled **`GET /configuration`**, **`/search/movie`**, **`/movie/{id}`** enrichment (**`docs/contracts.tmdb.md`**) |
-| `scripts/copy-catalog-dynamodb.ts` | **`npm run copy:catalog`** — scan one catalog table, **`BatchWriteItem`** into another (staging → prod migration) |
+| `scripts/copy-catalog-dynamodb.ts` | **`npm run copy:catalog`** — scan one catalog table, **`BatchWriteItem`** into another (e.g. backup → prod) |
 
 ### TMDB reconcile (M4+)
 
 | Resource | Notes |
 | --- | --- |
-| **Secret** | **`TmdbApiTokenSecretArn`** — name **`riffsync/staging/tmdb-api-token`** or **`riffsync/prod/tmdb-api-token`**. Template seeds **`REPLACE_WITH_TMDB_BEARER_TOKEN`**; set a real **[TMDB bearer token](https://developer.themoviedb.org/docs/getting-started)** via **`aws secretsmanager put-secret-value`** (JSON `{"token":"…"}` or plain string). **Never** commit tokens. **Rotation:** update the secret value; next run picks it up (IAM **`secretsmanager:GetSecretValue`** on the secret ARN only). |
+| **Secret** | **`TmdbApiTokenSecretArn`** — name **`riffsync/prod/tmdb-api-token`**. Template seeds **`REPLACE_WITH_TMDB_BEARER_TOKEN`**; set a real **[TMDB bearer token](https://developer.themoviedb.org/docs/getting-started)** via **`aws secretsmanager put-secret-value`** (JSON `{"token":"…"}` or plain string). **Never** commit tokens. **Rotation:** update the secret value; next run picks it up (IAM **`secretsmanager:GetSecretValue`** on the secret ARN only). |
 | **Schedule** | **EventBridge** **`rate(6 hours)`** targeting **`TmdbReconcileFn`**. **Disable without redeploy:** pause/disabled rule in **EventBridge** console. **Disable via CDK:** **`--context catalogReconcileScheduleEnabled=false`**. **No-op handler:** **`--context catalogReconcileDisabled=true`** sets **`RECONCILE_DISABLED`** (manual invokes return immediately). |
 | **Batch** | **`--context catalogReconcileBatchSize=20`** (default **15**, max **50** enforced in handler). Scans catalog for rows with missing **`tmdbArtworkSyncedAt`**; **`tmdbMovieId`** uses **`/movie/{id}`** first; else single-hit **`/search/movie`** only (**ambiguous** or **zero** hits → skipped). |
 | **Metrics / logs** | **`RiffSync/Reconcile`** EMF (**Processed**, **Failed**, **Skipped**) + structured JSON logs (**no** token values). |
 
-**Smoke (staging):** after secret + seed, **`aws lambda invoke --function-name <TmdbReconcileFnName> /tmp/out.json`** then read **`GET /v1/catalog`** — enriched fields appear without SPA changes.
+**Smoke (prod):** after secret + seed, **`aws lambda invoke --function-name <TmdbReconcileFnName> /tmp/out.json`** then read **`GET /v1/catalog`** — enriched fields appear without SPA changes.
 
 **Deploy IAM:** GitHub OIDC role needs **EventBridge** / **Secrets Manager** (plus existing Lambda/Dynamo) for this stack — extend operator policy when **`cdk deploy`** fails on missing permissions.
 
@@ -39,11 +46,11 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 
 ### Catalog table & HTTP API (M4+)
 
-Hosted stacks **`RiffSyncApi-staging`** / **`RiffSyncApi-prod`** add:
+Hosted stack **`RiffSyncApi-prod`** adds:
 
 - **`AWS::DynamoDB::Table`** — **partition key** **`id`** (string, episode slug). **No sort key.** **`GET /v1/catalog`** uses **`Scan`** (acceptable while the library fits one Lambda scan; add **GSI**, **export**, or **cache** before scale demands it — **`docs/architecture.server.md`**, **`.forge/data/persistence_abstractions.md`**).
-- **`AWS::ApiGatewayV2::Api`** (HTTP API) — routes above; **CORS** allows **`https://riffsync.tv`** plus any **`fanWebAlternateDomainNames`** (e.g. **`www.riffsync.tv`**) in **prod**. **Staging** adds **localhost** and **`https://staging.riffsync.tv`**. Pass extra origins (e.g. **`https://<distribution>.cloudfront.net`**) at synth/deploy:  
-  **`npx cdk deploy --all --context environment=staging --context catalogCorsOrigins=https://d111111abcdef8.cloudfront.net`**
+- **`AWS::ApiGatewayV2::Api`** (HTTP API) — routes above; **CORS** allows **`https://riffsync.tv`**, **`www`**, **localhost** (for dev against prod API), and any **`fanWebAlternateDomainNames`**. Pass extra origins (e.g. **`https://<distribution>.cloudfront.net`**) at synth/deploy:  
+  **`npx cdk deploy --all --context environment=prod --context catalogCorsOrigins=https://d111111abcdef8.cloudfront.net`**
 - **`AWS::Lambda::Permission`** — **`lambda:InvokeFunction`** from **`apigateway.amazonaws.com`** per route integration ( **`docs/architecture.server.md`** IAM table).
 
 **Outputs:** **`CatalogTableName`**, **`HttpApiUrl`** (base URL — append **`/v1/catalog`**).
@@ -53,18 +60,17 @@ Hosted stacks **`RiffSyncApi-staging`** / **`RiffSyncApi-prod`** add:
 ```bash
 cd infra/cdk && npm ci && npm run build
 export AWS_REGION=us-east-1   # required for AWS CLI and the SDK in seed script if unset on your profile
-TABLE_NAME="$(aws cloudformation describe-stacks --region "$AWS_REGION" --stack-name RiffSyncApi-staging \
+TABLE_NAME="$(aws cloudformation describe-stacks --region "$AWS_REGION" --stack-name RiffSyncApi-prod \
   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
 npm run seed:catalog -- "$TABLE_NAME"
 ```
 
-**Copy catalog between tables (staging → production):** When prod should match **live staging** data (not just git `episodes.json`), use credentials that can **read** staging and **write** prod in the same **`AWS_REGION`**:
+**Copy catalog between tables:** When **`DEST`** should receive a full copy from **`SOURCE`** (same **`AWS_REGION`**), see **`scripts/copy-catalog-dynamodb.ts`** header for an example using **`RiffSyncApi-prod`**.
 
 ```bash
 cd infra/cdk && npm ci && npm run build
 export AWS_REGION=us-east-1   # must match both tables
-SOURCE="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-staging \
-  --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
+SOURCE="<source_catalog_table_name>"
 DEST="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-prod \
   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
 npm run copy:catalog -- "$SOURCE" "$DEST"
@@ -92,22 +98,10 @@ JSON response shapes: **`docs/api.catalog.md`**.
 
 Same **`us-east-1`** ACM cert must include **both** DNS names. **`FanWebSiteUrl`** (and CI **`VITE_PUBLIC_ORIGIN`**) follow **`PROD_FAN_WEB_CANONICAL_HOSTNAME`** when set, otherwise **`PROD_FAN_WEB_HOSTNAME`**.
 
-**Staging (one hostname is enough; wildcard cert is fine):**
-
-| Variable | Example |
-| --- | --- |
-| **`STAGING_FAN_WEB_HOSTNAME`** | **`staging.riffsync.tv`** |
-| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | *(omit)* — use only if you truly need a **second** name on the same distribution |
-| **`STAGING_FAN_WEB_CANONICAL_HOSTNAME`** | *(omit)* unless you set an alternate and want one to 302 to the other |
-
-With a **wildcard** ACM cert (**`*.riffsync.tv`**), a single name like **`staging.riffsync.tv`** is still covered; you do not need a second staging URL for that reason alone.
-
-**If Route 53 only shows one alias:** **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** / **`STAGING_…`** is almost certainly **empty** while **`…_HOSTNAME`** is set to a **single** name (often `www` only). The fix is to put the **other** hostname in **`…_ALTERNATE_DOMAIN_NAMES`** (not to rely on “apex is implicit”).
-
 **Local / CLI:**  
 `--context fanWebAlternateDomainNames=riffsync.tv --context fanWebCanonicalHostname=www.riffsync.tv` (with **`fanWebCustomDomain=www.riffsync.tv`**).
 
-CORS and Cognito callback allowlists include **`https://www.riffsync.tv`** and **`https://www-staging.riffsync.tv`** by default; **`fanWebAlternateDomainNames`** still adds any other names on the cert.
+CORS and Cognito callback allowlists include prod **`https` origins**, **localhost** dev URLs, and **`fanWebAlternateDomainNames`** from context.
 
 ### Route 53 + CloudFormation: `DELETE_IN_PROGRESS` and when **both** apex + `www` disappear
 
@@ -129,7 +123,7 @@ CDK creates one **`AWS::Route53::RecordSet`** per hostname. **Avoid renaming** t
 
 ### Rooms, lobby & WebSocket (M5+)
 
-Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as catalog). Depends on **`RiffSyncFanAuth-*`** (**`bin/riffsync.ts`** synthesizes Fan stack **before** API so JWT issuer + client IDs exist).
+Deployed with **`RiffSyncApi-prod`** (same CloudFormation stack as catalog). Depends on **`RiffSyncFanAuth-prod`** (**`bin/riffsync.ts`** synthesizes Fan stack **before** API so JWT issuer + client IDs exist).
 
 **DynamoDB**
 
@@ -149,17 +143,17 @@ Deployed with **`RiffSyncApi-{staging|prod}`** (same CloudFormation stack as cat
 | **`GET /v1/webrtc/ice`** | Anonymous | **`iceServers`** for WebRTC (STUN + time-limited TURN when **`turnHost`** context is set — see **Self-hosted TURN**). |
 | **`POST /v1/privacy-removal-request`** | Anonymous | JSON body **`contactEmail`**, **`message`** (10–8000 chars), optional honeypot **`website`** (must be empty). Sends mail via **SES** using **`riffsync/<env>/privacy-removal-routing`** (JSON **`notifyEmail`** + SES-verified **`fromEmail`**). Uses environment SES configuration set (**`SesSendingConfigurationSetName`**) so **bounce**/**complaint**/**delivery** events publish to **`SesSendingEventsTopicArn`**. Configure **SES** identities and replace secret placeholders before relying on the SPA form. |
 
-**WebSocket**: outputs **`WebSocketUrl`** (**`wss://…/{staging|prod}`**). Contracts: **`../../docs/contracts.websocket.md`**. **`execute-api:ManageConnections`** attaches only to this stack’s WebSocket API (**`…/*/*/@connections/*`**, parameterized by **`WebSocketApiId`**), not arbitrary `*` resources.
+**WebSocket**: outputs **`WebSocketUrl`** (**`wss://…/prod`**). Contracts: **`../../docs/contracts.websocket.md`**. **`execute-api:ManageConnections`** attaches only to this stack’s WebSocket API (**`…/*/*/@connections/*`**, parameterized by **`WebSocketApiId`**), not arbitrary `*` resources.
 
 **Housekeeping:** lobby staleness uses **read-time filtering** (**US-P0-08**) — optional EventBridge TTL/sweeper deferred.
 
 ### Self-hosted TURN (coturn on EC2)
 
-Designed for **one AWS account** hosting both **`RiffSyncApi-staging`** and **`RiffSyncApi-prod`**: a **singleton** stack **[`RiffSyncTurn`](lib/turn-server-stack.ts)** (not suffixed by environment) provides **one** **`t3.small`** instance, **one** **Elastic IP**, and **one** Secrets Manager secret (**`riffsync/turn-static-auth-secret`**). Both ICE Lambdas use **that** secret for TURN REST credentials; both should use the **same** **`turnHost`** (the EIP, or DNS to it).
+Designed for **one AWS account** hosting **`RiffSyncApi-prod`**: a **singleton** stack **[`RiffSyncTurn`](lib/turn-server-stack.ts)** provides **one** **`t3.small`** instance, **one** **Elastic IP**, and **one** Secrets Manager secret (**`riffsync/turn-static-auth-secret`**). ICE Lambdas use **that** secret for TURN REST credentials and **`turnHost`** (the EIP, or DNS to it).
 
-**Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncTurn`** is created **before** **`RiffSyncApi-*`**; each API stack **depends on** **`RiffSyncTurn`** so the secret exists before Lambdas reference it.
+**Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncTurn`** is created **before** **`RiffSyncApi-prod`**; the API stack **depends on** **`RiffSyncTurn`** so the secret exists before Lambdas reference it.
 
-**Deploy:** **`cdk deploy --all`** in **[`deploy-staging.yml`](../../.github/workflows/deploy-staging.yml)** / **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** updates **`RiffSyncTurn`** on **every** run (usually a no-op after the first). For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses the staging OIDC role — same account).
+**Deploy:** **`cdk deploy --all`** in **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** updates **`RiffSyncTurn`** on **every** run (usually a no-op after the first). For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses **`AWS_DEPLOY_ROLE_ARN_PROD`**).
 
 **Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`** (Turn stack only; duplicating this output on API stacks triggers CloudFormation lint **W6001** when the value is a cross-stack import).
 
@@ -177,12 +171,12 @@ WebRTC mesh screen share uses **`GET /v1/webrtc/ice`** for **`iceServers`**.
 
 **GitHub repository Variables** (optional — **Settings → Secrets and variables → Actions → Variables**). When set, workflows pass **`--context`** into **both** the full **`cdk deploy --all`** and the follow-up **`RiffSyncApi-*`** deploy that refreshes CORS:
 
-| Variable (staging) | Variable (production) | CDK context | Notes |
-| --- | --- | --- | --- |
-| **`STAGING_TURN_HOST`** | **`PROD_TURN_HOST`** | **`turnHost`** | Prefer the **same** **`TurnServerElasticIp`** (or hostname) for **both** so staging and prod share one coturn. **Omit** both for STUN-only ICE. |
-| **`STAGING_TURN_PORT`** | **`PROD_TURN_PORT`** | **`turnPort`** | Optional; default **`3478`** (**must match** EC2 **`listening-port`**). |
-| **`STAGING_TURN_TLS_PORT`** | **`PROD_TURN_TLS_PORT`** | **`turnTlsPort`** | Optional **Lambda/ICE only**; CDK EC2 does **not** serve **`turns:`** yet. |
-| **`STAGING_TURN_CREDENTIAL_TTL_SECONDS`** | **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | **`turnCredentialTtlSeconds`** | Optional; default **`43200`** (12h). |
+| Variable (production) | CDK context | Notes |
+| --- | --- | --- |
+| **`PROD_TURN_HOST`** | **`turnHost`** | **`TurnServerElasticIp`** (or DNS to it). **Omit** for STUN-only ICE. |
+| **`PROD_TURN_PORT`** | **`turnPort`** | Optional; default **`3478`** (**must match** EC2 **`listening-port`**). |
+| **`PROD_TURN_TLS_PORT`** | **`turnTlsPort`** | Optional **Lambda/ICE only**; CDK EC2 does **not** serve **`turns:`** yet. |
+| **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | **`turnCredentialTtlSeconds`** | Optional; default **`43200`** (12h). |
 
 **Optional CDK context:** **`turnRealm`** (coturn **`realm`** / **`server-name`**; default **`riffsync-turn`**).
 
@@ -195,7 +189,7 @@ Advanced overrides (**`stunServersJson`**, etc.) use CDK context keys in **`api-
 3. **Format:** one-line **plaintext**, no JSON wrapper. Lambda rejects **`REPLACE_WITH_TURN`**.
 4. **Set** via Console or **`aws secretsmanager put-secret-value --secret-id riffsync/turn-static-auth-secret --secret-string '…'`**
 
-5. **Recommended order:** Deploy **`RiffSyncTurn`** (or **`cdk deploy --all`**), set the **real** secret, ensure coturn has it (SSM if needed), set **`STAGING_TURN_HOST`** and **`PROD_TURN_HOST`** to the **same** EIP, re-run **staging** and **prod** app deploys so both Lambdas get **`turnHost`**, then **`curl`** each **`/v1/webrtc/ice`**.
+5. **Recommended order:** Deploy **`RiffSyncTurn`** (or **`cdk deploy --all`**), set the **real** secret, ensure coturn has it (SSM if needed), set **`PROD_TURN_HOST`**, re-run the **production** app deploy so Lambdas get **`turnHost`**, then **`curl`** **`/v1/webrtc/ice`**.
 
 **HTTP API throttling:** default stage limits; add **WAF** if needed.
 
@@ -203,16 +197,16 @@ Advanced overrides (**`stunServersJson`**, etc.) use CDK context keys in **`api-
 
 ### Fan Cognito Hosted UI (M5+)
 
-Hosted stacks **`RiffSyncFanAuth-staging`** / **`RiffSyncFanAuth-prod`** provision a **fan-only** pool suitable for **`POST /v1/rooms`** and room-admin JWTs per **`.forge/integration/authorization.md`** (stable **`sub`** for **`hostSub`**). **Staff** `/v1/admin/*` pool remains a **separate** future stack.
+Hosted stack **`RiffSyncFanAuth-prod`** provisions a **fan-only** pool suitable for **`POST /v1/rooms`** and room-admin JWTs per **`.forge/integration/authorization.md`** (stable **`sub`** for **`hostSub`**). **Staff** `/v1/admin/*` pool remains a **separate** future stack.
 
 | Decision | Choice |
 | --- | --- |
 | **Sign-up / sign-in** | **Hosted UI** — users create a **local** Cognito profile (**email** alias + password). **`selfSignUpEnabled`** is **on**; Cognito sends **verification** and **recovery** email via **SES** (see next row). |
-| **Outbound sending events** | Per-environment **SES configuration set** **`riffsync-ses-send-{staging|prod}`** publishes **bounce**, **complaint**, **delivery**, **reject**, **renderingFailure**, **deliveryDelay** to SNS topic **`riffsync-ses-send-events-{staging|prod}`**. Cognito verification/recovery mail and **`PrivacyRemovalRequestFn`** **`SendEmail`** both use this set (**CloudWatch** reputation metrics enabled; **suppression**: bounces + complaints). Subscribe (email/SQS/Lambda) to **`SesSendingEventsTopicArn`** for auditing. |
+| **Outbound sending events** | **SES configuration set** **`riffsync-ses-send-prod`** publishes **bounce**, **complaint**, **delivery**, **reject**, **renderingFailure**, **deliveryDelay** to SNS topic **`riffsync-ses-send-events-prod`**. Cognito verification/recovery mail and **`PrivacyRemovalRequestFn`** **`SendEmail`** both use this set (**CloudWatch** reputation metrics enabled; **suppression**: bounces + complaints). Subscribe (email/SQS/Lambda) to **`SesSendingEventsTopicArn`** for auditing. |
 | **Transactional email** | **Amazon SES** via **`UserPoolEmail.withSES`** — **`EmailSendingAccount` DEVELOPER**. Defaults: verified domain **`riffsync.tv`**, **`From`** **`RiffSync <noreply@riffsync.tv>`**, SES identity ARN in the **same Region** as the pool (see optional **`fanAuthSes*`** context keys below). Uses stack-managed configuration set (**`SesSendingConfigurationSetName`** output). **SES sandbox:** only verified recipient addresses receive mail until production access is granted. |
 | **App client** | **Public** SPA client (**no** secret); **`ALLOW_USER_SRP_AUTH`** + **`ALLOW_USER_PASSWORD_AUTH`** enabled for Hosted UI; **`supportedIdentityProviders`** = **COGNITO** only. |
-| **Callback / sign-out URLs** | **Prod:** **`https://riffsync.tv/`** and **`https://riffsync.tv/auth/callback`** (SPA route; must match **`fanHostedUiPkce`** **`redirect_uri`**). **Staging:** those plus **`https://staging.riffsync.tv/*`**, **localhost** Vite ports, and optional extras via **`--context fanAuthOAuthExtras=https://d111111abcdef8.cloudfront.net/,https://d111111abcdef8.cloudfront.net/auth/callback`**. |
-| **Hosted domain prefix** | Default **`riffsync-fan-staging`** / **`riffsync-fan-prod`** (must be **unique** in the Region). Override collision: **`--context fanAuthCognitoDomainPrefix=your-prefix`**. |
+| **Callback / sign-out URLs** | **`https://riffsync.tv/`**, **`www`**, **localhost** dev URLs, **`fanWebAlternateDomainNames`**, and optional **`--context fanAuthOAuthExtras=…`** (e.g. CloudFront default hostname during bring-up). |
+| **Hosted domain prefix** | Default **`riffsync-fan-prod`** (must be **unique** in the Region). Override collision: **`--context fanAuthCognitoDomainPrefix=your-prefix`**. |
 
 **SES prerequisites:** Verify **`riffsync.tv`** (or override domain) as an SES identity **in the deploy Region** before relying on sign-up / forgot-password mail. Cognito wires **`SourceArn`** to **`arn:aws:ses:<region>:<account>:identity/<domain>`** — Amazon Cognito manages the IAM trust to send via SES when using **`DEVELOPER`** mode.
 
@@ -225,15 +219,15 @@ Hosted stacks **`RiffSyncFanAuth-staging`** / **`RiffSyncFanAuth-prod`** provisi
 | **`fanAuthSesFromName`** | Display name (**default `RiffSync`**) |
 | **`fanAuthSesRegion`** | SES identity Region if different from stack Region |
 
-**Legacy:** **`fanAuthSesConfigurationSet`** is ignored — **`riffsync-ses-send-{environment}`** is provisioned and bound automatically (**outputs** **`SesSendingConfigurationSetName`**).
+**Legacy:** **`fanAuthSesConfigurationSet`** is ignored — **`riffsync-ses-send-prod`** is provisioned and bound automatically (**outputs** **`SesSendingConfigurationSetName`**).
 
-**Smoke (staging):** build the **`/oauth2/authorize`** link with **PKCE** (response_type **`code`**, client_id **`FanUserPoolClientId`**, redirect_uri **must** match an allowlisted SPA URL, scope **`openid email profile`** — **omit** **`identity_provider`** so Hosted UI shows the pool sign-in / sign-up pages). Complete sign-up, verify email, sign in, exchange the code at **`/oauth2/token`**, then inspect **`access_token`** (`sub` is the host id). **Do not** commit tokens.
+**Smoke (prod pool):** build the **`/oauth2/authorize`** link with **PKCE** (response_type **`code`**, client_id **`FanUserPoolClientId`**, redirect_uri **must** match an allowlisted SPA URL, scope **`openid email profile`** — **omit** **`identity_provider`** so Hosted UI shows the pool sign-in / sign-up pages). Complete sign-up, verify email, sign in, exchange the code at **`/oauth2/token`**, then inspect **`access_token`** (`sub` is the host id). **Do not** commit tokens.
 
 **Deploy IAM:** the OIDC deploy role needs **Cognito** create/update permissions for this stack (extend the role if **`cdk deploy`** fails on **`cognito-idp:*`**).
 
 ### SES inbound → SNS (receive mail — shared)
 
-Stack **`RiffSyncSesInbound`** is **environment-agnostic**: one **SNS** topic (**`riffsync-ses-inbound`**), one receipt rule set (**`riffsync-ses-inbound`**), shared by staging and prod **applications**. It appears **only** when **`cdk synth|deploy`** runs with **`--context environment=prod`** (staging assemblies omit it entirely).
+Stack **`RiffSyncSesInbound`** is **environment-agnostic**: one **SNS** topic (**`riffsync-ses-inbound`**), one receipt rule set (**`riffsync-ses-inbound`**). It is **always** synthesized with the app.
 
 | Piece | Behavior |
 | --- | --- |
@@ -269,11 +263,10 @@ From this directory:
 ```bash
 npm ci
 npm run build
-npx cdk synth --all --context environment=staging
 npx cdk synth --all --context environment=prod
 ```
 
-Shortcuts: `npm run synth:staging` and `npm run synth:prod`.
+Shortcut: `npm run synth` or `npm run synth:prod`.
 
 **Quality gate (optional):** after synth, run [cfn-lint](https://github.com/aws-cloudformation/cfn-lint) on `cdk.out/**/*.template.json`.
 
@@ -283,17 +276,17 @@ Shortcuts: `npm run synth:staging` and `npm run synth:prod`.
 - **`AWS::CloudFront::OriginAccessControl`** + **`AWS::CloudFront::Distribution`** — HTTPS, `defaultRootObject: index.html`. **Custom error responses** map **403** and **404** to **`/index.html`** (HTTP **200**) so **SPA** deep links and hard refreshes work once assets are published (**M2**).
 - **Artifacts:** the bucket may be **empty** for M1; CI or deploy steps in **M2+** publish `index.html` and static assets.
 
-Staging uses **`RemovalPolicy.DESTROY`** on the bucket so stacks can be torn down in non-prod accounts; **empty the bucket** before `cdk destroy` if objects were published. Production uses **retain** + **versioning**.
+Production uses **retain** + **versioning** on the static-site bucket; **empty the bucket** before stack deletion if policy changes.
 
 ## IAM baseline vs `docs/architecture.server.md`
 
 Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Manager, `execute-api:ManageConnections`, CloudWatch `PutMetricData`, etc.) is described in [`../../docs/architecture.server.md`](../../docs/architecture.server.md) (**[Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions)** and **[IaC & permission notes §](../../docs/architecture.server.md#iac--permission-notes)**). **This repo’s CDK app provisions (by stack):**
 
-- **`RiffSyncStatic-*` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
-- **`RiffSyncStatic-*` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
-- **`RiffSyncApi-*` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**); **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
-- **`RiffSyncFanAuth-*` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA). Pool **`EmailConfiguration`** sends verification / recovery mail through **Amazon SES** (**`DEVELOPER`** / **`SourceArn`** `identity/<domain>`); verify that identity **in the deploy Region** before go-live. **SES configuration set + SNS topic** for outbound reputation events (**outputs** **`SesSendingEventsTopicArn`**, **`SesSendingConfigurationSetName`**).
-- **`RiffSyncSesInbound` —** shared **SNS** topic + **SES** **`ReceiptRuleSet`** / **`ReceiptRule`** + **`AwsCustomResource`** (**`ses:SetActiveReceiptRuleSet`**) + optional Route 53 **MX** when hosted-zone context aligns with **`sesInboundMailDomain`** (emitted only from **`environment=prod`** synth). Deploy role needs **`ses:*`** receipt-rule APIs for your organization policies.
+- **`RiffSyncStatic-prod` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
+- **`RiffSyncStatic-prod` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
+- **`RiffSyncApi-prod` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**); **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
+- **`RiffSyncFanAuth-prod` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA). Pool **`EmailConfiguration`** sends verification / recovery mail through **Amazon SES** (**`DEVELOPER`** / **`SourceArn`** `identity/<domain>`); verify that identity **in the deploy Region** before go-live. **SES configuration set + SNS topic** for outbound reputation events (**outputs** **`SesSendingEventsTopicArn`**, **`SesSendingConfigurationSetName`**).
+- **`RiffSyncSesInbound` —** shared **SNS** topic + **SES** **`ReceiptRuleSet`** / **`ReceiptRule`** + **`AwsCustomResource`** (**`ses:SetActiveReceiptRuleSet`**) + optional Route 53 **MX** when hosted-zone context aligns with **`sesInboundMailDomain`**. Deploy role needs **`ses:*`** receipt-rule APIs for your organization policies.
 
 Older milestone copy: **M1** alone only created the static stack.
 
@@ -304,7 +297,7 @@ Older milestone copy: **M1** alone only created the static stack.
 
 ## GitHub Actions (CI — no AWS credentials required)
 
-[**`.github/workflows/ci.yml`**](../../.github/workflows/ci.yml) runs on **`pull_request`** and **`push`** to **`main`** when **`infra/cdk`**, **`apps/web`**, or workflow files change. The **`infra-cdk`** job runs **`npm ci`**, **`npm run build`**, **`cdk synth`** (**`staging`** and **`prod`**), then **`cfn-lint`** on **`cdk.out/**/*.template.json`**. The **`web-app`** job runs **`npm ci`**, **`npm run build`**, and **`npm run lint`** under **`apps/web`**.
+[**`.github/workflows/ci.yml`**](../../.github/workflows/ci.yml) runs on **`pull_request`** and **`push`** to **`main`** when **`infra/cdk`**, **`apps/web`**, or workflow files change. The **`infra-cdk`** job runs **`npm ci`**, **`npm run build`**, **`cdk synth`** (**`environment=prod`**), then **`cfn-lint`** on **`cdk.out/**/*.template.json`**. The **`web-app`** job runs **`npm ci`**, **`npm run build`**, and **`npm run lint`** under **`apps/web`**.
 
 This satisfies the **pull-request CI only** stance in **`docs/architecture.server.md`** (Delivery pipeline §): **PRs synthesize templates; they do not deploy.**
 
@@ -314,34 +307,33 @@ Deployment policy (**`.forge/operations/build_packaging.md`**, **`deployment_env
 
 | Target | Trigger | Notes |
 | --- | --- | --- |
-| **Staging** | Manual workflow [**`deploy-staging.yml`**](../../.github/workflows/deploy-staging.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. Runs **`cdk deploy`** for **staging**, then **builds `apps/web`**, **`aws s3 sync`** to the stack bucket (**`--delete`**), and **CloudFront invalidation** (`/*`). |
-| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`** (same pattern as staging). Deploys **prod** CDK, then **`aws s3 sync`** and CloudFront invalidation using stack outputs (**`FanWebSiteUrl`** for **`VITE_PUBLIC_ORIGIN`** and related env at build time). |
-| **TURN EC2 only** | Manual [**`deploy-turn.yml`**](../../.github/workflows/deploy-turn.yml) | **`cdk deploy RiffSyncTurn`** only (**`main`**). Same account as full deploys; uses **`AWS_DEPLOY_ROLE_ARN_STAGING`**. |
+| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. Deploys **prod** CDK, then **`aws s3 sync`** and CloudFront invalidation using stack outputs (**`FanWebSiteUrl`** for **`VITE_PUBLIC_ORIGIN`** and related env at build time). |
+| **TURN EC2 only** | Manual [**`deploy-turn.yml`**](../../.github/workflows/deploy-turn.yml) | **`cdk deploy RiffSyncTurn`** only (**`main`**). Uses **`AWS_DEPLOY_ROLE_ARN_PROD`**. |
 | **Local** | **AWS CLI credential profile** via **`cdk deploy`** + manual **`s3 sync`** | Matches how engineers run **`cdk bootstrap`** / **`deploy`** interactively outside CI. |
 
 ### Fan SPA publish (S3 sync + invalidation)
 
-After **`cdk deploy`**, the deploy workflows read **CloudFormation outputs** from **`RiffSyncStatic-staging`** / **`RiffSyncStatic-prod`**:
+After **`cdk deploy`**, **`deploy-prod.yml`** reads **CloudFormation outputs** from **`RiffSyncStatic-prod`**:
 
 | Output | Use |
 | --- | --- |
 | **`BucketName`** | `aws s3 sync apps/web/dist/ s3://$Bucket/` (**`--delete`** keeps the bucket aligned with the latest build) |
 | **`DistributionId`** | `aws cloudfront create-invalidation --paths "/*"` |
-| **`DistributionDomainName`** | **Staging** build-time **`VITE_PUBLIC_ORIGIN`** (`https://<distribution>`) so client-side absolute URLs match the live host. **Production** uses **`https://riffsync.tv`** until a follow-up wires **ACM** + **DNS** at the distribution (then keep **`VITE_PUBLIC_ORIGIN`** aligned with the public hostname operators configure). |
-| **`HttpApiUrl`** ( **`RiffSyncApi-*`** ) | **`VITE_PUBLIC_API_BASE_URL`** — catalog + rooms REST |
-| **`WebSocketUrl`** ( **`RiffSyncApi-*`** ) | Build-time **`VITE_PUBLIC_WS_URL`** (**`wss://…`**) once SPA subscribes to realtime (**`contracts.websocket`**). |
+| **`DistributionDomainName`** | **CloudFront** hostname; **`FanWebSiteUrl`** is preferred when a custom domain is configured. |
+| **`HttpApiUrl`** ( **`RiffSyncApi-prod`** ) | **`VITE_PUBLIC_API_BASE_URL`** — catalog + rooms REST |
+| **`WebSocketUrl`** ( **`RiffSyncApi-prod`** ) | Build-time **`VITE_PUBLIC_WS_URL`** (**`wss://…`**) once SPA subscribes to realtime (**`contracts.websocket`**). |
 
 **IAM for the GitHub OIDC deploy role** must allow, in addition to CDK/CloudFormation permissions:
 
-- **`cloudformation:DescribeStacks`** on **`RiffSyncStatic-staging`** / **`RiffSyncStatic-prod`** (or `*` conditioned appropriately).
+- **`cloudformation:DescribeStacks`** on **`RiffSyncStatic-prod`** (or `*` conditioned appropriately).
 - **`s3:PutObject`**, **`s3:DeleteObject`**, **`s3:ListBucket`** on the **web bucket** (the **`BucketName`** output).
 - **`cloudfront:CreateInvalidation`** on **`arn:aws:cloudfront::ACCOUNT:distribution/DistributionId`**.
 
 Prefer scoping to those ARNs instead of `*` once ARNs are known from a first deploy.
 
-### Staging smoke checks (operators)
+### Production smoke checks (operators)
 
-After **Deploy CDK (staging)** completes:
+After **Deploy CDK (production)** completes:
 
 1. Resolve the URL: **`https://<DistributionDomainName>/`** (stack output, or **AWS Console** → **CloudFormation** → **Outputs**).
 2. **`curl -I`** — expect **`200`** for **`/`** and for **`/lobby`** (SPA fallback must return **`index.html`**, not S3 **`403`**).
@@ -355,48 +347,41 @@ cd apps/web && npm ci && npm run build && ls -la dist
 
 ### Repository configuration (preferred: OIDC → IAM role)
 
-Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`architecture.server.md`**, **`.forge/operations/build_packaging.md`**). Configure two **repository Variables** on GitHub (**Settings → Secrets and variables → Actions → Variables**, or org-level equivalents):
+Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`architecture.server.md`**, **`.forge/operations/build_packaging.md`**). Configure the **repository Variables** on GitHub (**Settings → Secrets and variables → Actions → Variables**, or org-level equivalents):
 
 | Variable | Used by |
 | --- | --- |
-| **`AWS_DEPLOY_ROLE_ARN_STAGING`** | IAM role ARN assumable via OIDC for **staging** **`cdk deploy`** |
-| **`AWS_DEPLOY_ROLE_ARN_PROD`** | IAM role ARN assumable via OIDC for **production** **`cdk deploy`** |
+| **`AWS_DEPLOY_ROLE_ARN_PROD`** | IAM role ARN assumable via OIDC for **production** **`cdk deploy`** (**`deploy-prod.yml`** and **`deploy-turn.yml`**) |
 | **`AWS_REGION`** (optional) | Target region (**default `us-east-1`** when unset — override as needed.) |
 
 **Optional — stable SPA hostname on CloudFront** (set on GitHub as **Variables**; certificate must be in **us-east-1**):
 
 | Variable | Purpose |
 | --- | --- |
-| **`STAGING_FAN_WEB_HOSTNAME`** | e.g. **`staging.riffsync.tv`** |
-| **`STAGING_FAN_WEB_CERTIFICATE_ARN`** | **`arn:aws:acm:us-east-1:…:certificate/…`** covering the staging hostname |
-| **`PROD_FAN_WEB_HOSTNAME`** | e.g. **`riffsync.tv`** (production deploy workflow) |
-| **`PROD_FAN_WEB_CERTIFICATE_ARN`** | **`us-east-1`** ACM ARN covering production hostname |
+| **`PROD_FAN_WEB_HOSTNAME`** | e.g. **`riffsync.tv`** or **`www.riffsync.tv`** (production deploy workflow) |
+| **`PROD_FAN_WEB_CERTIFICATE_ARN`** | **`us-east-1`** ACM ARN covering production hostname(s) |
 | **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Optional; comma-separated extra hostnames on the **same** cert (e.g. apex **`riffsync.tv`** when **`PROD_FAN_WEB_HOSTNAME`** is **`www.riffsync.tv`**) — CloudFront aliases, Route 53 A, CORS, Cognito URLs |
 | **`PROD_FAN_WEB_CANONICAL_HOSTNAME`** | Optional; when set (e.g. **`www.riffsync.tv`**), CloudFront **302** from any **other** custom alias to this host (**`FanWebSiteUrl`** / **`VITE_PUBLIC_ORIGIN`** use this too) |
-| **`STAGING_FAN_WEB_ALTERNATE_DOMAIN_NAMES`** | Optional; omit for a **single** staging hostname (typical). Set only if you need extra names on the same wildcard/cert (same behavior as prod). |
-| **`STAGING_FAN_WEB_CANONICAL_HOSTNAME`** | Optional; same behavior as prod (usually omit for staging) |
 | **`RIFFSYNC_ROUTE53_HOSTED_ZONE_ID`** | Public hosted zone for **`RIFFSYNC_ROUTE53_ZONE_NAME`** (optional) |
 | **`RIFFSYNC_ROUTE53_ZONE_NAME`** | e.g. **`riffsync.tv`** — with zone id; CDK creates Route 53 alias **A** records for **`fanWebCustomDomain`** and each **`fanWebAlternateDomainNames`** host |
-| **`STAGING_TURN_HOST`** | Public **`turn:`** hostname or IP for coturn (**staging**). See **Self-hosted TURN** — omit until EC2 + secret are ready. |
-| **`STAGING_TURN_PORT`** | Optional; overrides default **`3478`**. |
-| **`STAGING_TURN_TLS_PORT`** | Optional; e.g. **`5349`** for **`turns:`**. |
-| **`STAGING_TURN_CREDENTIAL_TTL_SECONDS`** | Optional; TURN username lifetime (default **`43200`**). |
-| **`PROD_TURN_HOST`** | Same as staging, for **production** account / **`RiffSyncApi-prod`**. |
-| **`PROD_TURN_PORT`** | Optional production TURN port. |
-| **`PROD_TURN_TLS_PORT`** | Optional production TLS port. |
-| **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | Optional production credential TTL. |
+| **`PROD_TURN_HOST`** | Public **`turn:`** hostname or IP for coturn. See **Self-hosted TURN** — omit until EC2 + secret are ready. |
+| **`PROD_TURN_PORT`** | Optional; overrides default **`3478`**. |
+| **`PROD_TURN_TLS_PORT`** | Optional; e.g. **`5349`** for **`turns:`**. |
+| **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | Optional; TURN username lifetime (default **`43200`**). |
+| **`PROD_SFU_PUBLIC_WS_URL`** | Optional; **`wss://`** URL for fan SPA mediasoup signaling. |
+| **`PROD_SFU_SIGNALING_HOSTNAME`** | Optional; SFU **`A`** record under **`RIFFSYNC_ROUTE53_ZONE_NAME`**. |
 
-**DNS:** If **`STAGING_*/PROD_*_FAN_WEB_HOSTNAME`** (and cert) are set but **`RIFFSYNC_ROUTE53_*`** are **omitted**, the stack **still** attaches custom domains to CloudFront, but it **does not** create or retain Route 53 records — **`FanWebSiteUrl`** will show the custom URL while **`FanWebRoute53AliasRecordCount`** output is **`0`**. A later deploy that drops the zone vars can **remove** previously managed records from the template. Set **both** Route 53 variables whenever you want this stack to own the aliases.
+**DNS:** If **`PROD_*_FAN_WEB_HOSTNAME`** (and cert) are set but **`RIFFSYNC_ROUTE53_*`** are **omitted**, the stack **still** attaches custom domains to CloudFront, but it **does not** create or retain Route 53 records — **`FanWebSiteUrl`** will show the custom URL while **`FanWebRoute53AliasRecordCount`** output is **`0`**. A later deploy that drops the zone vars can **remove** previously managed records from the template. Set **both** Route 53 variables whenever you want this stack to own the aliases.
 
 Request the ACM cert in **us-east-1**, complete **DNS validation**, then run the **Deploy CDK** workflow for that environment. Omit the Route 53 variables if you create the **CNAME/alias** yourself. **Stack output `FanWebSiteUrl`** is the canonical **`https://…`** used for **`VITE_PUBLIC_ORIGIN`** and API/Cognito allowlists (workflows read it from CloudFormation).
 
-**Local `cdk deploy` (not the normal staging/prod path):** engineers may still run **`npx cdk`** from a workstation for debugging or bootstrap; **your hosted staging and production** should track **`main`** via the **Deploy CDK** workflows only.
+**Local `cdk deploy` (operators):** engineers may run **`npx cdk`** from a workstation for debugging or bootstrap; **production** should track **`main`** via **`deploy-prod.yml`**.
 
 Local deploy with custom hostname:
 
 ```bash
-npx cdk deploy --all --context environment=staging \
-  --context fanWebCustomDomain=staging.riffsync.tv \
+npx cdk deploy --all --context environment=prod \
+  --context fanWebCustomDomain=www.riffsync.tv \
   --context fanWebCertificateArn=arn:aws:acm:us-east-1:ACCOUNT:certificate/UUID \
   --context fanWebHostedZoneId=Z0123456789ABCDEFGHIJ \
   --context fanWebZoneName=riffsync.tv
@@ -407,7 +392,7 @@ npx cdk deploy --all --context environment=staging \
 IAM trust policy (**sketch**) for each role (`sts:AssumeRoleWithWebIdentity`):
 
 - Audience / issuer **`token.actions.githubusercontent.com`**
-- **Subject / `sub` claim** restricted to this repository (e.g. `repo:StacksOnTheRacks/riffsync:ref:refs/heads/main` for staging runs, and `repo:StacksOnTheRacks/riffsync:environment:production` or tag-scoped claims if you tighten further after policy review)
+- **Subject / `sub` claim** restricted to this repository (e.g. `repo:OWNER/riffsync:ref:refs/heads/main` or an environment-scoped claim if you tighten after policy review)
 - Map **`aud`** to `sts.amazonaws.com` per AWS guidance for GitHub’s OIDC token
 
 Role permissions must allow **CDK deploy** for the stacks in this app (CloudFormation, S3, CloudFront, IAM pass-through for CDK bootstrap assets, etc.). **Until these roles exist**, workflows still **validate** (CI synth + `cfn-lint`); deploy runs fail fast with a clear message if the variables are unset.
@@ -419,8 +404,7 @@ Role permissions must allow **CDK deploy** for the stacks in this app (CloudForm
 GitHub deploy jobs use **non-interactive** approval:
 
 ```bash
-npx cdk deploy --all --context environment=staging --require-approval never
-npx cdk deploy --all --context environment=prod   --require-approval never
+npx cdk deploy --all --context environment=prod --require-approval never
 ```
 
 **`--require-approval never`** is appropriate for **automated** runs after changes are reviewed on **`main`** / via **tags**. For **local** interactive deploys, prefer **`broadening`** or **`any-change`** so IAM or security-group broadening prompts are visible before you press **y**.
@@ -433,21 +417,21 @@ npm ci && npm run build
 npx cdk bootstrap aws://ACCOUNT/REGION   # uses your CLI profile credentials
 ```
 
-**Context:** `cdk.json` defaults **`environment`** to **`staging`**, so bootstrap does not need `--context`. CLI **`--context environment=prod`** overrides that for prod synth/deploy.
+**Context:** `cdk.json` defaults **`environment`** to **`prod`**.
 
-**Exact operator sequence (staging, local profile):**
-
-```bash
-cd infra/cdk && npm ci && npm run build && npx cdk deploy --all --context environment=staging
-```
-
-Production from a workstation should **checkout `main`** (or whatever commit CI would deploy), then **`cdk deploy`** with **`--context environment=prod`**:
+**Exact operator sequence (local profile, production):**
 
 ```bash
 git checkout main && git pull
 cd infra/cdk && npm ci && npm run build && npx cdk deploy --all --context environment=prod
 ```
 
+## CloudFormation **`UPDATE_FAILED`** (operators)
+
+When a deploy rolls back, open **CloudFormation** → failed stack → **Events** and find the **first** resource in **`UPDATE_FAILED`** (the stack-level message is often generic). Compare with **`cdk diff --all --context environment=prod`** using the same **`--context`** flags as CI/deploy workflows.
+
+**Follow-up (optional):** routine deploys can target explicit stack lists (e.g. app stacks only) instead of **`cdk deploy --all`** to shrink rollback blast radius—see roadmap discussion in the repo if adopted.
+
 ## Naming & tiers
 
-Hosted tiers (**`staging`**, **`prod`**) and **`local`** (no AWS footprint) match [`.forge/runtime/configuration.md`](../../.forge/runtime/configuration.md). Production web hostname is **`riffsync.tv`** ([**`.forge/project.json`**](../../.forge/project.json) **`public_domain`**). Prefer stack output **`FanWebSiteUrl`** (custom domain or default **`*.cloudfront.net`**) for the live **`https://`** origin.
+Hosted tier is **`prod`**; **`local`** has no AWS footprint (**`.forge/runtime/configuration.md`**). Production web hostname is **`riffsync.tv`** ([**`.forge/project.json`**](../../.forge/project.json) **`public_domain`**). Prefer stack output **`FanWebSiteUrl`** (custom domain or default **`*.cloudfront.net`**) for the live **`https://`** origin.

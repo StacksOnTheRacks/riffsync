@@ -57,5 +57,5 @@ Clients should treat optional / **`null`** enrichment fields as “not yet avail
 
 ## Infrastructure
 
-- **Table:** **`RiffSyncApi-{staging|prod}`** stack output **`CatalogTableName`** — PK **`id`** (string). No sort key; list route uses **`Scan`** (see **`infra/cdk/README.md`**).
+- **Table:** **`RiffSyncApi-prod`** stack output **`CatalogTableName`** — PK **`id`** (string). No sort key; list route uses **`Scan`** (see **`infra/cdk/README.md`**).
 - **Seed:** **`infra/cdk`** → **`npm run seed:catalog -- <CatalogTableName>`** after deploy (validates against **`catalog.schema.json`**).

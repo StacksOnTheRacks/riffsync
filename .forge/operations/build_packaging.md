@@ -5,7 +5,7 @@
 | Aspect | Contract |
 | --- | --- |
 | **IaC** | **AWS CDK v2**, **TypeScript** project (`cdk.json`, `bin/*.ts`, `lib/*.ts`). |
-| **Environments** | **`staging`** and **`prod`** hosted stacks (**`.forge/runtime/configuration.md`**); context or env-specific CDK qualifiers for ARNs/secrets IDs. |
+| **Environments** | **Production** hosted stack only (**`.forge/runtime/configuration.md`**); ARNs/secrets use **`riffsync/prod/…`** names where applicable. |
 
 ## CI / CD — GitHub Actions
 
@@ -13,8 +13,8 @@
 
 | Workflow (conceptual) | Trigger | Target | Versioning |
 | --- | --- | --- | --- |
-| **Deploy staging** | **Manual** (“Run workflow”) against **`main`** | **`cdk deploy`** (or equivalent) to **staging** account/region/context | Deploys **commit SHA** at workflow run (not necessarily a tag). |
-| **Deploy production** | **Manual** (**`workflow_dispatch`**) aligned with staging: **`main` only**, deploy **commit SHA** at run time | **`cdk deploy`** to **prod** | Same as staging: no tag gate; versioning for changelog/releases can stay informal until you tighten policy again. |
+| **Deploy production** | **Manual** (**`workflow_dispatch`**) against **`main`** only | **`cdk deploy`** for prod stacks + fan SPA publish | Deploys **commit SHA** at workflow run (not necessarily a tag). |
+| **Deploy TURN only** | **Manual** | **`RiffSyncTurn`** | For coturn/UserData changes without full app deploy. |
 
 **Practice**
 
@@ -37,11 +37,11 @@
 
 ## Pull-request CI (recommended)
 
-- **`cdk synth`** (and optionally **`cdk diff`** against staging).
+- **`cdk synth`** with **`--context environment=prod`** (and optionally **`cdk diff`** against the prod account).
 - **`cfn-lint`** on synthesized templates.
 - **`npm test` / `vitest`** for handler and unit tests.
 
 ## Primary code pointers (optional)
 
-- `.github/workflows/` (`deploy-staging.yml`, `deploy-prod.yml`, `ci.yml`).
-- `package.json` workspaces: `infra/cdk`, `packages/api-handlers`, `apps/web` (example layout—finalize when scaffolding).
+- `.github/workflows/` (`deploy-prod.yml`, `deploy-turn.yml`, `ci.yml`).
+- `package.json` workspaces: `infra/cdk`, `apps/web` (example layout—finalize when scaffolding).

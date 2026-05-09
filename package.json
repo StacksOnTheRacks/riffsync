@@ -4,7 +4,7 @@
   "scripts": {
     "prepare": "husky",
     "verify:push": "npm run verify:push:cdk && npm run verify:push:web && npm run verify:push:sfu",
-    "verify:push:cdk": "npm ci --prefix infra/cdk && npm run test --prefix infra/cdk && npm run synth:staging --prefix infra/cdk",
+    "verify:push:cdk": "npm ci --prefix infra/cdk && npm run test --prefix infra/cdk && npm run synth --prefix infra/cdk",
     "verify:push:web": "npm ci --prefix apps/web && npm test --prefix apps/web",
     "verify:push:sfu": "npm ci --prefix services/riffsync-sfu && npm run build --prefix services/riffsync-sfu"
   },

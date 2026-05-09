@@ -4,22 +4,20 @@ Deployed settings and secrets—**never** bake secrets into client bundles.
 
 ## Environment tiers (cost-conscious)
 
-There is **no hosted `dev`** stack—local development only for spikes (SAM/localstack/offline mocks) so you are not paying for a second full AWS footprint beside staging.
+There is **no hosted `dev`** stack and **no hosted staging** stack—**local development** only besides **production** AWS, so you are not paying for duplicate full footprints.
 
 | Tier | Where it runs | Purpose |
 | --- | --- | --- |
 | **Local** | Developer's machine (or CI without deploy) | `sam local`, unit tests, static catalog from **`data/catalog/episodes.json`**, optional mocks. **$0 AWS** for environment itself; only what's used ad hoc (API calls during dev). |
-| **`staging`** | **Single** shared AWS deployment | Integration testing, stakeholder demos, pre-prod config parity with prod at **smaller scale** / TTLs (`STALE_ROOM_MS`, lower concurrency caps, cheaper Dynamo capacity where safe). |
 | **`prod`** | AWS | Live traffic; strict IAM, alarms, backups as policy dictates. |
 
-**Decision:** Prefer **staging + prod** hosted in AWS only; avoids duplicate always-on stacks for developer sandboxes.
+**Decision:** Prefer **prod only** hosted in AWS; local covers pre-release work.
 
 ## Public hostname
 
 | Tier | Hostname |
 | --- | --- |
 | **prod** | **`riffsync.tv`** — canonical origin **`https://riffsync.tv`** for the fan SPA, **API CORS** allowlists, **Cognito / Meta OAuth** callback URLs, and **YouTube iframe** registration where applicable (**`.forge/project.json`** → **`public_domain`**). |
-| **staging** | **IaC choice** (e.g. `staging.riffsync.tv` or CloudFront default); document the chosen origin in the stack README when wired. |
 | **Local** | **`http://localhost:…`** (or dev host only); must **not** be assumed in production config. |
 
 SPA builds for **prod** should inject **`https://riffsync.tv`** (or derive it from **`public_domain`**) for absolute share links and OAuth redirect configuration.
@@ -45,5 +43,5 @@ Illustrative—final list in IaC:
 
 ## Primary code pointers (optional)
 
-- `.env.example` (local only); **AWS CDK** app context (**`staging` / `prod`** only for hosted stacks).
-- **`.github/workflows/`** — **manual** deploy **`main`** → **staging** and **`main`** → **prod** (**`build_packaging.md`**).
+- `.env.example` (local only); **AWS CDK** app context (**`prod`** for hosted stacks; default in **`infra/cdk/cdk.json`**).
+- **`.github/workflows/`** — **manual** deploy **`main`** → **prod** (**`build_packaging.md`**).

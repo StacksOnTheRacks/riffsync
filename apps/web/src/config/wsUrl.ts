@@ -1,5 +1,5 @@
 /**
- * WebSocket API URL (`wss://…/staging` or `/prod`) from **`RiffSyncApi-*`** **`WebSocketUrl`** output.
+ * WebSocket API URL (`wss://…`) from **`RiffSyncApi-prod`** **`WebSocketUrl`** output.
  */
 export function getPublicWsUrl(): string | undefined {
   const raw = import.meta.env.VITE_PUBLIC_WS_URL?.trim()

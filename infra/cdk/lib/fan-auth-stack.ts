@@ -7,9 +7,8 @@ import type { Construct } from 'constructs';
 import { fanWebAlternateDomainNamesFromContext, oauthCallbacksForHost } from './context-alternate-domains';
 
 export interface FanAuthStackProps extends cdk.StackProps {
-  readonly environment: 'staging' | 'prod';
   /**
-   * Extra OAuth callback / sign-out URLs (e.g. staging CloudFront `https://dxxxx.cloudfront.net/`).
+   * Extra OAuth callback / sign-out URLs (e.g. CloudFront default `https://dxxxx.cloudfront.net/`).
    * Comma-separated in CDK context `fanAuthOAuthExtras`.
    */
   readonly extraOAuthUrls?: string[];
@@ -90,27 +89,27 @@ export class FanAuthStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FanAuthStackProps) {
     super(scope, id, props);
 
-    const { environment, cognitoDomainPrefix } = props;
+    const { cognitoDomainPrefix } = props;
     const contextExtras = parseExtrasFromContext(this);
     const extraOAuthUrls = [...(props.extraOAuthUrls ?? []), ...contextExtras];
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
-    cdk.Tags.of(this).add('Environment', environment);
+    cdk.Tags.of(this).add('Environment', 'prod');
 
     const sesSendingTopic = new sns.Topic(this, 'SesSendingEventsTopic', {
-      topicName: `riffsync-ses-send-events-${environment}`,
-      displayName: `RiffSync SES outbound events (${environment})`,
+      topicName: 'riffsync-ses-send-events-prod',
+      displayName: 'RiffSync SES outbound events (prod)',
     });
 
     const sesSendingConfigSet = new ses.ConfigurationSet(this, 'SesSendingEventsConfigSet', {
-      configurationSetName: `riffsync-ses-send-${environment}`,
+      configurationSetName: 'riffsync-ses-send-prod',
       suppressionReasons: ses.SuppressionReasons.BOUNCES_AND_COMPLAINTS,
       reputationMetrics: true,
     });
     this.sesSendingConfigurationSetName = sesSendingConfigSet.configurationSetName;
 
     const sesSendingEventDestination = sesSendingConfigSet.addEventDestination('SnsReputationEvents', {
-      configurationSetEventDestinationName: `sns-reputation-events-${environment}`,
+      configurationSetEventDestinationName: 'sns-reputation-events-prod',
       destination: ses.EventDestination.snsTopic(sesSendingTopic),
       events: [
         ses.EmailSendingEvent.BOUNCE,
@@ -123,15 +122,15 @@ export class FanAuthStack extends cdk.Stack {
     });
 
     this.fanUserPool = new cognito.UserPool(this, 'FanUserPool', {
-      userPoolName: `riffsync-fan-${environment}`,
+      userPoolName: 'riffsync-fan-prod',
       selfSignUpEnabled: true,
       signInAliases: { email: true },
       autoVerify: { email: true },
       // Omit `standardAttributes.email`: CDK omits `AttributeDataType` on standard attrs, which breaks Cognito updates (Invalid AttributeDataType).
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       email: fanPoolSesEmail(this, this.sesSendingConfigurationSetName),
-      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
-      deletionProtection: environment === 'prod',
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      deletionProtection: true,
     });
 
     const poolCfn = this.fanUserPool.node.defaultChild as cognito.CfnUserPool;
@@ -140,15 +139,7 @@ export class FanAuthStack extends cdk.Stack {
       poolCfn.addDependency(evtCfn);
     }
 
-    const stagingCallbackLogoutBase = [
-      'https://riffsync.tv/',
-      'https://riffsync.tv/auth/callback',
-      'https://www.riffsync.tv/',
-      'https://www.riffsync.tv/auth/callback',
-      'https://staging.riffsync.tv/',
-      'https://staging.riffsync.tv/auth/callback',
-      'https://www-staging.riffsync.tv/',
-      'https://www-staging.riffsync.tv/auth/callback',
+    const localDevCallbackLogoutBase = [
       'http://localhost:5173/',
       'http://localhost:5173/auth/callback',
       'http://127.0.0.1:5173/',
@@ -166,10 +157,9 @@ export class FanAuthStack extends cdk.Stack {
       ]),
     ];
 
-    const callbackUrls =
-      environment === 'prod'
-        ? [...new Set([...prodCallbackLogoutBase, ...extraOAuthUrls])]
-        : [...new Set([...stagingCallbackLogoutBase, ...prodCallbackLogoutBase, ...extraOAuthUrls])];
+    const callbackUrls = [
+      ...new Set([...prodCallbackLogoutBase, ...localDevCallbackLogoutBase, ...extraOAuthUrls]),
+    ];
 
     const logoutUrls = callbackUrls;
 
@@ -180,14 +170,14 @@ export class FanAuthStack extends cdk.Stack {
     const domainPrefix =
       typeof domainPrefixRaw === 'string' && domainPrefixRaw.trim() !== ''
         ? domainPrefixRaw.trim().toLowerCase()
-        : `riffsync-fan-${environment}`;
+        : 'riffsync-fan-prod';
 
     this.fanUserPool.addDomain('FanHostedUiDomain', {
       cognitoDomain: { domainPrefix },
     });
 
     this.fanUserPoolClient = this.fanUserPool.addClient('FanWebSpaClient', {
-      userPoolClientName: `riffsync-fan-web-${environment}`,
+      userPoolClientName: 'riffsync-fan-web-prod',
       generateSecret: false,
       authFlows: {
         userSrp: true,
@@ -234,7 +224,7 @@ export class FanAuthStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'SesSendingEventsTopicArn', {
       value: sesSendingTopic.topicArn,
       description:
-        'SNS topic receiving SES send events (**bounce**, **complaint**, **delivery**, **reject**, …) for this environment’s configuration set.',
+        'SNS topic receiving SES send events (**bounce**, **complaint**, **delivery**, **reject**, …) for the prod configuration set.',
     });
 
     new cdk.CfnOutput(this, 'SesSendingConfigurationSetName', {

@@ -10,9 +10,8 @@ import type { Construct } from 'constructs';
 import { dnsRecordConstructSuffix, viewerRequestRedirectToCanonicalSource } from './cloudfront-canonical-redirect';
 
 export interface StaticSiteStackProps extends cdk.StackProps {
-  readonly environment: 'staging' | 'prod';
   /**
-   * Public hostname for the fan SPA (e.g. staging.riffsync.tv). Requires **fanWebCertificateArn**
+   * Public hostname for the fan SPA (e.g. riffsync.tv). Requires **fanWebCertificateArn**
    * (ACM in **us-east-1**, validated for this name). If unset, only the default ***.cloudfront.net** URL is used.
    */
   readonly fanWebCustomDomain?: string;
@@ -37,7 +36,7 @@ export interface StaticSiteStackProps extends cdk.StackProps {
   /**
    * If set (e.g. `www.riffsync.tv`), CloudFront returns **302** for any other custom alias so the browser
    * lands on this host (path + query preserved). Must be one of **fanWebCustomDomain** + **fanWebAlternateDomainNames**.
-   * Leave unset for no host-based redirects (e.g. staging often keeps two hostnames equivalent).
+   * Leave unset for no host-based redirects.
    */
   readonly fanWebCanonicalHostname?: string;
 }
@@ -74,7 +73,6 @@ export class StaticSiteStack extends cdk.Stack {
     super(scope, id, props);
 
     const {
-      environment,
       fanWebCustomDomain,
       fanWebCertificateArn,
       fanWebHostedZoneId,
@@ -113,20 +111,19 @@ export class StaticSiteStack extends cdk.Stack {
     }
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
-    cdk.Tags.of(this).add('Environment', environment);
+    cdk.Tags.of(this).add('Environment', 'prod');
 
     this.bucket = new s3.Bucket(this, 'WebBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
-      versioned: environment === 'prod',
-      removalPolicy:
-        environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      versioned: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
     const originAccessControl = new cloudfront.S3OriginAccessControl(this, 'WebOac', {
       signing: cloudfront.Signing.SIGV4_ALWAYS,
-      originAccessControlName: `riffsync-${environment}-web-oac`,
+      originAccessControlName: 'riffsync-prod-web-oac',
     });
 
     const certificate =
@@ -146,7 +143,7 @@ export class StaticSiteStack extends cdk.Stack {
         : undefined;
 
     this.distribution = new cloudfront.Distribution(this, 'WebDistribution', {
-      comment: `RiffSync ${environment} fan SPA`,
+      comment: 'RiffSync prod fan SPA',
       defaultRootObject: 'index.html',
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,

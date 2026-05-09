@@ -16,13 +16,12 @@ function trimContext(app: cdk.App, key: string): string | undefined {
 
 const app = new cdk.App();
 
-const raw = app.node.tryGetContext('environment');
-if (typeof raw !== 'string' || (raw !== 'staging' && raw !== 'prod')) {
+const rawEnv = app.node.tryGetContext('environment');
+if (rawEnv !== undefined && rawEnv !== 'prod') {
   throw new Error(
-    'Set CDK context environment=staging|prod (hosted tiers only). Example: npx cdk synth --all --context environment=staging',
+    'Hosted staging was removed. Use --context environment=prod (or omit; see cdk.json).',
   );
 }
-const environment = raw as 'staging' | 'prod';
 
 const fanWebCustomDomain = trimContext(app, 'fanWebCustomDomain');
 const fanWebCertificateArn = trimContext(app, 'fanWebCertificateArn');
@@ -58,10 +57,9 @@ const fanWebAlternateDomainNames = parseFanWebAlternateDomains(app);
 const fanWebCanonicalHostname = trimContext(app, 'fanWebCanonicalHostname');
 
 const sfuProdSignalingHostname = trimContext(app, 'sfuProdSignalingHostname');
-const sfuStagingSignalingHostname = trimContext(app, 'sfuStagingSignalingHostname');
-if ((sfuProdSignalingHostname || sfuStagingSignalingHostname) && !(fanWebHostedZoneId && fanWebZoneName)) {
+if (sfuProdSignalingHostname && !(fanWebHostedZoneId && fanWebZoneName)) {
   throw new Error(
-    'sfuProdSignalingHostname / sfuStagingSignalingHostname require fanWebHostedZoneId and fanWebZoneName (Route 53 + ACM DNS validation).',
+    'sfuProdSignalingHostname requires fanWebHostedZoneId and fanWebZoneName (Route 53 + ACM DNS validation).',
   );
 }
 
@@ -73,9 +71,8 @@ const sfuSignalingHostedZone =
       })
     : undefined;
 
-const fanAuth = new FanAuthStack(app, `RiffSyncFanAuth-${environment}`, {
-  description: `RiffSync fan Cognito (${environment}) — Hosted UI + local accounts (host JWT)`,
-  environment,
+const fanAuth = new FanAuthStack(app, 'RiffSyncFanAuth-prod', {
+  description: 'RiffSync fan Cognito (prod) — Hosted UI + local accounts (host JWT)',
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
@@ -84,7 +81,7 @@ const fanAuth = new FanAuthStack(app, `RiffSyncFanAuth-${environment}`, {
 
 const turnServer = new TurnServerStack(app, 'RiffSyncTurn', {
   description:
-    'RiffSync coturn TURN relay (shared staging+prod) — EC2 + EIP; secret riffsync/turn-static-auth-secret',
+    'RiffSync coturn TURN relay (account singleton) — EC2 + EIP; secret riffsync/turn-static-auth-secret',
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
@@ -93,12 +90,11 @@ const turnServer = new TurnServerStack(app, 'RiffSyncTurn', {
 
 const sfuServer = new SfuServerStack(app, 'RiffSyncSfu', {
   description:
-    'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP + join JWT secret; same VPC as RiffSyncTurn',
+    'RiffSync mediasoup SFU (account singleton) - EC2 + EIP + join JWT secret; same VPC as RiffSyncTurn',
   sharedMediaVpc: turnServer.sharedMediaVpc,
   signalingHostedZone: sfuSignalingHostedZone,
   signalingZoneName: sfuProdSignalingHostname && fanWebZoneName ? fanWebZoneName : undefined,
   sfuProdSignalingHostname,
-  sfuStagingSignalingHostname,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
@@ -106,18 +102,14 @@ const sfuServer = new SfuServerStack(app, 'RiffSyncSfu', {
 });
 sfuServer.addDependency(turnServer);
 
-const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
-  description: `RiffSync HTTP API + Catalog + Rooms + WebSocket (${environment}) — DynamoDB + Lambda`,
-  environment,
+const apiCatalog = new ApiCatalogStack(app, 'RiffSyncApi-prod', {
+  description: 'RiffSync HTTP API + Catalog + Rooms + WebSocket (prod) — DynamoDB + Lambda',
   fanUserPool: fanAuth.fanUserPool,
   fanUserPoolClient: fanAuth.fanUserPoolClient,
   sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
   turnSharedSecret: turnServer.turnSharedSecret,
   sfuJoinTokenSecret: sfuServer.sfuJoinTokenSecret,
-  sfuDefaultSignalingWsUrl:
-    environment === 'prod'
-      ? sfuServer.defaultSignalingWsUrlForProd
-      : sfuServer.defaultSignalingWsUrlForStaging,
+  sfuDefaultSignalingWsUrl: sfuServer.defaultSignalingWsUrl,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
@@ -127,9 +119,8 @@ apiCatalog.addDependency(fanAuth);
 apiCatalog.addDependency(turnServer);
 apiCatalog.addDependency(sfuServer);
 
-new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
-  description: `RiffSync static SPA hosting (${environment}) — S3 (private) + CloudFront OAC`,
-  environment,
+new StaticSiteStack(app, 'RiffSyncStatic-prod', {
+  description: 'RiffSync static SPA hosting (prod) — S3 (private) + CloudFront OAC',
   fanWebCustomDomain,
   fanWebCertificateArn,
   fanWebHostedZoneId,
@@ -142,16 +133,14 @@ new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
   },
 });
 
-/** Shared SES receive pipeline — one stack name/topic/rule set for all app tiers (staging uses same mail infra). */
-if (environment === 'prod') {
-  new SesInboundStack(app, 'RiffSyncSesInbound', {
-    description: 'RiffSync SES inbound → SNS (shared across staging/prod apps)',
-    hostedZoneId: fanWebHostedZoneId,
-    hostedZoneName: fanWebZoneName,
-    activateReceiptRuleSet: sesInboundReceiptRulesActivated(app),
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: process.env.CDK_DEFAULT_REGION,
-    },
-  });
-}
+/** Shared SES receive pipeline — one stack name/topic/rule set for the hosted app. */
+new SesInboundStack(app, 'RiffSyncSesInbound', {
+  description: 'RiffSync SES inbound → SNS',
+  hostedZoneId: fanWebHostedZoneId,
+  hostedZoneName: fanWebZoneName,
+  activateReceiptRuleSet: sesInboundReceiptRulesActivated(app),
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});

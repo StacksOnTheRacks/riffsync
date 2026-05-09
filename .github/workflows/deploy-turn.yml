@@ -1,7 +1,7 @@
 name: Deploy CDK (TURN server only)
 
-# Singleton stack **`RiffSyncTurn`** (coturn + shared secret) for **staging + prod** in one AWS account.
-# Use when you changed **`turn-server-stack.ts`** / UserData only—no need to run full staging/prod app deploys.
+# Singleton stack **`RiffSyncTurn`** (coturn + shared secret) in the production AWS account.
+# Use when you changed **`turn-server-stack.ts`** / UserData only—no need to run a full app deploy.
 on:
   workflow_dispatch:
     inputs:
@@ -33,18 +33,18 @@ jobs:
           echo "::error::Turn deploy policy is main only (requested: ${{ github.event.inputs.git_ref }}). See infra/cdk/README.md"
           exit 1
 
-      - name: Require OIDC role (staging role — same account as prod)
+      - name: Require OIDC role (prod deploy role)
         env:
-          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN_STAGING }}
+          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
         run: |
           if [ -z "$ROLE" ]; then
-            echo "::error::Set repository Variable AWS_DEPLOY_ROLE_ARN_STAGING (same account must be able to deploy stack RiffSyncTurn)."
+            echo "::error::Set repository Variable AWS_DEPLOY_ROLE_ARN_PROD to the IAM role ARN trusted via GitHub OIDC (must allow `cloudformation:UpdateStack` on RiffSyncTurn)."
             exit 1
           fi
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_STAGING }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
       - uses: actions/setup-node@v4
@@ -62,7 +62,6 @@ jobs:
         working-directory: infra/cdk
         run: |
           set -euo pipefail
-          # **`bin/riffsync.ts`** requires `--context environment=staging|prod`; only **`RiffSyncTurn`** is deployed.
           npx cdk deploy RiffSyncTurn \
-            --context environment=staging \
+            --context environment=prod \
             --require-approval never

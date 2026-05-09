@@ -10,7 +10,7 @@ import type { Construct } from 'constructs';
 
 import { dnsRecordConstructSuffix } from './cloudfront-canonical-redirect';
 
-/** Same secret name pattern as turn: one shared secret per account (staging + prod APIs). */
+/** Same secret name pattern as turn: one shared secret per account (API Lambdas). */
 export const SFU_JOIN_SECRET_NAME = 'riffsync/sfu-join-hmac-secret';
 
 export interface SfuServerStackProps extends cdk.StackProps {
@@ -28,8 +28,6 @@ export interface SfuServerStackProps extends cdk.StackProps {
    * Creates Route 53 **`A`** to the SFU EIP and UserData **Caddy** (Let's Encrypt) → **`127.0.0.1:3000`**.
    */
   readonly sfuProdSignalingHostname?: string;
-  /** Optional second name on the same Caddy site block, e.g. **`staging-sfu.riffsync.tv`**. */
-  readonly sfuStagingSignalingHostname?: string;
 }
 
 /** Relative record name under zone, or **`undefined`** for zone apex. */
@@ -55,17 +53,15 @@ function normalizeFqdn(host: string): string {
 }
 
 /**
- * Shared-account **mediasoup** SFU — EC2 + EIP + optional **Caddy `wss://`** on hostnames (**Route 53 `A` → EIP**).
+ * Account **mediasoup** SFU — EC2 + EIP + optional **Caddy `wss://`** on hostnames (**Route 53 `A` → EIP**).
  */
 export class SfuServerStack extends cdk.Stack {
   /** Pre-existing account secret **`riffsync/sfu-join-hmac-secret`** (not created by this stack). */
   public readonly sfuJoinTokenSecret: secretsmanager.ISecret;
   public readonly sfuElasticIp: string;
   public readonly sfuCodeBucket: s3.IBucket;
-  /** Default token / client signaling URL for **prod** API (`wss://` when signaling hostnames are set). */
-  public readonly defaultSignalingWsUrlForProd: string;
-  /** Default token / client signaling URL for **staging** API. */
-  public readonly defaultSignalingWsUrlForStaging: string;
+  /** Default token / client signaling URL (`wss://` when signaling hostname is set; else `ws://EIP:3000`). */
+  public readonly defaultSignalingWsUrl: string;
 
   constructor(scope: Construct, id: string, props: SfuServerStackProps) {
     const {
@@ -73,21 +69,11 @@ export class SfuServerStack extends cdk.Stack {
       signalingHostedZone,
       signalingZoneName,
       sfuProdSignalingHostname: prodHostRaw,
-      sfuStagingSignalingHostname: stagingHostRaw,
       ...stackProps
     } = props;
 
     const prodHost = prodHostRaw?.trim();
-    const stagingHost = stagingHostRaw?.trim();
 
-    if (stagingHost && !prodHost) {
-      throw new Error('sfuStagingSignalingHostname requires sfuProdSignalingHostname.');
-    }
-    if ((prodHost || stagingHost) && !(signalingHostedZone && signalingZoneName?.trim())) {
-      throw new Error(
-        'SFU signaling hostnames require signalingHostedZone and signalingZoneName (same as fan Web DNS).',
-      );
-    }
     if ((signalingHostedZone || signalingZoneName?.trim()) && !(prodHost && signalingHostedZone && signalingZoneName?.trim())) {
       throw new Error(
         'signalingHostedZone / signalingZoneName must be paired with sfuProdSignalingHostname.',
@@ -98,7 +84,7 @@ export class SfuServerStack extends cdk.Stack {
 
     super(scope, id, {
       description:
-        'RiffSync mediasoup SFU (shared staging+prod) - EC2 + EIP in Turn VPC; secret riffsync/sfu-join-hmac-secret',
+        'RiffSync mediasoup SFU (account singleton) - EC2 + EIP in Turn VPC; secret riffsync/sfu-join-hmac-secret',
       ...stackProps,
     });
 
@@ -163,13 +149,7 @@ export class SfuServerStack extends cdk.Stack {
     const bucketName = codeBucket.bucketName;
 
     const prodFqForCaddy = prodHost && tlsEnabled ? normalizeFqdn(prodHost) : '';
-    const stagingFqForCaddy = stagingHost && tlsEnabled ? normalizeFqdn(stagingHost) : '';
-    const siteNamesForCaddy =
-      tlsEnabled && prodFqForCaddy
-        ? stagingFqForCaddy
-          ? `${prodFqForCaddy}, ${stagingFqForCaddy}`
-          : prodFqForCaddy
-        : '';
+    const siteNamesForCaddy = tlsEnabled && prodFqForCaddy ? prodFqForCaddy : '';
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
@@ -275,26 +255,17 @@ SVCEOF`,
     if (tlsEnabled && prodHost && signalingHostedZone) {
       const prodFq = normalizeFqdn(prodHost);
       recordNameUnderZone(prodFq, zName);
-      const stagingFq = stagingHost ? normalizeFqdn(stagingHost) : undefined;
-      if (stagingFq) {
-        recordNameUnderZone(stagingFq, zName);
-      }
 
-      const aliasHostnames = stagingFq ? [prodFq, stagingFq] : [prodFq];
-      for (const h of aliasHostnames) {
-        new route53.ARecord(this, `SfuSigA${dnsRecordConstructSuffix(h)}`, {
-          zone: signalingHostedZone,
-          recordName: recordNameUnderZone(h, zName),
-          target: route53.RecordTarget.fromIpAddresses(eip.ref),
-          ttl: cdk.Duration.minutes(5),
-        });
-      }
+      new route53.ARecord(this, `SfuSigA${dnsRecordConstructSuffix(prodFq)}`, {
+        zone: signalingHostedZone,
+        recordName: recordNameUnderZone(prodFq, zName),
+        target: route53.RecordTarget.fromIpAddresses(eip.ref),
+        ttl: cdk.Duration.minutes(5),
+      });
 
-      this.defaultSignalingWsUrlForProd = `wss://${prodFq}`;
-      this.defaultSignalingWsUrlForStaging = `wss://${stagingFq ?? prodFq}`;
+      this.defaultSignalingWsUrl = `wss://${prodFq}`;
     } else {
-      this.defaultSignalingWsUrlForProd = ipFallbackWs;
-      this.defaultSignalingWsUrlForStaging = ipFallbackWs;
+      this.defaultSignalingWsUrl = ipFallbackWs;
     }
 
     new cdk.CfnOutput(this, 'SfuElasticIp', {
@@ -308,13 +279,9 @@ SVCEOF`,
     new cdk.CfnOutput(this, 'SfuCodeBucketName', {
       value: codeBucket.bucketName,
     });
-    new cdk.CfnOutput(this, 'SfuDefaultSignalingWsUrlProd', {
-      value: this.defaultSignalingWsUrlForProd,
+    new cdk.CfnOutput(this, 'SfuDefaultSignalingWsUrl', {
+      value: this.defaultSignalingWsUrl,
       description: 'Use for PROD_SFU_PUBLIC_WS_URL when token default should match CDK.',
-    });
-    new cdk.CfnOutput(this, 'SfuDefaultSignalingWsUrlStaging', {
-      value: this.defaultSignalingWsUrlForStaging,
-      description: 'Use for STAGING_SFU_PUBLIC_WS_URL when token default should match CDK.',
     });
   }
 }

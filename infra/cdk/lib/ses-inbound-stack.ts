@@ -10,7 +10,7 @@ import type { Construct } from 'constructs';
 /** Matches `.forge/project.json` `public_domain`; override with `--context sesInboundMailDomain=…`. */
 const DEFAULT_MAIL_DOMAIN = 'riffsync.tv';
 
-/** Single shared inbound pipeline — not duplicated per staging/prod app env. */
+/** Single shared inbound pipeline for the hosted app. */
 const DEFAULT_RULE_SET_NAME = 'riffsync-ses-inbound';
 const DEFAULT_TOPIC_NAME = 'riffsync-ses-inbound';
 
@@ -65,8 +65,7 @@ export function sesInboundReceiptRulesActivated(app: cdk.App): boolean {
 /**
  * **SES inbound (shared):** verified-domain mail hits **`ReceiptRule`** → publishes notifications (**UTF-8 payload**) to **SNS**.
  *
- * One stack per Region/account — **not** tied to staging vs prod **application** environments.
- * Synthesized from **`bin/riffsync.ts`** only when **`environment=prod`** so **`cdk synth/deploy`** staging assemblies stay unchanged.
+ * One stack per Region/account. Synthesized from **`bin/riffsync.ts`** with the prod assembly.
  *
  * Prerequisites: domain verified for **receiving** in SES, DNS **MX** to **`inbound-smtp.<region>.amazonaws.com`**
  * (CDK adds MX when **`hostedZoneId` / `hostedZoneName`** align with **`mailDomain`**).

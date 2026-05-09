@@ -7,7 +7,7 @@
  * export AWS_PROFILE=me
  * export AWS_REGION=us-east-1
  * TABLE_NAME="$(aws cloudformation describe-stacks --region "$AWS_REGION" \
- *   --stack-name RiffSyncApi-staging \
+ *   --stack-name RiffSyncApi-prod \
  *   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
  * npm run seed:catalog -- "$TABLE_NAME"
  * ```

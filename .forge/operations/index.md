@@ -1,6 +1,6 @@
 # Index — operations
 
-Scopes **build/deploy** (**AWS CDK**, TypeScript Lambdas, serverless-first packaging), **`GitHub Actions`** delivery (**manual** `main` → **staging** and **manual** `main` → **prod**), **environments**, **observability** (CloudWatch-first), **security** posture.
+Scopes **build/deploy** (**AWS CDK**, TypeScript Lambdas, serverless-first packaging), **`GitHub Actions`** delivery (**manual** `main` → **prod**), **environments**, **observability** (CloudWatch-first), **security** posture.
 
 - Child contracts: **`build_packaging.md`**, **`deployment_environments.md`**, **`observability.md`**, **`security.md`**.
 

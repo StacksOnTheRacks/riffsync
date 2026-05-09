@@ -8,7 +8,7 @@ describe('signSfuJoinToken', () => {
     const now = Math.floor(Date.now() / 1000);
     const token = signSfuJoinToken(
       {
-        env: 'staging',
+        env: 'prod',
         roomId: 'room-1',
         sessionId: 'sess-1',
         role: 'consumer',

@@ -20,11 +20,11 @@ function turnRealmFromContext(scope: Construct): string {
   return 'riffsync-turn';
 }
 
-/** One account-wide secret for both staging and prod ICE Lambdas + one coturn process. */
+/** One account-wide secret for ICE Lambdas + one coturn process. */
 export const TURN_SHARED_SECRET_NAME = 'riffsync/turn-static-auth-secret';
 
 /**
- * **Singleton** coturn stack for **staging + prod** in the **same AWS account** — one **EC2**, one **EIP**, one **Secrets Manager** secret (**`riffsync/turn-static-auth-secret`**).
+ * **Singleton** coturn stack in the **AWS account** — one **EC2**, one **EIP**, one **Secrets Manager** secret (**`riffsync/turn-static-auth-secret`**).
  *
  * UserData installs `coturn` on **Amazon Linux 2023**, fetches the shared secret at boot, listens on **3478** + relay **49152–65535**.
  *
@@ -51,7 +51,7 @@ export class TurnServerStack extends cdk.Stack {
     this.turnSharedSecret = new secretsmanager.Secret(this, 'TurnSharedSecret', {
       secretName: TURN_SHARED_SECRET_NAME,
       description:
-        'Shared plaintext for coturn use-auth-secret + TURN REST (staging and prod ICE Lambdas; one TURN EC2).',
+        'Shared plaintext for coturn use-auth-secret + TURN REST (ICE Lambdas; one TURN EC2).',
       secretStringValue: cdk.SecretValue.unsafePlainText('REPLACE_WITH_TURN_STATIC_AUTH_SECRET'),
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
@@ -75,7 +75,7 @@ export class TurnServerStack extends cdk.Stack {
 
     const role = new iam.Role(this, 'TurnInstanceRole', {
       assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
-      description: 'RiffSync coturn instance (shared staging+prod)',
+      description: 'RiffSync coturn instance (account singleton)',
     });
     this.turnSharedSecret.grantRead(role);
 

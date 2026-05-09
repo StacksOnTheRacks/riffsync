@@ -7,7 +7,6 @@ on:
       - 'infra/cdk/**'
       - 'apps/web/**'
       - '.github/workflows/ci.yml'
-      - '.github/workflows/deploy-staging.yml'
       - '.github/workflows/deploy-prod.yml'
   push:
     branches: [main]
@@ -15,7 +14,6 @@ on:
       - 'infra/cdk/**'
       - 'apps/web/**'
       - '.github/workflows/ci.yml'
-      - '.github/workflows/deploy-staging.yml'
       - '.github/workflows/deploy-prod.yml'
 
 permissions:
@@ -41,7 +39,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: npx cdk synth --all --context environment=staging
       - run: npx cdk synth --all --context environment=prod
       - name: cfn-lint synthesized templates
         shell: bash

@@ -24,7 +24,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Verb / path | Purpose |
 | --- | --- |
 | **`POST`**, **`PATCH`**, **`DELETE /v1/admin/catalog/episodes/:id`** | Catalog CRUD; payload compatible with **`data/catalog/catalog.schema.json`** (+ Dynamo-only fields per **`docs/architecture.catalog-images.md`**). |
-| **`POST /v1/admin/catalog/import`** | Bulk import / staging partition before promoting catalog (**multipart** or **S3**-referenced payload—see admin doc). |
+| **`POST /v1/admin/catalog/import`** | Bulk import before promoting catalog (**multipart** or **S3**-referenced payload—see admin doc). |
 | **`POST`**, **`PATCH /v1/admin/lists`** | Create/update curated list meta (**`slug`**, **`title`**, **`visibility`**, **`sortRule`**, optional hero). |
 | **`PUT /v1/admin/lists/{slug}/order`** | Replace membership ordering. |
 | **`POST /v1/admin/lists/{slug}/members`** | Add/remove/reorder entries; **referential integrity** on **`catalogEpisodeId`**. |

@@ -16,6 +16,6 @@
   "context": {
     "@aws-cdk/core:newStyleStackSynthesis": true,
     "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
-    "environment": "staging"
+    "environment": "prod"
   }
 }
