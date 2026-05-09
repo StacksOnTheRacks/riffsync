@@ -1,0 +1,57 @@
+name: RiffSync CDK prod setup
+description: Checkout ref, gate on main + OIDC role, AWS creds, npm ci + build (infra/cdk)
+
+inputs:
+  git_ref:
+    description: Git ref to checkout
+    required: true
+  aws_role_arn:
+    description: IAM role ARN for GitHub OIDC (repository Variable AWS_DEPLOY_ROLE_ARN_PROD)
+    required: true
+  aws_region:
+    description: AWS region for CDK deploy
+    required: false
+    default: us-east-1
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.git_ref }}
+
+    - name: Require main-aligned ref
+      if: ${{ inputs.git_ref != 'main' }}
+      shell: bash
+      run: |
+        echo "::error::Production deploy policy is main only (requested: ${{ inputs.git_ref }}). See infra/cdk/README.md and .forge/operations/deployment_environments.md"
+        exit 1
+
+    - name: Require prod OIDC configuration
+      shell: bash
+      env:
+        ROLE: ${{ inputs.aws_role_arn }}
+      run: |
+        if [ -z "$ROLE" ]; then
+          echo "::error::Set repository Variable AWS_DEPLOY_ROLE_ARN_PROD to the IAM role ARN trusted via GitHub OIDC (see infra/cdk/README.md)."
+          exit 1
+        fi
+
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.aws_role_arn }}
+        aws-region: ${{ inputs.aws_region }}
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: npm
+        cache-dependency-path: infra/cdk/package-lock.json
+
+    - run: npm ci
+      shell: bash
+      working-directory: infra/cdk
+
+    - run: npm run build
+      shell: bash
+      working-directory: infra/cdk

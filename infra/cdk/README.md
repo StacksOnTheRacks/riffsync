@@ -153,7 +153,7 @@ Designed for **one AWS account** hosting **`RiffSyncApi-prod`**: a **singleton**
 
 **Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncTurn`** is created **before** **`RiffSyncApi-prod`**; the API stack **depends on** **`RiffSyncTurn`** so the secret exists before Lambdas reference it.
 
-**Deploy:** **`cdk deploy --all`** in **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** updates **`RiffSyncTurn`** on **every** run (usually a no-op after the first). For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses **`AWS_DEPLOY_ROLE_ARN_PROD`**).
+**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **`cdk deploy`** in **sequence** (Turn + SFU, then fan auth + static + SES, then **`RiffSyncApi-prod --exclusively`**, then OAuth/CORS + API again from **`FanWebSiteUrl`**), so **`RiffSyncTurn`** is included on **every** run (usually a no-op after the first). For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses **`AWS_DEPLOY_ROLE_ARN_PROD`**).
 
 **Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`** (Turn stack only; duplicating this output on API stacks triggers CloudFormation lint **W6001** when the value is a cross-stack import).
 
@@ -169,7 +169,7 @@ WebRTC mesh screen share uses **`GET /v1/webrtc/ice`** for **`iceServers`**.
 | --- | --- | --- |
 | **`GET /v1/webrtc/ice`** | Anonymous | Returns `{ "version": 1, "iceServers": RTCIceServer[] }`. If **`turnHost`** is unset, response is **STUN-only**. If **`turnHost`** is set, the Lambda loads **`riffsync/turn-static-auth-secret`**; placeholder / unreadable value → **`503`** with **`{"error":"ice_unavailable"}`**. |
 
-**GitHub repository Variables** (optional — **Settings → Secrets and variables → Actions → Variables**). When set, workflows pass **`--context`** into **both** the full **`cdk deploy --all`** and the follow-up **`RiffSyncApi-*`** deploy that refreshes CORS:
+**GitHub repository Variables** (optional — **Settings → Secrets and variables → Actions → Variables**). When set, workflows pass **`--context`** into **each** prod **`cdk deploy`** step and the follow-up **`RiffSyncFanAuth-prod` / `RiffSyncApi-prod`** deploy that refreshes CORS:
 
 | Variable (production) | CDK context | Notes |
 | --- | --- | --- |
@@ -307,7 +307,7 @@ Deployment policy (**`.forge/operations/build_packaging.md`**, **`deployment_env
 
 | Target | Trigger | Notes |
 | --- | --- | --- |
-| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. Deploys **prod** CDK, then **`aws s3 sync`** and CloudFront invalidation using stack outputs (**`FanWebSiteUrl`** for **`VITE_PUBLIC_ORIGIN`** and related env at build time). |
+| **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. **Sequenced** CDK jobs (Turn+SFU, platform, API, OAuth/CORS pass; see workflow file), then **`aws s3 sync`** and CloudFront invalidation using stack outputs (**`FanWebSiteUrl`** for **`VITE_PUBLIC_ORIGIN`** and related env at build time). |
 | **TURN EC2 only** | Manual [**`deploy-turn.yml`**](../../.github/workflows/deploy-turn.yml) | **`cdk deploy RiffSyncTurn`** only (**`main`**). Uses **`AWS_DEPLOY_ROLE_ARN_PROD`**. |
 | **Local** | **AWS CLI credential profile** via **`cdk deploy`** + manual **`s3 sync`** | Matches how engineers run **`cdk bootstrap`** / **`deploy`** interactively outside CI. |
 
