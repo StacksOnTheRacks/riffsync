@@ -288,10 +288,22 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
         });
         upsertProducer(p.roomKey, kind, producer);
         producer.on('transportclose', () => {
-          removeProducer(p.roomKey, producer.id);
+          if (removeProducer(p.roomKey, producer.id)) {
+            broadcast(p.roomKey, p.claims.sessionId, {
+              type: 'event',
+              name: 'producerClosed',
+              data: { producerId: producer.id },
+            });
+          }
         });
         producer.on('@close', () => {
-          removeProducer(p.roomKey, producer.id);
+          if (removeProducer(p.roomKey, producer.id)) {
+            broadcast(p.roomKey, p.claims.sessionId, {
+              type: 'event',
+              name: 'producerClosed',
+              data: { producerId: producer.id },
+            });
+          }
         });
         broadcast(p.roomKey, p.claims.sessionId, {
           type: 'event',

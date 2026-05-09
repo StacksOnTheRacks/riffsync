@@ -99,19 +99,23 @@ export function upsertProducer(roomKey, kind, producer) {
     }
     rt.producersByKind.set(kind, producer);
 }
+/** @returns true if a producer row was removed (first removal wins if both transportclose and @close fire). */
 export function removeProducer(roomKey, producerId) {
     const rt = roomMap.get(roomKey);
     if (!rt)
-        return;
+        return false;
+    let removed = false;
     for (const [kind, p] of rt.producersByKind) {
         if (p.id === producerId) {
             rt.producersByKind.delete(kind);
+            removed = true;
             break;
         }
     }
-    if (rt.producersByKind.size === 0) {
+    if (removed && rt.producersByKind.size === 0) {
         scheduleRoomClose(roomKey);
     }
+    return removed;
 }
 export function listProducerSummaries(roomKey) {
     const rt = roomMap.get(roomKey);

@@ -449,6 +449,21 @@ export function RoomPage() {
         setPresenceRoster({ roomId: data.roomId as string, members })
         return
       }
+      if (t === 'share_state' && typeof data.roomId === 'string') {
+        if (data.roomId !== canonicalRoomId) return
+        if (isPublisher) return
+        const state = data.state
+        if (state !== 'stopped') return
+        sfuSessionRef.current?.close()
+        sfuSessionRef.current = null
+        guestPcRef.current?.close()
+        guestPcRef.current = null
+        guestPendingIceRef.current = []
+        acceptedOfferShareGenerationRef.current = 0
+        lastDedupOfferGenerationRef.current = 0
+        setGuestRemote(null)
+        return
+      }
       if (t !== 'signaling' || USE_MEDIASOU_SFU) return
 
       const fromSessionId = typeof data.fromSessionId === 'string' ? data.fromSessionId : ''
@@ -782,6 +797,12 @@ export function RoomPage() {
 
   const stopCapture = () => {
     setHostCapturePlayHint(false)
+    const gen = shareGenerationRef.current
+    sendJsonRef.current({
+      action: 'share_state',
+      state: 'stopped',
+      ...(gen > 0 ? { shareGeneration: gen } : {}),
+    })
     shareGenerationRef.current = 0
     hostLastOfferGenByGuestRef.current.clear()
     sfuSessionRef.current?.close()
@@ -804,6 +825,11 @@ export function RoomPage() {
     const applyStream = (stream: MediaStream) => {
       shareGenerationRef.current += 1
       setHostCapturePlayHint(false)
+      sendJsonRef.current({
+        action: 'share_state',
+        state: 'started',
+        shareGeneration: shareGenerationRef.current,
+      })
       stream.getTracks().forEach((tr) => {
         tr.addEventListener('ended', () => {
           stopCapture()

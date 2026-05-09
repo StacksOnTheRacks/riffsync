@@ -292,6 +292,33 @@ export async function connectSfuConsumer(options: {
   }
 
   signaling.onEvent = async (name, data) => {
+    if (name === 'producerClosed') {
+      if (!isRecord(data)) return
+      const producerId = typeof data.producerId === 'string' ? data.producerId : ''
+      if (!producerId) return
+      const keep: typeof mediasoupConsumers = []
+      for (const c of mediasoupConsumers) {
+        if (c.producerId === producerId) {
+          try {
+            stream.removeTrack(c.track)
+          } catch {
+            /* ignore */
+          }
+          try {
+            c.close()
+          } catch {
+            /* ignore */
+          }
+        } else {
+          keep.push(c)
+        }
+      }
+      mediasoupConsumers.length = 0
+      for (const k of keep) mediasoupConsumers.push(k)
+      attachedProducerIds.delete(producerId)
+      onRemoteStream(stream.getTracks().length > 0 ? stream : null)
+      return
+    }
     if (name !== 'newProducer') return
     if (!isRecord(data)) return
     const producerId = typeof data.producerId === 'string' ? data.producerId : ''

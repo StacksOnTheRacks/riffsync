@@ -70,6 +70,18 @@ export function useRoomWebSocket(options: {
       return
     }
 
+    const onPageHide = () => {
+      const w = wsRef.current
+      if (w && w.readyState === WebSocket.OPEN) {
+        try {
+          w.send(JSON.stringify({ action: 'leave' }))
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    window.addEventListener('pagehide', onPageHide)
+
     let cancelled = false
 
     const openWs = (): void => {
@@ -177,6 +189,7 @@ export function useRoomWebSocket(options: {
 
     return () => {
       cancelled = true
+      window.removeEventListener('pagehide', onPageHide)
       clearPing()
       clearReconnectTimer()
       wsRef.current?.close()

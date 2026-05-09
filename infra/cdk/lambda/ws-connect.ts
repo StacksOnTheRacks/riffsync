@@ -82,7 +82,8 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   }
 
   const nowSec = Math.floor(Date.now() / 1000);
-  const ttl = nowSec + 7 * 24 * 3600;
+  /** Refreshed on each `ping`; zombies disappear within ~90m of last heartbeat if `$disconnect` never runs. */
+  const ttl = nowSec + 90 * 60;
 
   await client.send(
     new PutCommand({

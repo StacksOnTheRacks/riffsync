@@ -6,6 +6,7 @@ import type {
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
+  DeleteCommand,
   GetCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
@@ -13,6 +14,7 @@ import { TextEncoder } from 'node:util';
 import { lobbySortKey, LOBBY_PARTITION } from './room-shared';
 import {
   broadcastRoomPresence,
+  broadcastRoomPresenceWithGsiRetry,
   postToConnections,
   presenceDisplayNameForSession,
   queryConnectionsForRoom,
@@ -106,11 +108,70 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
         ExpressionAttributeValues: values,
       }),
     );
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const pingTtlSec = 90 * 60;
+    await doc
+      .send(
+        new UpdateCommand({
+          TableName: connTable,
+          Key: { connectionId },
+          UpdateExpression: 'SET lastSeenAt = :ls, expiresAt = :ex',
+          ExpressionAttributeValues: {
+            ':ls': nowSec,
+            ':ex': nowSec + pingTtlSec,
+          },
+        }),
+      )
+      .catch(() => undefined);
+
     return { statusCode: 200, body: 'OK' };
   }
 
   if (routeKey === 'presence_request') {
     await broadcastRoomPresence({ doc, connectionsTable: connTable, roomId }).catch(() => undefined);
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  if (routeKey === 'leave') {
+    await doc.send(
+      new DeleteCommand({
+        TableName: connTable,
+        Key: { connectionId },
+      }),
+    );
+    await broadcastRoomPresenceWithGsiRetry({ doc, connectionsTable: connTable, roomId }).catch(() => undefined);
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  if (routeKey === 'share_state') {
+    const hostSubConn = typeof conn.hostSub === 'string' ? conn.hostSub : undefined;
+    const isPublisherConn = Boolean(hostSubConn && hostSubConn === room.hostSub);
+    if (!isPublisherConn) {
+      return { statusCode: 403, body: 'Publisher JWT required for share_state' };
+    }
+    const state = body.state;
+    if (state !== 'started' && state !== 'stopped') {
+      return { statusCode: 400, body: 'share_state requires state started|stopped' };
+    }
+    const shareGenRaw = body.shareGeneration;
+    const shareGeneration =
+      typeof shareGenRaw === 'number' && Number.isFinite(shareGenRaw) && shareGenRaw >= 0
+        ? Math.floor(shareGenRaw)
+        : undefined;
+    const mgmt = wsManagementClient();
+    const ids = await queryConnectionsForRoom(doc, connTable, roomId);
+    const out: Record<string, unknown> = {
+      type: 'share_state',
+      roomId,
+      sessionId,
+      state,
+    };
+    if (shareGeneration !== undefined) {
+      out.shareGeneration = shareGeneration;
+    }
+    const buf = encoder.encode(JSON.stringify(out));
+    await postToConnections(mgmt, doc, connTable, ids, buf);
     return { statusCode: 200, body: 'OK' };
   }
 

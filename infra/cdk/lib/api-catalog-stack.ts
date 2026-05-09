@@ -456,7 +456,7 @@ export class ApiCatalogStack extends cdk.Stack {
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
-      description: `RiffSync WebSocket (${environment}) — ping, presence_request, chat, signaling`,
+      description: `RiffSync WebSocket (${environment}) — ping, presence_request, chat, signaling, share_state, leave`,
       routeSelectionExpression: '$request.body.action',
     });
 
@@ -529,7 +529,14 @@ export class ApiCatalogStack extends cdk.Stack {
 
     this.webSocketApi.addRoute('$connect', { integration: wsConnectInt });
     this.webSocketApi.addRoute('$disconnect', { integration: wsDisconnectInt });
-    for (const key of ['ping', 'presence_request', 'chat', 'signaling'] as const) {
+    for (const key of [
+      'ping',
+      'presence_request',
+      'chat',
+      'signaling',
+      'share_state',
+      'leave',
+    ] as const) {
       this.webSocketApi.addRoute(key, { integration: wsRouteInt });
     }
     this.webSocketApi.addRoute('$default', { integration: wsRouteInt });
