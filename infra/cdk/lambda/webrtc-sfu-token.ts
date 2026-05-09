@@ -1,4 +1,4 @@
-import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
+import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
@@ -22,7 +22,7 @@ async function joinSecret(): Promise<string> {
   return s;
 }
 
-function json(statusCode: number, body: Record<string, unknown>) {
+function json(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResultV2 {
   return {
     statusCode,
     headers: { 'content-type': 'application/json; charset=utf-8' },
@@ -30,7 +30,28 @@ function json(statusCode: number, body: Record<string, unknown>) {
   };
 }
 
-export const handler: APIGatewayProxyHandlerV2 = async (event) => {
+const ROSTER_GSI_RETRY_MS = [0, 400, 900];
+
+async function findMyConnectionRow(
+  connTable: string,
+  roomId: string,
+  sessionId: string,
+): Promise<Record<string, unknown> | undefined> {
+  for (const delayMs of ROSTER_GSI_RETRY_MS) {
+    if (delayMs > 0) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+    const items = await queryRoomConnectionItems(doc, connTable, roomId);
+    const mine = items.find((c) => c.sessionId === sessionId) as Record<string, unknown> | undefined;
+    if (mine) return mine;
+    /** `RoomConnectionsRosterIndex` is eventually consistent; only retry when the query is still empty. */
+    if (items.length > 0) return undefined;
+  }
+  return undefined;
+}
+
+async function handleSfuToken(event: Parameters<APIGatewayProxyHandlerV2>[0]): Promise<APIGatewayProxyResultV2> {
+  const headers = event.headers ?? {};
   const roomsTable = process.env.ROOMS_TABLE_NAME;
   const connTable = process.env.CONNECTIONS_TABLE_NAME;
   const apiEnv = process.env.RIFFSYNC_API_ENV;
@@ -40,13 +61,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return json(500, { error: 'Server misconfigured' });
   }
 
-  if (event.requestContext.http.method !== 'POST') {
+  if (event.requestContext?.http?.method !== 'POST') {
     return json(405, { error: 'POST required' });
   }
 
   let body: Record<string, unknown>;
   try {
-    body = JSON.parse(event.body ?? '{}') as Record<string, unknown>;
+    body = JSON.parse(event.body ?? '{}') as Record<string, unknown];
   } catch {
     return json(400, { error: 'Invalid JSON body' });
   }
@@ -56,7 +77,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return json(400, { error: 'roomId required' });
   }
 
-  const sessionHeader = event.headers['x-session-id'] ?? event.headers['X-Session-Id'];
+  const sessionHeader = headers['x-session-id'] ?? headers['X-Session-Id'];
   const sessionId = typeof sessionHeader === 'string' ? sessionHeader.trim() : '';
   if (!sessionId) {
     return json(400, { error: 'X-Session-Id header required' });
@@ -73,13 +94,12 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return json(404, { error: 'Room not found' });
   }
 
-  const connections = await queryRoomConnectionItems(doc, connTable, roomId);
-  const myConn = connections.find((c) => c.sessionId === sessionId);
+  const myConn = await findMyConnectionRow(connTable, roomId, sessionId);
   if (!myConn) {
     return json(403, { error: 'Open the room WebSocket first (unknown session for this room).' });
   }
 
-  const authHdr = event.headers.authorization ?? event.headers.Authorization;
+  const authHdr = headers.authorization ?? headers.Authorization;
   const jwtUser = await verifyAccessToken(typeof authHdr === 'string' ? authHdr : undefined);
 
   const isHostSlot =
@@ -108,4 +128,19 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     wsUrl: publicWsUrl || undefined,
     expiresInSeconds: ttlSec,
   });
+}
+
+export const handler: APIGatewayProxyHandlerV2 = async (event) => {
+  try {
+    return await handleSfuToken(event);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const name = err instanceof Error ? err.name : 'Error';
+    console.error(JSON.stringify({ riffsyncDiag: 'webrtc_sfu_token_unhandled', name, msg }));
+    return json(500, {
+      error: 'sfu_token_failed',
+      /** Safe to surface to clients (no secret values); check CloudWatch for full **`name`** / **`msg`**. */
+      detail: msg.length > 240 ? `${msg.slice(0, 240)}…` : msg,
+    });
+  }
 };
