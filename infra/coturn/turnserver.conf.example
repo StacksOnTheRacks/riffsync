@@ -1,7 +1,7 @@
 # Reference coturn configuration for RiffSync (manual installs or debugging).
 # **Hosted:** Singleton CDK stack **`RiffSyncTurn`** UserData installs coturn on Amazon Linux 2023,
 # fetches **`riffsync/turn-static-auth-secret`**, and writes **`/etc/coturn/turnserver.conf`** (ICE Lambdas share this secret).
-# Use this file only if you run coturn outside that stack.
+# **Same stack** also runs the mediasoup SFU EC2 (**`lib/media-server-stack.ts`**); this file is only for coturn.
 
 listening-port=3478
 # Optional TLS (requires cert paths below); the CDK EC2 template currently uses plain UDP/TCP on 3478 only.

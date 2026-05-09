@@ -27,7 +27,7 @@ Infrastructure-as-code: **deploy with AWS CDK** (`cdk synth` emits CloudFormatio
 | **Amazon Cognito user pool (optional)** | Viewer **Facebook** federation (or native sign-up) issuing **JWTs** to **`id_token`** / **`access_token`** for public routes needing **`sub`**. Prefer an **invite-only operator pool** (or separate **app client**) guarding **`/v1/admin/*`**. JWT authorizers on HTTP and optionally WebSocket **`$connect`**; attributes depend on scopes. Secrets referenced from IaC, **never** baked into SPA. **`architecture.admin.md`**. |
 | **Amazon CloudWatch** | **Default home for observability:** **metrics** (built-in + **`PutMetricData`** custom), **dashboards**, **alarms**, **Logs Insights** on Lambda/API Gateway/Dynamo log groups. **Operational and product rollups** SHOULD be charted here first; see **Observability** below. |
 
-**Out of scope for this baseline:** **ECS/Fargate**, or alternative WebSocket stacks — API Gateway + Lambda is the default. **Exception:** **mediasoup SFU** runs on a **shared-account EC2** (**`RiffSyncSfu`**): **`POST /v1/webrtc/sfu-token`** (Lambda) mints short-lived join JWTs; browsers connect **`wss://`/`ws://`** to the SFU for RTP. Coturn TURN remains on separate shared EC2 (**`RiffSyncTurn`**).
+**Out of scope for this baseline:** **ECS/Fargate**, or alternative WebSocket stacks — API Gateway + Lambda is the default. **Exception:** **mediasoup SFU** and **coturn TURN** run on **two EC2 instances** in **one** shared-account stack **`RiffSyncTurn`** (same VPC): **`POST /v1/webrtc/sfu-token`** (Lambda) mints short-lived join JWTs; browsers connect **`wss://`/`ws://`** to the SFU for RTP.
 
 ---
 

@@ -14,7 +14,7 @@
 | Workflow (conceptual) | Trigger | Target | Versioning |
 | --- | --- | --- | --- |
 | **Deploy production** | **Manual** (**`workflow_dispatch`**) against **`main`** only | **`cdk deploy`** for prod stacks + fan SPA publish | Deploys **commit SHA** at workflow run (not necessarily a tag). |
-| **Deploy TURN only** | **Manual** | **`RiffSyncTurn`** | For coturn/UserData changes without full app deploy. |
+| **Deploy media only** | **Manual** | **`RiffSyncTurn`** (TURN + SFU + VPC) | For coturn/SFU UserData or media stack changes without full app deploy. |
 
 **Practice**
 

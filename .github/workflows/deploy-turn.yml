@@ -1,7 +1,7 @@
-name: Deploy CDK (TURN server only)
+name: Deploy CDK (media stack — RiffSyncTurn)
 
-# Singleton stack **`RiffSyncTurn`** (coturn + shared secret) in the production AWS account.
-# Use when you changed **`turn-server-stack.ts`** / UserData only—no need to run a full app deploy.
+# Singleton stack **`RiffSyncTurn`** (coturn + mediasoup SFU + VPC) in the production AWS account.
+# Use when you changed **`media-server-stack.ts`** / UserData only; this still updates the **whole** media stack.
 on:
   workflow_dispatch:
     inputs:

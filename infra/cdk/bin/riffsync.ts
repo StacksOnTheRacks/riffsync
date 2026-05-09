@@ -5,8 +5,7 @@ import { ApiCatalogStack } from '../lib/api-catalog-stack';
 import { FanAuthStack } from '../lib/fan-auth-stack';
 import { SesInboundStack, sesInboundReceiptRulesActivated } from '../lib/ses-inbound-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
-import { TurnServerStack } from '../lib/turn-server-stack';
-import { SfuServerStack } from '../lib/sfu-server-stack';
+import { MediaServerStack } from '../lib/media-server-stack';
 
 function trimContext(app: cdk.App, key: string): string | undefined {
   const v = app.node.tryGetContext(key);
@@ -42,8 +41,7 @@ if ((fanWebHostedZoneId || fanWebZoneName) && !fanWebCustomDomain) {
 
 /**
  * Default **`SFU_PUBLIC_WS_URL`** for **`WebrtcSfuTokenFn`** must be a **plain synth-time string** — never
- * **`sfuServer.defaultSignalingWsUrl`** when it embeds **`eip.ref`** (that creates a cross-stack export and
- * blocks **`RiffSyncSfu`** updates while **`RiffSyncApi-prod`** imports it).
+ * a **`Token`** from **`eip.ref`** in another stack (cross-stack exports block updates).
  */
 function sfuDefaultSignalingWsUrlFromContext(app: cdk.App, sfuProdSignalingHost: string | undefined): string {
   const fromCtx = trimContext(app, 'sfuPublicWsUrl');
@@ -93,19 +91,8 @@ const fanAuth = new FanAuthStack(app, 'RiffSyncFanAuth-prod', {
   },
 });
 
-const turnServer = new TurnServerStack(app, 'RiffSyncTurn', {
-  description:
-    'RiffSync coturn TURN relay (account singleton) — EC2 + EIP; secret riffsync/turn-static-auth-secret',
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION,
-  },
-});
-
-const sfuServer = new SfuServerStack(app, 'RiffSyncSfu', {
-  description:
-    'RiffSync mediasoup SFU (account singleton) - EC2 + EIP + join JWT secret; same VPC as RiffSyncTurn',
-  sharedMediaVpc: turnServer.sharedMediaVpc,
+/** Stack id stays **`RiffSyncTurn`** so the existing VPC + coturn resources remain in the same CFN stack. */
+const mediaServer = new MediaServerStack(app, 'RiffSyncTurn', {
   signalingHostedZone: sfuSignalingHostedZone,
   signalingZoneName: sfuProdSignalingHostname && fanWebZoneName ? fanWebZoneName : undefined,
   sfuProdSignalingHostname,
@@ -114,14 +101,13 @@ const sfuServer = new SfuServerStack(app, 'RiffSyncSfu', {
     region: process.env.CDK_DEFAULT_REGION,
   },
 });
-sfuServer.addDependency(turnServer);
 
 const apiCatalog = new ApiCatalogStack(app, 'RiffSyncApi-prod', {
   description: 'RiffSync HTTP API + Catalog + Rooms + WebSocket (prod) — DynamoDB + Lambda',
   fanUserPool: fanAuth.fanUserPool,
   fanUserPoolClient: fanAuth.fanUserPoolClient,
   sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
-  turnSharedSecret: turnServer.turnSharedSecret,
+  turnSharedSecret: mediaServer.turnSharedSecret,
   sfuDefaultSignalingWsUrl: sfuDefaultSignalingWsUrlFromContext(app, sfuProdSignalingHostname),
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
@@ -129,8 +115,7 @@ const apiCatalog = new ApiCatalogStack(app, 'RiffSyncApi-prod', {
   },
 });
 apiCatalog.addDependency(fanAuth);
-apiCatalog.addDependency(turnServer);
-apiCatalog.addDependency(sfuServer);
+apiCatalog.addDependency(mediaServer);
 
 new StaticSiteStack(app, 'RiffSyncStatic-prod', {
   description: 'RiffSync static SPA hosting (prod) — S3 (private) + CloudFront OAC',

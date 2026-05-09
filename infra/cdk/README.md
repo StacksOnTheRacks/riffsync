@@ -16,8 +16,7 @@ The CDK app **no longer defines** `RiffSyncFanAuth-staging`, `RiffSyncApi-stagin
 | `bin/riffsync.ts` | App entry; **`--context environment=prod`** (default in `cdk.json`) |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
-| `lib/turn-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **coturn** on **EC2** (**`t3.small`**) + **`riffsync/turn-static-auth-secret`** (account-wide) |
-| `lib/sfu-server-stack.ts` | **Singleton** **`RiffSyncSfu`** — **mediasoup** on **EC2** (**`t3.medium`**) + S3 **BucketDeployment** of **`services/riffsync-sfu`** + **`riffsync/sfu-join-hmac-secret`** (join JWT HMAC) |
+| `lib/media-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **one VPC**, **coturn** (**`t3.small`**) + **mediasoup SFU** (**`t3.medium`**), two EIPs, **`riffsync/turn-static-auth-secret`**, S3 bundle deploy for **`services/riffsync-sfu`**, **`riffsync/sfu-join-hmac-secret`** (reference by name) |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
 | `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
@@ -147,15 +146,17 @@ Deployed with **`RiffSyncApi-prod`** (same CloudFormation stack as catalog). Dep
 
 **Housekeeping:** lobby staleness uses **read-time filtering** (**US-P0-08**) — optional EventBridge TTL/sweeper deferred.
 
-### Self-hosted TURN (coturn on EC2)
+### Self-hosted media (coturn TURN + mediasoup SFU on EC2)
 
-Designed for **one AWS account** hosting **`RiffSyncApi-prod`**: a **singleton** stack **[`RiffSyncTurn`](lib/turn-server-stack.ts)** provides **one** **`t3.small`** instance, **one** **Elastic IP**, and **one** Secrets Manager secret (**`riffsync/turn-static-auth-secret`**). ICE Lambdas use **that** secret for TURN REST credentials and **`turnHost`** (the EIP, or DNS to it).
+One account, **one CloudFormation stack** **`RiffSyncTurn`** ([`lib/media-server-stack.ts`](lib/media-server-stack.ts)): **one VPC**, **coturn** on **`t3.small`** + **mediasoup** on **`t3.medium`**, **two** Elastic IPs, **`riffsync/turn-static-auth-secret`**, S3 **BucketDeployment** of [`services/riffsync-sfu`](../../services/riffsync-sfu), and Route 53 **`A`** → SFU EIP when **`sfuProdSignalingHostname`** is set. ICE Lambdas use the TURN secret and **`turnHost`** (TURN EIP or DNS).
 
-**Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncTurn`** is created **before** **`RiffSyncApi-prod`**; the API stack **depends on** **`RiffSyncTurn`** so the secret exists before Lambdas reference it.
+**Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncApi-prod`** **depends on** **`RiffSyncTurn`** (turn secret + deploy ordering).
 
-**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **`cdk deploy`** with **parallel jobs** where the graph allows: **Turn** and **platform** (fan auth + static + SES) **together**; then **API** (`--exclusively`) and **SFU** **together** (each after **Turn**; API also after **platform**). OAuth/CORS + API runs after **API**; **fan SPA** waits on that **and** **SFU** so the bucket update tends to follow a live SFU. **Api must not import SFU** (see **`bin/riffsync.ts`**) or parallel SFU updates can fail. For **TURN-only** changes, use **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** (**`cdk deploy RiffSyncTurn`**; uses **`AWS_DEPLOY_ROLE_ARN_PROD`**).
+**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **media** (`RiffSyncTurn`) and **platform** in **parallel**, then **API** (`--exclusively`). **OAuth/CORS** also uses **`--exclusively`** so CDK does not redeploy **`RiffSyncTurn`** while updating Cognito + API. For **media-only** changes, **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** runs **`cdk deploy RiffSyncTurn`** (updates **both** EC2 roles; there is no separate SFU stack).
 
-**Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`** (Turn stack only; duplicating this output on API stacks triggers CloudFormation lint **W6001** when the value is a cross-stack import).
+**Migrating from the old `RiffSyncSfu` stack:** CDK no longer defines that stack. If it still exists in AWS: after **`cdk deploy RiffSyncTurn`** succeeds and the **new** SFU in **`RiffSyncTurn`** is healthy (and **`wss://`** / DNS if used), delete the old stack (**`aws cloudformation delete-stack --stack-name RiffSyncSfu`**). If **`UPDATE`/`CREATE` fails** on the signaling **`A`** record because the name is still owned by **`RiffSyncSfu`**, delete **`RiffSyncSfu`** first (expect brief SFU gap), then deploy **`RiffSyncTurn`**.
+
+**Outputs:** **`TurnServerElasticIp`**, **`TurnSharedSecretArn`**, **`SfuElasticIp`**, **`SfuCodeBucketName`**, **`SfuDefaultSignalingWsUrl`**, etc.
 
 **Session Manager:** no inbound **SSH**; use **SSM** for troubleshooting (**`/var/log/cloud-init-output.log`** if UserData fails).
 
@@ -308,7 +309,7 @@ Deployment policy (**`.forge/operations/build_packaging.md`**, **`deployment_env
 | Target | Trigger | Notes |
 | --- | --- | --- |
 | **Production** | Manual workflow [**`deploy-prod.yml`**](../../.github/workflows/deploy-prod.yml) (**`workflow_dispatch`**) | **Ref must be `main`**. **Parallel** CDK jobs where safe (see workflow file), then **`aws s3 sync`** and CloudFront invalidation. |
-| **TURN EC2 only** | Manual [**`deploy-turn.yml`**](../../.github/workflows/deploy-turn.yml) | **`cdk deploy RiffSyncTurn`** only (**`main`**). Uses **`AWS_DEPLOY_ROLE_ARN_PROD`**. |
+| **Media EC2 (TURN + SFU)** | Manual [**`deploy-turn.yml`**](../../.github/workflows/deploy-turn.yml) | **`cdk deploy RiffSyncTurn`** (**`main`**). Uses **`AWS_DEPLOY_ROLE_ARN_PROD`**. |
 | **Local** | **AWS CLI credential profile** via **`cdk deploy`** + manual **`s3 sync`** | Matches how engineers run **`cdk bootstrap`** / **`deploy`** interactively outside CI. |
 
 ### Fan SPA publish (S3 sync + invalidation)

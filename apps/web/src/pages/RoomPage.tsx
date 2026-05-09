@@ -45,7 +45,7 @@ const DISPLAY_TITLE_MAX_LEN = 120
 
 /** Shown when neither token **`wsUrl`** nor **`import.meta.env.VITE_PUBLIC_SFU_WS_URL`** resolves. */
 const SFU_RELAY_URL_MISSING_MSG =
-  'Video relay URL is missing. Fix: (1) Redeploy RiffSyncApi so POST /v1/webrtc/sfu-token returns wsUrl (defaults from RiffSyncSfu EIP). (2) Or set VITE_PUBLIC_SFU_WS_URL in the environment when you run npm run build (Vite bakes it in then, not from S3 at runtime). For https fan sites use wss via CDK context sfuPublicWsUrl or the same Vite variable.'
+  'Video relay URL is missing. Fix: (1) Redeploy RiffSyncApi-prod so POST /v1/webrtc/sfu-token returns wsUrl (from CDK context / signaling hostname). (2) Or set VITE_PUBLIC_SFU_WS_URL in the environment when you run npm run build (Vite bakes it in then, not from S3 at runtime). For https fan sites use wss via CDK context sfuPublicWsUrl or the same Vite variable.'
 
 type ChatMsg = { sessionId: string; text: string; ts: number; displayName?: string }
 
@@ -1051,7 +1051,7 @@ export function RoomPage() {
           <p className="riffsync-room-page__ws-banner riffsync-muted" role="status">
             This production build uses peer-to-peer mesh for watch-party video. That path is not supported for real
             parties. Use the mediasoup SFU instead: leave <code>VITE_WEBRTC_USE_MEDIASOU_SFU</code> unset (defaults to
-            on in production) or set it to <code>true</code>, deploy <code>RiffSyncSfu</code>, and set{' '}
+            on in production) or set it to <code>true</code>, deploy <code>RiffSyncTurn</code> (media stack), and set{' '}
             <code>VITE_PUBLIC_SFU_WS_URL</code> at build time.
           </p>
         ) : null}

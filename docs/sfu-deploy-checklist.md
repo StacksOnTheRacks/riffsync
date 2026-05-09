@@ -1,6 +1,6 @@
 # Mediasoup SFU deploy checklist
 
-Manual verification after deploys that touch **`RiffSyncSfu`**, **`RiffSyncApi-prod`** (`sfu-token`), or fan SPA env (**`VITE_PUBLIC_SFU_WS_URL`**, **`VITE_WEBRTC_USE_MEDIASOU_SFU`**).
+Manual verification after deploys that touch **`RiffSyncTurn`** (mediasoup SFU + coturn), **`RiffSyncApi-prod`** (`sfu-token`), or fan SPA env (**`VITE_PUBLIC_SFU_WS_URL`**, **`VITE_WEBRTC_USE_MEDIASOU_SFU`**).
 
 1. **Happy path**  
    Host opens `/room/:id`, starts tab share. Two guests join and see video within a few seconds. Chat and presence update.

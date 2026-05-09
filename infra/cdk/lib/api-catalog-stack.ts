@@ -14,7 +14,7 @@ import * as path from 'node:path';
 import type { Construct } from 'constructs';
 
 import { fanWebAlternateDomainNamesFromContext } from './context-alternate-domains';
-import { SFU_JOIN_SECRET_NAME } from './sfu-server-stack';
+import { SFU_JOIN_SECRET_NAME } from './media-server-stack';
 
 export interface ApiCatalogStackProps extends cdk.StackProps {
   /**
@@ -30,7 +30,7 @@ export interface ApiCatalogStackProps extends cdk.StackProps {
   /** SES sending configuration set — Cognito + privacy-removal **`SendEmail`** emit events to SNS via this set. */
   readonly sesSendingConfigurationSetName: string;
   /**
-   * Shared TURN/coturn auth secret — owned by **[`TurnServerStack`](./turn-server-stack.ts)** (**`riffsync/turn-static-auth-secret`**).
+   * Shared TURN/coturn auth secret — owned by **[`MediaServerStack`](./media-server-stack.ts)** / **`RiffSyncTurn`** (**`riffsync/turn-static-auth-secret`**).
    */
   readonly turnSharedSecret: secretsmanager.ISecret;
   /**
