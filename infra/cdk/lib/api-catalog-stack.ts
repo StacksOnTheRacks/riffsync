@@ -14,6 +14,7 @@ import * as path from 'node:path';
 import type { Construct } from 'constructs';
 
 import { fanWebAlternateDomainNamesFromContext } from './context-alternate-domains';
+import { SFU_JOIN_SECRET_NAME } from './sfu-server-stack';
 
 export interface ApiCatalogStackProps extends cdk.StackProps {
   readonly environment: 'staging' | 'prod';
@@ -423,6 +424,23 @@ export class ApiCatalogStack extends cdk.Stack {
       },
     });
     sfuJoinTokenSecret.grantRead(webrtcSfuTokenFn);
+    /** Physical secrets use `name-6chars` ARNs; imported-by-name grants can miss the suffix cross-stack. */
+    const sfuJoinSecretIamArn = cdk.Fn.join('', [
+      `arn:${cdk.Aws.PARTITION}:secretsmanager:`,
+      cdk.Aws.REGION,
+      ':',
+      cdk.Aws.ACCOUNT_ID,
+      ':secret:',
+      SFU_JOIN_SECRET_NAME,
+      '-*',
+    ]);
+    webrtcSfuTokenFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+        resources: [sfuJoinSecretIamArn],
+      }),
+    );
     this.connectionsTable.grantReadData(webrtcSfuTokenFn);
     this.roomsTable.grantReadData(webrtcSfuTokenFn);
 
