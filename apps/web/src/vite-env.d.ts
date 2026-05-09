@@ -15,6 +15,12 @@ interface ImportMetaEnv {
    * Default: `[{ urls: 'stun:stun.l.google.com:19302' }]`.
    */
   readonly VITE_WEBRTC_ICE_SERVERS_JSON?: string
+  /**
+   * When **`true`**, `/room` sharing uses shared-account mediasoup SFU (**`POST /v1/webrtc/sfu-token`** + **`VITE_PUBLIC_SFU_WS_URL`**).
+   */
+  readonly VITE_WEBRTC_USE_MEDIASOU_SFU?: string
+  /** Mediasoup signaling WebSocket origin (`wss://…` in production). */
+  readonly VITE_PUBLIC_SFU_WS_URL?: string
 }
 
 interface ImportMeta {

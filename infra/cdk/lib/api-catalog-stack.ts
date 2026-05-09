@@ -33,6 +33,15 @@ export interface ApiCatalogStackProps extends cdk.StackProps {
    * Shared TURN/coturn auth secret — owned by **[`TurnServerStack`](./turn-server-stack.ts)** (**`riffsync/turn-static-auth-secret`**).
    */
   readonly turnSharedSecret: secretsmanager.ISecret;
+  /**
+   * Shared SFU join HMAC secret — owned by **[`SfuServerStack`](./sfu-server-stack.ts)** (**`riffsync/sfu-join-hmac-secret`**).
+   */
+  readonly sfuJoinTokenSecret: secretsmanager.ISecret;
+}
+
+function sfuPublicWsUrlFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('sfuPublicWsUrl');
+  return typeof raw === 'string' ? raw.trim() : '';
 }
 
 function parseOriginsFromContext(scope: Construct): string[] {
@@ -136,6 +145,7 @@ export class ApiCatalogStack extends cdk.Stack {
       fanUserPoolClient,
       sesSendingConfigurationSetName,
       turnSharedSecret,
+      sfuJoinTokenSecret,
     } = props;
     const contextExtras = parseOriginsFromContext(this);
     const allowOrigins = corsAllowOrigins(environment, [...extraCorsOrigins, ...contextExtras], this);
@@ -373,6 +383,8 @@ export class ApiCatalogStack extends cdk.Stack {
       }),
     );
 
+    const sfuPublicWsUrl = sfuPublicWsUrlFromContext(this);
+
     const webrtcIceConfigFn = new lambdaNodejs.NodejsFunction(this, 'WebrtcIceConfigFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(5),
@@ -391,6 +403,28 @@ export class ApiCatalogStack extends cdk.Stack {
       },
     });
     this.turnSharedSecret.grantRead(webrtcIceConfigFn);
+
+    const webrtcSfuTokenFn = new lambdaNodejs.NodejsFunction(this, 'WebrtcSfuTokenFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/webrtc-sfu-token.ts'),
+      handler: 'handler',
+      environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
+        SFU_JOIN_SECRET_ARN: sfuJoinTokenSecret.secretArn,
+        RIFFSYNC_API_ENV: environment,
+        SFU_PUBLIC_WS_URL: sfuPublicWsUrl,
+        COGNITO_USER_POOL_ID: fanUserPool.userPoolId,
+        COGNITO_CLIENT_ID: fanUserPoolClient.userPoolClientId,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    sfuJoinTokenSecret.grantRead(webrtcSfuTokenFn);
+    this.connectionsTable.grantReadData(webrtcSfuTokenFn);
+    this.roomsTable.grantReadData(webrtcSfuTokenFn);
 
     const fanProfileGetFn = new lambdaNodejs.NodejsFunction(this, 'FanProfileGetFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -534,6 +568,10 @@ export class ApiCatalogStack extends cdk.Stack {
       privacyRemovalFn,
     );
     const webrtcIceIntegration = new integrations.HttpLambdaIntegration('WebrtcIceInt', webrtcIceConfigFn);
+    const webrtcSfuTokenIntegration = new integrations.HttpLambdaIntegration(
+      'WebrtcSfuTokenInt',
+      webrtcSfuTokenFn,
+    );
     const fanProfileGetIntegration = new integrations.HttpLambdaIntegration('FanProfileGetInt', fanProfileGetFn);
     const fanProfilePatchIntegration = new integrations.HttpLambdaIntegration(
       'FanProfilePatchInt',
@@ -588,6 +626,12 @@ export class ApiCatalogStack extends cdk.Stack {
       path: '/v1/webrtc/ice',
       methods: [apigwv2.HttpMethod.GET],
       integration: webrtcIceIntegration,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/webrtc/sfu-token',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: webrtcSfuTokenIntegration,
     });
 
     this.httpApi.addRoutes({

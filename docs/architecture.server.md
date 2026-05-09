@@ -16,7 +16,7 @@ Infrastructure-as-code: **deploy with AWS CDK** (`cdk synth` emits CloudFormatio
 
 | Resource | Role |
 | --- | --- |
-| **API Gateway HTTP API** (`ProtocolType: HTTP`) | BFF JSON: **`GET /v1/catalog`**, curated **`GET /v1/lists`** (when shipped), room create/read/**patch** (current episode / metadata), lobby list, **`GET /v1/health`**, plus **`/v1/admin/*`** **operator** APIs (JWT + staff pool / groups — **`architecture.admin.md`**). |
+| **API Gateway HTTP API** (`ProtocolType: HTTP`) | BFF JSON: **`GET /v1/catalog`**, curated **`GET /v1/lists`** (when shipped), room create/read/**patch** (current episode / metadata), lobby list, **`GET /v1/health`**, **`GET /v1/webrtc/ice`**, **`POST /v1/webrtc/sfu-token`** (mediasoup join), **`/v1/admin/*`** **operator** APIs (JWT + staff pool / groups — **`architecture.admin.md`**). |
 | **API Gateway WebSocket API** (`ProtocolType: WEBSOCKET`) | Realtime paths: `$connect` / `$disconnect`, **WebRTC signaling** (SDP / ICE relay—shape TBD), chat, ping, **`execute-api:ManageConnections`** fan-out. |
 | **AWS Lambda** | All synchronous route handlers + **EventBridge** consumers (sweeper, TMDB catalog reconciliation). |
 | **Amazon DynamoDB** | **All durable application state:** **rooms**, **connections**, **catalog**, plus **optional** **`profiles`** (fan **`USER#sub`**), **`lists` + memberships** (**`LIST#slug`** editorial rows), append-only **events**/**rollups** for admin reporting (**`architecture.admin.md`**). |
@@ -27,7 +27,7 @@ Infrastructure-as-code: **deploy with AWS CDK** (`cdk synth` emits CloudFormatio
 | **Amazon Cognito user pool (optional)** | Viewer **Facebook** federation (or native sign-up) issuing **JWTs** to **`id_token`** / **`access_token`** for public routes needing **`sub`**. Prefer an **invite-only operator pool** (or separate **app client**) guarding **`/v1/admin/*`**. JWT authorizers on HTTP and optionally WebSocket **`$connect`**; attributes depend on scopes. Secrets referenced from IaC, **never** baked into SPA. **`architecture.admin.md`**. |
 | **Amazon CloudWatch** | **Default home for observability:** **metrics** (built-in + **`PutMetricData`** custom), **dashboards**, **alarms**, **Logs Insights** on Lambda/API Gateway/Dynamo log groups. **Operational and product rollups** SHOULD be charted here first; see **Observability** below. |
 
-**Out of scope for this baseline:** **ECS/Fargate**, long-lived **EC2** app tiers, or alternative WebSocket stacks — API Gateway + Lambda is the default.
+**Out of scope for this baseline:** **ECS/Fargate**, or alternative WebSocket stacks — API Gateway + Lambda is the default. **Exception:** **mediasoup SFU** runs on a **shared-account EC2** (**`RiffSyncSfu`**): **`POST /v1/webrtc/sfu-token`** (Lambda) mints short-lived join JWTs; browsers connect **`wss://`/`ws://`** to the SFU for RTP. Coturn TURN remains on separate shared EC2 (**`RiffSyncTurn`**).
 
 ---
 

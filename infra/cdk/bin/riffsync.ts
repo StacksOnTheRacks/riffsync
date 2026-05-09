@@ -5,6 +5,7 @@ import { FanAuthStack } from '../lib/fan-auth-stack';
 import { SesInboundStack, sesInboundReceiptRulesActivated } from '../lib/ses-inbound-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
 import { TurnServerStack } from '../lib/turn-server-stack';
+import { SfuServerStack } from '../lib/sfu-server-stack';
 
 function trimContext(app: cdk.App, key: string): string | undefined {
   const v = app.node.tryGetContext(key);
@@ -73,6 +74,15 @@ const turnServer = new TurnServerStack(app, 'RiffSyncTurn', {
   },
 });
 
+const sfuServer = new SfuServerStack(app, 'RiffSyncSfu', {
+  description:
+    'RiffSync mediasoup SFU (shared staging+prod) — EC2 + EIP + join JWT secret',
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});
+
 const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
   description: `RiffSync HTTP API + Catalog + Rooms + WebSocket (${environment}) — DynamoDB + Lambda`,
   environment,
@@ -80,6 +90,7 @@ const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
   fanUserPoolClient: fanAuth.fanUserPoolClient,
   sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
   turnSharedSecret: turnServer.turnSharedSecret,
+  sfuJoinTokenSecret: sfuServer.sfuJoinTokenSecret,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
@@ -87,6 +98,7 @@ const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
 });
 apiCatalog.addDependency(fanAuth);
 apiCatalog.addDependency(turnServer);
+apiCatalog.addDependency(sfuServer);
 
 new StaticSiteStack(app, `RiffSyncStatic-${environment}`, {
   description: `RiffSync static SPA hosting (${environment}) — S3 (private) + CloudFront OAC`,

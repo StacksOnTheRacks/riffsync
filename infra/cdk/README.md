@@ -10,12 +10,14 @@ AWS CDK **v2** (TypeScript) for **hosted** environments only: **`staging`** and 
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
 | `lib/turn-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **coturn** on **EC2** (**`t3.small`**) + **`riffsync/turn-static-auth-secret`** (shared **staging + prod** in one account) |
+| `lib/sfu-server-stack.ts` | **Singleton** **`RiffSyncSfu`** — **mediasoup** on **EC2** (**`t3.medium`**) + S3 **BucketDeployment** of **`services/riffsync-sfu`** + **`riffsync/sfu-join-hmac-secret`** (join JWT HMAC; shared **staging + prod**) |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
 | `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) — **one** topic/rule set for all tiers; synthesized only with **`environment=prod`** |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
 | `lambda/room-*.ts` | **`POST/PATCH`** room + **`GET`** lobby/read (**`authorization.md`**) |
 | `lambda/ws-*.ts` | WebSocket **`$connect`** / **`$disconnect`** / message routes |
 | `lambda/webrtc-ice-config.ts` | **`GET /v1/webrtc/ice`** — STUN + TURN REST credentials |
+| `lambda/webrtc-sfu-token.ts` | **`POST /v1/webrtc/sfu-token`** — short-lived mediasoup join JWT (**requires** `X-Session-Id` + active WS connection; host uses `Authorization`) |
 | `lambda/room-shared.ts` | Shared parsing + **`STALE_ROOM_MS`** (**lobby staleness**) |
 | `lambda/tmdb-reconcile-*.ts` | Scheduled **`GET /configuration`**, **`/search/movie`**, **`/movie/{id}`** enrichment (**`docs/contracts.tmdb.md`**) |
 | `scripts/copy-catalog-dynamodb.ts` | **`npm run copy:catalog`** — scan one catalog table, **`BatchWriteItem`** into another (staging → prod migration) |

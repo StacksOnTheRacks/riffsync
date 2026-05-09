@@ -147,8 +147,8 @@ Treat **WebRTC peer connection state** separately from **YouTube iframe events**
 
 **Peers**
 
-- **MVP options:** small-room **mesh** (admin ↔ each guest) vs **SFU** (managed vendor or self-hosted) when fan-out or uplink requires it. Publish **STUN** (`stun:`) in client config; add **TURN** when symmetric NAT / reliability demands—it is required for many real-world networks at scale.
-- **Signaling:** reuse WebSocket routes (or HTTP where simpler) to exchange SDP and ICE candidates **after** authz confirms **`JWT.sub === room.hostSub`** for publisher role.
+- **MVP options:** small-room **mesh** (admin ↔ each guest) vs **SFU** (managed vendor or self-hosted) when fan-out or uplink requires it. **Optional self-hosted path:** **`VITE_WEBRTC_USE_MEDIASOU_SFU=true`** + **`VITE_PUBLIC_SFU_WS_URL`** uses **[mediasoup](https://mediasoup.org/)** on shared-account EC2 (**`RiffSyncSfu`**) with **`POST /v1/webrtc/sfu-token`** and env-scoped join JWTs. Publish **STUN** (`stun:`) in client config; add **TURN** when symmetric NAT / reliability demands—it is required for many real-world networks at scale.
+- **Signaling:** for mesh, reuse WebSocket routes to exchange SDP and ICE candidates **after** authz confirms **`JWT.sub === room.hostSub`** for publisher role. For SFU, signaling is a **second WebSocket** to the SFU host (TLS often required for HTTPS SPAs).
 
 **Guests**
 
