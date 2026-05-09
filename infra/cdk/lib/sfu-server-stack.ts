@@ -1,6 +1,7 @@
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as elbv2_targets from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
@@ -267,7 +268,7 @@ EOUNIT`,
         vpc: sharedMediaVpc,
         port: 3000,
         protocol: elbv2.ApplicationProtocol.HTTP,
-        targets: [new elbv2.InstanceTarget(instance, 3000)],
+        targets: [new elbv2_targets.InstanceTarget(instance, 3000)],
         healthCheck: {
           path: '/healthz',
           healthyHttpCodes: '200',
