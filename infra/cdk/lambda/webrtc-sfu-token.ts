@@ -1,4 +1,8 @@
-import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type {
+  APIGatewayProxyEventV2,
+  APIGatewayProxyHandlerV2,
+  APIGatewayProxyResultV2,
+} from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
@@ -8,6 +12,9 @@ import { queryRoomConnectionItems } from './ws-shared';
 
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const sm = new SecretsManagerClient({});
+
+/** Avoid `Record<string, unknown>` in value positions: esbuild JSX parse can mis-read `<`. */
+type JsonRecord = { [key: string]: unknown };
 
 let cachedJoinSecret: string | null = null;
 
@@ -22,7 +29,7 @@ async function joinSecret(): Promise<string> {
   return s;
 }
 
-function json(statusCode: number, body: Record<string, unknown>): APIGatewayProxyResultV2 {
+function json(statusCode: number, body: JsonRecord): APIGatewayProxyResultV2 {
   return {
     statusCode,
     headers: { 'content-type': 'application/json; charset=utf-8' },
@@ -36,13 +43,13 @@ async function findMyConnectionRow(
   connTable: string,
   roomId: string,
   sessionId: string,
-): Promise<Record<string, unknown> | undefined> {
+): Promise<JsonRecord | undefined> {
   for (const delayMs of ROSTER_GSI_RETRY_MS) {
     if (delayMs > 0) {
       await new Promise((r) => setTimeout(r, delayMs));
     }
     const items = await queryRoomConnectionItems(doc, connTable, roomId);
-    const mine = items.find((c) => c.sessionId === sessionId) as Record<string, unknown> | undefined;
+    const mine = items.find((c) => c.sessionId === sessionId) as JsonRecord | undefined;
     if (mine) return mine;
     /** `RoomConnectionsRosterIndex` is eventually consistent; only retry when the query is still empty. */
     if (items.length > 0) return undefined;
@@ -50,7 +57,7 @@ async function findMyConnectionRow(
   return undefined;
 }
 
-async function handleSfuToken(event: Parameters<APIGatewayProxyHandlerV2>[0]): Promise<APIGatewayProxyResultV2> {
+async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const headers = event.headers ?? {};
   const roomsTable = process.env.ROOMS_TABLE_NAME;
   const connTable = process.env.CONNECTIONS_TABLE_NAME;
@@ -65,9 +72,9 @@ async function handleSfuToken(event: Parameters<APIGatewayProxyHandlerV2>[0]): P
     return json(405, { error: 'POST required' });
   }
 
-  let body: Record<string, unknown>;
+  let body: JsonRecord;
   try {
-    body = JSON.parse(event.body ?? '{}') as Record<string, unknown];
+    body = JSON.parse(event.body ?? '{}') as JsonRecord;
   } catch {
     return json(400, { error: 'Invalid JSON body' });
   }
@@ -89,7 +96,7 @@ async function handleSfuToken(event: Parameters<APIGatewayProxyHandlerV2>[0]): P
       Key: { roomId },
     }),
   );
-  const room = roomOut.Item as Record<string, unknown> | undefined;
+  const room = roomOut.Item as JsonRecord | undefined;
   if (!room || typeof room.hostSub !== 'string') {
     return json(404, { error: 'Room not found' });
   }
