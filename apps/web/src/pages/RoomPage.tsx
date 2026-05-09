@@ -43,6 +43,10 @@ import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
+/** Shown when neither token **`wsUrl`** nor **`import.meta.env.VITE_PUBLIC_SFU_WS_URL`** resolves. */
+const SFU_RELAY_URL_MISSING_MSG =
+  'Video relay URL is missing. Fix: (1) Redeploy RiffSyncApi so POST /v1/webrtc/sfu-token returns wsUrl (defaults from RiffSyncSfu EIP). (2) Or set VITE_PUBLIC_SFU_WS_URL in the environment when you run npm run build (Vite bakes it in then, not from S3 at runtime). For https fan sites use wss via CDK context sfuPublicWsUrl or the same Vite variable.'
+
 type ChatMsg = { sessionId: string; text: string; ts: number; displayName?: string }
 
 type PresenceMember = {
@@ -677,9 +681,6 @@ export function RoomPage() {
     const api = getPublicApiBaseUrl()
     if (!api || !canonicalRoomId) return
 
-    const sfuMissingWsCopy =
-      'Video relay URL is missing. Set VITE_PUBLIC_SFU_WS_URL when building the fan app, or ensure POST /v1/webrtc/sfu-token returns wsUrl (CDK context sfuPublicWsUrl).'
-
     const { cancel } = startSfuRoomSession({
       role: 'producer',
       apiBaseUrl: api,
@@ -691,7 +692,7 @@ export function RoomPage() {
       assignSession: (s) => {
         sfuSessionRef.current = s
       },
-      onMissingWsUrl: () => setSfuRoomErr(sfuMissingWsCopy),
+      onMissingWsUrl: () => setSfuRoomErr(SFU_RELAY_URL_MISSING_MSG),
       onTokenError: (msg) => setSfuRoomErr(msg),
       onMediaError: (_code, msg) => setSfuRoomErr(msg),
       onConnecting: () => setSfuRoomErr(null),
@@ -704,9 +705,6 @@ export function RoomPage() {
     const api = getPublicApiBaseUrl()
     if (!api || !canonicalRoomId) return
 
-    const sfuMissingWsCopy =
-      'Video relay URL is missing. Set VITE_PUBLIC_SFU_WS_URL when building the fan app, or ensure POST /v1/webrtc/sfu-token returns wsUrl (CDK context sfuPublicWsUrl).'
-
     const { cancel } = startSfuRoomSession({
       role: 'consumer',
       apiBaseUrl: api,
@@ -717,7 +715,7 @@ export function RoomPage() {
       assignSession: (s) => {
         sfuSessionRef.current = s
       },
-      onMissingWsUrl: () => setSfuRoomErr(sfuMissingWsCopy),
+      onMissingWsUrl: () => setSfuRoomErr(SFU_RELAY_URL_MISSING_MSG),
       onTokenError: (msg) => setSfuRoomErr(msg),
       onMediaError: (_code, msg) => setSfuRoomErr(msg),
       onConnecting: () => setSfuRoomErr(null),

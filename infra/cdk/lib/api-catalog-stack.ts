@@ -38,11 +38,23 @@ export interface ApiCatalogStackProps extends cdk.StackProps {
    * Shared SFU join HMAC secret — owned by **[`SfuServerStack`](./sfu-server-stack.ts)** (**`riffsync/sfu-join-hmac-secret`**).
    */
   readonly sfuJoinTokenSecret: secretsmanager.ISecret;
+  /**
+   * Default mediasoup signaling base (**`ws://{EIP}:3000`**) when CDK context **`sfuPublicWsUrl`** is unset.
+   * Context should override with **`wss://…`** for HTTPS fan sites (TLS in front of SFU).
+   */
+  readonly sfuDefaultSignalingWsUrl: string;
 }
 
 function sfuPublicWsUrlFromContext(scope: Construct): string {
   const raw = scope.node.tryGetContext('sfuPublicWsUrl');
   return typeof raw === 'string' ? raw.trim() : '';
+}
+
+/** Context **`sfuPublicWsUrl`** wins; otherwise use **`RiffSyncSfu`** EIP default from **`bin/riffsync.ts`**. */
+function resolveSfuPublicWsUrl(scope: Construct, defaultFromSfuStack: string): string {
+  const fromCtx = sfuPublicWsUrlFromContext(scope);
+  if (fromCtx.length > 0) return fromCtx;
+  return defaultFromSfuStack.trim();
 }
 
 function parseOriginsFromContext(scope: Construct): string[] {
@@ -147,6 +159,7 @@ export class ApiCatalogStack extends cdk.Stack {
       sesSendingConfigurationSetName,
       turnSharedSecret,
       sfuJoinTokenSecret,
+      sfuDefaultSignalingWsUrl,
     } = props;
     const contextExtras = parseOriginsFromContext(this);
     const allowOrigins = corsAllowOrigins(environment, [...extraCorsOrigins, ...contextExtras], this);
@@ -384,7 +397,7 @@ export class ApiCatalogStack extends cdk.Stack {
       }),
     );
 
-    const sfuPublicWsUrl = sfuPublicWsUrlFromContext(this);
+    const sfuPublicWsUrl = resolveSfuPublicWsUrl(this, sfuDefaultSignalingWsUrl);
 
     const webrtcIceConfigFn = new lambdaNodejs.NodejsFunction(this, 'WebrtcIceConfigFn', {
       runtime: lambda.Runtime.NODEJS_24_X,

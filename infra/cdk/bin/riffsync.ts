@@ -93,6 +93,7 @@ const apiCatalog = new ApiCatalogStack(app, `RiffSyncApi-${environment}`, {
   sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
   turnSharedSecret: turnServer.turnSharedSecret,
   sfuJoinTokenSecret: sfuServer.sfuJoinTokenSecret,
+  sfuDefaultSignalingWsUrl: `ws://${sfuServer.sfuElasticIp}:3000`,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
