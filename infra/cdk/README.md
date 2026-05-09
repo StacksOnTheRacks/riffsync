@@ -126,10 +126,11 @@ Deployed with **`RiffSyncApi-prod`** (same CloudFormation stack as catalog). Dep
 
 **DynamoDB**
 
-| Logical | PK | GSI |
+| Logical | PK | GSI / SK |
 | --- | --- | --- |
 | **Rooms** | **`roomId`** | **`PublicLobbyIndex`**: **`lobbyPk=PUBLIC`**, **`lobbySk`** (sortable activity key) |
-| **Connections** | **`connectionId`** (**API Gateway**) | **`RoomConnectionsRosterIndex`**: **`roomId`**, **`connectionId`** + **`INCLUDE`** **`sessionId`**, **`displayName`**, **`hostSub`** (lobby counts + WS presence) |
+| **Connections** | **`connectionId`** (**API Gateway**) | Reverse lookup for **`$disconnect`** / stale connection cleanup. |
+| **RoomPresence** | **`roomId`** | SK **`presenceKey=sessionId#connectionId`**; strongly consistent room roster / SFU token checks with **TTL** cleanup. |
 
 **HTTP** (JWT = **fan pool access token**, audience = **`FanUserPoolClientId`**)
 

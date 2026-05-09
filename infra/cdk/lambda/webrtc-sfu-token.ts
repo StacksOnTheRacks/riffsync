@@ -4,11 +4,10 @@ import type {
   APIGatewayProxyResultV2,
 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { verifyAccessToken } from './cognito-jwt';
 import { signSfuJoinToken } from './sfu-join-token-sign';
-import { queryRoomConnectionItems } from './ws-shared';
 
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const sm = new SecretsManagerClient({});
@@ -39,37 +38,33 @@ function json(statusCode: number, body: JsonRecord): APIGatewayProxyResultV2 {
   };
 }
 
-/**
- * **`RoomConnectionsRosterIndex`** is eventually consistent: the browser can have WS **open** before
- * the GSI lists the new **`$connect`** row. Wait long enough that almost all reads succeed in one HTTP request.
- */
-const ROSTER_GSI_RETRY_MS = [0, 200, 400, 800, 1600, 3200, 6400];
-
 async function findMyConnectionRow(
-  connTable: string,
+  presenceTable: string,
   roomId: string,
   sessionId: string,
 ): Promise<JsonRecord | undefined> {
-  const want = sessionId.trim();
-  for (const delayMs of ROSTER_GSI_RETRY_MS) {
-    if (delayMs > 0) {
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-    const items = await queryRoomConnectionItems(doc, connTable, roomId);
-    const mine = items.find((c) => String(c.sessionId ?? '').trim() === want) as JsonRecord | undefined;
-    if (mine) return mine;
-  }
-  return undefined;
+  const out = await doc.send(
+    new QueryCommand({
+      TableName: presenceTable,
+      KeyConditionExpression: 'roomId = :r AND begins_with(presenceKey, :pk)',
+      ExpressionAttributeValues: {
+        ':r': roomId,
+        ':pk': `${sessionId.trim()}#`,
+      },
+      ConsistentRead: true,
+    }),
+  );
+  return (out.Items ?? [])[0] as JsonRecord | undefined;
 }
 
 async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
   const headers = event.headers ?? {};
   const roomsTable = process.env.ROOMS_TABLE_NAME;
-  const connTable = process.env.CONNECTIONS_TABLE_NAME;
+  const presenceTable = process.env.ROOM_PRESENCE_TABLE_NAME;
   const apiEnv = process.env.RIFFSYNC_API_ENV;
   const publicWsUrl = process.env.SFU_PUBLIC_WS_URL?.trim() ?? '';
 
-  if (!roomsTable || !connTable || apiEnv !== 'prod') {
+  if (!roomsTable || !presenceTable || apiEnv !== 'prod') {
     return json(500, { error: 'Server misconfigured' });
   }
 
@@ -106,7 +101,7 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
     return json(404, { error: 'Room not found' });
   }
 
-  const myConn = await findMyConnectionRow(connTable, roomId, sessionId);
+  const myConn = await findMyConnectionRow(presenceTable, roomId, sessionId);
   if (!myConn) {
     return json(403, { error: 'Open the room WebSocket first (unknown session for this room).' });
   }

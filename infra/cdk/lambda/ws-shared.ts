@@ -1,5 +1,5 @@
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
-import { DynamoDBDocumentClient, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { TextEncoder } from 'node:util';
 
 const encoder = new TextEncoder();
@@ -12,7 +12,7 @@ export function wsManagementClient(): ApiGatewayManagementApiClient {
   return new ApiGatewayManagementApiClient({ endpoint });
 }
 
-export async function queryRoomConnectionItems(
+export async function queryRoomPresenceItems(
   doc: DynamoDBDocumentClient,
   table: string,
   roomId: string,
@@ -20,9 +20,9 @@ export async function queryRoomConnectionItems(
   const out = await doc.send(
     new QueryCommand({
       TableName: table,
-      IndexName: 'RoomConnectionsRosterIndex',
       KeyConditionExpression: 'roomId = :r',
       ExpressionAttributeValues: { ':r': roomId },
+      ConsistentRead: true,
     }),
   );
   return (out.Items ?? []) as Record<string, unknown>[];
@@ -34,7 +34,7 @@ export async function queryConnectionsForRoom(
   roomId: string,
 ): Promise<string[]> {
   const ids: string[] = [];
-  for (const it of await queryRoomConnectionItems(doc, table, roomId)) {
+  for (const it of await queryRoomPresenceItems(doc, table, roomId)) {
     const cid = it.connectionId;
     if (typeof cid === 'string') ids.push(cid);
   }
@@ -55,6 +55,7 @@ export async function postToConnections(
   ids: readonly string[],
   payload: Uint8Array,
   except?: string,
+  roomPresenceTable?: string,
 ): Promise<void> {
   if (payload.byteLength > MAX_WS_FANOUT_BYTES) {
     console.warn(
@@ -77,6 +78,28 @@ export async function postToConnections(
       );
     } catch (err: unknown) {
       if (isPostToConnectionGone(err)) {
+        const prior = roomPresenceTable
+          ? await doc
+              .send(
+                new GetCommand({
+                  TableName: connectionsTable,
+                  Key: { connectionId: id },
+                }),
+              )
+              .catch(() => undefined)
+          : undefined;
+        const roomId = typeof prior?.Item?.roomId === 'string' ? prior.Item.roomId : undefined;
+        const presenceKey = typeof prior?.Item?.presenceKey === 'string' ? prior.Item.presenceKey : undefined;
+        if (roomPresenceTable && roomId && presenceKey) {
+          await doc
+            .send(
+              new DeleteCommand({
+                TableName: roomPresenceTable,
+                Key: { roomId, presenceKey },
+              }),
+            )
+            .catch(() => undefined);
+        }
         await doc
           .send(
             new DeleteCommand({
@@ -157,12 +180,13 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
 export async function broadcastRoomPresence(params: {
   doc: DynamoDBDocumentClient;
   connectionsTable: string;
+  roomPresenceTable: string;
   roomId: string;
 }): Promise<void> {
-  const { doc, connectionsTable, roomId } = params;
+  const { doc, connectionsTable, roomPresenceTable, roomId } = params;
 
   try {
-    const items = await queryRoomConnectionItems(doc, connectionsTable, roomId);
+    const items = await queryRoomPresenceItems(doc, roomPresenceTable, roomId);
     const ids: string[] = [];
     for (const it of items) {
       const cid = it.connectionId;
@@ -173,24 +197,17 @@ export async function broadcastRoomPresence(params: {
     const buf = encoder.encode(JSON.stringify({ type: 'presence', roomId, members }));
     const mgmt = wsManagementClient();
 
-    await postToConnections(mgmt, doc, connectionsTable, ids, buf);
+    await postToConnections(mgmt, doc, connectionsTable, ids, buf, undefined, roomPresenceTable);
   } catch {
     console.warn(JSON.stringify({ riffsyncDiag: 'broadcast_presence_failed', roomIdHead: roomId.slice(0, 8) }));
   }
 }
 
-/**
- * `RoomConnectionsRosterIndex` is eventually consistent; a Query right after Put/Delete can omit rows or
- * include stale ones. A second fan-out after a short delay converges rosters so all tabs see the same list.
- */
-const ROSTER_GSI_RETRY_MS = 800;
-
-export async function broadcastRoomPresenceWithGsiRetry(params: {
+export async function broadcastRoomPresenceNow(params: {
   doc: DynamoDBDocumentClient;
   connectionsTable: string;
+  roomPresenceTable: string;
   roomId: string;
 }): Promise<void> {
-  await broadcastRoomPresence(params);
-  await new Promise((r) => setTimeout(r, ROSTER_GSI_RETRY_MS));
   await broadcastRoomPresence(params);
 }

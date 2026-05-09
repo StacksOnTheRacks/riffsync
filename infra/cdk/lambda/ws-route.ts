@@ -14,7 +14,7 @@ import { TextEncoder } from 'node:util';
 import { lobbySortKey, LOBBY_PARTITION } from './room-shared';
 import {
   broadcastRoomPresence,
-  broadcastRoomPresenceWithGsiRetry,
+  broadcastRoomPresenceNow,
   postToConnections,
   presenceDisplayNameForSession,
   queryConnectionsForRoom,
@@ -39,7 +39,8 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
   let routeKey = event.requestContext.routeKey;
   const roomsTable = process.env.ROOMS_TABLE_NAME;
   const connTable = process.env.CONNECTIONS_TABLE_NAME;
-  if (!roomsTable || !connTable) {
+  const presenceTable = process.env.ROOM_PRESENCE_TABLE_NAME;
+  if (!roomsTable || !connTable || !presenceTable) {
     return { statusCode: 500, body: 'Missing table env' };
   }
 
@@ -57,6 +58,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
   }
   const roomId = conn.roomId;
   const sessionId = typeof conn.sessionId === 'string' ? conn.sessionId : '';
+  const presenceKey = typeof conn.presenceKey === 'string' ? conn.presenceKey : `${sessionId}#${connectionId}`;
 
   const roomOut = await doc.send(
     new GetCommand({
@@ -124,12 +126,27 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
         }),
       )
       .catch(() => undefined);
+    await doc
+      .send(
+        new UpdateCommand({
+          TableName: presenceTable,
+          Key: { roomId, presenceKey },
+          UpdateExpression: 'SET lastSeenAt = :ls, expiresAt = :ex',
+          ExpressionAttributeValues: {
+            ':ls': nowSec,
+            ':ex': nowSec + pingTtlSec,
+          },
+        }),
+      )
+      .catch(() => undefined);
 
     return { statusCode: 200, body: 'OK' };
   }
 
   if (routeKey === 'presence_request') {
-    await broadcastRoomPresence({ doc, connectionsTable: connTable, roomId }).catch(() => undefined);
+    await broadcastRoomPresence({ doc, connectionsTable: connTable, roomPresenceTable: presenceTable, roomId }).catch(
+      () => undefined,
+    );
     return { statusCode: 200, body: 'OK' };
   }
 
@@ -140,7 +157,17 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
         Key: { connectionId },
       }),
     );
-    await broadcastRoomPresenceWithGsiRetry({ doc, connectionsTable: connTable, roomId }).catch(() => undefined);
+    await doc
+      .send(
+        new DeleteCommand({
+          TableName: presenceTable,
+          Key: { roomId, presenceKey },
+        }),
+      )
+      .catch(() => undefined);
+    await broadcastRoomPresenceNow({ doc, connectionsTable: connTable, roomPresenceTable: presenceTable, roomId }).catch(
+      () => undefined,
+    );
     return { statusCode: 200, body: 'OK' };
   }
 
@@ -160,7 +187,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
         ? Math.floor(shareGenRaw)
         : undefined;
     const mgmt = wsManagementClient();
-    const ids = await queryConnectionsForRoom(doc, connTable, roomId);
+    const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
     const out: Record<string, unknown> = {
       type: 'share_state',
       roomId,
@@ -171,7 +198,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       out.shareGeneration = shareGeneration;
     }
     const buf = encoder.encode(JSON.stringify(out));
-    await postToConnections(mgmt, doc, connTable, ids, buf);
+    await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     return { statusCode: 200, body: 'OK' };
   }
 
@@ -181,7 +208,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       return { statusCode: 400, body: 'text required, max 2000 chars' };
     }
     const mgmt = wsManagementClient();
-    const ids = await queryConnectionsForRoom(doc, connTable, roomId);
+    const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
     const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
     const out = {
       type: 'chat',
@@ -192,7 +219,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       ts: Date.now(),
     };
     const buf = encoder.encode(JSON.stringify(out));
-    await postToConnections(mgmt, doc, connTable, ids, buf);
+    await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     return { statusCode: 200, body: 'OK' };
   }
 
@@ -230,7 +257,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     }
 
     const mgmt = wsManagementClient();
-    const ids = await queryConnectionsForRoom(doc, connTable, roomId);
+    const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
     const out = {
       type: 'signaling',
       roomId,
@@ -239,7 +266,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       envelope,
     };
     const buf = encoder.encode(JSON.stringify(out));
-    await postToConnections(mgmt, doc, connTable, ids, buf, connectionId);
+    await postToConnections(mgmt, doc, connTable, ids, buf, connectionId, presenceTable);
     return { statusCode: 200, body: 'OK' };
   }
 

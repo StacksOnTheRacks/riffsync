@@ -11,9 +11,9 @@ async function countConnectionsForRoom(connectionsTable: string, roomId: string)
   const out = await client.send(
     new QueryCommand({
       TableName: connectionsTable,
-      IndexName: 'RoomConnectionsRosterIndex',
       KeyConditionExpression: 'roomId = :r',
       ExpressionAttributeValues: { ':r': roomId },
+      ConsistentRead: true,
       Select: 'COUNT',
     }),
   );
@@ -22,8 +22,8 @@ async function countConnectionsForRoom(connectionsTable: string, roomId: string)
 
 export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
   const roomsTable = process.env.ROOMS_TABLE_NAME;
-  const connectionsTable = process.env.CONNECTIONS_TABLE_NAME;
-  if (!roomsTable || !connectionsTable) {
+  const presenceTable = process.env.ROOM_PRESENCE_TABLE_NAME;
+  if (!roomsTable || !presenceTable) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Missing table env' }) };
   }
 
@@ -48,7 +48,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
   const rows = (q.Items ?? []) as Record<string, unknown>[];
 
   const counts = await Promise.all(
-    rows.map((r) => countConnectionsForRoom(connectionsTable, String(r.roomId ?? ''))),
+    rows.map((r) => countConnectionsForRoom(presenceTable, String(r.roomId ?? ''))),
   );
 
   const roomsOut = rows.map((r, i) => {

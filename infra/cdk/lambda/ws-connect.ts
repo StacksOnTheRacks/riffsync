@@ -1,15 +1,16 @@
 import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyAccessToken } from './cognito-jwt';
-import { broadcastRoomPresenceWithGsiRetry } from './ws-shared';
+import { broadcastRoomPresenceNow } from './ws-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   const roomsTable = process.env.ROOMS_TABLE_NAME;
   const connTable = process.env.CONNECTIONS_TABLE_NAME;
-  if (!roomsTable || !connTable) {
+  const presenceTable = process.env.ROOM_PRESENCE_TABLE_NAME;
+  if (!roomsTable || !connTable || !presenceTable) {
     return { statusCode: 500, body: 'Missing table env' };
   }
 
@@ -84,19 +85,36 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   const nowSec = Math.floor(Date.now() / 1000);
   /** Refreshed on each `ping`; zombies disappear within ~90m of last heartbeat if `$disconnect` never runs. */
   const ttl = nowSec + 90 * 60;
+  const presenceKey = `${sessionId}#${connectionId}`;
+
+  const presenceItem = {
+    connectionId,
+    roomId,
+    presenceKey,
+    sessionId,
+    ...(displayName ? { displayName } : {}),
+    ...(hostSub ? { hostSub } : {}),
+    connectedAt: nowSec,
+    lastSeenAt: nowSec,
+    expiresAt: ttl,
+  };
 
   await client.send(
-    new PutCommand({
-      TableName: connTable,
-      Item: {
-        connectionId,
-        roomId,
-        sessionId,
-        ...(displayName ? { displayName } : {}),
-        ...(hostSub ? { hostSub } : {}),
-        connectedAt: nowSec,
-        expiresAt: ttl,
-      },
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Put: {
+            TableName: connTable,
+            Item: presenceItem,
+          },
+        },
+        {
+          Put: {
+            TableName: presenceTable,
+            Item: presenceItem,
+          },
+        },
+      ],
     }),
   );
 
@@ -114,7 +132,9 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     }),
   );
 
-  await broadcastRoomPresenceWithGsiRetry({ doc: client, connectionsTable: connTable, roomId }).catch(() => undefined);
+  await broadcastRoomPresenceNow({ doc: client, connectionsTable: connTable, roomPresenceTable: presenceTable, roomId }).catch(
+    () => undefined,
+  );
 
   return { statusCode: 200, body: 'Connected' };
 };

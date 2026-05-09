@@ -132,6 +132,7 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly catalogTable: dynamodb.Table;
   public readonly roomsTable: dynamodb.Table;
   public readonly connectionsTable: dynamodb.Table;
+  public readonly roomPresenceTable: dynamodb.Table;
   public readonly fanProfilesTable: dynamodb.Table;
   public readonly httpApi: apigwv2.HttpApi;
   public readonly webSocketApi: apigwv2.WebSocketApi;
@@ -183,13 +184,13 @@ export class ApiCatalogStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       timeToLiveAttribute: 'expiresAt',
     });
-    /** Lobby counts + WS presence (`INCLUDE` attributes required for roster fan-out). */
-    this.connectionsTable.addGlobalSecondaryIndex({
-      indexName: 'RoomConnectionsRosterIndex',
+
+    this.roomPresenceTable = new dynamodb.Table(this, 'RoomPresenceTable', {
       partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'connectionId', type: dynamodb.AttributeType.STRING },
-      projectionType: dynamodb.ProjectionType.INCLUDE,
-      nonKeyAttributes: ['sessionId', 'displayName', 'hostSub'],
+      sortKey: { name: 'presenceKey', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      timeToLiveAttribute: 'expiresAt',
     });
 
     this.fanProfilesTable = new dynamodb.Table(this, 'FanProfilesTable', {
@@ -349,6 +350,7 @@ export class ApiCatalogStack extends cdk.Stack {
       environment: {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
+        ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
         STALE_ROOM_MS: String(staleRoomMs),
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -361,6 +363,7 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomsTable.grantReadData(roomGetFn);
     this.roomsTable.grantReadData(lobbyGetFn);
     this.connectionsTable.grantReadData(lobbyGetFn);
+    this.roomPresenceTable.grantReadData(lobbyGetFn);
 
     const privacyRemovalFn = new lambdaNodejs.NodejsFunction(this, 'PrivacyRemovalRequestFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -406,8 +409,7 @@ export class ApiCatalogStack extends cdk.Stack {
 
     const webrtcSfuTokenFn = new lambdaNodejs.NodejsFunction(this, 'WebrtcSfuTokenFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
-      /** Roster GSI retries can span ~12.6s sleeps + Dynamo round-trips. */
-      timeout: cdk.Duration.seconds(20),
+      timeout: cdk.Duration.seconds(10),
       memorySize: 128,
       bundling: sharedLambdaBundle,
       entry: path.join(__dirname, '../lambda/webrtc-sfu-token.ts'),
@@ -415,6 +417,7 @@ export class ApiCatalogStack extends cdk.Stack {
       environment: {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
+        ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
         SFU_JOIN_SECRET_ID: SFU_JOIN_SECRET_NAME,
         RIFFSYNC_API_ENV: environment,
         SFU_PUBLIC_WS_URL: sfuPublicWsUrl,
@@ -447,6 +450,7 @@ export class ApiCatalogStack extends cdk.Stack {
       }),
     );
     this.connectionsTable.grantReadData(webrtcSfuTokenFn);
+    this.roomPresenceTable.grantReadData(webrtcSfuTokenFn);
     this.roomsTable.grantReadData(webrtcSfuTokenFn);
 
     const fanProfileGetFn = new lambdaNodejs.NodejsFunction(this, 'FanProfileGetFn', {
@@ -494,6 +498,7 @@ export class ApiCatalogStack extends cdk.Stack {
     const wsSharedEnv = {
       ROOMS_TABLE_NAME: this.roomsTable.tableName,
       CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
+      ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
       COGNITO_USER_POOL_ID: fanUserPool.userPoolId,
       COGNITO_CLIENT_ID: fanUserPoolClient.userPoolClientId,
       WS_MANAGEMENT_API_ENDPOINT: wsMgmtEndpoint,
@@ -516,7 +521,11 @@ export class ApiCatalogStack extends cdk.Stack {
       bundling: sharedLambdaBundle,
       entry: path.join(__dirname, '../lambda/ws-disconnect.ts'),
       handler: 'handler',
-      environment: { CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName, NODE_OPTIONS: '--enable-source-maps' },
+      environment: {
+        CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
+        ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
     });
     const wsRouteFn = new lambdaNodejs.NodejsFunction(this, 'WsRouteFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -531,11 +540,14 @@ export class ApiCatalogStack extends cdk.Stack {
     this.catalogTable.grantReadData(wsConnectFn);
     this.roomsTable.grantReadData(wsConnectFn);
     this.connectionsTable.grantReadWriteData(wsConnectFn);
+    this.roomPresenceTable.grantReadWriteData(wsConnectFn);
 
     this.connectionsTable.grantReadWriteData(wsDisconnectFn);
+    this.roomPresenceTable.grantReadWriteData(wsDisconnectFn);
 
     this.roomsTable.grantReadWriteData(wsRouteFn);
     this.connectionsTable.grantReadWriteData(wsRouteFn);
+    this.roomPresenceTable.grantReadWriteData(wsRouteFn);
     this.webSocketApi.grantManageConnections(wsRouteFn);
 
     // WebSocketLambdaIntegration can leave InvokeFunction scoped to only one route (IAM showed SourceArn ending in *ping).
@@ -697,6 +709,11 @@ export class ApiCatalogStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'ConnectionsTableName', {
       value: this.connectionsTable.tableName,
+    });
+
+    new cdk.CfnOutput(this, 'RoomPresenceTableName', {
+      value: this.roomPresenceTable.tableName,
+      description: 'DynamoDB room presence table - partition key `roomId`, sort key `presenceKey`.',
     });
 
     new cdk.CfnOutput(this, 'FanProfilesTableName', {
