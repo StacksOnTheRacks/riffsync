@@ -835,10 +835,25 @@ export function RoomPage() {
     }
 
     try {
+      type CaptureControllerLike = {
+        setFocusBehavior: (behavior: 'focus-captured-surface' | 'no-focus-change') => void
+      }
+      type CaptureControllerWindow = Window & {
+        CaptureController?: new () => CaptureControllerLike
+      }
+
+      const CaptureControllerCtor = (window as CaptureControllerWindow).CaptureController
+      const captureController =
+        typeof CaptureControllerCtor === 'function' ? new CaptureControllerCtor() : undefined
+
       // Chrome defaults `selfBrowserSurface` to "exclude", which omits the *current* tab from the
       // "Chrome Tab" picker—bad when the host wants to share this tab. See:
       // https://developer.chrome.com/docs/web-platform/screen-sharing-controls
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      const captureOptions: Parameters<MediaDevices['getDisplayMedia']>[0] & {
+        selfBrowserSurface?: 'include' | 'exclude'
+        surfaceSwitching?: 'include' | 'exclude'
+        controller?: CaptureControllerLike
+      } = {
         video: {
           displaySurface: 'browser',
           preferCurrentTab: true,
@@ -849,10 +864,15 @@ export function RoomPage() {
         audio: true,
         selfBrowserSurface: 'include',
         surfaceSwitching: 'include',
-      } as Parameters<MediaDevices['getDisplayMedia']>[0] & {
-        selfBrowserSurface?: 'include' | 'exclude'
-        surfaceSwitching?: 'include' | 'exclude'
-      })
+      }
+      if (captureController) captureOptions.controller = captureController
+
+      const stream = await navigator.mediaDevices.getDisplayMedia(captureOptions)
+      try {
+        captureController?.setFocusBehavior('no-focus-change')
+      } catch (e) {
+        webrtcLog('CaptureController focus behavior unavailable:', e)
+      }
       applyStream(stream)
       return
     } catch (eStrict) {
