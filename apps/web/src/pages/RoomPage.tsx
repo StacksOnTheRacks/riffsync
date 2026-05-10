@@ -1123,7 +1123,7 @@ export function RoomPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          FAQ
+                          Hosting Guide
                         </Link>
                       </div>
                     </div>
@@ -1287,7 +1287,7 @@ export function RoomPage() {
                             void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
                           }
                         >
-                          Sign in (optional)
+                          Sign In to Chat
                         </button>
                       </div>
                     ) : null}
@@ -1325,16 +1325,21 @@ export function RoomPage() {
               {activeSidebarTab === 'room' ? (
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__room-panel">
                   <button type="button" className="gen-button gen-button-wide" onClick={() => void copyShare()}>
-                    Copy room link
+                    Copy Party Link
                   </button>
                   {isPublisher ? (
                     <button type="button" className="gen-button gen-button-wide" onClick={openRenameModal}>
-                      Rename room
+                      Rename Party
                     </button>
                   ) : null}
                   {isPublisher ? (
-                    <Link className="gen-button gen-button-wide" to="/how-to-host-a-watchparty">
-                      Hosting Tips
+                    <Link
+                      className="gen-button gen-button-wide"
+                      to="/how-to-host-a-watchparty"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Hosting Guide
                     </Link>
                   ) : null}
                   {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
@@ -1390,7 +1395,7 @@ export function RoomPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 id="riffsync-rename-room-title" className="riffsync-room-modal__heading">
-              Rename room
+              Rename Party
             </h2>
             <p className="riffsync-room-modal__lede riffsync-muted">
               This updates the lobby listing and &quot;Now playing&quot; label for everyone in the party.
