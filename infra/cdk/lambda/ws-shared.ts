@@ -1,6 +1,7 @@
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
 import { DynamoDBDocumentClient, DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { TextEncoder } from 'node:util';
+import { batchAvatarUrlsByFanSub } from './fan-profile-shared';
 
 const encoder = new TextEncoder();
 
@@ -127,6 +128,20 @@ export type PresenceBroadcastMember = {
   sessionId: string;
   displayName: string;
   isHost: boolean;
+  /** Server-trusted FanProfiles HTTPS URL; omitted when the fan has no avatar. */
+  avatarUrl?: string;
+};
+
+type RosterAccumulator = {
+  sessionId: string;
+  displayName: string;
+  isHost: boolean;
+  fanSub?: string;
+};
+
+export type RosterFromConnectionsResult = {
+  members: PresenceBroadcastMember[];
+  fanSubBySessionId: Map<string, string>;
 };
 
 function guestLabelFallback(sessionId: string): string {
@@ -142,13 +157,14 @@ export function presenceDisplayNameForSession(sessionId: string, displayNameAttr
 }
 
 /** Collapse multiple connections that share `sessionId` (e.g. two tabs): host flag dominates; keep a stable label. */
-export function rosterFromConnectionItems(items: readonly Record<string, unknown>[]): PresenceBroadcastMember[] {
-  const merged = new Map<string, PresenceBroadcastMember>();
+export function rosterFromConnectionItems(items: readonly Record<string, unknown>[]): RosterFromConnectionsResult {
+  const merged = new Map<string, RosterAccumulator>();
 
   for (const it of items) {
     const sessionId = typeof it.sessionId === 'string' ? it.sessionId : '';
     if (sessionId === '') continue;
     const isHostConn = typeof it.hostSub === 'string' && (it.hostSub as string).length > 0;
+    const fanSubConn = typeof it.fanSub === 'string' && it.fanSub.length > 0 ? it.fanSub : undefined;
     let label = presenceDisplayNameForSession(sessionId, it.displayName);
 
     const cur = merged.get(sessionId);
@@ -157,6 +173,7 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
         sessionId,
         displayName: label,
         isHost: isHostConn,
+        ...(fanSubConn ? { fanSub: fanSubConn } : {}),
       });
     } else {
       if (!isHostConn) label = cur.displayName || label;
@@ -164,6 +181,7 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
         sessionId,
         displayName: label,
         isHost: cur.isHost || isHostConn,
+        fanSub: cur.fanSub ?? fanSubConn,
       });
     }
   }
@@ -173,7 +191,51 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
     if (a.isHost !== b.isHost) return a.isHost ? -1 : 1;
     return a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' });
   });
-  return list;
+
+  const fanSubBySessionId = new Map<string, string>();
+  const members: PresenceBroadcastMember[] = list.map(({ sessionId, displayName, isHost, fanSub }) => {
+    if (fanSub) {
+      fanSubBySessionId.set(sessionId, fanSub);
+    }
+    return { sessionId, displayName, isHost };
+  });
+
+  return { members, fanSubBySessionId };
+}
+
+/** Attach optional `avatarUrl` from FanProfiles (batch read). */
+export async function enrichRosterMembersWithAvatarUrls(
+  doc: DynamoDBDocumentClient,
+  profilesTable: string,
+  members: PresenceBroadcastMember[],
+  fanSubBySessionId: Map<string, string>,
+): Promise<PresenceBroadcastMember[]> {
+  if (fanSubBySessionId.size === 0) {
+    return members;
+  }
+
+  const avatarByFanSub = await batchAvatarUrlsByFanSub(doc, profilesTable, [...fanSubBySessionId.values()]);
+  if (avatarByFanSub.size === 0) {
+    return members;
+  }
+
+  return members.map((member) => {
+    const fanSub = fanSubBySessionId.get(member.sessionId);
+    const avatarUrl = fanSub ? avatarByFanSub.get(fanSub) : undefined;
+    return avatarUrl ? { ...member, avatarUrl } : member;
+  });
+}
+
+export async function resolveChatOutboundAvatarUrl(
+  doc: DynamoDBDocumentClient,
+  profilesTable: string | undefined,
+  fanSub: string | undefined,
+): Promise<string | undefined> {
+  if (!profilesTable || !fanSub) {
+    return undefined;
+  }
+  const map = await batchAvatarUrlsByFanSub(doc, profilesTable, [fanSub]);
+  return map.get(fanSub);
 }
 
 /** Fan-out current room roster after connect/disconnect. */
@@ -193,7 +255,12 @@ export async function broadcastRoomPresence(params: {
       if (typeof cid === 'string') ids.push(cid);
     }
 
-    const members = rosterFromConnectionItems(items);
+    const { members: rosterMembers, fanSubBySessionId } = rosterFromConnectionItems(items);
+    const profilesTable = process.env.FAN_PROFILES_TABLE_NAME;
+    const members =
+      profilesTable && fanSubBySessionId.size > 0
+        ? await enrichRosterMembersWithAvatarUrls(doc, profilesTable, rosterMembers, fanSubBySessionId)
+        : rosterMembers;
     const buf = encoder.encode(JSON.stringify({ type: 'presence', roomId, members }));
     const mgmt = wsManagementClient();
 

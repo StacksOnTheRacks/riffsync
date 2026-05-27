@@ -1,4 +1,6 @@
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 
 export const FAN_DISPLAY_NAME_MAX_LEN = 48;
 
@@ -45,6 +47,50 @@ export function serializeFanProfile(item: Record<string, unknown> | undefined): 
   const avatarUpdatedAt = typeof aua === 'number' && Number.isFinite(aua) ? aua : null;
 
   return { displayName, updatedAt, avatarUrl, avatarUpdatedAt };
+}
+
+/** Trusted HTTPS avatar URL from a FanProfiles row (omitted when unset). */
+export function avatarUrlFromStoredProfile(item: Record<string, unknown> | undefined): string | undefined {
+  const au = item?.avatarUrl;
+  return typeof au === 'string' && au.trim() !== '' ? au.trim() : undefined;
+}
+
+/** Batch-read `avatarUrl` for fan Cognito subs (DynamoDB keys: `{ sub }`). */
+export async function batchAvatarUrlsByFanSub(
+  doc: DynamoDBDocumentClient,
+  table: string,
+  fanSubs: readonly string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(fanSubs.filter((s) => s.length > 0))];
+  const result = new Map<string, string>();
+  if (unique.length === 0) {
+    return result;
+  }
+
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk = unique.slice(i, i + 100);
+    const out = await doc.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [table]: {
+            Keys: chunk.map((sub) => ({ sub })),
+            ProjectionExpression: '#sub, avatarUrl',
+            ExpressionAttributeNames: { '#sub': 'sub' },
+          },
+        },
+      }),
+    );
+    const items = (out.Responses?.[table] ?? []) as Record<string, unknown>[];
+    for (const item of items) {
+      const sub = typeof item.sub === 'string' ? item.sub : '';
+      const url = avatarUrlFromStoredProfile(item);
+      if (sub && url) {
+        result.set(sub, url);
+      }
+    }
+  }
+
+  return result;
 }
 
 export function headerValue(

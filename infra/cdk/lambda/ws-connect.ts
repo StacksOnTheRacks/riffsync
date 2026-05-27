@@ -65,21 +65,12 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
 
   const jwtUser = await verifyAccessToken(authHdr);
   let hostSub: string | undefined;
+  let fanSub: string | undefined;
   if (jwtUser) {
-    if (jwtUser.sub !== room.hostSub) {
-      console.warn(
-        JSON.stringify({
-          riffsyncDiag: 'ws_connect',
-          outcome: 'forbidden_jwt_sub_mismatch_room_host',
-          connectionIdTail: connectionId.slice(-12),
-          roomIdHead: roomId.slice(0, 8),
-          apiStage,
-          jwtVerified: true,
-        }),
-      );
-      return { statusCode: 403, body: 'JWT.sub does not match room hostSub' };
+    fanSub = jwtUser.sub;
+    if (jwtUser.sub === room.hostSub) {
+      hostSub = jwtUser.sub;
     }
-    hostSub = jwtUser.sub;
   }
 
   const nowSec = Math.floor(Date.now() / 1000);
@@ -93,6 +84,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     presenceKey,
     sessionId,
     ...(displayName ? { displayName } : {}),
+    ...(fanSub ? { fanSub } : {}),
     ...(hostSub ? { hostSub } : {}),
     connectedAt: nowSec,
     lastSeenAt: nowSec,
@@ -128,6 +120,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
       apiStage,
       bearerPresent: Boolean(authHdr && authHdr.length > 'Bearer '.length),
       jwtVerifiedOk: jwtUser !== null,
+      dynamoStoresFanSub: Boolean(fanSub),
       dynamoStoresPublisherRole: Boolean(hostSub),
     }),
   );

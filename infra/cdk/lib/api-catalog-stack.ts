@@ -556,6 +556,7 @@ export class ApiCatalogStack extends cdk.Stack {
       ROOMS_TABLE_NAME: this.roomsTable.tableName,
       CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
       ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
+      FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
       COGNITO_USER_POOL_ID: fanUserPool.userPoolId,
       COGNITO_CLIENT_ID: fanUserPoolClient.userPoolClientId,
       WS_MANAGEMENT_API_ENDPOINT: wsMgmtEndpoint,
@@ -598,6 +599,7 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomsTable.grantReadData(wsConnectFn);
     this.connectionsTable.grantReadWriteData(wsConnectFn);
     this.roomPresenceTable.grantReadWriteData(wsConnectFn);
+    this.fanProfilesTable.grantReadData(wsConnectFn);
 
     this.connectionsTable.grantReadWriteData(wsDisconnectFn);
     this.roomPresenceTable.grantReadWriteData(wsDisconnectFn);
@@ -605,6 +607,7 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomsTable.grantReadWriteData(wsRouteFn);
     this.connectionsTable.grantReadWriteData(wsRouteFn);
     this.roomPresenceTable.grantReadWriteData(wsRouteFn);
+    this.fanProfilesTable.grantReadData(wsRouteFn);
     this.webSocketApi.grantManageConnections(wsRouteFn);
 
     // WebSocketLambdaIntegration can leave InvokeFunction scoped to only one route (IAM showed SourceArn ending in *ping).

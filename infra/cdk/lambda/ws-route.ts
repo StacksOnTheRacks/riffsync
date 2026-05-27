@@ -18,6 +18,7 @@ import {
   postToConnections,
   presenceDisplayNameForSession,
   queryConnectionsForRoom,
+  resolveChatOutboundAvatarUrl,
   wsManagementClient,
 } from './ws-shared';
 
@@ -210,7 +211,9 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     const mgmt = wsManagementClient();
     const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
     const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
-    const out = {
+    const fanSub = typeof conn.fanSub === 'string' && conn.fanSub.length > 0 ? conn.fanSub : undefined;
+    const avatarUrl = await resolveChatOutboundAvatarUrl(doc, process.env.FAN_PROFILES_TABLE_NAME, fanSub);
+    const out: Record<string, unknown> = {
       type: 'chat',
       roomId,
       sessionId,
@@ -218,6 +221,9 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       text,
       ts: Date.now(),
     };
+    if (avatarUrl) {
+      out.avatarUrl = avatarUrl;
+    }
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     return { statusCode: 200, body: 'OK' };

@@ -9,9 +9,9 @@ Fan clients connect to **`RiffSyncApi-{env}`** **`WebSocketUrl`** (**`wss://…`
 | **Query** `roomId` | Target room (**must exist**). |
 | **Query** `sessionId` | Opaque anonymous session (**`authorization.md`**). |
 | **Query** `displayName` | Optional nickname for **`People`** in the SPA (**≤ 48** chars after trim server-side); blank → generic **`Guest (…)`** in roster payloads. |
-| **Header** `Authorization` OR **Query** `accessToken` | **`Bearer <Cognito access token>`** (**header**) or bare/minimal raw token (**query**) only when claiming **publisher** (**`JWT.sub`** must equal **`room.hostSub`**). Browsers normally **cannot** set WebSocket **`Authorization`**; the SPA MUST pass **`accessToken`** (**URL-encoded JWT**) — avoid logging query strings containing tokens. |
+| **Header** `Authorization` OR **Query** `accessToken` | **`Bearer <Cognito access token>`** (**header**) or bare/minimal raw token (**query**) when the client is signed in. Browsers normally **cannot** set WebSocket **`Authorization`**; the SPA MUST pass **`accessToken`** (**URL-encoded JWT**) for signed-in fans — avoid logging query strings containing tokens. A valid fan JWT stores **`fanSub`** on the connection row. When **`JWT.sub`** equals **`room.hostSub`**, the socket is also marked as the **publisher** (**`hostSub`** on the row, **`isHost`** in roster payloads). |
 
-Malformed or mismatched JWT → **`403`**; missing room/session → **`400`**.
+Invalid or unverifiable JWT is ignored (guest connect). Missing room/session → **`400`**.
 
 On **`$connect`**, the server stores **`expiresAt`** on the connections row (**about 90 minutes** ahead, refreshed on every **`ping`**) so orphaned rows eventually disappear if **`$disconnect`** is not delivered.
 
@@ -39,11 +39,14 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
   "sessionId": "<sender>",
   "displayName": "…",
   "text": "…",
-  "ts": 0
+  "ts": 0,
+  "avatarUrl": "https://…"
 }
 ```
 
 **`displayName`** matches the sender’s connections-row label (same rules as roster: optional nickname from **`$connect`**, else **`Guest (sessionId-prefix…)`**).
+
+**`avatarUrl`** (optional): HTTPS URL read from **FanProfiles** for the sender’s **`fanSub`** when **`$connect`** stored one. Omitted when the fan has no avatar or connected as a guest. Inbound **`chat`** bodies MUST NOT supply **`avatarUrl`**; the server ignores client-supplied image URLs.
 
 ### Presence (roster snapshot)
 
@@ -55,11 +58,12 @@ Optional **`displayName`** on **`$connect`** exists only on the WebSocket connec
 {
   "type": "presence",
   "roomId": "<id>",
-  "members": [{ "sessionId": "<opaque>", "displayName": "…", "isHost": false }]
+  "members": [{ "sessionId": "<opaque>", "displayName": "…", "isHost": false, "avatarUrl": "https://…" }]
 }
 ```
 
 - **`isHost`**: **`true`** when **`$connect`** verified **`accessToken`** and **`JWT.sub`** matched **`rooms.hostSub`** for that publisher socket.
+- **`avatarUrl`** (optional per member): server-trusted **FanProfiles** HTTPS URL when that member’s session maps to a **`fanSub`** with an avatar; omitted otherwise.
 
 ### Share state (host fan-out)
 
