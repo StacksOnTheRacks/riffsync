@@ -45,6 +45,7 @@ import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/mediasoupSfuFeature'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
+import { FanAvatarThumb } from '../components/FanAvatarThumb'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
@@ -52,12 +53,36 @@ const DISPLAY_TITLE_MAX_LEN = 120
 const SFU_RELAY_URL_MISSING_MSG =
   'Video relay URL is missing. Fix: (1) Redeploy RiffSyncApi-prod so POST /v1/webrtc/sfu-token returns wsUrl (from CDK context / signaling hostname). (2) Or set VITE_PUBLIC_SFU_WS_URL in the environment when you run npm run build (Vite bakes it in then, not from S3 at runtime). For https fan sites use wss via CDK context sfuPublicWsUrl or the same Vite variable.'
 
-type ChatMsg = { sessionId: string; text: string; ts: number; displayName?: string }
+type ChatMsg = {
+  sessionId: string
+  text: string
+  ts: number
+  displayName?: string
+  avatarUrl?: string
+}
 
 type PresenceMember = {
   sessionId: string
   displayName: string
   isHost: boolean
+  avatarUrl?: string
+}
+
+function parseInboundAvatarUrl(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  return trimmed !== '' ? trimmed : undefined
+}
+
+function resolveMemberAvatarUrl(
+  memberSessionId: string,
+  serverAvatarUrl: string | undefined,
+  mySessionId: string,
+  myAvatarUrl: string | null,
+): string | undefined {
+  if (serverAvatarUrl) return serverAvatarUrl
+  if (memberSessionId === mySessionId && myAvatarUrl) return myAvatarUrl
+  return undefined
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -121,6 +146,8 @@ export function RoomPage() {
   const [profileSaveErr, setProfileSaveErr] = useState<string | null>(null)
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null)
+  /** Local avatar for this session (chat / People) before the next server presence or chat fan-out. */
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null)
   const [profileAvatarLoading, setProfileAvatarLoading] = useState(false)
   const [profileAvatarUploading, setProfileAvatarUploading] = useState(false)
   const [profileAvatarErr, setProfileAvatarErr] = useState<string | null>(null)
@@ -343,9 +370,11 @@ export function RoomPage() {
       .then((p) => {
         if (cancelled) return
         const dn = p.displayName?.trim()
-        if (!dn) return
-        const applied = setGuestDisplayName(dn)
-        setDisplayName(applied)
+        if (dn) {
+          const applied = setGuestDisplayName(dn)
+          setDisplayName(applied)
+        }
+        setMyAvatarUrl(p.avatarUrl)
       })
       .catch(() => {})
     return () => {
@@ -372,6 +401,7 @@ export function RoomPage() {
       .then((p) => {
         if (cancelled) return
         setProfileAvatarUrl(p.avatarUrl)
+        setMyAvatarUrl(p.avatarUrl)
       })
       .catch((e) => {
         if (cancelled) return
@@ -472,6 +502,7 @@ export function RoomPage() {
       if (t === 'chat' && typeof data.sessionId === 'string' && typeof data.text === 'string') {
         const ts = typeof data.ts === 'number' ? data.ts : Date.now()
         const dn = typeof data.displayName === 'string' ? data.displayName : undefined
+        const avatarUrl = parseInboundAvatarUrl(data.avatarUrl)
         setChat((prev) => [
           ...prev,
           {
@@ -479,6 +510,7 @@ export function RoomPage() {
             text: String(data.text),
             ts,
             ...(dn !== undefined && dn !== '' ? { displayName: dn } : {}),
+            ...(avatarUrl !== undefined ? { avatarUrl } : {}),
           },
         ])
         return
@@ -493,7 +525,13 @@ export function RoomPage() {
           const sid = m.sessionId
           const dn = m.displayName
           if (typeof sid !== 'string' || typeof dn !== 'string') continue
-          members.push({ sessionId: sid, displayName: dn, isHost: Boolean(m.isHost) })
+          const avatarUrl = parseInboundAvatarUrl(m.avatarUrl)
+          members.push({
+            sessionId: sid,
+            displayName: dn,
+            isHost: Boolean(m.isHost),
+            ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+          })
         }
         setPresenceRoster({ roomId: data.roomId as string, members })
         return
@@ -991,6 +1029,7 @@ export function RoomPage() {
         setDisplayName(applied)
         setProfileDraft(applied)
         setProfileAvatarUrl(p.avatarUrl)
+        setMyAvatarUrl(p.avatarUrl)
       })
       .catch((e) => {
         setProfileSaveErr(e instanceof Error ? e.message : 'Could not save profile.')
@@ -1010,6 +1049,7 @@ export function RoomPage() {
     void uploadFanProfileAvatar(fanToken, file)
       .then((p) => {
         setProfileAvatarUrl(p.avatarUrl)
+        setMyAvatarUrl(p.avatarUrl)
       })
       .catch((err) => {
         setProfileAvatarErr(err instanceof Error ? err.message : 'Could not upload avatar.')
@@ -1303,18 +1343,32 @@ export function RoomPage() {
               {activeSidebarTab === 'chat' ? (
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
                   <ul ref={chatLogRef} className="riffsync-room-chat-log">
-                    {chat.map((m) => (
-                      <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
-                        <span className="riffsync-room-chat-log__who">
-                          {(m.displayName && m.displayName.trim() !== ''
-                            ? m.displayName
-                            : chatMemberLabels.get(m.sessionId)) ??
-                            `${m.sessionId.slice(0, 6)}…`}
-                        </span>
-                        {': '}
-                        {m.text}
-                      </li>
-                    ))}
+                    {chat.map((m) => {
+                      const chatDisplayName =
+                        (m.displayName && m.displayName.trim() !== ''
+                          ? m.displayName
+                          : chatMemberLabels.get(m.sessionId)) ??
+                        `${m.sessionId.slice(0, 6)}…`
+                      const chatAvatarUrl = resolveMemberAvatarUrl(
+                        m.sessionId,
+                        m.avatarUrl,
+                        sessionId,
+                        myAvatarUrl,
+                      )
+                      return (
+                        <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
+                          <span className="riffsync-room-chat-log__who">
+                            <FanAvatarThumb
+                              displayName={chatDisplayName}
+                              avatarUrl={chatAvatarUrl}
+                            />
+                            <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
+                          </span>
+                          {': '}
+                          {m.text}
+                        </li>
+                      )
+                    })}
                   </ul>
                   <div className="riffsync-room-chat-compose-holder">
                     {showJumpToLatest ? (
@@ -1370,28 +1424,39 @@ export function RoomPage() {
               {activeSidebarTab === 'people' ? (
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
                   <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
-                    {peopleShown.map((p) => (
-                      <li
-                        key={p.sessionId}
-                        className={`riffsync-room-page__people-row${p.isHost ? ' riffsync-room-page__people-row--host' : ''}`}
-                      >
-                        <span className="riffsync-room-page__person-label">
-                          {p.isHost ? (
-                            <>
-                              <strong>{p.displayName}</strong>
-                              <span className="riffsync-room-page__host-badge" aria-label="Host">
-                                Host
-                              </span>
-                            </>
-                          ) : (
-                            p.displayName
-                          )}
-                          {p.sessionId === sessionId ? (
-                            <span className="riffsync-muted"> · you</span>
-                          ) : null}
-                        </span>
-                      </li>
-                    ))}
+                    {peopleShown.map((p) => {
+                      const peopleAvatarUrl = resolveMemberAvatarUrl(
+                        p.sessionId,
+                        p.avatarUrl,
+                        sessionId,
+                        myAvatarUrl,
+                      )
+                      return (
+                        <li
+                          key={p.sessionId}
+                          className={`riffsync-room-page__people-row${p.isHost ? ' riffsync-room-page__people-row--host' : ''}`}
+                        >
+                          <span className="riffsync-room-page__person-label">
+                            <FanAvatarThumb displayName={p.displayName} avatarUrl={peopleAvatarUrl} />
+                            <span className="riffsync-room-page__person-name">
+                              {p.isHost ? (
+                                <>
+                                  <strong>{p.displayName}</strong>
+                                  <span className="riffsync-room-page__host-badge" aria-label="Host">
+                                    Host
+                                  </span>
+                                </>
+                              ) : (
+                                p.displayName
+                              )}
+                              {p.sessionId === sessionId ? (
+                                <span className="riffsync-muted"> · you</span>
+                              ) : null}
+                            </span>
+                          </span>
+                        </li>
+                      )
+                    })}
                   </ul>
                 </div>
               ) : null}
