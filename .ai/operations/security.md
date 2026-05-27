@@ -24,7 +24,7 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 
 | Topic | Contract |
 | --- | --- |
-| **Availability** | **No formal SLA** for the open-source project; self-hosters tune **CloudWatch** alarms and **budgets** per **`.forge/operations/observability.md`**. |
+| **Availability** | **No formal SLA** for the open-source project; self-hosters tune **CloudWatch** alarms and **budgets** per **`.ai/operations/observability.md`**. |
 | **Logs** | Avoid logging **raw chat text** at **INFO** in production—prefer **metrics** + sampled **DEBUG** if needed (cardinality / cost). |
 
 ## Compliance cues

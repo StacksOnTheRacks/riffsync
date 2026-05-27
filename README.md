@@ -4,7 +4,7 @@
 
 This repository is the home for that project. Implementation details will land here as the project is built.
 
-**Production site:** [https://riffsync.tv](https://riffsync.tv) — canonical public hostname for the deployed fan app (see **`.forge/runtime/configuration.md`** and **`.forge/project.json`**).
+**Production site:** [https://riffsync.tv](https://riffsync.tv) — canonical public hostname for the deployed fan app (see **`.ai/runtime/configuration.md`** and **`.ai/project.json`**).
 
 ## What users do
 
@@ -104,13 +104,13 @@ Fan support might fund clearer distribution paths (sales, bundles, partnerships)
 | API | REST for rooms/catalog; WebSockets for chat, presence, **WebRTC signaling**, periodic **ping** for liveness |
 | State | Authoritative room document (**mutable** **current** catalog episode / `videoId`, **`playbackExpectation`**, **`hostSub`** Cognito user id for the room owner, broadcast/session flags as implemented, **lastActivityAt**, optional reconnect token); ephemeral presence optional; **playback spine pluggable** for future non-YouTube sources |
 | AWS (baseline) | **IaC:** **`AWS CDK`** (TypeScript). **Compute:** **Lambda** in **TypeScript** (Node.js bundle) **serverless-first** — **API Gateway v2** (`HTTP` + `WEBSOCKET`), **DynamoDB**, **EventBridge / Scheduler**, **Secrets Manager**. **ElastiCache** (Redis/Valkey-compatible) **optional** for **`GET /v1/catalog`** or lobby caches (VPC-attached Lambdas). **S3** for SPA static hosting or exports if needed — **no ECS/EC2** in the default stack. Details: **`docs/architecture.server.md`**. |
-| Deploy / CI | **GitHub Actions**: **pull-request CI** runs **`cdk synth`** (+ **`cfn-lint`**) against **`infra/cdk`** ([**`.github/workflows/ci.yml`**](.github/workflows/ci.yml)). **Manual** **`Deploy CDK (production)`** deploys **`main`** on demand — see **`infra/cdk/README.md`**. See **`.forge/operations/build_packaging.md`** and **`docs/architecture.server.md`** (Delivery pipeline §). |
+| Deploy / CI | **GitHub Actions**: **pull-request CI** runs **`cdk synth`** (+ **`cfn-lint`**) against **`infra/cdk`** ([**`.github/workflows/ci.yml`**](.github/workflows/ci.yml)). **Manual** **`Deploy CDK (production)`** deploys **`main`** on demand — see **`infra/cdk/README.md`**. See **`.ai/operations/build_packaging.md`** and **`docs/architecture.server.md`** (Delivery pipeline §). |
 
 **MVP cut:** catalog browse + **anonymous join/watch/chat**, **signed-in-only hosting** (**JWT** / **`hostSub`** via Cognito Hosted UI accounts), **room page** + **guest WebRTC viewing**, **canonical share URLs** + lobby discovery + join path, embedded YouTube on admin surface, **anonymous guest display names**, **self-reported “Premium” vs “free, ad-supported”** labels. Defer heavy moderation and polished private-room policy if you want speed. **Managed SFU / TURN** is optional when mesh/admin uplink is insufficient—see **`docs/architecture.frontend.md`**.
 
 ## Documentation
 
-- [Forge domain contracts & knowledge map (`.forge/`)](.forge/knowledge_map.json) — start at **`vision.json`**; mirrors product + technical boundaries alongside `docs/*`.
+- [LLM domain contracts & knowledge map (`.ai/`)](.ai/knowledge_map.json) — start at **`vision.json`**; mirrors product + technical boundaries alongside `docs/*`.
 - [Catalog data (`data/catalog/`)](data/catalog/README.md)
 - [TMDB HTTP contracts — endpoints, fields, image URLs (`contracts.tmdb.md`)](docs/contracts.tmdb.md)
 - [Catalog images & TMDB reconciliation (posters + backdrops; draft)](docs/architecture.catalog-images.md)

@@ -17,7 +17,7 @@ There is **no hosted `dev`** stack and **no hosted staging** stack—**local dev
 
 | Tier | Hostname |
 | --- | --- |
-| **prod** | **`riffsync.tv`** — canonical origin **`https://riffsync.tv`** for the fan SPA, **API CORS** allowlists, **Cognito / Meta OAuth** callback URLs, and **YouTube iframe** registration where applicable (**`.forge/project.json`** → **`public_domain`**). |
+| **prod** | **`riffsync.tv`** — canonical origin **`https://riffsync.tv`** for the fan SPA, **API CORS** allowlists, **Cognito / Meta OAuth** callback URLs, and **YouTube iframe** registration where applicable (**`.ai/project.json`** → **`public_domain`**). |
 | **Local** | **`http://localhost:…`** (or dev host only); must **not** be assumed in production config. |
 
 SPA builds for **prod** should inject **`https://riffsync.tv`** (or derive it from **`public_domain`**) for absolute share links and OAuth redirect configuration.

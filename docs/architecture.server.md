@@ -8,7 +8,7 @@ Lambda sits behind **API Gateway (HTTP API + WebSocket API)**; durable state is 
 
 Infrastructure-as-code: **deploy with AWS CDK** (`cdk synth` emits CloudFormation). CDK constructs should target **HTTP API (`AWS::ApiGatewayV2::Api`)** / **WebSocket API** primitives and related resources. Lint synthesized templates with **`cfn-lint`** (**[Installing and using](https://github.com/aws-cloudformation/cfn-lint)**) and **`validate_cloudformation_template`** from Cursor’s AWS IaC MCP (**`search_cloudformation_documentation`** for resource properties) when iterating.
 
-**Production web hostname:** **`https://riffsync.tv`** — fan SPA + shareable links (**`.forge/runtime/configuration.md`**). Provision **ACM** + **CloudFront** (or equivalent) **alternate domain** names, **API Gateway** custom domain names if serving APIs from the same brand, and **CORS** allowlists that include this origin.
+**Production web hostname:** **`https://riffsync.tv`** — fan SPA + shareable links (**`.ai/runtime/configuration.md`**). Provision **ACM** + **CloudFront** (or equivalent) **alternate domain** names, **API Gateway** custom domain names if serving APIs from the same brand, and **CORS** allowlists that include this origin.
 
 ---
 
@@ -33,7 +33,7 @@ Infrastructure-as-code: **deploy with AWS CDK** (`cdk synth` emits CloudFormatio
 
 ## Component diagram
 
-**Physical DynamoDB:** **multiple tables** — **Catalog**, **Rooms**, **Connections** (and **Lists** / optional **Events**/**Profiles** when shipped)—see **`.forge/data/persistence_abstractions.md`**. The diagram uses separate nodes for clarity.
+**Physical DynamoDB:** **multiple tables** — **Catalog**, **Rooms**, **Connections** (and **Lists** / optional **Events**/**Profiles** when shipped)—see **`.ai/data/persistence_abstractions.md`**. The diagram uses separate nodes for clarity.
 
 ```mermaid
 flowchart TB
@@ -129,7 +129,7 @@ Operator-facing **admin HTTP** reporting endpoints (**`architecture.admin.md`**)
 
 - **CI:** GitHub Actions runs tests, **`cdk synth`**, and lint on **pull requests** (recommended).
 - **Production:** **Manual** **`workflow_dispatch`** deploys **`main`** on demand. Prefer **OIDC** from GitHub → AWS over static access keys.
-- Full workflow layout: **`.forge/operations/build_packaging.md`** and **`.forge/operations/deployment_environments.md`**.
+- Full workflow layout: **`.ai/operations/build_packaging.md`** and **`.ai/operations/deployment_environments.md`**.
 
 ---
 

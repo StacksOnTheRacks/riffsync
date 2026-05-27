@@ -72,18 +72,6 @@
             ".ai/operations/observability.md",
             ".ai/operations/security.md"
           ]
-        },
-        {
-          "name": "repository_architecture",
-          "primary_doc": "docs/architecture.server.md",
-          "description": "Long-form technical references in docs/ (Forge contracts summarize; these expand).",
-          "children": [
-            "docs/architecture.server.md",
-            "docs/architecture.frontend.md",
-            "docs/architecture.admin.md",
-            "docs/architecture.catalog-images.md",
-            "docs/contracts.tmdb.md"
-          ]
         }
       ]
     }

@@ -5,7 +5,7 @@
 | Aspect | Contract |
 | --- | --- |
 | **IaC** | **AWS CDK v2**, **TypeScript** project (`cdk.json`, `bin/*.ts`, `lib/*.ts`). |
-| **Environments** | **Production** hosted stack only (**`.forge/runtime/configuration.md`**); ARNs/secrets use **`riffsync/prod/…`** names where applicable. |
+| **Environments** | **Production** hosted stack only (**`.ai/runtime/configuration.md`**); ARNs/secrets use **`riffsync/prod/…`** names where applicable. |
 
 ## CI / CD — GitHub Actions
 

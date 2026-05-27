@@ -14,7 +14,7 @@ Tracks MVP UI and client behavior aligned with [`README.md`](../README.md) and [
 | **UI** | **React** + **TypeScript** |
 | **Routing** | **`react-router-dom`** (v7.x, React Router 6+ `BrowserRouter` / `Route` tree) |
 | **Repository path** | **`apps/web/`** — run **`npm ci`**, **`npm run dev`**, **`npm run build`**, **`npm run preview`** from this directory |
-| **Canonical public origin** | Production: **`https://riffsync.tv`** (`.forge/project.json` → **`public_domain`**). Optional env override at build time: **`VITE_PUBLIC_ORIGIN`** (see **`apps/web/.env.example`**, **`apps/web/src/config/publicOrigin.ts`**). Staging hostname lives in **`.forge/runtime/configuration.md`** once the stack is wired. |
+| **Canonical public origin** | Production: **`https://riffsync.tv`** (`.ai/project.json` → **`public_domain`**). Optional env override at build time: **`VITE_PUBLIC_ORIGIN`** (see **`apps/web/.env.example`**, **`apps/web/src/config/publicOrigin.ts`**). Staging hostname lives in **`.ai/runtime/configuration.md`** once the stack is wired. |
 
 ---
 
@@ -29,7 +29,7 @@ Tracks MVP UI and client behavior aligned with [`README.md`](../README.md) and [
 
 Exact path names can change; keep **canonical share URLs** stable once published (`/room/<id>` in README).
 
-**Production canonical origin:** **`https://riffsync.tv`** (**`.forge/project.json`** **`public_domain`**) — use this host when registering **Cognito Hosted UI** / **Meta OAuth** redirect URIs, **Content Security Policy** / frame ancestors if you add them, and any **YouTube embed** or **Cast** origin allowlists.
+**Production canonical origin:** **`https://riffsync.tv`** (**`.ai/project.json`** **`public_domain`**) — use this host when registering **Cognito Hosted UI** / **Meta OAuth** redirect URIs, **Content Security Policy** / frame ancestors if you add them, and any **YouTube embed** or **Cast** origin allowlists.
 
 ## Catalog source (repo + API)
 

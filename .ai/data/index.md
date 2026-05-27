@@ -3,7 +3,7 @@
 Scopes **logical entities**, **Dynamo/access patterns**, **JSON serialization**, **consistency** guarantees.
 
 - Child contracts: **`data_model.md`**, **`persistence_abstractions.md`**, **`serialization.md`**, **`consistency.md`**.
-- Repo anchors: **`data/catalog/catalog.schema.json`**, **`docs/architecture.catalog-images.md`**, **`docs/contracts.tmdb.md`** (full **`docs/`** map: **`.forge/knowledge_map.json`** → **repository_architecture**).
+- Repo anchors: **`data/catalog/catalog.schema.json`**, **`docs/architecture.catalog-images.md`**, **`docs/contracts.tmdb.md`** (full **`docs/`** map: **`.ai/knowledge_map.json`** → **repository_architecture**).
 
 ## Scope
 

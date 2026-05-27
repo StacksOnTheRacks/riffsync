@@ -2,7 +2,7 @@
  * Canonical browser origin for absolute URLs (share links, OAuth docs, API base hints).
  *
  * - Set `VITE_PUBLIC_ORIGIN` at build time for the deployed fan site (or non-default hosts).
- * - Production builds default to `https://riffsync.tv` (see `.forge/project.json` → `public_domain`).
+ * - Production builds default to `https://riffsync.tv` (see `.ai/project.json` → `public_domain`).
  * - Local dev falls back to `window.location.origin` (Vite default port 5173).
  */
 export function getPublicOrigin(): string {

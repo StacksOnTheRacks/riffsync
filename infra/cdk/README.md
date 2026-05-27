@@ -1,6 +1,6 @@
 # RiffSync AWS CDK (`infra/cdk`)
 
-AWS CDK **v2** (TypeScript) for the **hosted production** footprint in AWS. There is **no** billable **`dev`** or **staging** stack—see [`../../.forge/runtime/configuration.md`](../../.forge/runtime/configuration.md) and [`../../.forge/operations/deployment_environments.md`](../../.forge/operations/deployment_environments.md). **Local** development stays on the workstation (or CI `synth` without deploy).
+AWS CDK **v2** (TypeScript) for the **hosted production** footprint in AWS. There is **no** billable **`dev`** or **staging** stack—see [`../../.ai/runtime/configuration.md`](../../.ai/runtime/configuration.md) and [`../../.ai/operations/deployment_environments.md`](../../.ai/operations/deployment_environments.md). **Local** development stays on the workstation (or CI `synth` without deploy).
 
 ## Decommissioning hosted staging
 
@@ -47,7 +47,7 @@ The CDK app **no longer defines** `RiffSyncFanAuth-staging`, `RiffSyncApi-stagin
 
 Hosted stack **`RiffSyncApi-prod`** adds:
 
-- **`AWS::DynamoDB::Table`** — **partition key** **`id`** (string, episode slug). **No sort key.** **`GET /v1/catalog`** uses **`Scan`** (acceptable while the library fits one Lambda scan; add **GSI**, **export**, or **cache** before scale demands it — **`docs/architecture.server.md`**, **`.forge/data/persistence_abstractions.md`**).
+- **`AWS::DynamoDB::Table`** — **partition key** **`id`** (string, episode slug). **No sort key.** **`GET /v1/catalog`** uses **`Scan`** (acceptable while the library fits one Lambda scan; add **GSI**, **export**, or **cache** before scale demands it — **`docs/architecture.server.md`**, **`.ai/data/persistence_abstractions.md`**).
 - **`AWS::ApiGatewayV2::Api`** (HTTP API) — routes above; **CORS** allows **`https://riffsync.tv`**, **`www`**, **localhost** (for dev against prod API), and any **`fanWebAlternateDomainNames`**. Pass extra origins (e.g. **`https://<distribution>.cloudfront.net`**) at synth/deploy:  
   **`npx cdk deploy --all --context environment=prod --context catalogCorsOrigins=https://d111111abcdef8.cloudfront.net`**
 - **`AWS::Lambda::Permission`** — **`lambda:InvokeFunction`** from **`apigateway.amazonaws.com`** per route integration ( **`docs/architecture.server.md`** IAM table).
@@ -220,7 +220,7 @@ Advanced overrides (**`stunServersJson`**, etc.) use CDK context keys in **`api-
 
 ### Fan Cognito Hosted UI (M5+)
 
-Hosted stack **`RiffSyncFanAuth-prod`** provisions a **fan-only** pool suitable for **`POST /v1/rooms`** and room-admin JWTs per **`.forge/integration/authorization.md`** (stable **`sub`** for **`hostSub`**). **Staff** `/v1/admin/*` pool remains a **separate** future stack.
+Hosted stack **`RiffSyncFanAuth-prod`** provisions a **fan-only** pool suitable for **`POST /v1/rooms`** and room-admin JWTs per **`.ai/integration/authorization.md`** (stable **`sub`** for **`hostSub`**). **Staff** `/v1/admin/*` pool remains a **separate** future stack.
 
 | Decision | Choice |
 | --- | --- |
@@ -315,7 +315,7 @@ Older milestone copy: **M1** alone only created the static stack.
 
 **Follow-ups (later milestones):**
 
-- **GitHub Actions → AWS** deploy identity — prefer **OIDC** to IAM roles over long-lived access keys ([Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions); [`.forge/operations/build_packaging.md`](../../.forge/operations/build_packaging.md)).
+- **GitHub Actions → AWS** deploy identity — prefer **OIDC** to IAM roles over long-lived access keys ([Delivery pipeline §](../../docs/architecture.server.md#delivery-pipeline-github-actions); [`.ai/operations/build_packaging.md`](../../.ai/operations/build_packaging.md)).
 - **Runtime** IAM for **Lambda**, **API Gateway**, **WebSocket `@connections`**, **DynamoDB** writers (admin/catalog jobs), **Secrets Manager**, and **CloudWatch** custom metrics — extend policies as new routes and jobs ship.
 
 ## GitHub Actions (CI — no AWS credentials required)
@@ -326,7 +326,7 @@ This satisfies the **pull-request CI only** stance in **`docs/architecture.serve
 
 ## Deploy (operators)
 
-Deployment policy (**`.forge/operations/build_packaging.md`**, **`deployment_environments.md`**, **`docs/architecture.server.md`** Delivery pipeline §):
+Deployment policy (**`.ai/operations/build_packaging.md`**, **`deployment_environments.md`**, **`docs/architecture.server.md`** Delivery pipeline §):
 
 | Target | Trigger | Notes |
 | --- | --- | --- |
@@ -370,7 +370,7 @@ cd apps/web && npm ci && npm run build && ls -la dist
 
 ### Repository configuration (preferred: OIDC → IAM role)
 
-Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`architecture.server.md`**, **`.forge/operations/build_packaging.md`**). Configure the **repository Variables** on GitHub (**Settings → Secrets and variables → Actions → Variables**, or org-level equivalents):
+Prefer **OIDC federation** (**GitHub → AWS**) over long-lived access keys (**`architecture.server.md`**, **`.ai/operations/build_packaging.md`**). Configure the **repository Variables** on GitHub (**Settings → Secrets and variables → Actions → Variables**, or org-level equivalents):
 
 | Variable | Used by |
 | --- | --- |
@@ -459,4 +459,4 @@ When a deploy rolls back, open **CloudFormation** → failed stack → **Events*
 
 ## Naming & tiers
 
-Hosted tier is **`prod`**; **`local`** has no AWS footprint (**`.forge/runtime/configuration.md`**). Production web hostname is **`riffsync.tv`** ([**`.forge/project.json`**](../../.forge/project.json) **`public_domain`**). Prefer stack output **`FanWebSiteUrl`** (custom domain or default **`*.cloudfront.net`**) for the live **`https://`** origin.
+Hosted tier is **`prod`**; **`local`** has no AWS footprint (**`.ai/runtime/configuration.md`**). Production web hostname is **`riffsync.tv`** ([**`.ai/project.json`**](../../.ai/project.json) **`public_domain`**). Prefer stack output **`FanWebSiteUrl`** (custom domain or default **`*.cloudfront.net`**) for the live **`https://`** origin.

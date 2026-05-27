@@ -14,7 +14,7 @@ RiffSync **hosted** footprint is **production only** in AWS (plus **local** deve
 | --- | --- |
 | **`main` → production** | **Manual** workflow run (**`workflow_dispatch`**): deploys **current `main` HEAD** to production. Ref input must stay **`main`** (enforced in the workflow). |
 
-**Not automatic by default:** production does not continuous deploy on every push unless product policy changes—keeps costs and surprise releases down (**`.forge/operations/build_packaging.md`**).
+**Not automatic by default:** production does not continuous deploy on every push unless product policy changes—keeps costs and surprise releases down (**`.ai/operations/build_packaging.md`**).
 
 ## Removed: hosted staging
 
@@ -22,7 +22,7 @@ The former **staging** stacks (`RiffSyncFanAuth-staging`, `RiffSyncApi-staging`,
 
 ## Not used
 
-Long-lived **`dev`** or per-developer app stacks in AWS—developers use **local** workflows (**`.forge/runtime/configuration.md`**).
+Long-lived **`dev`** or per-developer app stacks in AWS—developers use **local** workflows (**`.ai/runtime/configuration.md`**).
 
 ## Local (not “an environment bill”)
 

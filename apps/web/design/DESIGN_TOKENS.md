@@ -53,4 +53,4 @@ Additional `@media` breakpoints for header/footer/layout are embedded throughout
 | Footer | `src/components/site/SiteFooter.tsx` | `<footer id="gen-footer">` |
 | Layout | `src/layouts/SiteLayout.tsx` | Wraps routes with `<main id="riffsync-main">` |
 
-Streamlab logo images are **not** used in chrome; the wordmark **RiffSync** replaces vendor branding per product config (`.forge/project.json`).
+Streamlab logo images are **not** used in chrome; the wordmark **RiffSync** replaces vendor branding per product config (`.ai/project.json`).

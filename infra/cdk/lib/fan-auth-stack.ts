@@ -29,7 +29,7 @@ function parseExtrasFromContext(scope: Construct): string[] {
     .filter(Boolean);
 }
 
-/** Aligns with `.forge/project.json` `public_domain`; override via `--context fanAuthSesVerifiedDomain=…`. */
+/** Aligns with `.ai/project.json` `public_domain`; override via `--context fanAuthSesVerifiedDomain=…`. */
 const DEFAULT_FAN_SES_DOMAIN = 'riffsync.tv';
 
 /**
@@ -78,7 +78,7 @@ function fanPoolSesEmail(scope: Construct, sesConfigurationSetName: string): cog
 /**
  * **Fan-facing** Cognito user pool — **Hosted UI** with **local** sign-up/sign-in (email + password).
  *
- * Aligns with **`.forge/integration/authorization.md`** (host JWT **`sub`** → **`hostSub`**). Staff pool stays out of scope.
+ * Aligns with **`.ai/integration/authorization.md`** (host JWT **`sub`** → **`hostSub`**). Staff pool stays out of scope.
  */
 export class FanAuthStack extends cdk.Stack {
   public readonly fanUserPool: cognito.UserPool;

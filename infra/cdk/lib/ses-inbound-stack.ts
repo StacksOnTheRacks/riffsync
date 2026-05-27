@@ -7,7 +7,7 @@ import * as ses_actions from 'aws-cdk-lib/aws-ses-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import type { Construct } from 'constructs';
 
-/** Matches `.forge/project.json` `public_domain`; override with `--context sesInboundMailDomain=…`. */
+/** Matches `.ai/project.json` `public_domain`; override with `--context sesInboundMailDomain=…`. */
 const DEFAULT_MAIL_DOMAIN = 'riffsync.tv';
 
 /** Single shared inbound pipeline for the hosted app. */

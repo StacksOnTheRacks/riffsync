@@ -3,7 +3,7 @@
 Scopes **inputs**, **presentation** states, **navigation/flow**, and **accessibility**—not backend contracts.
 
 - Child contracts: **`input_handling.md`**, **`presentation.md`**, **`interaction_flow.md`**, **`accessibility.md`**.
-- Implementation detail: **`docs/architecture.frontend.md`** (indexed under **`.forge/knowledge_map.json`** → **repository_architecture**).
+- Implementation detail: **`docs/architecture.frontend.md`** (indexed under **`.ai/knowledge_map.json`** → **repository_architecture**).
 
 ## Scope
 

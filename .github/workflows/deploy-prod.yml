@@ -1,6 +1,6 @@
 name: Deploy CDK (production)
 
-# Policy: **`main` → production** (manual). See `.forge/operations/deployment_environments.md`.
+# Policy: **`main` → production** (manual). See `.ai/operations/deployment_environments.md`.
 #
 # - **Media** (**`RiffSyncTurn`**: TURN + SFU + VPC) and **platform** (fan auth, static, SES) run in parallel.
 # - **API** (`--exclusively`) runs after both (**`RiffSyncApi-prod`** imports turn secret from **`RiffSyncTurn`**).

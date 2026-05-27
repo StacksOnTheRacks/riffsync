@@ -2,9 +2,9 @@
   "name": "riffsync",
   "description": "Open-source fan catalog and watch parties for riff-style MST episodes via lawful YouTube embeds—anonymous guests join watch rooms; signed-in hosts broadcast over WebRTC; lobby discovery; AWS serverless operator tooling.",
   "type": "opensource",
-  "metadata_path": ".forge",
+  "metadata_path": ".ai",
   "code_path": ".",
   "github_url": "https://github.com/StacksOnTheRacks/riffsync",
   "github_board": "https://github.com/orgs/StacksOnTheRacks/projects/1",
-  "public_domain": "riffsync.tv"
+  "github_board_type": "kanban"
 }

@@ -1,4 +1,4 @@
-/** Stick-to-bottom threshold for room chat log (see `.forge/interface/presentation.md`). */
+/** Stick-to-bottom threshold for room chat log (see `.ai/interface/presentation.md`). */
 export const CHAT_LOG_STICK_THRESHOLD_PX = 48
 
 export type ChatLogScrollMetrics = Pick<HTMLElement, 'scrollTop' | 'clientHeight' | 'scrollHeight'>
