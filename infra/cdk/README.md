@@ -147,6 +147,27 @@ Deployed with **`RiffSyncApi-prod`** (same CloudFormation stack as catalog). Dep
 
 **Housekeeping:** lobby staleness uses **read-time filtering** (**US-P0-08**) — optional EventBridge TTL/sweeper deferred.
 
+### Fan avatars (S3 + CloudFront, M7)
+
+Provisioned in **`RiffSyncApi-prod`** ([`lib/api-catalog-stack.ts`](lib/api-catalog-stack.ts)):
+
+| Resource | Notes |
+| --- | --- |
+| **`FanAvatarsBucket`** | Private **S3** (**block public access**). Object keys **`avatars/{cognitoSub}/…`** (replace-on-upload per fan). **No** bucket CORS in MVP (upload via Lambda proxy, not browser **PUT**). |
+| **`FanAvatarsDistribution`** | **CloudFront** + **origin access control (OAC)** — same pattern as [`lib/static-site-stack.ts`](lib/static-site-stack.ts). Anonymous guests read avatars over **HTTPS** only. |
+| **`FanAvatarPostFn`** | **`FAN_AVATARS_BUCKET_NAME`**, **`FAN_AVATARS_PUBLIC_BASE_URL`** (HTTPS base, **no** trailing slash). **`s3:PutObject`** / **`s3:DeleteObject`** on **`avatars/*`**. **`POST /v1/fans/me/avatar`** HTTP route lands in a follow-up issue. |
+
+**Stack outputs:** **`FanAvatarsBucketName`**, **`FanAvatarsPublicBaseUrl`**, **`FanAvatarsDistributionId`**, **`FanAvatarPostFnName`**.
+
+**Verify after deploy:**
+
+```bash
+aws cloudformation describe-stacks --stack-name RiffSyncApi-prod \
+  --query "Stacks[0].Outputs[?contains(OutputKey,'FanAvatar')].[OutputKey,OutputValue]" --output table
+```
+
+Optional smoke: upload a test object under **`avatars/<sub>/test.png`**, then **`curl -I`** **`{FanAvatarsPublicBaseUrl}/avatars/<sub>/test.png`** and expect **200**.
+
 ### Self-hosted media (coturn TURN + mediasoup SFU on EC2)
 
 One account, **one CloudFormation stack** **`RiffSyncTurn`** ([`lib/media-server-stack.ts`](lib/media-server-stack.ts)): **one VPC**, **coturn** on **`t3.small`** + **mediasoup** on **`t3.medium`**, **two** Elastic IPs, **`riffsync/turn-static-auth-secret`**, S3 **BucketDeployment** of [`services/riffsync-sfu`](../../services/riffsync-sfu), and Route 53 **`A`** → SFU EIP when **`sfuProdSignalingHostname`** is set. ICE Lambdas use the TURN secret and **`turnHost`** (TURN EIP or DNS).
@@ -286,7 +307,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 
 - **`RiffSyncStatic-prod` —** **S3 bucket policy** statements: deny insecure transport; allow **`s3:GetObject`** for **CloudFront** via OAC (**resource-based**, not a standalone IAM role).
 - **`RiffSyncStatic-prod` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
-- **`RiffSyncApi-prod` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**); **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
+- **`RiffSyncApi-prod` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**, **fan profiles**); **fan avatars** private **S3** + **CloudFront OAC**; **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
 - **`RiffSyncFanAuth-prod` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA). Pool **`EmailConfiguration`** sends verification / recovery mail through **Amazon SES** (**`DEVELOPER`** / **`SourceArn`** `identity/<domain>`); verify that identity **in the deploy Region** before go-live. **SES configuration set + SNS topic** for outbound reputation events (**outputs** **`SesSendingEventsTopicArn`**, **`SesSendingConfigurationSetName`**).
 - **`RiffSyncSesInbound` —** shared **SNS** topic + **SES** **`ReceiptRuleSet`** / **`ReceiptRule`** + **`AwsCustomResource`** (**`ses:SetActiveReceiptRuleSet`**) + optional Route 53 **MX** when hosted-zone context aligns with **`sesInboundMailDomain`**. Deploy role needs **`ses:*`** receipt-rule APIs for your organization policies.
 
