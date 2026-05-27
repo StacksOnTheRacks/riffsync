@@ -1210,6 +1210,18 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   flex-shrink: 0;
 }
 
+.riffsync-room-chat-jump-latest {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  z-index: 3;
+  margin-bottom: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.45);
+}
+
 .riffsync-room-chat-compose--inactive input:disabled,
 .riffsync-room-chat-compose--inactive .gen-button:disabled {
   opacity: 0.45;
