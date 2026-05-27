@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.9",
+    "emoji-picker-element": "^1.29.1",
     "mediasoup-client": "^3.20.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
