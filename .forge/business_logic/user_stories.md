@@ -12,7 +12,11 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P0-03 | signed-in fan | create/open a room from the catalog | I’m room admin with **`hostSub`** binding and a share link |
 | US-P0-04 | guest | join via URL / lobby | I watch the same picture and audio the admin shares |
 | US-P0-05 | room admin | control the embed and start broadcasting | guests receive my shared stream (after browser permission + guest play taps as needed) |
-| US-P0-06 | anyone in room | send chat | we can talk during the episode |
+| US-P0-06 | signed-in fan in room | send chat (text, emoji, Giphy GIF) | we can talk during the episode |
+| US-P0-06a | signed-in fan in room | react to chat messages with emoji | we can respond without flooding the log |
+| US-P0-06b | guest in room | read chat, GIFs, reactions, and avatars | I follow the conversation without signing in |
+| US-P0-06c | signed-in fan | upload one profile avatar | my picture shows beside my name on any device |
+| US-P0-06d | anyone in room | scroll chat in a fixed panel with stick-to-bottom | the sidebar does not grow with message count |
 | US-P0-07 | guest | see advisory premium/ad label | I set expectations on ads |
 | US-P0-08 | system | sweep stale rooms | lobby does not show dead parties forever |
 | US-P0-09 | room admin | browse the catalog from inside the room and switch episodes | the room’s **current** title updates for everyone (metadata + shared stream) without starting a new room URL |

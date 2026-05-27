@@ -37,9 +37,22 @@ Ephemeral **`connectionId` → roomId`** (+ **`sessionId`** metadata) for **`Pos
 | **List** | **`slug`**, **`title`**, **`visibility`** (draft/public), **`sortRule`**. |
 | **Membership** | Ordered **`catalogEpisodeId`** references — referential integrity on write. |
 
-## Optional: profile, audit events
+## Fan profile (signed-in continuity)
 
-**`USER#sub`**, **`EVT#...`** patterns per admin/observability docs—defer until needed.
+**FanProfiles** Dynamo table — partition key **`sub`** (Cognito subject).
+
+| Field | Contract |
+| --- | --- |
+| **`displayName`** | Required for PATCH; max **48** chars; shown in chat and presence. |
+| **`updatedAt`** | Epoch ms on display-name write. |
+| **`avatarUrl`** | Optional **public HTTPS** URL to avatar object in **S3** (+ CDN); **one** image per user; replace on upload. |
+| **`avatarUpdatedAt`** | Epoch ms on avatar write. |
+
+Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-images.md`** for the same **S3 + public read** delivery pattern as catalog art.
+
+## Optional: audit events
+
+**`EVT#...`** patterns per admin/observability docs—defer until needed.
 
 ## Decisions (answered)
 

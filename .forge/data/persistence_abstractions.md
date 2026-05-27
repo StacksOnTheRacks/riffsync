@@ -12,7 +12,8 @@ Storage responsibilities; physical layout is IaC (**`architecture.server.md`**).
 | **Rooms** | One authoritative item per **`roomId`** (playback, **`hostSub`**, **`lastActivityAt`**, visibility, advisory **`playbackExpectation`**). |
 | **Connections** | Ephemeral **`connectionId → roomId`** (+ **`sessionId`** metadata) for WebSocket fan-out; **TTL** on disconnect/stale rows where useful. |
 | **Lists** *(when shipped)* | Curated list meta + membership rows (**`docs/architecture.admin.md`**). |
-| **Events** / **Profiles** *(optional)* | Audit or **`USER#sub`** rows per admin docs—add when needed. |
+| **FanProfiles** | **`sub`** → **`displayName`**, optional **`avatarUrl`** / timestamps (signed-in fan continuity). |
+| **Events** *(optional)* | Append-only audit per admin docs—add when needed. |
 
 Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **access pattern contracts** below.
 
@@ -21,7 +22,8 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | Store | Holds |
 | --- | --- |
 | **DynamoDB** | Tables above — **catalog**, **rooms**, **websocket connections**, optional **lists**, **profiles**, **append-only events**. |
-| **Secrets Manager** | TMDB credential, Cognito-independent secrets only where needed. |
+| **Secrets Manager** | TMDB credential, **Giphy API key**, Cognito-independent secrets only where needed. |
+| **S3** | **Fan avatar** objects (public HTTPS via CDN); catalog/asset buckets per **`docs/architecture.catalog-images.md`**. |
 
 ## Cache (optional)
 

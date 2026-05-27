@@ -17,6 +17,12 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | **Metadata & art** | Server-side **v3** HTTP only; **`docs/contracts.tmdb.md`** is normative. | **No** persistence of TMDB **`title`** / **`original_title`**; catalog **`title`** is curator-owned. Persist **`tagline`**, **`overview`**, **`popularity`**, **`poster_path`/`backdrop_path`** (or resolved URLs), **`tmdbMovieId`**, **`tmdbArtworkSyncedAt`**. |
 | **Credentials** | **Secrets Manager** (or env from secret); **never** browser. | Attribution and logo rules per TMDB. |
 
+## Giphy
+
+| Use | Mechanism | Contract |
+| --- | --- | --- |
+| **GIF search & post** | Server-side **Giphy API** via **`GET /v1/giphy/search`** (JWT); chat posts reference **Giphy-hosted** rendition URLs in **`chat_gif`** WebSocket payloads. | **No** Giphy API key in browser; honor **Giphy ToS** and attribution requirements. **No** user-uploaded GIF files to RiffSync storage in this slice. |
+
 ## Meta (Facebook) — optional
 
 | Use | Mechanism | Contract |
@@ -33,7 +39,8 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | **Lambda** | Sync handlers + scheduled workers. |
 | **DynamoDB** | System of record: catalog, rooms, connections, optional lists/profiles/events. |
 | **EventBridge / Scheduler** | Sweeper, TMDB + YouTube thumb reconcile. |
-| **Secrets Manager** | TMDB, optional other backend secrets. |
+| **Secrets Manager** | TMDB, **Giphy**, optional other backend secrets. |
+| **S3** | Catalog assets, **fan avatars** (public HTTPS delivery). |
 | **CloudWatch** | Metrics, dashboards, logs, alarms (**`docs/architecture.server.md`** Observability). |
 | **Cognito** | Optional fan JWT; **separate** staff pool/client for **`/v1/admin/*`**. |
 | **ElastiCache** | Optional read-through cache for catalog/lobby. |

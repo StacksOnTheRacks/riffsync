@@ -6,7 +6,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 | Mode | Representation | Typical use |
 | --- | --- | --- |
-| **Anonymous guest** | Opaque **`sessionId`** (UUID) + **display name** in **`localStorage`** once the user crosses **lobby** or **joins `/room/:id`** (**lazy mint**); **`X-Session-Id`** + WS **`$connect`**. | **Browse**, **join**, **watch**, **chat**—**cannot** create rooms or publish WebRTC. |
+| **Anonymous guest** | Opaque **`sessionId`** (UUID) + **display name** in **`localStorage`** once the user crosses **lobby** or **joins `/room/:id`** (**lazy mint**); **`X-Session-Id`** + WS **`$connect`**. | **Browse**, **join**, **watch**, **view room chat** (text, GIFs, reactions, avatars)—**cannot** **send** chat, **react**, upload avatars, create rooms, or publish WebRTC. |
 | **Signed-in fan (host)** | **Cognito JWT** (**`sub`**, claims); Facebook or other IdP. | **Create room**, **room admin**, **PATCH** authoritative playback, **WebRTC publisher**; **`hostSub`** on room **=** **`sub`**. |
 | **Staff / operator** | **Invite-only** Cognito **staff pool** or isolated **app client** + **JWT authorizer** on **`/v1/admin/*`**. | Catalog edits, curated lists, roster/API tools—not fan Facebook login. |
 
@@ -21,7 +21,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 - **Room-admin authority:** only **`JWT.sub === room.hostSub`** may publish WebRTC signaling or mutate authoritative playback metadata.
 - **Moderation:** target **`sessionId`** / **`connectionId`** for anonymous guests; **`sub`** for signed-in hosts (**`docs/architecture.admin.md`**).
-- **Principle:** never require an IdP to **browse catalog**, **join**, **watch**, or **guest chat**; **do** require verified identity to **host**.
+- **Principle:** never require an IdP to **browse catalog**, **join**, **watch**, or **read** room chat; **do** require **fan JWT** to **send** chat (text/emoji/GIF), **react**, **upload avatar**, or **host**.
 
 ## Decisions (answered)
 
