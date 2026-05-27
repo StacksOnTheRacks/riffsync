@@ -1,8 +1,11 @@
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigwv2Auth from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -124,6 +127,9 @@ const sharedLambdaBundle = {
   externalModules: ['@aws-sdk/*'],
 };
 
+/** S3 object keys: `avatars/{cognitoSub}/…` (one prefix per signed-in fan). */
+const FAN_AVATAR_S3_KEY_PREFIX = 'avatars/';
+
 /**
  * DynamoDB **Catalog** + **Rooms** + **Connections**, HTTP API (catalog, rooms, lobby),
  * WebSocket API (realtime), TMDB reconcile — see **`docs/architecture.server.md`**.
@@ -134,6 +140,10 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly connectionsTable: dynamodb.Table;
   public readonly roomPresenceTable: dynamodb.Table;
   public readonly fanProfilesTable: dynamodb.Table;
+  public readonly fanAvatarsBucket: s3.Bucket;
+  public readonly fanAvatarsDistribution: cloudfront.Distribution;
+  /** HTTPS origin for avatar object keys (no trailing slash). */
+  public readonly fanAvatarsPublicBaseUrl: string;
   public readonly httpApi: apigwv2.HttpApi;
   public readonly webSocketApi: apigwv2.WebSocketApi;
   public readonly tmdbApiTokenSecret: secretsmanager.ISecret;
@@ -199,6 +209,35 @@ export class ApiCatalogStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
+
+    this.fanAvatarsBucket = new s3.Bucket(this, 'FanAvatarsBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    const fanAvatarsOac = new cloudfront.S3OriginAccessControl(this, 'FanAvatarsOac', {
+      signing: cloudfront.Signing.SIGV4_ALWAYS,
+      originAccessControlName: 'riffsync-prod-fan-avatars-oac',
+    });
+
+    this.fanAvatarsDistribution = new cloudfront.Distribution(this, 'FanAvatarsDistribution', {
+      comment: 'RiffSync prod fan avatars (private S3, public HTTPS via OAC)',
+      httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(this.fanAvatarsBucket, {
+          originAccessControl: fanAvatarsOac,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+        compress: true,
+      },
+    });
+
+    this.fanAvatarsPublicBaseUrl = `https://${this.fanAvatarsDistribution.distributionDomainName}`;
 
     this.tmdbApiTokenSecret = new secretsmanager.Secret(this, 'TmdbApiToken', {
       secretName: `riffsync/${environment}/tmdb-api-token`,
@@ -480,6 +519,24 @@ export class ApiCatalogStack extends cdk.Stack {
     this.fanProfilesTable.grantReadData(fanProfileGetFn);
     this.fanProfilesTable.grantReadWriteData(fanProfilePatchFn);
 
+    const fanAvatarPostFn = new lambdaNodejs.NodejsFunction(this, 'FanAvatarPostFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(29),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/fan-avatar-post.ts'),
+      handler: 'handler',
+      environment: {
+        FAN_AVATARS_BUCKET_NAME: this.fanAvatarsBucket.bucketName,
+        FAN_AVATARS_PUBLIC_BASE_URL: this.fanAvatarsPublicBaseUrl,
+        FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.fanAvatarsBucket.grantPut(fanAvatarPostFn, `${FAN_AVATAR_S3_KEY_PREFIX}*`);
+    this.fanAvatarsBucket.grantDelete(fanAvatarPostFn, `${FAN_AVATAR_S3_KEY_PREFIX}*`);
+    this.fanProfilesTable.grantReadWriteData(fanAvatarPostFn);
+
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
@@ -619,6 +676,10 @@ export class ApiCatalogStack extends cdk.Stack {
       'FanProfilePatchInt',
       fanProfilePatchFn,
     );
+    const fanAvatarPostIntegration = new integrations.HttpLambdaIntegration(
+      'FanAvatarPostInt',
+      fanAvatarPostFn,
+    );
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -690,6 +751,13 @@ export class ApiCatalogStack extends cdk.Stack {
       authorizer: fanJwtAuthorizer,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/fans/me/avatar',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: fanAvatarPostIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
     const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     if (httpStageL1) {
       httpStageL1.defaultRouteSettings = {
@@ -719,6 +787,28 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'FanProfilesTableName', {
       value: this.fanProfilesTable.tableName,
       description: 'DynamoDB FanProfiles — partition key `sub` (Cognito subject).',
+    });
+
+    new cdk.CfnOutput(this, 'FanAvatarsBucketName', {
+      value: this.fanAvatarsBucket.bucketName,
+      description: `Private S3 bucket for fan avatars (keys under \`${FAN_AVATAR_S3_KEY_PREFIX}{sub}/\`).`,
+    });
+
+    new cdk.CfnOutput(this, 'FanAvatarsPublicBaseUrl', {
+      value: this.fanAvatarsPublicBaseUrl,
+      description:
+        'HTTPS base URL for avatar objects (append object key path; no trailing slash). Anonymous guests read via CloudFront only.',
+    });
+
+    new cdk.CfnOutput(this, 'FanAvatarsDistributionId', {
+      value: this.fanAvatarsDistribution.distributionId,
+      description: 'CloudFront distribution serving fan avatar objects (OAC to FanAvatarsBucket).',
+    });
+
+    new cdk.CfnOutput(this, 'FanAvatarPostFnName', {
+      value: fanAvatarPostFn.functionName,
+      description:
+        'Avatar upload Lambda for POST /v1/fans/me/avatar (multipart file field). Env: FAN_AVATARS_*, FAN_PROFILES_TABLE_NAME.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiUrl', {

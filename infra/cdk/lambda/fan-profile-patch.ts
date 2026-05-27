@@ -1,6 +1,6 @@
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { FAN_DISPLAY_NAME_MAX_LEN, getJwtSub } from './fan-profile-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -46,12 +46,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const updatedAt = Date.now();
 
   await client.send(
-    new PutCommand({
+    new UpdateCommand({
       TableName: table,
-      Item: {
-        sub: jwtSub,
-        displayName,
-        updatedAt,
+      Key: { sub: jwtSub },
+      UpdateExpression: 'SET displayName = :dn, updatedAt = :ua',
+      ExpressionAttributeValues: {
+        ':dn': displayName,
+        ':ua': updatedAt,
       },
     }),
   );
