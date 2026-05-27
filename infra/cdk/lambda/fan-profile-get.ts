@@ -1,7 +1,7 @@
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { FAN_DISPLAY_NAME_MAX_LEN, getJwtSub } from './fan-profile-shared';
+import { getJwtSub, serializeFanProfile } from './fan-profile-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -23,23 +23,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }),
   );
 
-  const item = out.Item as Record<string, unknown> | undefined;
-  if (!item) {
-    return {
-      statusCode: 200,
-      headers: { 'content-type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ displayName: null, updatedAt: null }),
-    };
-  }
-
-  const dn = item.displayName;
-  const ua = item.updatedAt;
-  const displayName = typeof dn === 'string' && dn.trim() !== '' ? dn.trim().slice(0, FAN_DISPLAY_NAME_MAX_LEN) : null;
-  const updatedAt = typeof ua === 'number' && Number.isFinite(ua) ? ua : null;
+  const profile = serializeFanProfile(out.Item as Record<string, unknown> | undefined);
 
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ displayName, updatedAt }),
+    body: JSON.stringify(profile),
   };
 };

@@ -529,11 +529,13 @@ export class ApiCatalogStack extends cdk.Stack {
       environment: {
         FAN_AVATARS_BUCKET_NAME: this.fanAvatarsBucket.bucketName,
         FAN_AVATARS_PUBLIC_BASE_URL: this.fanAvatarsPublicBaseUrl,
+        FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
     this.fanAvatarsBucket.grantPut(fanAvatarPostFn, `${FAN_AVATAR_S3_KEY_PREFIX}*`);
     this.fanAvatarsBucket.grantDelete(fanAvatarPostFn, `${FAN_AVATAR_S3_KEY_PREFIX}*`);
+    this.fanProfilesTable.grantReadWriteData(fanAvatarPostFn);
 
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
@@ -674,6 +676,10 @@ export class ApiCatalogStack extends cdk.Stack {
       'FanProfilePatchInt',
       fanProfilePatchFn,
     );
+    const fanAvatarPostIntegration = new integrations.HttpLambdaIntegration(
+      'FanAvatarPostInt',
+      fanAvatarPostFn,
+    );
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -745,6 +751,13 @@ export class ApiCatalogStack extends cdk.Stack {
       authorizer: fanJwtAuthorizer,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/fans/me/avatar',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: fanAvatarPostIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
     const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     if (httpStageL1) {
       httpStageL1.defaultRouteSettings = {
@@ -795,7 +808,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'FanAvatarPostFnName', {
       value: fanAvatarPostFn.functionName,
       description:
-        'Avatar upload Lambda (POST /v1/fans/me/avatar route wired in a follow-up issue). Env: FAN_AVATARS_BUCKET_NAME, FAN_AVATARS_PUBLIC_BASE_URL.',
+        'Avatar upload Lambda for POST /v1/fans/me/avatar (multipart file field). Env: FAN_AVATARS_*, FAN_PROFILES_TABLE_NAME.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiUrl', {

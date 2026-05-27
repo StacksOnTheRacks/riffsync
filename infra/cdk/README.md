@@ -155,7 +155,7 @@ Provisioned in **`RiffSyncApi-prod`** ([`lib/api-catalog-stack.ts`](lib/api-cata
 | --- | --- |
 | **`FanAvatarsBucket`** | Private **S3** (**block public access**). Object keys **`avatars/{cognitoSub}/…`** (replace-on-upload per fan). **No** bucket CORS in MVP (upload via Lambda proxy, not browser **PUT**). |
 | **`FanAvatarsDistribution`** | **CloudFront** + **origin access control (OAC)** — same pattern as [`lib/static-site-stack.ts`](lib/static-site-stack.ts). Anonymous guests read avatars over **HTTPS** only. |
-| **`FanAvatarPostFn`** | **`FAN_AVATARS_BUCKET_NAME`**, **`FAN_AVATARS_PUBLIC_BASE_URL`** (HTTPS base, **no** trailing slash). **`s3:PutObject`** / **`s3:DeleteObject`** on **`avatars/*`**. **`POST /v1/fans/me/avatar`** HTTP route lands in a follow-up issue. |
+| **`FanAvatarPostFn`** | **`POST /v1/fans/me/avatar`** (multipart field **`file`**, fan JWT). **`FAN_AVATARS_*`**, **`FAN_PROFILES_TABLE_NAME`**. **`s3:PutObject`** / **`s3:DeleteObject`** on **`avatars/*`**. |
 
 **Stack outputs:** **`FanAvatarsBucketName`**, **`FanAvatarsPublicBaseUrl`**, **`FanAvatarsDistributionId`**, **`FanAvatarPostFnName`**.
 
