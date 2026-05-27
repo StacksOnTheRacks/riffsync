@@ -1053,6 +1053,20 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   background: rgb(255 255 255 / 0.035);
 }
 
+.riffsync-room-page__person-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.riffsync-room-page__person-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .riffsync-room-page__people-row--host {
   border-left: 3px solid var(--primary-color);
   background: rgb(255 255 255 / 0.07);
@@ -1116,6 +1130,56 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-room-page__profile-save {
   align-self: flex-start;
   margin-top: 0.35rem;
+}
+
+.riffsync-room-page__profile-avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.riffsync-room-page__profile-avatar-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(7 10 14 / 0.85);
+}
+
+.riffsync-room-page__profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.riffsync-room-page__profile-avatar-placeholder {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.45);
+  line-height: 1;
+}
+
+.riffsync-room-page__profile-avatar-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.riffsync-room-page__profile-avatar-btn {
+  align-self: flex-start;
 }
 
 .riffsync-room-page__ws-banner {
@@ -1252,6 +1316,50 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 .riffsync-room-page__chat .riffsync-room-chat-log li + li {
   margin-top: 0.35rem;
+}
+
+.riffsync-room-chat-log__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(100%, 14rem);
+  vertical-align: top;
+}
+
+.riffsync-room-chat-log__who-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.riffsync-fan-avatar-thumb {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.riffsync-fan-avatar-thumb--img {
+  object-fit: cover;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.riffsync-fan-avatar-thumb--initials {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgb(230 235 245 / 0.92);
+  background: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.14);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .riffsync-fan-avatar-thumb--img {
+    transition: none;
+  }
 }
 
 .gen-button.gen-button-wide {
