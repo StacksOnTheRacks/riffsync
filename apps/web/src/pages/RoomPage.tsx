@@ -153,7 +153,12 @@ export function RoomPage() {
   const fanToken = getFanAccessToken()
   const roomChatTabActive =
     (!fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab) === 'chat'
-  const chatLogRef = useChatLogStickToBottom(chat.length, roomChatTabActive)
+  const {
+    logRef: chatLogRef,
+    showJumpToLatest,
+    jumpToLatestLabel,
+    jumpToLatest,
+  } = useChatLogStickToBottom(chat.length, roomChatTabActive)
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
 
   /** Prefer the room document id so WebSocket presence matches server fan-out even if the route param differed. */
@@ -1258,6 +1263,16 @@ export function RoomPage() {
                     ))}
                   </ul>
                   <div className="riffsync-room-chat-compose-holder">
+                    {showJumpToLatest ? (
+                      <button
+                        type="button"
+                        className="riffsync-room-chat-jump-latest gen-button"
+                        aria-label="Jump to latest messages"
+                        onClick={jumpToLatest}
+                      >
+                        {jumpToLatestLabel}
+                      </button>
+                    ) : null}
                     <div
                       className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
                     >
