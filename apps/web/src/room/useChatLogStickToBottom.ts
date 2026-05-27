@@ -36,10 +36,11 @@ export function useChatLogStickToBottom(
     if (!chatTabActive) return
     const el = logRef.current
     if (!el) return
-    syncStickState()
-    if (stickToBottomRef.current) {
+    const shouldStick = stickToBottomRef.current
+    if (shouldStick) {
       scrollChatLogToBottom(el)
     }
+    syncStickState()
   }, [chatLength, chatTabActive, syncStickState])
 
   return logRef
