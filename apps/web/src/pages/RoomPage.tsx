@@ -1,7 +1,11 @@
 import { Link, useParams } from 'react-router-dom'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import type { RoomSnapshot } from '../api/roomsApi'
-import { fetchFanProfile, patchFanProfileDisplayName } from '../api/fanProfileApi'
+import {
+  fetchFanProfile,
+  patchFanProfileDisplayName,
+  uploadFanProfileAvatar,
+} from '../api/fanProfileApi'
 import { fetchRoom, patchRoom } from '../api/roomsApi'
 import { fetchCatalogEpisodeById } from '../catalog/catalogApi'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
@@ -116,6 +120,12 @@ export function RoomPage() {
   const [profileDraft, setProfileDraft] = useState('')
   const [profileSaveErr, setProfileSaveErr] = useState<string | null>(null)
   const [profileSaving, setProfileSaving] = useState(false)
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null)
+  const [profileAvatarLoading, setProfileAvatarLoading] = useState(false)
+  const [profileAvatarUploading, setProfileAvatarUploading] = useState(false)
+  const [profileAvatarErr, setProfileAvatarErr] = useState<string | null>(null)
+  const profileTabLoadedRef = useRef(false)
+  const profileAvatarInputRef = useRef<HTMLInputElement>(null)
 
   const [guestFsmPollTick, setGuestFsmPollTick] = useState(0)
   const guestInboundHealthRef = useRef(false)
@@ -347,9 +357,33 @@ export function RoomPage() {
     if (roomSidebarTab === 'profile' && prevRoomSidebarTabRef.current !== 'profile') {
       setProfileDraft(displayName)
       setProfileSaveErr(null)
+      setProfileAvatarErr(null)
     }
     prevRoomSidebarTabRef.current = roomSidebarTab
   }, [roomSidebarTab, displayName])
+
+  useEffect(() => {
+    if (roomSidebarTab !== 'profile' || !fanToken || profileTabLoadedRef.current) return
+    profileTabLoadedRef.current = true
+    let cancelled = false
+    setProfileAvatarLoading(true)
+    setProfileAvatarErr(null)
+    void fetchFanProfile(fanToken)
+      .then((p) => {
+        if (cancelled) return
+        setProfileAvatarUrl(p.avatarUrl)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setProfileAvatarErr(e instanceof Error ? e.message : 'Could not load profile.')
+      })
+      .finally(() => {
+        if (!cancelled) setProfileAvatarLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [roomSidebarTab, fanToken])
 
   const icePromiseByRoomRef = useRef<{ roomId: string; promise: Promise<RTCIceServer[]> } | null>(null)
   const getIceServers = useCallback((): Promise<RTCIceServer[]> => {
@@ -952,16 +986,36 @@ export function RoomPage() {
     setProfileSaving(true)
     setProfileSaveErr(null)
     void patchFanProfileDisplayName(fanToken, trimmed)
-      .then(() => {
+      .then((p) => {
         const applied = setGuestDisplayName(trimmed)
         setDisplayName(applied)
         setProfileDraft(applied)
+        setProfileAvatarUrl(p.avatarUrl)
       })
       .catch((e) => {
         setProfileSaveErr(e instanceof Error ? e.message : 'Could not save profile.')
       })
       .finally(() => {
         setProfileSaving(false)
+      })
+  }
+
+  const onProfileAvatarSelected = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!fanToken) return
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setProfileAvatarUploading(true)
+    setProfileAvatarErr(null)
+    void uploadFanProfileAvatar(fanToken, file)
+      .then((p) => {
+        setProfileAvatarUrl(p.avatarUrl)
+      })
+      .catch((err) => {
+        setProfileAvatarErr(err instanceof Error ? err.message : 'Could not upload avatar.')
+      })
+      .finally(() => {
+        setProfileAvatarUploading(false)
       })
   }
 
@@ -1369,6 +1423,52 @@ export function RoomPage() {
                   <p className="riffsync-muted riffsync-room-page__profile-lede">
                     This name appears in chat, the viewer list, and across devices when you&apos;re signed in.
                   </p>
+                  <div className="riffsync-room-page__profile-avatar-block">
+                    <span className="riffsync-room-page__profile-label" id="riffsync-profile-avatar-label">
+                      Avatar
+                    </span>
+                    <div
+                      className="riffsync-room-page__profile-avatar-preview"
+                      aria-labelledby="riffsync-profile-avatar-label"
+                      aria-busy={profileAvatarLoading || profileAvatarUploading}
+                    >
+                      {profileAvatarUrl ? (
+                        <img
+                          src={profileAvatarUrl}
+                          alt=""
+                          className="riffsync-room-page__profile-avatar-img"
+                        />
+                      ) : (
+                        <span className="riffsync-room-page__profile-avatar-placeholder" aria-hidden>
+                          ?
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      ref={profileAvatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="riffsync-room-page__profile-avatar-input"
+                      onChange={onProfileAvatarSelected}
+                    />
+                    <button
+                      type="button"
+                      className="gen-button riffsync-room-page__profile-avatar-btn"
+                      disabled={profileAvatarLoading || profileAvatarUploading}
+                      onClick={() => profileAvatarInputRef.current?.click()}
+                    >
+                      {profileAvatarUploading
+                        ? 'Uploading…'
+                        : profileAvatarUrl
+                          ? 'Replace image'
+                          : 'Choose image'}
+                    </button>
+                    {profileAvatarErr ? (
+                      <p className="riffsync-room-page__profile-err" role="alert">
+                        {profileAvatarErr}
+                      </p>
+                    ) : null}
+                  </div>
                   <label className="riffsync-room-page__profile-label" htmlFor="riffsync-profile-display-name">
                     Display name
                   </label>
