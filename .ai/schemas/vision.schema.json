@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "forge/vision.schema.json",
-  "title": "Forge Vision Schema",
+  "$id": "ai/vision.schema.json",
+  "title": "AI Vision Schema",
   "type": "object",
   "additionalProperties": false,
   "required": [
