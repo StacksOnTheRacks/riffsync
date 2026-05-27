@@ -45,6 +45,7 @@ import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/mediasoupSfuFeature'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
+import { ChatEmojiPicker } from '../room/ChatEmojiPicker'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 
 const DISPLAY_TITLE_MAX_LEN = 120
@@ -175,6 +176,7 @@ export function RoomPage() {
   const sfuSessionRef = useRef<{ close: () => void } | null>(null)
   const isPublisherRef = useRef(false)
   const prevRoomSidebarTabRef = useRef<'chat' | 'people' | 'room' | 'profile'>('chat')
+  const chatInputRef = useRef<HTMLInputElement>(null)
 
   const guestSignalingRefs = useMemo<GuestSignalingRefs>(
     () => ({
@@ -1384,7 +1386,15 @@ export function RoomPage() {
                     <div
                       className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
                     >
+                      {fanToken ? (
+                        <ChatEmojiPicker
+                          draft={chatDraft}
+                          onDraftChange={setChatDraft}
+                          inputRef={chatInputRef}
+                        />
+                      ) : null}
                       <input
+                        ref={chatInputRef}
                         type="text"
                         maxLength={2000}
                         value={fanToken ? chatDraft : ''}
