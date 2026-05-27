@@ -40,6 +40,7 @@ import {
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/mediasoupSfuFeature'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
+import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
@@ -150,6 +151,9 @@ export function RoomPage() {
 
   const wsBase = getPublicWsUrl()
   const fanToken = getFanAccessToken()
+  const roomChatTabActive =
+    (!fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab) === 'chat'
+  const chatLogRef = useChatLogStickToBottom(chat.length, roomChatTabActive)
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
 
   /** Prefer the room document id so WebSocket presence matches server fan-out even if the route param differed. */
@@ -1239,7 +1243,7 @@ export function RoomPage() {
 
               {activeSidebarTab === 'chat' ? (
                 <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
-                  <ul className="riffsync-room-chat-log">
+                  <ul ref={chatLogRef} className="riffsync-room-chat-log">
                     {chat.map((m) => (
                       <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
                         <span className="riffsync-room-chat-log__who">

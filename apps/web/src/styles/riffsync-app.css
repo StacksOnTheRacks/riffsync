@@ -966,6 +966,17 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   }
 }
 
+@media (min-width: 992px) {
+  .riffsync-room-page__chat-column {
+    max-height: calc(100dvh - 7.5rem);
+    min-height: 0;
+  }
+
+  .riffsync-room-page__chat {
+    max-height: 100%;
+  }
+}
+
 .riffsync-room-page__chat-toolbar {
   display: flex;
   align-items: center;
