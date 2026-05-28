@@ -77,7 +77,7 @@ export function parseGiphySearchQuery(
   return { ok: true, query: { q, limit, offset } };
 }
 
-function isHttpsGiphyCdnUrl(url: string): boolean {
+export function isHttpsGiphyCdnUrl(url: string): boolean {
   try {
     const u = new URL(url);
     if (u.protocol !== 'https:') return false;

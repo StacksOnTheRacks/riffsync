@@ -46,6 +46,9 @@ import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/m
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatEmojiPicker } from '../room/ChatEmojiPicker'
+import { ChatGiphyPicker } from '../room/ChatGiphyPicker'
+import type { GiphySearchResult } from '../api/giphySearchApi'
+import { parseInboundChatGifMessage } from '../room/chatGifMessage'
 import { ChatReactionsStrip } from '../room/ChatReactionsStrip'
 import {
   applyChatReactionEvent,
@@ -61,7 +64,8 @@ const DISPLAY_TITLE_MAX_LEN = 120
 const SFU_RELAY_URL_MISSING_MSG =
   'Video relay URL is missing. Fix: (1) Redeploy RiffSyncApi-prod so POST /v1/webrtc/sfu-token returns wsUrl (from CDK context / signaling hostname). (2) Or set VITE_PUBLIC_SFU_WS_URL in the environment when you run npm run build (Vite bakes it in then, not from S3 at runtime). For https fan sites use wss via CDK context sfuPublicWsUrl or the same Vite variable.'
 
-type ChatMsg = {
+type ChatTextLine = {
+  kind: 'text'
   messageId: string
   sessionId: string
   text: string
@@ -69,6 +73,22 @@ type ChatMsg = {
   displayName?: string
   avatarUrl?: string
 }
+
+type ChatGifLine = {
+  kind: 'gif'
+  messageId: string
+  sessionId: string
+  giphyId: string
+  renditionUrl: string
+  title?: string
+  width?: number
+  height?: number
+  ts: number
+  displayName?: string
+  avatarUrl?: string
+}
+
+type ChatLine = ChatTextLine | ChatGifLine
 
 type PresenceMember = {
   sessionId: string
@@ -129,7 +149,7 @@ export function RoomPage() {
   const [room, setRoom] = useState<RoomSnapshot | null | undefined>(undefined)
   const [roomErr, setRoomErr] = useState<string | null>(null)
   const [catalogEp, setCatalogEp] = useState<CatalogEpisode | null>(null)
-  const [chat, setChat] = useState<ChatMsg[]>([])
+  const [chat, setChat] = useState<ChatLine[]>([])
   const [chatReactions, setChatReactions] = useState<ReactionsByMessage>({})
   const [chatDraft, setChatDraft] = useState('')
   const [patchErr, setPatchErr] = useState<string | null>(null)
@@ -519,6 +539,7 @@ export function RoomPage() {
         setChat((prev) => [
           ...prev,
           {
+            kind: 'text',
             sessionId: data.sessionId as string,
             text: String(data.text),
             ts,
@@ -527,6 +548,12 @@ export function RoomPage() {
             ...(avatarUrl !== undefined ? { avatarUrl } : {}),
           },
         ])
+        return
+      }
+      if (t === 'chat_gif') {
+        const gifLine = parseInboundChatGifMessage(data)
+        if (gifLine === null) return
+        setChat((prev) => [...prev, { kind: 'gif', ...gifLine }])
         return
       }
       if (
@@ -1058,6 +1085,22 @@ export function RoomPage() {
     setChatDraft('')
   }
 
+  const sendChatGif = useCallback(
+    (result: GiphySearchResult) => {
+      if (!fanToken) return
+      sendJson({
+        action: 'chat_gif',
+        messageId: createChatMessageId(),
+        giphyId: result.giphyId,
+        renditionUrl: result.renditionUrl,
+        ...(result.title !== undefined && result.title.trim() !== '' ? { title: result.title.trim() } : {}),
+        ...(result.width !== undefined ? { width: result.width } : {}),
+        ...(result.height !== undefined ? { height: result.height } : {}),
+      })
+    },
+    [fanToken, sendJson],
+  )
+
   const sendChatReaction = useCallback(
     (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => {
       if (!fanToken) return
@@ -1428,17 +1471,37 @@ export function RoomPage() {
                       const reactionChips = chatReactions[m.messageId] ?? {}
                       return (
                         <li key={m.messageId} className="riffsync-room-chat-log__row">
-                          <div className="riffsync-room-chat-log__line">
-                            <span className="riffsync-room-chat-log__who">
-                              <FanAvatarThumb
-                                displayName={chatDisplayName}
-                                avatarUrl={chatAvatarUrl}
+                          {m.kind === 'gif' ? (
+                            <div className="riffsync-room-chat-log__gif">
+                              <div className="riffsync-room-chat-log__gif-who">
+                                <FanAvatarThumb
+                                  displayName={chatDisplayName}
+                                  avatarUrl={chatAvatarUrl}
+                                />
+                                <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
+                              </div>
+                              <img
+                                className="riffsync-room-chat-log__gif-img"
+                                src={m.renditionUrl}
+                                alt={m.title?.trim() || 'GIF'}
+                                loading="lazy"
+                                width={m.width}
+                                height={m.height}
                               />
-                              <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
-                            </span>
-                            {': '}
-                            {m.text}
-                          </div>
+                            </div>
+                          ) : (
+                            <div className="riffsync-room-chat-log__line">
+                              <span className="riffsync-room-chat-log__who">
+                                <FanAvatarThumb
+                                  displayName={chatDisplayName}
+                                  avatarUrl={chatAvatarUrl}
+                                />
+                                <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
+                              </span>
+                              {': '}
+                              {m.text}
+                            </div>
+                          )}
                           <ChatReactionsStrip
                             messageId={m.messageId}
                             chips={reactionChips}
@@ -1464,11 +1527,14 @@ export function RoomPage() {
                       className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
                     >
                       {fanToken ? (
-                        <ChatEmojiPicker
-                          draft={chatDraft}
-                          onDraftChange={setChatDraft}
-                          inputRef={chatInputRef}
-                        />
+                        <>
+                          <ChatEmojiPicker
+                            draft={chatDraft}
+                            onDraftChange={setChatDraft}
+                            inputRef={chatInputRef}
+                          />
+                          <ChatGiphyPicker accessToken={fanToken} onSelect={sendChatGif} />
+                        </>
                       ) : null}
                       <input
                         ref={chatInputRef}

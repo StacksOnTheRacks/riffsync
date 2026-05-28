@@ -17,7 +17,7 @@ On **`$connect`**, the server stores **`expiresAt`** on the connections row (**a
 
 ## Route selection (`$request.body.action`)
 
-Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, **`react`**, `signaling`, **`share_state`**, **`leave`**). **`$default`** maps **`body.action`** when the route selector misses.
+Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, **`chat_gif`**, **`react`**, `signaling`, **`share_state`**, **`leave`**). **`$default`** maps **`body.action`** when the route selector misses.
 
 | **`action`** | Purpose | Auth |
 | --- | --- | --- |
@@ -26,6 +26,7 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 | **`leave`** | Best-effort client goodbye — deletes this **`connectionId`** from the connections table and fan-outs **`presence`** (same pattern as **`$disconnect`**). Clients may send on **`pagehide`** when teardown is uncertain; safe if the row is already gone. | **Guest OK** once connected. |
 | **`share_state`** | Host announces screen-share lifecycle so guests can reset the guest **video** surface without inferring teardown only from WebRTC. Body: **`state`**: **`started`** \| **`stopped`**; optional **`shareGeneration`** (non-negative int, matches v1 signaling generations). | **Host (publisher JWT)** only. Fan-out shape below. |
 | **`chat`** | Fan-out text to sockets in **`roomId`**. | Guests + host. Body: **`text`** (**required**, ≤ 2000 chars), **`messageId`** (**required**, UUID RFC 4122 string). |
+| **`chat_gif`** | Fan-out Giphy GIF post to sockets in **`roomId`**. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`messageId`** (**required**, UUID), **`giphyId`** (**required**, non-empty), **`renditionUrl`** (**required**, HTTPS URL on Giphy CDN, e.g. **`media*.giphy.com`**, **`i.giphy.com`**), optional **`title`** (≤ 200 chars), **`width`** / **`height`** (positive integers, ≤ 4096). Clients MUST NOT upload GIF bytes or supply arbitrary image URLs. |
 | **`react`** | Fan-out ephemeral emoji reaction toggle on a chat line. | Guests + host (same MVP auth as **`chat`**; SPA gates toggles on **`fanToken`**). Body: **`messageId`** (**required**, non-empty, ≤ 64 chars), **`emoji`** (**required**, trimmed non-empty, ≤ 32 chars), **`reactionAction`**: **`add`** \| **`remove`** (not the route **`action`** field). No Dynamo persistence. |
 | **`signaling`** | WebRTC relay to peers (`**envelope`** JSON). | **Host:** publisher **`JWT`** on **`$connect`**. **Guest:** only **`guestSignaling`** with **`kind`** **`ready`**, **`answer`**, or **`ice`** (see below). |
 
@@ -53,6 +54,27 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 Inbound **`chat`** now requires a client-generated **`messageId`** UUID, and outbound **`chat`** / **`chat_gif`** fan-out includes the same stable **`messageId`** per line in **[#31](https://github.com/StacksOnTheRacks/riffsync/issues/31)**.
 
 For compatibility during rollout, treat **`messageId`** as required for new clients. Older clients that do not send a UUID will receive **`400`** from the **`chat`** route.
+
+### Chat GIF
+
+```json
+{
+  "type": "chat_gif",
+  "roomId": "<id>",
+  "sessionId": "<sender>",
+  "displayName": "…",
+  "messageId": "<client uuid>",
+  "giphyId": "<giphy id>",
+  "renditionUrl": "https://…",
+  "title": "…",
+  "width": 480,
+  "height": 270,
+  "ts": 0,
+  "avatarUrl": "https://…"
+}
+```
+
+**`displayName`** / **`avatarUrl`** enrichment matches **`chat`** (**`presenceDisplayNameForSession`**, **`resolveChatOutboundAvatarUrl`**). Inbound bodies MUST NOT supply **`avatarUrl`**. **`title`**, **`width`**, and **`height`** are omitted when not sent or empty.
 
 ### Chat reaction (ephemeral fan-out)
 
