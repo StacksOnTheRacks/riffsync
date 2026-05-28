@@ -147,6 +147,7 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly httpApi: apigwv2.HttpApi;
   public readonly webSocketApi: apigwv2.WebSocketApi;
   public readonly tmdbApiTokenSecret: secretsmanager.ISecret;
+  public readonly giphyApiKeySecret: secretsmanager.ISecret;
   public readonly turnSharedSecret: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: ApiCatalogStackProps) {
@@ -245,6 +246,22 @@ export class ApiCatalogStack extends cdk.Stack {
         'TMDB API bearer token for catalog reconcile (replace via AWS Console or put-secret-value).',
       secretStringValue: cdk.SecretValue.unsafePlainText('REPLACE_WITH_TMDB_BEARER_TOKEN'),
       removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    this.giphyApiKeySecret = new secretsmanager.Secret(this, 'GiphyApiKey', {
+      secretName: `riffsync/${environment}/giphy-api-key`,
+      description:
+        'Giphy API key for GET /v1/giphy/search (replace via AWS Console or put-secret-value).',
+      secretStringValue: cdk.SecretValue.unsafePlainText('REPLACE_WITH_GIPHY_API_KEY'),
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    const giphyRateLimitTable = new dynamodb.Table(this, 'GiphyRateLimitTable', {
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      timeToLiveAttribute: 'expiresAt',
     });
 
     const privacyRoutingSecret = new secretsmanager.Secret(this, 'PrivacyRemovalRouting', {
@@ -519,6 +536,23 @@ export class ApiCatalogStack extends cdk.Stack {
     this.fanProfilesTable.grantReadData(fanProfileGetFn);
     this.fanProfilesTable.grantReadWriteData(fanProfilePatchFn);
 
+    const giphySearchFn = new lambdaNodejs.NodejsFunction(this, 'GiphySearchFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/giphy-search.ts'),
+      handler: 'handler',
+      environment: {
+        GIPHY_SECRET_ARN: this.giphyApiKeySecret.secretArn,
+        GIPHY_RATE_LIMIT_TABLE_NAME: giphyRateLimitTable.tableName,
+        GIPHY_RATE_LIMIT_PER_MINUTE: '30',
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.giphyApiKeySecret.grantRead(giphySearchFn);
+    giphyRateLimitTable.grantReadWriteData(giphySearchFn);
+
     const fanAvatarPostFn = new lambdaNodejs.NodejsFunction(this, 'FanAvatarPostFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(29),
@@ -684,6 +718,10 @@ export class ApiCatalogStack extends cdk.Stack {
       'FanAvatarPostInt',
       fanAvatarPostFn,
     );
+    const giphySearchIntegration = new integrations.HttpLambdaIntegration(
+      'GiphySearchInt',
+      giphySearchFn,
+    );
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -762,6 +800,13 @@ export class ApiCatalogStack extends cdk.Stack {
       authorizer: fanJwtAuthorizer,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/giphy/search',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: giphySearchIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
     const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     if (httpStageL1) {
       httpStageL1.defaultRouteSettings = {
@@ -818,7 +863,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {
@@ -837,6 +882,16 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TmdbApiTokenSecretArn', {
       value: this.tmdbApiTokenSecret.secretArn,
       description: 'Set to a real TMDB bearer token (not a v3 api_key query param in git).',
+    });
+
+    new cdk.CfnOutput(this, 'GiphyApiKeySecretArn', {
+      value: this.giphyApiKeySecret.secretArn,
+      description: 'Set to a real Giphy API key for GET /v1/giphy/search (secret name riffsync/prod/giphy-api-key).',
+    });
+
+    new cdk.CfnOutput(this, 'GiphyRateLimitTableName', {
+      value: giphyRateLimitTable.tableName,
+      description: 'Per-fan Giphy search rate limit counters (TTL attribute expiresAt).',
     });
 
     new cdk.CfnOutput(this, 'PrivacyRemovalRoutingSecretArn', {
