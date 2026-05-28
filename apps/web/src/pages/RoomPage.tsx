@@ -52,6 +52,7 @@ import {
   canAcceptReactionAdd,
   type ReactionsByMessage,
 } from '../room/chatReactions'
+import { createChatMessageId, parseInboundChatMessageId } from '../room/chatMessageId'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 
 const DISPLAY_TITLE_MAX_LEN = 120
@@ -61,7 +62,7 @@ const SFU_RELAY_URL_MISSING_MSG =
   'Video relay URL is missing. Fix: (1) Redeploy RiffSyncApi-prod so POST /v1/webrtc/sfu-token returns wsUrl (from CDK context / signaling hostname). (2) Or set VITE_PUBLIC_SFU_WS_URL in the environment when you run npm run build (Vite bakes it in then, not from S3 at runtime). For https fan sites use wss via CDK context sfuPublicWsUrl or the same Vite variable.'
 
 type ChatMsg = {
-  messageId?: string
+  messageId: string
   sessionId: string
   text: string
   ts: number
@@ -510,18 +511,18 @@ export function RoomPage() {
     (data: Record<string, unknown>) => {
       const t = data.type
       if (t === 'chat' && typeof data.sessionId === 'string' && typeof data.text === 'string') {
+        const messageId = parseInboundChatMessageId(data.messageId)
+        if (messageId === null) return
         const ts = typeof data.ts === 'number' ? data.ts : Date.now()
         const dn = typeof data.displayName === 'string' ? data.displayName : undefined
         const avatarUrl = parseInboundAvatarUrl(data.avatarUrl)
-        const rawMessageId = typeof data.messageId === 'string' ? data.messageId.trim() : ''
-        const messageId = rawMessageId !== '' && rawMessageId.length <= 64 ? rawMessageId : undefined
         setChat((prev) => [
           ...prev,
           {
             sessionId: data.sessionId as string,
             text: String(data.text),
             ts,
-            ...(messageId !== undefined ? { messageId } : {}),
+            messageId,
             ...(dn !== undefined && dn !== '' ? { displayName: dn } : {}),
             ...(avatarUrl !== undefined ? { avatarUrl } : {}),
           },
@@ -1053,7 +1054,7 @@ export function RoomPage() {
     if (!fanToken) return
     const txt = chatDraft.trim()
     if (!txt) return
-    sendJson({ action: 'chat', text: txt })
+    sendJson({ action: 'chat', text: txt, messageId: createChatMessageId() })
     setChatDraft('')
   }
 
@@ -1424,12 +1425,9 @@ export function RoomPage() {
                         sessionId,
                         myAvatarUrl,
                       )
-                      const rowKey =
-                        m.messageId ?? `${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`
-                      const reactionChips =
-                        m.messageId !== undefined ? (chatReactions[m.messageId] ?? {}) : {}
+                      const reactionChips = chatReactions[m.messageId] ?? {}
                       return (
-                        <li key={rowKey} className="riffsync-room-chat-log__row">
+                        <li key={m.messageId} className="riffsync-room-chat-log__row">
                           <div className="riffsync-room-chat-log__line">
                             <span className="riffsync-room-chat-log__who">
                               <FanAvatarThumb
@@ -1441,14 +1439,12 @@ export function RoomPage() {
                             {': '}
                             {m.text}
                           </div>
-                          {m.messageId !== undefined ? (
-                            <ChatReactionsStrip
-                              messageId={m.messageId}
-                              chips={reactionChips}
-                              canReact={Boolean(fanToken)}
-                              onToggleReaction={toggleChatReaction}
-                            />
-                          ) : null}
+                          <ChatReactionsStrip
+                            messageId={m.messageId}
+                            chips={reactionChips}
+                            canReact={Boolean(fanToken)}
+                            onToggleReaction={toggleChatReaction}
+                          />
                         </li>
                       )
                     })}
