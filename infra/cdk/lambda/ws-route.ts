@@ -24,6 +24,11 @@ import {
 
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const encoder = new TextEncoder();
+const UUID_MESSAGE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isUuidMessageId(value: string): boolean {
+  return UUID_MESSAGE_ID_RE.test(value);
+}
 
 function summarizeCaughtErr(err: unknown): { errorType: string; errorMessage: string } {
   if (typeof err !== 'object' || err === null) {
@@ -208,6 +213,10 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     if (text === '' || text.length > 2000) {
       return { statusCode: 400, body: 'text required, max 2000 chars' };
     }
+    const messageId = typeof body.messageId === 'string' ? body.messageId.trim() : '';
+    if (!isUuidMessageId(messageId)) {
+      return { statusCode: 400, body: 'messageId must be a valid UUID' };
+    }
     const mgmt = wsManagementClient();
     const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
     const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
@@ -219,6 +228,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       sessionId,
       displayName,
       text,
+      messageId,
       ts: Date.now(),
     };
     if (avatarUrl) {

@@ -25,7 +25,7 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 | **`presence_request`** | Ask the server to fan out a fresh **`presence`** roster snapshot to **all** connections in this room (no body). Use after connect/reconnect or when the UI suspects a stale roster; idempotent. | **Guest OK** once connected. |
 | **`leave`** | Best-effort client goodbye — deletes this **`connectionId`** from the connections table and fan-outs **`presence`** (same pattern as **`$disconnect`**). Clients may send on **`pagehide`** when teardown is uncertain; safe if the row is already gone. | **Guest OK** once connected. |
 | **`share_state`** | Host announces screen-share lifecycle so guests can reset the guest **video** surface without inferring teardown only from WebRTC. Body: **`state`**: **`started`** \| **`stopped`**; optional **`shareGeneration`** (non-negative int, matches v1 signaling generations). | **Host (publisher JWT)** only. Fan-out shape below. |
-| **`chat`** | Fan-out text to sockets in **`roomId`**. | Guests + host. Body: **`text`** (**required**, ≤ 2000 chars). |
+| **`chat`** | Fan-out text to sockets in **`roomId`**. | Guests + host. Body: **`text`** (**required**, ≤ 2000 chars), **`messageId`** (**required**, UUID RFC 4122 string). |
 | **`react`** | Fan-out ephemeral emoji reaction toggle on a chat line. | Guests + host (same MVP auth as **`chat`**; SPA gates toggles on **`fanToken`**). Body: **`messageId`** (**required**, non-empty, ≤ 64 chars), **`emoji`** (**required**, trimmed non-empty, ≤ 32 chars), **`reactionAction`**: **`add`** \| **`remove`** (not the route **`action`** field). No Dynamo persistence. |
 | **`signaling`** | WebRTC relay to peers (`**envelope`** JSON). | **Host:** publisher **`JWT`** on **`$connect`**. **Guest:** only **`guestSignaling`** with **`kind`** **`ready`**, **`answer`**, or **`ice`** (see below). |
 
@@ -40,6 +40,7 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
   "sessionId": "<sender>",
   "displayName": "…",
   "text": "…",
+  "messageId": "<client uuid>",
   "ts": 0,
   "avatarUrl": "https://…"
 }
@@ -49,7 +50,9 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 
 **`avatarUrl`** (optional): HTTPS URL read from **FanProfiles** for the sender’s **`fanSub`** when **`$connect`** stored one. Omitted when the fan has no avatar or connected as a guest. Inbound **`chat`** bodies MUST NOT supply **`avatarUrl`**; the server ignores client-supplied image URLs.
 
-Outbound **`chat`** / **`chat_gif`** will include a stable **`messageId`** per line in **[#31](https://github.com/StacksOnTheRacks/riffsync/issues/31)**; the **`react`** route echoes the client-supplied **`messageId`** and does not verify that the message exists server-side.
+Inbound **`chat`** now requires a client-generated **`messageId`** UUID, and outbound **`chat`** / **`chat_gif`** fan-out includes the same stable **`messageId`** per line in **[#31](https://github.com/StacksOnTheRacks/riffsync/issues/31)**.
+
+For compatibility during rollout, treat **`messageId`** as required for new clients. Older clients that do not send a UUID will receive **`400`** from the **`chat`** route.
 
 ### Chat reaction (ephemeral fan-out)
 
@@ -146,4 +149,4 @@ Clients MAY include on **`envelope`**:
 
 When **`protocolVersion`** is absent or **`shareGeneration`** is missing / `0`, peers treat the message as **legacy** and apply only pre-v1 behavior.
 
-**`chat`** payloads are unchanged (**`Date.now()`** server timestamp).
+**`chat`** payloads include client-provided **`messageId`** plus server **`Date.now()`** timestamp.
