@@ -17,7 +17,7 @@ On **`$connect`**, the server stores **`expiresAt`** on the connections row (**a
 
 ## Route selection (`$request.body.action`)
 
-Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, `signaling`, **`share_state`**, **`leave`**). **`$default`** maps **`body.action`** when the route selector misses.
+Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, **`react`**, `signaling`, **`share_state`**, **`leave`**). **`$default`** maps **`body.action`** when the route selector misses.
 
 | **`action`** | Purpose | Auth |
 | --- | --- | --- |
@@ -26,6 +26,7 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 | **`leave`** | Best-effort client goodbye — deletes this **`connectionId`** from the connections table and fan-outs **`presence`** (same pattern as **`$disconnect`**). Clients may send on **`pagehide`** when teardown is uncertain; safe if the row is already gone. | **Guest OK** once connected. |
 | **`share_state`** | Host announces screen-share lifecycle so guests can reset the guest **video** surface without inferring teardown only from WebRTC. Body: **`state`**: **`started`** \| **`stopped`**; optional **`shareGeneration`** (non-negative int, matches v1 signaling generations). | **Host (publisher JWT)** only. Fan-out shape below. |
 | **`chat`** | Fan-out text to sockets in **`roomId`**. | Guests + host. Body: **`text`** (**required**, ≤ 2000 chars). |
+| **`react`** | Fan-out ephemeral emoji reaction toggle on a chat line. | Guests + host (same MVP auth as **`chat`**; SPA gates toggles on **`fanToken`**). Body: **`messageId`** (**required**, non-empty, ≤ 64 chars), **`emoji`** (**required**, trimmed non-empty, ≤ 32 chars), **`reactionAction`**: **`add`** \| **`remove`** (not the route **`action`** field). No Dynamo persistence. |
 | **`signaling`** | WebRTC relay to peers (`**envelope`** JSON). | **Host:** publisher **`JWT`** on **`$connect`**. **Guest:** only **`guestSignaling`** with **`kind`** **`ready`**, **`answer`**, or **`ice`** (see below). |
 
 ## Server → client fan-out (`PostToConnection`)
@@ -47,6 +48,27 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 **`displayName`** matches the sender’s connections-row label (same rules as roster: optional nickname from **`$connect`**, else **`Guest (sessionId-prefix…)`**).
 
 **`avatarUrl`** (optional): HTTPS URL read from **FanProfiles** for the sender’s **`fanSub`** when **`$connect`** stored one. Omitted when the fan has no avatar or connected as a guest. Inbound **`chat`** bodies MUST NOT supply **`avatarUrl`**; the server ignores client-supplied image URLs.
+
+Outbound **`chat`** / **`chat_gif`** will include a stable **`messageId`** per line in **[#31](https://github.com/StacksOnTheRacks/riffsync/issues/31)**; the **`react`** route echoes the client-supplied **`messageId`** and does not verify that the message exists server-side.
+
+### Chat reaction (ephemeral fan-out)
+
+Broadcast to **every** connection in **`roomId`** when a client sends **`react`**. Reactions are **not** stored in Dynamo.
+
+```json
+{
+  "type": "chat_reaction",
+  "roomId": "<id>",
+  "messageId": "<client uuid>",
+  "emoji": "👍",
+  "action": "add",
+  "sessionId": "<sender>",
+  "displayName": "…",
+  "ts": 0
+}
+```
+
+**`displayName`** uses the same rules as **`chat`** (connections-row nickname from **`$connect`**, else **`Guest (…)`**). **`action`** is **`add`** or **`remove`** (from inbound **`reactionAction`**).
 
 ### Presence (roster snapshot)
 

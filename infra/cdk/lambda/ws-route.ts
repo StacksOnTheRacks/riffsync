@@ -229,6 +229,37 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     return { statusCode: 200, body: 'OK' };
   }
 
+  if (routeKey === 'react') {
+    const messageId = typeof body.messageId === 'string' ? body.messageId.trim() : '';
+    if (messageId === '' || messageId.length > 64) {
+      return { statusCode: 400, body: 'messageId required, max 64 chars' };
+    }
+    const emoji = typeof body.emoji === 'string' ? body.emoji.trim() : '';
+    if (emoji === '' || emoji.length > 32) {
+      return { statusCode: 400, body: 'emoji required, max 32 chars' };
+    }
+    const reactionAction = body.reactionAction;
+    if (reactionAction !== 'add' && reactionAction !== 'remove') {
+      return { statusCode: 400, body: 'reactionAction must be add or remove' };
+    }
+    const mgmt = wsManagementClient();
+    const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
+    const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
+    const out: Record<string, unknown> = {
+      type: 'chat_reaction',
+      roomId,
+      messageId,
+      emoji,
+      action: reactionAction,
+      sessionId,
+      displayName,
+      ts: Date.now(),
+    };
+    const buf = encoder.encode(JSON.stringify(out));
+    await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
+    return { statusCode: 200, body: 'OK' };
+  }
+
   if (routeKey === 'signaling') {
     const envelope = body.envelope;
     if (envelope === undefined) {
