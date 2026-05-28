@@ -46,6 +46,12 @@ import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/m
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatEmojiPicker } from '../room/ChatEmojiPicker'
+import { ChatReactionsStrip } from '../room/ChatReactionsStrip'
+import {
+  applyChatReactionEvent,
+  canAcceptReactionAdd,
+  type ReactionsByMessage,
+} from '../room/chatReactions'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 
 const DISPLAY_TITLE_MAX_LEN = 120
@@ -55,6 +61,7 @@ const SFU_RELAY_URL_MISSING_MSG =
   'Video relay URL is missing. Fix: (1) Redeploy RiffSyncApi-prod so POST /v1/webrtc/sfu-token returns wsUrl (from CDK context / signaling hostname). (2) Or set VITE_PUBLIC_SFU_WS_URL in the environment when you run npm run build (Vite bakes it in then, not from S3 at runtime). For https fan sites use wss via CDK context sfuPublicWsUrl or the same Vite variable.'
 
 type ChatMsg = {
+  messageId?: string
   sessionId: string
   text: string
   ts: number
@@ -122,6 +129,7 @@ export function RoomPage() {
   const [roomErr, setRoomErr] = useState<string | null>(null)
   const [catalogEp, setCatalogEp] = useState<CatalogEpisode | null>(null)
   const [chat, setChat] = useState<ChatMsg[]>([])
+  const [chatReactions, setChatReactions] = useState<ReactionsByMessage>({})
   const [chatDraft, setChatDraft] = useState('')
   const [patchErr, setPatchErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
@@ -505,16 +513,41 @@ export function RoomPage() {
         const ts = typeof data.ts === 'number' ? data.ts : Date.now()
         const dn = typeof data.displayName === 'string' ? data.displayName : undefined
         const avatarUrl = parseInboundAvatarUrl(data.avatarUrl)
+        const rawMessageId = typeof data.messageId === 'string' ? data.messageId.trim() : ''
+        const messageId = rawMessageId !== '' && rawMessageId.length <= 64 ? rawMessageId : undefined
         setChat((prev) => [
           ...prev,
           {
             sessionId: data.sessionId as string,
             text: String(data.text),
             ts,
+            ...(messageId !== undefined ? { messageId } : {}),
             ...(dn !== undefined && dn !== '' ? { displayName: dn } : {}),
             ...(avatarUrl !== undefined ? { avatarUrl } : {}),
           },
         ])
+        return
+      }
+      if (
+        t === 'chat_reaction' &&
+        typeof data.messageId === 'string' &&
+        typeof data.emoji === 'string' &&
+        (data.action === 'add' || data.action === 'remove') &&
+        typeof data.sessionId === 'string'
+      ) {
+        const messageId = data.messageId.trim()
+        const emoji = data.emoji.trim()
+        if (messageId === '' || emoji === '') return
+        setChatReactions((prev) =>
+          applyChatReactionEvent(
+            prev,
+            messageId,
+            emoji,
+            data.action as 'add' | 'remove',
+            data.sessionId as string,
+            sessionId,
+          ),
+        )
         return
       }
       if (t === 'presence' && typeof data.roomId === 'string') {
@@ -605,7 +638,15 @@ export function RoomPage() {
         .catch(() => undefined)
       return
     },
-    [captureStream, getIceServers, guestSignalingRefs, isPublisher, canonicalRoomId, sessionId, sfuEnabled],
+    [
+      captureStream,
+      getIceServers,
+      guestSignalingRefs,
+      isPublisher,
+      canonicalRoomId,
+      sessionId,
+      sfuEnabled,
+    ],
   )
 
   const { status: wsStatus, sendJson: wsSendJson } = useRoomWebSocket({
@@ -1016,6 +1057,32 @@ export function RoomPage() {
     setChatDraft('')
   }
 
+  const sendChatReaction = useCallback(
+    (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => {
+      if (!fanToken) return
+      const trimmedEmoji = emoji.trim()
+      if (trimmedEmoji === '') return
+      if (reactionAction === 'add') {
+        const chips = chatReactions[messageId] ?? {}
+        if (!canAcceptReactionAdd(chips, trimmedEmoji)) return
+      }
+      sendJson({
+        action: 'react',
+        messageId,
+        emoji: trimmedEmoji,
+        reactionAction,
+      })
+    },
+    [fanToken, chatReactions, sendJson],
+  )
+
+  const toggleChatReaction = useCallback(
+    (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => {
+      sendChatReaction(messageId, emoji, reactionAction)
+    },
+    [sendChatReaction],
+  )
+
   const saveProfileDisplayName = () => {
     if (!fanToken) return
     const trimmed = profileDraft.trim().slice(0, FAN_DISPLAY_NAME_MAX_LEN)
@@ -1357,17 +1424,31 @@ export function RoomPage() {
                         sessionId,
                         myAvatarUrl,
                       )
+                      const rowKey =
+                        m.messageId ?? `${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`
+                      const reactionChips =
+                        m.messageId !== undefined ? (chatReactions[m.messageId] ?? {}) : {}
                       return (
-                        <li key={`${m.sessionId}:${m.ts}:${m.text.slice(0, 12)}`}>
-                          <span className="riffsync-room-chat-log__who">
-                            <FanAvatarThumb
-                              displayName={chatDisplayName}
-                              avatarUrl={chatAvatarUrl}
+                        <li key={rowKey} className="riffsync-room-chat-log__row">
+                          <div className="riffsync-room-chat-log__line">
+                            <span className="riffsync-room-chat-log__who">
+                              <FanAvatarThumb
+                                displayName={chatDisplayName}
+                                avatarUrl={chatAvatarUrl}
+                              />
+                              <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
+                            </span>
+                            {': '}
+                            {m.text}
+                          </div>
+                          {m.messageId !== undefined ? (
+                            <ChatReactionsStrip
+                              messageId={m.messageId}
+                              chips={reactionChips}
+                              canReact={Boolean(fanToken)}
+                              onToggleReaction={toggleChatReaction}
                             />
-                            <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
-                          </span>
-                          {': '}
-                          {m.text}
+                          ) : null}
                         </li>
                       )
                     })}
