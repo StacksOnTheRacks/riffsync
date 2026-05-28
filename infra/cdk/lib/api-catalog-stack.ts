@@ -574,7 +574,7 @@ export class ApiCatalogStack extends cdk.Stack {
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
-      description: `RiffSync WebSocket (${environment}) — ping, presence_request, chat, react, signaling, share_state, leave`,
+      description: `RiffSync WebSocket (${environment}) — ping, presence_request, chat, chat_gif, react, signaling, share_state, leave`,
       routeSelectionExpression: '$request.body.action',
     });
 
@@ -662,6 +662,7 @@ export class ApiCatalogStack extends cdk.Stack {
       'ping',
       'presence_request',
       'chat',
+      'chat_gif',
       'react',
       'signaling',
       'share_state',

@@ -11,6 +11,7 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { TextEncoder } from 'node:util';
+import { isHttpsGiphyCdnUrl } from './giphy-search-shared';
 import { lobbySortKey, LOBBY_PARTITION } from './room-shared';
 import {
   broadcastRoomPresence,
@@ -28,6 +29,16 @@ const UUID_MESSAGE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9
 
 export function isUuidMessageId(value: string): boolean {
   return UUID_MESSAGE_ID_RE.test(value);
+}
+
+const CHAT_GIF_TITLE_MAX = 200;
+const CHAT_GIF_DIMENSION_MAX = 4096;
+
+function parseOptionalChatGifDimension(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0 || value > CHAT_GIF_DIMENSION_MAX) {
+    return undefined;
+  }
+  return value;
 }
 
 function summarizeCaughtErr(err: unknown): { errorType: string; errorMessage: string } {
@@ -231,6 +242,75 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       messageId,
       ts: Date.now(),
     };
+    if (avatarUrl) {
+      out.avatarUrl = avatarUrl;
+    }
+    const buf = encoder.encode(JSON.stringify(out));
+    await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  if (routeKey === 'chat_gif') {
+    const fanSub = typeof conn.fanSub === 'string' ? conn.fanSub.trim() : '';
+    if (fanSub === '') {
+      return { statusCode: 403, body: 'Fan JWT required for chat_gif' };
+    }
+    const messageId = typeof body.messageId === 'string' ? body.messageId.trim() : '';
+    if (!isUuidMessageId(messageId)) {
+      return { statusCode: 400, body: 'messageId must be a valid UUID' };
+    }
+    const giphyId = typeof body.giphyId === 'string' ? body.giphyId.trim() : '';
+    if (giphyId === '') {
+      return { statusCode: 400, body: 'giphyId required' };
+    }
+    const renditionUrl = typeof body.renditionUrl === 'string' ? body.renditionUrl.trim() : '';
+    if (renditionUrl === '' || !isHttpsGiphyCdnUrl(renditionUrl)) {
+      return { statusCode: 400, body: 'renditionUrl must be HTTPS Giphy CDN URL' };
+    }
+    let title: string | undefined;
+    if (body.title !== undefined) {
+      if (typeof body.title !== 'string') {
+        return { statusCode: 400, body: 'title must be a string' };
+      }
+      const trimmed = body.title.trim();
+      if (trimmed.length > CHAT_GIF_TITLE_MAX) {
+        return { statusCode: 400, body: `title max ${CHAT_GIF_TITLE_MAX} chars` };
+      }
+      if (trimmed !== '') {
+        title = trimmed;
+      }
+    }
+    const width = parseOptionalChatGifDimension(body.width);
+    if (body.width !== undefined && width === undefined) {
+      return { statusCode: 400, body: 'width must be a positive integer' };
+    }
+    const height = parseOptionalChatGifDimension(body.height);
+    if (body.height !== undefined && height === undefined) {
+      return { statusCode: 400, body: 'height must be a positive integer' };
+    }
+    const mgmt = wsManagementClient();
+    const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
+    const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
+    const avatarUrl = await resolveChatOutboundAvatarUrl(doc, process.env.FAN_PROFILES_TABLE_NAME, fanSub);
+    const out: Record<string, unknown> = {
+      type: 'chat_gif',
+      roomId,
+      sessionId,
+      displayName,
+      messageId,
+      giphyId,
+      renditionUrl,
+      ts: Date.now(),
+    };
+    if (title !== undefined) {
+      out.title = title;
+    }
+    if (width !== undefined) {
+      out.width = width;
+    }
+    if (height !== undefined) {
+      out.height = height;
+    }
     if (avatarUrl) {
       out.avatarUrl = avatarUrl;
     }
