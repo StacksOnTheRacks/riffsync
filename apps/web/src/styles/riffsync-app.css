@@ -1259,6 +1259,9 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.4;
+  --chat-avatar-size: 28px;
+  --chat-avatar-gap: 0.35rem;
+  --chat-message-indent: calc(var(--chat-avatar-size) + var(--chat-avatar-gap));
 }
 
 .riffsync-room-chat-compose {
@@ -1460,9 +1463,9 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-chat-log__gif-who {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--chat-avatar-gap);
   max-width: min(100%, 14rem);
 }
 
@@ -1471,10 +1474,15 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   max-width: min(240px, 100%);
   height: auto;
   border-radius: 6px;
+  margin-left: var(--chat-message-indent);
 }
 
 .riffsync-room-page__chat .riffsync-room-chat-log li + li {
   margin-top: 0.35rem;
+}
+
+.riffsync-room-page__chat .riffsync-room-chat-log li + li.riffsync-room-chat-log__row--continued {
+  margin-top: 0.1rem;
 }
 
 .riffsync-room-chat-log__row {
@@ -1484,7 +1492,36 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-chat-log__line {
+  display: grid;
+  grid-template-columns: var(--chat-avatar-size) 1fr;
+  column-gap: var(--chat-avatar-gap);
+  row-gap: 0.1rem;
   word-break: break-word;
+}
+
+.riffsync-room-chat-log__avatar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+}
+
+.riffsync-room-chat-log__who-name {
+  grid-column: 2;
+  grid-row: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.riffsync-room-chat-log__body {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.riffsync-room-chat-log__row--continued .riffsync-room-chat-log__line {
+  display: block;
+  padding-left: var(--chat-message-indent);
 }
 
 .riffsync-room-chat-reactions {
@@ -1492,7 +1529,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
-  padding-left: 0.15rem;
+  padding-left: var(--chat-message-indent);
 }
 
 .riffsync-room-chat-reaction-chip {
@@ -1541,21 +1578,6 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-room-chat-reaction-popover {
   left: 0;
   right: auto;
-}
-
-.riffsync-room-chat-log__who {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  max-width: min(100%, 14rem);
-  vertical-align: top;
-}
-
-.riffsync-room-chat-log__who-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
 }
 
 .riffsync-fan-avatar-thumb {
