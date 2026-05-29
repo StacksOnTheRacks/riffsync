@@ -46,6 +46,7 @@ import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/m
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatEmojiPicker } from '../room/ChatEmojiPicker'
+import { isEmojiOnlyChatMessage } from '../room/chatEmojiDisplay'
 import { ChatGiphyPicker } from '../room/ChatGiphyPicker'
 import type { GiphySearchResult } from '../api/giphySearchApi'
 import { parseInboundChatGifMessage } from '../room/chatGifMessage'
@@ -1511,7 +1512,11 @@ export function RoomPage() {
                               ) : (
                                 <span className="sr-only">{chatDisplayName}: </span>
                               )}
-                              <div className="riffsync-room-chat-log__body">{m.text}</div>
+                              <div
+                                className={`riffsync-room-chat-log__body${isEmojiOnlyChatMessage(m.text) ? ' riffsync-room-chat-log__body--emoji-only' : ''}`}
+                              >
+                                {m.text}
+                              </div>
                             </div>
                           )}
                           <ChatReactionsStrip
