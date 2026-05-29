@@ -41,6 +41,20 @@ function parseOptionalChatGifDimension(value: unknown): number | undefined {
   return value;
 }
 
+function fanSubFromConn(conn: Record<string, unknown>): string {
+  return typeof conn.fanSub === 'string' ? conn.fanSub.trim() : '';
+}
+
+function requireFanSub(
+  conn: Record<string, unknown>,
+  routeLabel: string,
+): APIGatewayProxyResultV2 | null {
+  if (fanSubFromConn(conn) === '') {
+    return { statusCode: 403, body: `Fan JWT required for ${routeLabel}` };
+  }
+  return null;
+}
+
 function summarizeCaughtErr(err: unknown): { errorType: string; errorMessage: string } {
   if (typeof err !== 'object' || err === null) {
     return { errorType: typeof err, errorMessage: String(err) };
@@ -220,6 +234,10 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
   }
 
   if (routeKey === 'chat') {
+    const fanSubDenied = requireFanSub(conn, 'chat');
+    if (fanSubDenied) {
+      return fanSubDenied;
+    }
     const text = typeof body.text === 'string' ? body.text.trim() : '';
     if (text === '' || text.length > 2000) {
       return { statusCode: 400, body: 'text required, max 2000 chars' };
@@ -231,7 +249,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     const mgmt = wsManagementClient();
     const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
     const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
-    const fanSub = typeof conn.fanSub === 'string' && conn.fanSub.length > 0 ? conn.fanSub : undefined;
+    const fanSub = fanSubFromConn(conn);
     const avatarUrl = await resolveChatOutboundAvatarUrl(doc, process.env.FAN_PROFILES_TABLE_NAME, fanSub);
     const out: Record<string, unknown> = {
       type: 'chat',
@@ -251,10 +269,11 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
   }
 
   if (routeKey === 'chat_gif') {
-    const fanSub = typeof conn.fanSub === 'string' ? conn.fanSub.trim() : '';
-    if (fanSub === '') {
-      return { statusCode: 403, body: 'Fan JWT required for chat_gif' };
+    const fanSubDenied = requireFanSub(conn, 'chat_gif');
+    if (fanSubDenied) {
+      return fanSubDenied;
     }
+    const fanSub = fanSubFromConn(conn);
     const messageId = typeof body.messageId === 'string' ? body.messageId.trim() : '';
     if (!isUuidMessageId(messageId)) {
       return { statusCode: 400, body: 'messageId must be a valid UUID' };
@@ -320,6 +339,10 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
   }
 
   if (routeKey === 'react') {
+    const fanSubDenied = requireFanSub(conn, 'react');
+    if (fanSubDenied) {
+      return fanSubDenied;
+    }
     const messageId = typeof body.messageId === 'string' ? body.messageId.trim() : '';
     if (messageId === '' || messageId.length > 64) {
       return { statusCode: 400, body: 'messageId required, max 64 chars' };
