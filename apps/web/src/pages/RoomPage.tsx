@@ -1539,14 +1539,14 @@ export function RoomPage() {
                       className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
                     >
                       {fanToken ? (
-                        <>
+                        <div className="riffsync-room-chat-compose-actions">
                           <ChatEmojiPicker
                             draft={chatDraft}
                             onDraftChange={setChatDraft}
                             inputRef={chatInputRef}
                           />
                           <ChatGiphyPicker accessToken={fanToken} onSelect={sendChatGif} />
-                        </>
+                        </div>
                       ) : null}
                       <input
                         ref={chatInputRef}
