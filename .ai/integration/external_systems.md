@@ -21,7 +21,7 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 
 | Use | Mechanism | Contract |
 | --- | --- | --- |
-| **GIF search & post** | Server-side **Giphy API** via **`GET /v1/giphy/search`** (JWT); chat posts reference **Giphy-hosted** rendition URLs in **`chat_gif`** WebSocket payloads. | **No** Giphy API key in browser; honor **Giphy ToS** and attribution requirements. **No** user-uploaded GIF files to RiffSync storage in this slice. |
+| **GIF search & post** | Server-side **Giphy API** via **`GET /v1/giphy/search`** (JWT); chat posts reference **Giphy-hosted** rendition URLs in **`chat_gif`** WebSocket payloads. | **No** Giphy API key in browser; honor **Giphy ToS** and attribution requirements. **No** user-uploaded GIF files to RiffSync storage in this slice. **Operator runbook:** [`docs/operations/giphy.md`](../../docs/operations/giphy.md). |
 
 ## Meta (Facebook) — optional
 
