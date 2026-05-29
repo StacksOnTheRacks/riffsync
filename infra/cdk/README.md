@@ -39,6 +39,16 @@ The CDK app **no longer defines** `RiffSyncFanAuth-staging`, `RiffSyncApi-stagin
 
 **Smoke (prod):** after secret + seed, **`aws lambda invoke --function-name <TmdbReconcileFnName> /tmp/out.json`** then read **`GET /v1/catalog`** — enriched fields appear without SPA changes.
 
+### Giphy API key (GIF search)
+
+| Resource | Notes |
+| --- | --- |
+| **Secret** | **`riffsync/prod/giphy-api-key`** (CDK name `riffsync/${environment}/giphy-api-key`). Template seeds **`REPLACE_WITH_GIPHY_API_KEY`**; set a real key via **[Giphy Developers](https://developers.giphy.com/docs/api/)** and **`aws secretsmanager put-secret-value --secret-id riffsync/prod/giphy-api-key --secret-string 'YOUR_KEY'`** (JSON `{"apiKey":"…"}` or plain string also accepted). **Never** commit keys. **Rotation:** update the secret; next **`GET /v1/giphy/search`** picks it up. |
+| **Lambda** | **`GiphySearchFn`** only — **`secretsmanager:GetSecretValue`** on this secret; Dynamo rate-limit table for per-**`sub`** limits. |
+| **Route** | **`GET /v1/giphy/search`** — fan Cognito JWT required. |
+
+**Operator runbook (ToS, attribution, smoke):** [`../../docs/operations/giphy.md`](../../docs/operations/giphy.md).
+
 **Deploy IAM:** GitHub OIDC role needs **EventBridge** / **Secrets Manager** (plus existing Lambda/Dynamo) for this stack — extend operator policy when **`cdk deploy`** fails on missing permissions.
 
 **Deferred (follow-up):** optional same-run **`youtubeThumbnailUrl`** **`HEAD`** cascade (**`architecture.catalog-images.md`**) — not in this MVP; track in a new issue if desired.

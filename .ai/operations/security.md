@@ -18,7 +18,7 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | **PII (optional Cognito)** | Minimize retention in logs; **mask** in admin roster UI by default per **`architecture.admin.md`**. |
 | **Chat** | **Ephemeral** over WebSocket only—**no Dynamo persistence** of message body, reactions, or GIF posts (moderation is **rate limits** + **disconnect**; see **`api_contracts.md`**). |
 | **Fan avatars** | **S3** objects with **public HTTPS** URLs; validate upload size/MIME server-side; **no** chat or GIF bytes in Dynamo. |
-| **Giphy** | API key in **Secrets Manager** only; proxy search is JWT-gated and rate limited. |
+| **Giphy** | API key in **Secrets Manager** only; proxy search is JWT-gated and rate limited. **Operator runbook:** [`docs/operations/giphy.md`](../../docs/operations/giphy.md). |
 
 ## Service expectations (OSS / cost)
 
@@ -31,7 +31,7 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 
 | Topic | Contract |
 | --- | --- |
-| **Third-party ToS** | YouTube embed + TMDB attribution + **Giphy** usage + Meta login rules documented for operators. |
+| **Third-party ToS** | YouTube embed + TMDB attribution + **Giphy** usage + Meta login rules documented for operators (**Giphy:** [`docs/operations/giphy.md`](../../docs/operations/giphy.md)). |
 
 ## Primary code pointers (optional)
 
