@@ -36,7 +36,7 @@ export function useRoomWebSocket(options: {
   const [status, setStatus] = useState<WsStatus>('idle')
   const onMessageRef = useRef(onMessage)
 
-  /** `accessToken` is in the connect effect deps on purpose — when Cognito rotates the JWT the socket reconnects as publisher. */
+  /** `accessToken` is in the connect effect deps on purpose — when Cognito rotates the JWT the socket reconnects with the new token. */
 
   useEffect(() => {
     onMessageRef.current = onMessage
@@ -109,7 +109,7 @@ export function useRoomWebSocket(options: {
         webrtcLog('ws opening', {
           urlChars: wsUrlBase.length,
           hasAccessToken: Boolean(accessToken),
-          socketRole: accessToken ? 'publisher (JWT on query)' : 'guest/anonymous (expected)',
+          socketRole: accessToken ? 'signed-in (JWT on query)' : 'guest/anonymous (expected)',
         })
       }
       let ws: WebSocket

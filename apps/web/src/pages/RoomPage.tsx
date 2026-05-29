@@ -682,7 +682,7 @@ export function RoomPage() {
     roomId: canonicalRoomId,
     sessionId,
     displayName,
-    accessToken: isPublisher ? fanToken : null,
+    accessToken: fanToken,
     enabled: Boolean(wsBase && canonicalRoomId && room),
     onMessage: onWsMessage,
   })
