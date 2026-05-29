@@ -956,7 +956,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   border: 1px solid rgb(255 255 255 / 0.08);
   background: rgb(7 10 14 / 0.72);
   backdrop-filter: blur(8px);
-  overflow: hidden;
+  /* Popovers above compose open upward; overflow:hidden on this box clipped them. */
+  overflow: visible;
 }
 
 @media (max-width: 991px) {
@@ -1208,6 +1209,10 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   overflow: hidden;
 }
 
+.riffsync-room-page__tab-panel--chat {
+  overflow: visible;
+}
+
 .riffsync-room-page__tab-panel--chat .riffsync-room-chat-log {
   flex: 1 1 auto;
   min-height: 0;
@@ -1275,6 +1280,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-room-chat-compose-holder {
   position: relative;
   flex-shrink: 0;
+  z-index: 2;
 }
 
 .riffsync-room-chat-jump-latest {
@@ -1332,10 +1338,11 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   position: absolute;
   right: 0;
   bottom: calc(100% + 0.35rem);
-  z-index: 4;
+  z-index: 12;
   max-width: min(100vw - 1rem, 20rem);
   border-radius: 8px;
   overflow: hidden;
+  background: rgb(12 16 22);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.55);
   border: 1px solid rgb(255 255 255 / 0.1);
 }
@@ -1373,7 +1380,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   position: absolute;
   right: 0;
   bottom: calc(100% + 0.35rem);
-  z-index: 4;
+  z-index: 12;
   width: min(100vw - 1rem, 16.5rem);
   max-height: min(70vh, 22rem);
   display: flex;

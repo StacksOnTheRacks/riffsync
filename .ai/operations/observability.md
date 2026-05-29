@@ -18,9 +18,17 @@
 RiffSync as an OSS project does **not** publish **uptime SLAs** or incident **SLO** figures—**cost and volunteer bandwidth** come first. Deployers set their own alarm **severity** and **PagerDuty** (if any).
 
 
+## Fan-facing realtime and API (M10)
+
+| Namespace | Routes (dimension **`Route`**) | Notes |
+| --- | --- | --- |
+| **`RiffSync/Realtime`** | **`chat`**, **`chat_gif`**, **`react`** | EMF via Lambda **stdout**; dimensions **`Environment`**, **`Route`**, **`Outcome`** only. |
+| **`RiffSync/Api`** | **`GiphySearch`**, **`FanAvatarUpload`** | Same dimension set; no raw chat text or upload bytes in **INFO** logs (**`security.md`**). |
+
 ## Anti-patterns
 
-- High-cardinality dimensions (**`roomId`**, **`userId`**) on **PutMetricData**.
+- High-cardinality dimensions (**`roomId`**, **`userId`**, **`giphyId`**, **`sub`**) on **PutMetricData** or EMF dimensions.
+- Logging message **`text`**, GIF rendition URLs, or multipart avatar bytes at **INFO** in production.
 - Relying on **admin HTTP** as the only reporting path for core KPIs.
 
 ## Primary code pointers (optional)
