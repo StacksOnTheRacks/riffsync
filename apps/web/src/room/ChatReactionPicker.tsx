@@ -80,7 +80,7 @@ export function ChatReactionPicker({ onEmojiSelected }: ChatReactionPickerProps)
       {open ? (
         <div
           id={popoverId}
-          className="riffsync-room-chat-emoji-popover riffsync-room-chat-reaction-popover"
+          className="riffsync-room-chat-emoji-popover"
           role="dialog"
           aria-label="Reaction emoji picker"
         >

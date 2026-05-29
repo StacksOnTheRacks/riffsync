@@ -1351,7 +1351,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 .riffsync-room-chat-emoji-popover {
   position: absolute;
-  right: 0;
+  left: 0;
+  right: auto;
   bottom: calc(100% + 0.35rem);
   z-index: 12;
   max-width: min(100vw - 1rem, 20rem);
@@ -1390,7 +1391,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 .riffsync-room-chat-giphy-popover {
   position: absolute;
-  right: 0;
+  left: 0;
+  right: auto;
   bottom: calc(100% + 0.35rem);
   z-index: 12;
   width: min(100vw - 1rem, 16.5rem);
@@ -1592,11 +1594,6 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   line-height: 1.1;
   font-size: 0.85rem;
   border-radius: 999px;
-}
-
-.riffsync-room-chat-reaction-popover {
-  left: 0;
-  right: auto;
 }
 
 .riffsync-fan-avatar-thumb {
