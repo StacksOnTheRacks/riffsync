@@ -1,6 +1,7 @@
 import { Outlet, useMatch, useSearchParams } from 'react-router-dom'
 import { SiteHeader } from '../components/site/SiteHeader'
 import { SiteFooter } from '../components/site/SiteFooter'
+import { RoomChromeProvider } from '../room/RoomChromeContext'
 
 export function SiteLayout() {
   const roomMatch = useMatch({ path: '/room/:roomId', end: true })
@@ -21,12 +22,14 @@ export function SiteLayout() {
   }
 
   return (
-    <div className={`riffsync-site${compactChrome ? ' riffsync-site--room' : ''}`}>
-      <SiteHeader compact={compactChrome} />
-      <main id="riffsync-main" className={`riffsync-main${compactChrome ? ' riffsync-main--room' : ''}`}>
-        <Outlet />
-      </main>
-      {!roomMatch ? <SiteFooter compact={false} /> : null}
-    </div>
+    <RoomChromeProvider>
+      <div className={`riffsync-site${compactChrome ? ' riffsync-site--room' : ''}`}>
+        <SiteHeader compact={compactChrome} />
+        <main id="riffsync-main" className={`riffsync-main${compactChrome ? ' riffsync-main--room' : ''}`}>
+          <Outlet />
+        </main>
+        {!roomMatch ? <SiteFooter compact={false} /> : null}
+      </div>
+    </RoomChromeProvider>
   )
 }

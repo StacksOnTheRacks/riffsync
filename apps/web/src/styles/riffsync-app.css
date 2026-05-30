@@ -474,9 +474,17 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 /* Room shell: cinematic backdrop matching solo watch home-style treatment */
+.riffsync-site--room {
+  min-height: 100dvh;
+}
+
 .riffsync-room-shell {
   position: relative;
   isolation: isolate;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .riffsync-room-shell--backdrop > .container.riffsync-room-page {
@@ -492,10 +500,23 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-main--room {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding-top: 0.65rem;
-  padding-bottom: 1rem;
+  padding-bottom: 0.5rem;
 }
 
+.riffsync-main--room .container.riffsync-room-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-width: none;
+  width: 100%;
+  padding-inline: clamp(0.75rem, 1.5vw, 1.25rem);
+}
 .riffsync-header--compact .riffsync-header__compact-strip.gen-bottom-header {
   padding-block: 0.35rem;
 }
@@ -508,7 +529,25 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 0.35rem 0.85rem;
+  width: 100%;
+}
+
+.riffsync-header-compact-now-playing {
+  margin: 0;
+  font-family: var(--title-fonts);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgb(237 243 251 / 0.95);
+  min-width: 0;
+}
+
+.riffsync-header-compact-now-playing-title {
+  font-weight: 500;
+  font-size: 0.86rem;
+  opacity: 0.88;
 }
 
 .riffsync-header-compact-brandline {
@@ -516,6 +555,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.65rem 0.85rem;
+  margin-left: auto;
 }
 
 .riffsync-header-compact-sub {
@@ -594,12 +634,22 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   gap: 1rem 1.25rem;
   align-items: stretch;
   grid-template-columns: 1fr;
+  flex: 1;
+  min-height: 0;
 }
 
 @media (min-width: 992px) {
   .riffsync-room-page__stage {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+    gap: 0.65rem 0.75rem;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
   }
+}
+
+.riffsync-room-page__theater {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
 }
 
 .riffsync-room-page__masthead {
@@ -674,23 +724,10 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   margin-bottom: 0;
   /* Template `section { padding: 130px 0 }` pushes the player down — room controls spacing itself */
   padding-block: 0;
-}
-
-.riffsync-room-page__sidebar-now-playing {
-  margin: 0 0 0.55rem;
-  padding: 0 0.1rem;
-  font-family: var(--title-fonts);
-  font-size: 0.92rem;
-  font-weight: 600;
-  line-height: 1.35;
-  color: rgb(237 243 251 / 0.95);
-  flex-shrink: 0;
-}
-
-.riffsync-room-page__sidebar-now-playing-muted {
-  font-weight: 500;
-  font-size: 0.86rem;
-  opacity: 0.88;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 
 /* Prominent episode / room title above the theater (watch page; formerly room page). */
@@ -818,13 +855,13 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 /*
- * Centered theater frame — narrower than solo watch (1280) so backdrop + chat read as “stage”.
+ * Theater frame fills the stage column width (sidebar sits beside on desktop).
  */
 .riffsync-room-page__player-shell {
   position: relative;
   z-index: 1;
-  width: min(960px, 100%);
-  margin-inline: auto;
+  width: 100%;
+  margin-inline: 0;
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 12px 40px rgb(0 0 0 / 42%);
@@ -969,12 +1006,13 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 @media (min-width: 992px) {
   .riffsync-room-page__chat-column {
-    max-height: calc(100dvh - 7.5rem);
     min-height: 0;
+    max-height: none;
   }
 
   .riffsync-room-page__chat {
     max-height: 100%;
+    flex: 1 1 auto;
   }
 }
 

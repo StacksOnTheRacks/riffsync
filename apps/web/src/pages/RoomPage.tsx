@@ -22,6 +22,7 @@ import { getPublicOrigin } from '../config/publicOrigin'
 import { fetchRtcIceServers } from '../config/fetchRtcIceServers'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
+import { useRoomChrome } from '../room/RoomChromeContext'
 import { flushHostPending, handleHostSignal } from '../room/sharing/hostSignaling'
 import { handleGuestSignal } from '../room/sharing/guestSignaling'
 import type { GuestSignalingRefs } from '../room/sharing/guestSignaling'
@@ -171,6 +172,7 @@ export function RoomPage() {
   const [roomSidebarTab, setRoomSidebarTab] = useState<'chat' | 'people' | 'room' | 'profile'>(
     'chat',
   )
+  const { setNowPlayingLabel } = useRoomChrome()
   const [renameModalOpen, setRenameModalOpen] = useState(false)
   const [renameModalDraft, setRenameModalDraft] = useState('')
   const [profileDraft, setProfileDraft] = useState('')
@@ -516,6 +518,20 @@ export function RoomPage() {
       document.title = prev
     }
   }, [catalogEp, room, room?.roomId, roomErr, roomId])
+
+  useEffect(() => {
+    if (!roomId || room === undefined || room === null || room.roomId !== roomId) {
+      setNowPlayingLabel(null)
+      return
+    }
+    const label =
+      room.displayTitle ??
+      (catalogEp?.id === room.catalogEpisodeId ? catalogEp.title : undefined) ??
+      room.catalogEpisodeId ??
+      null
+    setNowPlayingLabel(label)
+    return () => setNowPlayingLabel(null)
+  }, [catalogEp, room, roomId, setNowPlayingLabel])
 
   useEffect(() => {
     if (!renameModalOpen) return
@@ -1249,7 +1265,6 @@ export function RoomPage() {
     )
   }
 
-  const nowPlayingLabel = room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId
   const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
   const viewerCount = peopleShown.length
   /** Signed-out users cannot see Profile; avoid orphan tab selection without setState-in-effect. */
@@ -1404,10 +1419,6 @@ export function RoomPage() {
           </div>
 
           <aside className="riffsync-room-page__chat-column" aria-label="Room sidebar">
-            <p className="riffsync-room-page__sidebar-now-playing">
-              Now Playing:{` `}
-              <span className="riffsync-room-page__sidebar-now-playing-muted">{nowPlayingLabel}</span>
-            </p>
             <section className="riffsync-room-page__chat" aria-label="Chat and viewers">
               {!wsBase ? (
                 <p className="riffsync-room-page__ws-banner riffsync-muted" role="status">

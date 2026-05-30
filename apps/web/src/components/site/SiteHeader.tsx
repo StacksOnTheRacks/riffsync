@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
+import { useRoomChromeOptional } from '../../room/RoomChromeContext'
 
 function PrimaryNavItem({
   to,
@@ -24,6 +25,8 @@ function PrimaryNavItem({
 
 export function SiteHeader({ compact = false }: { compact?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const roomChrome = useRoomChromeOptional()
+  const nowPlayingLabel = roomChrome?.nowPlayingLabel ?? null
 
   if (compact) {
     return (
@@ -34,6 +37,12 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
         <div className="gen-bottom-header riffsync-header__compact-strip">
           <div className="container">
             <div className="riffsync-header-compact-inner">
+              {nowPlayingLabel ? (
+                <p className="riffsync-header-compact-now-playing" aria-live="polite">
+                  Now Playing:{` `}
+                  <span className="riffsync-header-compact-now-playing-title">{nowPlayingLabel}</span>
+                </p>
+              ) : null}
               <div className="riffsync-header-compact-brandline">
                 <NavLink className="riffsync-brand riffsync-brand--compact" to="/" end>
                   RiffSync
