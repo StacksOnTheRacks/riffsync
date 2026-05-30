@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import { ApiCatalogStack } from '../lib/api-catalog-stack';
 import { FanAuthStack } from '../lib/fan-auth-stack';
+import { StaffAuthStack } from '../lib/staff-auth-stack';
 import { SesInboundStack, sesInboundReceiptRulesActivated } from '../lib/ses-inbound-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
 import { MediaServerStack } from '../lib/media-server-stack';
@@ -91,6 +92,16 @@ const fanAuth = new FanAuthStack(app, 'RiffSyncFanAuth-prod', {
   },
 });
 
+const staffAuth = new StaffAuthStack(app, 'RiffSyncStaffAuth-prod', {
+  description: 'RiffSync staff Cognito (prod) — invite-only Hosted UI + admin/curator groups',
+  sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});
+staffAuth.addDependency(fanAuth);
+
 /** Stack id stays **`RiffSyncTurn`** so the existing VPC + coturn resources remain in the same CFN stack. */
 const mediaServer = new MediaServerStack(app, 'RiffSyncTurn', {
   signalingHostedZone: sfuSignalingHostedZone,
@@ -115,6 +126,7 @@ const apiCatalog = new ApiCatalogStack(app, 'RiffSyncApi-prod', {
   },
 });
 apiCatalog.addDependency(fanAuth);
+apiCatalog.addDependency(staffAuth);
 apiCatalog.addDependency(mediaServer);
 
 new StaticSiteStack(app, 'RiffSyncStatic-prod', {

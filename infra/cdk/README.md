@@ -18,6 +18,7 @@ The CDK app **no longer defines** `RiffSyncFanAuth-staging`, `RiffSyncApi-stagin
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
 | `lib/media-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **one VPC**, **coturn** (**`t3.small`**) + **mediasoup SFU** (**`t3.medium`**), two EIPs, **`riffsync/turn-static-auth-secret`**, S3 bundle deploy for **`services/riffsync-sfu`**, **`riffsync/sfu-join-hmac-secret`** (reference by name) |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
+| `lib/staff-auth-stack.ts` | **Staff** Cognito **User Pool** (invite-only) + **Hosted UI** + SPA app client (**`/admin/*`** OAuth callbacks, **`admin`** / **`curator`** groups) |
 | `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) |
 | `lambda/catalog-*.ts` | Catalog read handlers (**`Scan`** / **`GetItem`**) |
 | `lambda/room-*.ts` | **`POST/PATCH`** room + **`GET`** lobby/read (**`authorization.md`**) |
@@ -230,7 +231,7 @@ Advanced overrides (**`stunServersJson`**, etc.) use CDK context keys in **`api-
 
 ### Fan Cognito Hosted UI (M5+)
 
-Hosted stack **`RiffSyncFanAuth-prod`** provisions a **fan-only** pool suitable for **`POST /v1/rooms`** and room-admin JWTs per **`.ai/integration/authorization.md`** (stable **`sub`** for **`hostSub`**). **Staff** `/v1/admin/*` pool remains a **separate** future stack.
+Hosted stack **`RiffSyncFanAuth-prod`** provisions a **fan-only** pool suitable for **`POST /v1/rooms`** and room-admin JWTs per **`.ai/integration/authorization.md`** (stable **`sub`** for **`hostSub`**). **Staff** **`/v1/admin/*`** uses a **separate** pool in **`RiffSyncStaffAuth-prod`** (see **Staff Cognito Hosted UI** below).
 
 | Decision | Choice |
 | --- | --- |
@@ -257,6 +258,45 @@ Hosted stack **`RiffSyncFanAuth-prod`** provisions a **fan-only** pool suitable 
 **Smoke (prod pool):** build the **`/oauth2/authorize`** link with **PKCE** (response_type **`code`**, client_id **`FanUserPoolClientId`**, redirect_uri **must** match an allowlisted SPA URL, scope **`openid email profile`** — **omit** **`identity_provider`** so Hosted UI shows the pool sign-in / sign-up pages). Complete sign-up, verify email, sign in, exchange the code at **`/oauth2/token`**, then inspect **`access_token`** (`sub` is the host id). **Do not** commit tokens.
 
 **Deploy IAM:** the OIDC deploy role needs **Cognito** create/update permissions for this stack (extend the role if **`cdk deploy`** fails on **`cognito-idp:*`**).
+
+### Staff Cognito Hosted UI (M11+)
+
+Hosted stack **`RiffSyncStaffAuth-prod`** provisions an **invite-only** operator pool distinct from **`riffsync-fan-prod`**. Synthesized **after** **`RiffSyncFanAuth-prod`** so outbound mail reuses the shared SES configuration set **`riffsync-ses-send-prod`** (no duplicate SES resources in the staff stack).
+
+| Decision | Choice |
+| --- | --- |
+| **Sign-up / sign-in** | **Hosted UI** — **`selfSignUpEnabled: false`** (console invite only). First operator account is a **manual console invite** ([#67](https://github.com/StacksOnTheRacks/riffsync/issues/67)); **no** IaC bootstrap user in this stack. |
+| **Outbound sending events** | Reuses **`riffsync-ses-send-prod`** from **`RiffSyncFanAuth-prod`** (**`UserPoolEmail.withSES`**). |
+| **Transactional email** | Same SES identity defaults as fan (**`riffsync.tv`**, **`noreply@riffsync.tv`**, **`RiffSync`**) via optional **`staffAuthSes*`** context keys. |
+| **App client** | **Public** SPA client **`riffsync-staff-web-prod`**; OAuth authorization code + PKCE; **COGNITO** IdP only. |
+| **Callback / sign-out URLs** | **`https://<host>/admin/auth/callback`** and **`https://<host>/admin/login`** for prod hostnames (**`riffsync.tv`**, **`www`**, **`fanWebAlternateDomainNames`**, optional **`staffAuthOAuthExtras`**). Local dev: **`localhost:5173`**, **`127.0.0.1:5173`**, **`localhost:3000`**, **`https://localhost:5173`** with **`/admin/*`** paths. |
+| **Hosted domain prefix** | Default **`riffsync-staff-prod`**. Override: **`--context staffAuthCognitoDomainPrefix=your-prefix`**. |
+| **Groups** | **`admin`**, **`curator`** (**`CfnUserPoolGroup`**) for **`cognito:groups`** on staff JWTs. |
+| **MFA** | **`OPTIONAL`** at pool level (MVP). |
+
+**Optional CDK context** (all strings):
+
+| Context key | Purpose |
+| --- | --- |
+| **`staffAuthSesVerifiedDomain`** | SES verified domain (**default `riffsync.tv`**) |
+| **`staffAuthSesFromEmail`** | Local-part must live on that domain (**default `noreply@<domain>`**) |
+| **`staffAuthSesFromName`** | Display name (**default `RiffSync`**) |
+| **`staffAuthSesRegion`** | SES identity Region if different from stack Region |
+| **`staffAuthOAuthExtras`** | Comma-separated extra callback / logout URLs |
+| **`staffAuthCognitoDomainPrefix`** | Hosted UI domain prefix override |
+
+**Stack outputs:** **`StaffUserPoolId`**, **`StaffUserPoolArn`**, **`StaffUserPoolClientId`**, **`StaffHostedUiDomainPrefix`**, **`StaffHostedUiBaseUrl`**.
+
+**Smoke (prod pool, after deploy):**
+
+1. AWS Console → Cognito → **`riffsync-staff-prod`** exists and is **not** **`riffsync-fan-prod`**
+2. App client **`riffsync-staff-web-prod`** lists **`https://riffsync.tv/admin/auth/callback`** (and localhost admin callback URLs)
+3. Groups **`admin`** and **`curator`** visible on the pool
+4. CloudFormation outputs **`StaffUserPoolId`**, **`StaffUserPoolClientId`**, **`StaffHostedUiBaseUrl`** readable from stack **`RiffSyncStaffAuth-prod`**
+
+**Deploy IAM:** extend the OIDC deploy role with **Cognito** permissions for **`RiffSyncStaffAuth-prod`** if **`cdk deploy`** fails on **`cognito-idp:*`**.
+
+**Out of scope here:** **`ApiCatalogStack`** staff JWT authorizer ([#64](https://github.com/StacksOnTheRacks/riffsync/issues/64)), SPA staff auth modules ([#65](https://github.com/StacksOnTheRacks/riffsync/issues/65)), **`deploy-prod.yml`** ([#66](https://github.com/StacksOnTheRacks/riffsync/issues/66)).
 
 ### SES inbound → SNS (receive mail — shared)
 
@@ -319,6 +359,7 @@ Full server IAM (Lambda, API Gateway, EventBridge, DynamoDB, Cognito, Secrets Ma
 - **`RiffSyncStatic-prod` —** **CloudFront** service-managed roles for the distribution (implicit in **`AWS::CloudFront::Distribution`**).
 - **`RiffSyncApi-prod` —** **HTTP API** (**catalog**, **rooms**, **lobby**) + **WebSocket API**; **JWT** (**HTTP** + **`aws-jwt-verify`** on **`$connect`**); DynamoDB (**catalog**, **rooms**, **connections**, **fan profiles**); **fan avatars** private **S3** + **CloudFront OAC**; **`execute-api:ManageConnections`** on **this stack’s WebSocket API** only; **TMDB** reconcile (**Secrets Manager**, **EventBridge**); **`cloudwatch:PutMetricData`** optional when emitting **EMF** in **`stdout`**.
 - **`RiffSyncFanAuth-prod` —** **Cognito User Pool** + **UserPoolDomain** + **UserPoolClient** (OAuth authorization code grant for the SPA). Pool **`EmailConfiguration`** sends verification / recovery mail through **Amazon SES** (**`DEVELOPER`** / **`SourceArn`** `identity/<domain>`); verify that identity **in the deploy Region** before go-live. **SES configuration set + SNS topic** for outbound reputation events (**outputs** **`SesSendingEventsTopicArn`**, **`SesSendingConfigurationSetName`**).
+- **`RiffSyncStaffAuth-prod` —** **Invite-only** staff **Cognito User Pool** + **Hosted UI** + SPA client (**`/admin/*`** OAuth URLs); **`admin`** / **`curator`** groups; reuses **`SesSendingConfigurationSetName`** from fan auth (depends on **`RiffSyncFanAuth-prod`**).
 - **`RiffSyncSesInbound` —** shared **SNS** topic + **SES** **`ReceiptRuleSet`** / **`ReceiptRule`** + **`AwsCustomResource`** (**`ses:SetActiveReceiptRuleSet`**) + optional Route 53 **MX** when hosted-zone context aligns with **`sesInboundMailDomain`**. Deploy role needs **`ses:*`** receipt-rule APIs for your organization policies.
 
 Older milestone copy: **M1** alone only created the static stack.
