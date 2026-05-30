@@ -4,18 +4,26 @@ import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
 import { LobbyPage } from './pages/LobbyPage'
 import { RoomPage } from './pages/RoomPage'
-import { AdminShellPage } from './pages/AdminShellPage'
 import { SoloWatchPage } from './pages/SoloWatchPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { TermsOfServicePage } from './pages/TermsOfServicePage'
 import { DataRemovalRequestPage } from './pages/DataRemovalRequestPage'
 import { HowToHostWatchPartyPage } from './pages/HowToHostWatchPartyPage'
+import { StaffAuthCallbackPage } from './pages/admin/StaffAuthCallbackPage'
+import { AdminLoginPage } from './pages/admin/AdminLoginPage'
+import { AdminHomePage, StaffAdminGate } from './pages/admin/AdminHomePage'
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/admin/auth/callback" element={<StaffAuthCallbackPage />} />
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin" element={<StaffAdminGate />}>
+        <Route index element={<AdminHomePage />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Route>
       <Route element={<SiteLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/catalog" element={<CatalogPage />} />
@@ -26,7 +34,6 @@ export function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/privacy/data-removal" element={<DataRemovalRequestPage />} />
         <Route path="/room/:roomId" element={<RoomPage />} />
-        <Route path="/admin/*" element={<AdminShellPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
