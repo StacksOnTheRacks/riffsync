@@ -45,9 +45,8 @@ import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/mediasoupSfuFeature'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
-import { ChatEmojiPicker } from '../room/ChatEmojiPicker'
+import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
 import { isEmojiOnlyChatMessage } from '../room/chatEmojiDisplay'
-import { ChatGiphyPicker } from '../room/ChatGiphyPicker'
 import type { GiphySearchResult } from '../api/giphySearchApi'
 import { parseInboundChatGifMessage } from '../room/chatGifMessage'
 import { ChatReactionsStrip } from '../room/ChatReactionsStrip'
@@ -1544,14 +1543,13 @@ export function RoomPage() {
                       className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
                     >
                       {fanToken ? (
-                        <div className="riffsync-room-chat-compose-actions">
-                          <ChatEmojiPicker
-                            draft={chatDraft}
-                            onDraftChange={setChatDraft}
-                            inputRef={chatInputRef}
-                          />
-                          <ChatGiphyPicker accessToken={fanToken} onSelect={sendChatGif} />
-                        </div>
+                        <ChatComposeMediaPicker
+                          draft={chatDraft}
+                          onDraftChange={setChatDraft}
+                          inputRef={chatInputRef}
+                          accessToken={fanToken}
+                          onGifSelect={sendChatGif}
+                        />
                       ) : null}
                       <input
                         ref={chatInputRef}
@@ -1567,7 +1565,12 @@ export function RoomPage() {
                           if (e.key === 'Enter' && fanToken) sendChat()
                         }}
                       />
-                      <button type="button" className="gen-button" disabled={!fanToken} onClick={sendChat}>
+                      <button
+                        type="button"
+                        className="riffsync-room-chat-compose-send gen-button"
+                        disabled={!fanToken}
+                        onClick={sendChat}
+                      >
                         Send
                       </button>
                     </div>

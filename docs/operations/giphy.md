@@ -9,7 +9,7 @@ Deployer-facing guide for **Giphy GIF search and chat** in hosted RiffSync. Norm
 - The SPA **never** embeds a Giphy API key. Search uses the fan **Cognito JWT** only (`Authorization: Bearer …` on HTTP; fan identity on the WebSocket connection for send).
 - **Guests** are **receive-only** for GIF posts. Only **signed-in fans** can search (HTTP) and send **`chat_gif`** (WebSocket).
 
-Implementation pointers: `infra/cdk/lambda/giphy-search.ts`, `infra/cdk/lambda/giphy-search-shared.ts`, `apps/web/src/api/giphySearchApi.ts`, `apps/web/src/room/ChatGiphyPicker.tsx`.
+Implementation pointers: `infra/cdk/lambda/giphy-search.ts`, `infra/cdk/lambda/giphy-search-shared.ts`, `apps/web/src/api/giphySearchApi.ts`, `apps/web/src/room/ChatComposeMediaPicker.tsx`.
 
 ## 2. Obtain and register a Giphy API key
 
@@ -38,7 +38,7 @@ RiffSync implements baseline Giphy attribution in the compose UI. After each pro
 
 | Check | Where |
 | --- | --- |
-| **“Powered by GIPHY”** link to `https://giphy.com/` is visible whenever the GIF picker popover is open | `apps/web/src/room/ChatGiphyPicker.tsx` (`.riffsync-room-chat-giphy-attribution`) |
+| **“Powered by GIPHY”** link to `https://giphy.com/` is visible whenever the GIF picker popover is open | `apps/web/src/room/ChatGiphyPicker.tsx` (`.riffsync-room-chat-giphy-attribution` in the GIF tab of `ChatComposeMediaPicker`) |
 | Production build includes the picker shipped in [#33](https://github.com/StacksOnTheRacks/riffsync/issues/33) | Your SPA deploy (`RiffSyncStatic-prod` / CloudFront) |
 
 **Beyond RiffSync:** logo assets, placement rules, and other brand requirements are defined by **Giphy’s published brand and attribution guidelines** (links in section 2). Re-read those docs when upgrading the Giphy integration or changing picker UX.
