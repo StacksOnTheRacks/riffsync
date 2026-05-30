@@ -476,6 +476,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 /* Room shell: cinematic backdrop matching solo watch home-style treatment */
 .riffsync-site--room {
   min-height: 100dvh;
+  --riffsync-room-stage-max-height: calc(100dvh - 4.5rem);
 }
 
 .riffsync-room-shell {
@@ -642,6 +643,9 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   .riffsync-room-page__stage {
     gap: 0.65rem 0.75rem;
     grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    grid-template-rows: minmax(0, 1fr);
+    max-height: var(--riffsync-room-stage-max-height);
+    overflow: hidden;
   }
 }
 
@@ -982,6 +986,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .riffsync-room-page__chat {
@@ -1006,13 +1011,16 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 @media (min-width: 992px) {
   .riffsync-room-page__chat-column {
+    max-height: var(--riffsync-room-stage-max-height);
+    height: 100%;
     min-height: 0;
-    max-height: none;
   }
 
   .riffsync-room-page__chat {
     max-height: 100%;
+    height: 100%;
     flex: 1 1 auto;
+    min-height: 0;
   }
 }
 
@@ -1249,6 +1257,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 .riffsync-room-page__tab-panel--chat {
   overflow: visible;
+  min-height: 0;
 }
 
 .riffsync-room-page__tab-panel--chat .riffsync-room-chat-log {
