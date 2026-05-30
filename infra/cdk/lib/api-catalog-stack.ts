@@ -30,6 +30,9 @@ export interface ApiCatalogStackProps extends cdk.StackProps {
    */
   readonly fanUserPool: cognito.IUserPool;
   readonly fanUserPoolClient: cognito.IUserPoolClient;
+  /** Staff Cognito pool + SPA client for `/v1/admin/*` JWT validation (**M11**). */
+  readonly staffUserPool: cognito.IUserPool;
+  readonly staffUserPoolClient: cognito.IUserPoolClient;
   /** SES sending configuration set — Cognito + privacy-removal **`SendEmail`** emit events to SNS via this set. */
   readonly sesSendingConfigurationSetName: string;
   /**
@@ -157,6 +160,8 @@ export class ApiCatalogStack extends cdk.Stack {
       extraCorsOrigins = [],
       fanUserPool,
       fanUserPoolClient,
+      staffUserPool,
+      staffUserPoolClient,
       sesSendingConfigurationSetName,
       turnSharedSecret,
       sfuDefaultSignalingWsUrl,
@@ -352,6 +357,12 @@ export class ApiCatalogStack extends cdk.Stack {
     const fanJwtAuthorizer = new apigwv2Auth.HttpJwtAuthorizer('FanJwtAuthorizer', fanIssuer, {
       jwtAudience: [fanUserPoolClient.userPoolClientId],
       authorizerName: `riffsync-fan-${environment}`,
+    });
+
+    const staffIssuer = `https://cognito-idp.${this.region}.amazonaws.com/${staffUserPool.userPoolId}`;
+    const staffJwtAuthorizer = new apigwv2Auth.HttpJwtAuthorizer('StaffJwtAuthorizer', staffIssuer, {
+      jwtAudience: [staffUserPoolClient.userPoolClientId],
+      authorizerName: `riffsync-staff-${environment}`,
     });
 
     const jwtEnvShared = {
@@ -554,6 +565,18 @@ export class ApiCatalogStack extends cdk.Stack {
     this.giphyApiKeySecret.grantRead(giphySearchFn);
     giphyRateLimitTable.grantReadWriteData(giphySearchFn);
 
+    const adminSessionGetFn = new lambdaNodejs.NodejsFunction(this, 'AdminSessionGetFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(5),
+      memorySize: 128,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/admin-session-get.ts'),
+      handler: 'handler',
+      environment: {
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+
     const fanAvatarPostFn = new lambdaNodejs.NodejsFunction(this, 'FanAvatarPostFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(29),
@@ -726,6 +749,10 @@ export class ApiCatalogStack extends cdk.Stack {
       'GiphySearchInt',
       giphySearchFn,
     );
+    const adminSessionGetIntegration = new integrations.HttpLambdaIntegration(
+      'AdminSessionGetInt',
+      adminSessionGetFn,
+    );
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -811,6 +838,13 @@ export class ApiCatalogStack extends cdk.Stack {
       authorizer: fanJwtAuthorizer,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/admin/session',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: adminSessionGetIntegration,
+      authorizer: staffJwtAuthorizer,
+    });
+
     const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     if (httpStageL1) {
       httpStageL1.defaultRouteSettings = {
@@ -867,7 +901,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/admin/session`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {

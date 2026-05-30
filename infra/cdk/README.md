@@ -154,6 +154,12 @@ Deployed with **`RiffSyncApi-prod`** (same CloudFormation stack as catalog). Dep
 | **`GET /v1/webrtc/ice`** | Anonymous | **`iceServers`** for WebRTC (STUN + time-limited TURN when **`turnHost`** context is set — see **Self-hosted TURN**). |
 | **`POST /v1/privacy-removal-request`** | Anonymous | JSON body **`contactEmail`**, **`message`** (10–8000 chars), optional honeypot **`website`** (must be empty). Sends mail via **SES** using **`riffsync/<env>/privacy-removal-routing`** (JSON **`notifyEmail`** + SES-verified **`fromEmail`**). Uses environment SES configuration set (**`SesSendingConfigurationSetName`**) so **bounce**/**complaint**/**delivery** events publish to **`SesSendingEventsTopicArn`**. Configure **SES** identities and replace secret placeholders before relying on the SPA form. |
 
+**HTTP — staff admin** (JWT = **staff pool access token**, audience = **`StaffUserPoolClientId`**)
+
+| Route | Auth | Behavior |
+| --- | --- | --- |
+| **`GET /v1/admin/session`** | **Staff JWT required** (`401` gateway for fan/wrong pool) | Reads authorizer claims; **`403`** **`staff_group_required`** unless **`cognito:groups`** includes **`admin`** or **`curator`**. **200** body: **`sub`**, **`email`**, **`groups`**. |
+
 **WebSocket**: outputs **`WebSocketUrl`** (**`wss://…/prod`**). Contracts: **`../../docs/contracts.websocket.md`**. **`execute-api:ManageConnections`** attaches only to this stack’s WebSocket API (**`…/*/*/@connections/*`**, parameterized by **`WebSocketApiId`**), not arbitrary `*` resources.
 
 **Housekeeping:** lobby staleness uses **read-time filtering** (**US-P0-08**) — optional EventBridge TTL/sweeper deferred.
