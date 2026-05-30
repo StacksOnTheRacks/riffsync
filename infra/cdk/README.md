@@ -267,7 +267,7 @@ Hosted stack **`RiffSyncFanAuth-prod`** provisions a **fan-only** pool suitable 
 
 ### Staff Cognito Hosted UI (M11+)
 
-Hosted stack **`RiffSyncStaffAuth-prod`** provisions an **invite-only** operator pool distinct from **`riffsync-fan-prod`**. Synthesized **after** **`RiffSyncFanAuth-prod`** so outbound mail reuses the shared SES configuration set **`riffsync-ses-send-prod`** (no duplicate SES resources in the staff stack).
+Hosted stack **`RiffSyncStaffAuth-prod`** provisions an **invite-only** operator pool distinct from **`riffsync-fan-prod`**. Synthesized **after** **`RiffSyncFanAuth-prod`** so outbound mail reuses the shared SES configuration set **`riffsync-ses-send-prod`** (no duplicate SES resources in the staff stack). **First operator provisioning** (console invite, groups, smoke): [`../../docs/operations/operator-onboarding.md`](../../docs/operations/operator-onboarding.md) — not IaC.
 
 | Decision | Choice |
 | --- | --- |
