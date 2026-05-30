@@ -63,7 +63,7 @@ function baseEvent(overrides: {
   } as APIGatewayProxyWebsocketEventV2;
 }
 
-function stubConnectedRoom() {
+function stubConnectedRoom(connOverrides: Record<string, unknown> = {}) {
   mocks.docSend.mockImplementation(async (cmd: { kind?: string; input?: { TableName?: string } }) => {
     const table = cmd.input?.TableName;
     if (table === 'connections') {
@@ -73,6 +73,8 @@ function stubConnectedRoom() {
           sessionId: 'sess-1',
           presenceKey: 'sess-1#conn-abc',
           displayName: 'Fan One',
+          fanSub: 'fan-sub-1',
+          ...connOverrides,
         },
       };
     }
@@ -150,6 +152,32 @@ describe('ws-route react', () => {
     });
     const result = await handler(baseEvent({ body }), {} as never, () => undefined);
     expect(result).toEqual({ statusCode: 400, body: 'reactionAction must be add or remove' });
+    expect(mocks.postToConnections).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 without fanSub and does not fan-out', async () => {
+    stubConnectedRoom({ fanSub: undefined });
+    const body = JSON.stringify({
+      action: 'react',
+      messageId: 'msg-1',
+      emoji: '👍',
+      reactionAction: 'add',
+    });
+    const result = await handler(baseEvent({ body }), {} as never, () => undefined);
+    expect(result).toEqual({ statusCode: 403, body: 'Fan JWT required for react' });
+    expect(mocks.postToConnections).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 for blank fanSub', async () => {
+    stubConnectedRoom({ fanSub: '   ' });
+    const body = JSON.stringify({
+      action: 'react',
+      messageId: 'msg-1',
+      emoji: '👍',
+      reactionAction: 'add',
+    });
+    const result = await handler(baseEvent({ body }), {} as never, () => undefined);
+    expect(result).toEqual({ statusCode: 403, body: 'Fan JWT required for react' });
     expect(mocks.postToConnections).not.toHaveBeenCalled();
   });
 });

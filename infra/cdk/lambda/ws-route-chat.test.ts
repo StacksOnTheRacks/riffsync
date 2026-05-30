@@ -63,7 +63,7 @@ function baseEvent(overrides: {
   } as APIGatewayProxyWebsocketEventV2;
 }
 
-function stubConnectedRoom() {
+function stubConnectedRoom(connOverrides: Record<string, unknown> = {}) {
   mocks.docSend.mockImplementation(async (cmd: { kind?: string; input?: { TableName?: string } }) => {
     const table = cmd.input?.TableName;
     if (table === 'connections') {
@@ -73,6 +73,8 @@ function stubConnectedRoom() {
           sessionId: 'sess-1',
           presenceKey: 'sess-1#conn-abc',
           displayName: 'Fan One',
+          fanSub: 'fan-sub-1',
+          ...connOverrides,
         },
       };
     }
@@ -138,6 +140,30 @@ describe('ws-route chat', () => {
     const body = JSON.stringify({ action: 'chat', text: 'hello', messageId: 'not-a-uuid' });
     const result = await handler(baseEvent({ body }), {} as never, () => undefined);
     expect(result).toEqual({ statusCode: 400, body: 'messageId must be a valid UUID' });
+    expect(mocks.postToConnections).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 without fanSub and does not fan-out', async () => {
+    stubConnectedRoom({ fanSub: undefined });
+    const body = JSON.stringify({
+      action: 'chat',
+      text: 'hi',
+      messageId: '11111111-1111-4111-8111-111111111111',
+    });
+    const result = await handler(baseEvent({ body }), {} as never, () => undefined);
+    expect(result).toEqual({ statusCode: 403, body: 'Fan JWT required for chat' });
+    expect(mocks.postToConnections).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 for blank fanSub', async () => {
+    stubConnectedRoom({ fanSub: '   ' });
+    const body = JSON.stringify({
+      action: 'chat',
+      text: 'hi',
+      messageId: '11111111-1111-4111-8111-111111111111',
+    });
+    const result = await handler(baseEvent({ body }), {} as never, () => undefined);
+    expect(result).toEqual({ statusCode: 403, body: 'Fan JWT required for chat' });
     expect(mocks.postToConnections).not.toHaveBeenCalled();
   });
 });
