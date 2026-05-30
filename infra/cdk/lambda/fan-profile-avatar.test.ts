@@ -133,6 +133,7 @@ describe('fan-avatar-post handler', () => {
   });
 
   it('returns 401 without JWT sub', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const { handler } = await import('./fan-avatar-post');
     const res = await handler({
       headers: { 'content-type': 'multipart/form-data; boundary=b' },
@@ -140,9 +141,15 @@ describe('fan-avatar-post handler', () => {
       requestContext: {},
     } as APIGatewayProxyEventV2);
     expect(res.statusCode).toBe(401);
+    const emf = JSON.parse(logSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(emf.Route).toBe('FanAvatarUpload');
+    expect(emf.Outcome).toBe('unauthorized');
+    logSpy.mockRestore();
   });
 
-  it('uploads png and returns avatarUrl', async () => {
+  it('uploads png and returns avatarUrl with EMF success', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const { handler } = await import('./fan-avatar-post');
     const boundary = 'xyz';
     const body = buildMultipartBody(boundary, 'file', 'me.png', 'image/png', PNG_1X1);
@@ -164,5 +171,19 @@ describe('fan-avatar-post handler', () => {
     expect(typeof payload.avatarUpdatedAt).toBe('number');
     expect(s3Send).toHaveBeenCalled();
     expect(dynamoSend).toHaveBeenCalled();
+
+    const emf = JSON.parse(logSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(emf.Route).toBe('FanAvatarUpload');
+    expect(emf.Outcome).toBe('success');
+    const infoLine = JSON.parse(infoSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(infoLine).toMatchObject({
+      riffsyncDiag: 'api',
+      route: 'FanAvatarUpload',
+      outcome: 'success',
+      fileSizeBytes: PNG_1X1.length,
+    });
+    expect(infoLine.avatarUrl).toBeUndefined();
+    logSpy.mockRestore();
+    infoSpy.mockRestore();
   });
 });

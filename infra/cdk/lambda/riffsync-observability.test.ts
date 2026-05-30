@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  emitApiEmf,
   emitWsRealtimeEmf,
+  logApiAction,
+  logRiffsyncDiagError,
   logWsAction,
+  recordApiRoute,
   recordWsRealtimeRoute,
   riffsyncEnvironment,
   wsRealtimeOutcomeFromStatus,
@@ -11,6 +15,7 @@ describe('riffsync-observability', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     delete process.env.RIFFSYNC_ENVIRONMENT;
   });
 
@@ -99,5 +104,77 @@ describe('riffsync-observability', () => {
     >;
     expect(logLine.connectionIdTail).toBe('efghijklmnop');
     expect(logLine.roomIdHead).toBe('room-xyz');
+  });
+
+  it('emits API EMF with RiffSync/Api namespace and dimensions', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'prod';
+    emitApiEmf('GiphySearch', 'success');
+
+    expect(console.log).toHaveBeenCalledTimes(1);
+    const line = (console.log as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    const aws = parsed._aws as {
+      CloudWatchMetrics: Array<{
+        Namespace: string;
+        Dimensions: string[][];
+        Metrics: Array<{ Name: string; Unit: string }>;
+      }>;
+    };
+
+    expect(aws.CloudWatchMetrics[0].Namespace).toBe('RiffSync/Api');
+    expect(aws.CloudWatchMetrics[0].Dimensions).toEqual([['Environment', 'Route', 'Outcome']]);
+    expect(parsed.Environment).toBe('prod');
+    expect(parsed.Route).toBe('GiphySearch');
+    expect(parsed.Outcome).toBe('success');
+    expect(parsed.Requests).toBe(1);
+  });
+
+  it('logs API actions without query text or avatar URLs', () => {
+    logApiAction({
+      route: 'GiphySearch',
+      outcome: 'success',
+      queryLength: 4,
+      resultCount: 2,
+    });
+
+    expect(console.info).toHaveBeenCalledTimes(1);
+    const line = (console.info as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    expect(parsed).toMatchObject({
+      riffsyncDiag: 'api',
+      route: 'GiphySearch',
+      outcome: 'success',
+      queryLength: 4,
+      resultCount: 2,
+    });
+    expect(parsed.q).toBeUndefined();
+    expect(parsed.avatarUrl).toBeUndefined();
+  });
+
+  it('recordApiRoute emits EMF and log together', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'staging';
+    recordApiRoute('FanAvatarUpload', 'validation_error', { fileSizeBytes: 1024 });
+
+    expect(console.log).toHaveBeenCalledTimes(1);
+    expect(console.info).toHaveBeenCalledTimes(1);
+    const emf = JSON.parse((console.log as ReturnType<typeof vi.fn>).mock.calls[0][0] as string) as Record<
+      string,
+      unknown
+    >;
+    expect(emf.Route).toBe('FanAvatarUpload');
+    expect(emf.Outcome).toBe('validation_error');
+  });
+
+  it('logRiffsyncDiagError emits structured JSON without raw Error dumps', () => {
+    logRiffsyncDiagError('giphy_secret_read_failed', new Error('AccessDenied'));
+
+    expect(console.error).toHaveBeenCalledTimes(1);
+    const line = (console.error as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    expect(parsed).toMatchObject({
+      riffsyncDiag: 'giphy_secret_read_failed',
+      errorType: 'Error',
+      errorMessage: 'AccessDenied',
+    });
   });
 });

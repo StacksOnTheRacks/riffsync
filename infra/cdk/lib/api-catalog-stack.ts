@@ -547,6 +547,7 @@ export class ApiCatalogStack extends cdk.Stack {
         GIPHY_SECRET_ARN: this.giphyApiKeySecret.secretArn,
         GIPHY_RATE_LIMIT_TABLE_NAME: giphyRateLimitTable.tableName,
         GIPHY_RATE_LIMIT_PER_MINUTE: '30',
+        RIFFSYNC_ENVIRONMENT: environment,
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
@@ -564,6 +565,7 @@ export class ApiCatalogStack extends cdk.Stack {
         FAN_AVATARS_BUCKET_NAME: this.fanAvatarsBucket.bucketName,
         FAN_AVATARS_PUBLIC_BASE_URL: this.fanAvatarsPublicBaseUrl,
         FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
+        RIFFSYNC_ENVIRONMENT: environment,
         NODE_OPTIONS: '--enable-source-maps',
       },
     });

@@ -6,7 +6,28 @@ export type WsRealtimeOutcome =
   | 'auth_forbidden'
   | 'server_error';
 
+export type ApiRoute = 'GiphySearch' | 'FanAvatarUpload';
+
+export type GiphySearchOutcome =
+  | 'success'
+  | 'unauthorized'
+  | 'validation_error'
+  | 'rate_limited'
+  | 'misconfigured'
+  | 'upstream_error'
+  | 'secret_unavailable';
+
+export type FanAvatarUploadOutcome =
+  | 'success'
+  | 'unauthorized'
+  | 'validation_error'
+  | 'misconfigured'
+  | 'server_error';
+
+export type ApiOutcome = GiphySearchOutcome | FanAvatarUploadOutcome;
+
 const REALTIME_METRIC_NAME = 'Requests';
+const API_METRIC_NAME = 'Requests';
 
 export function wsRealtimeOutcomeFromStatus(statusCode: number): WsRealtimeOutcome {
   if (statusCode === 200) {
@@ -91,4 +112,80 @@ export function recordWsRealtimeRoute(
     roomIdHead: roomId.slice(0, 8),
     ...extras,
   });
+}
+
+/** EMF counter for HTTP API routes via stdout (no PutMetricData IAM required). */
+export function emitApiEmf(route: ApiRoute, outcome: ApiOutcome): void {
+  const env = riffsyncEnvironment();
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Api',
+            Dimensions: [['Environment', 'Route', 'Outcome']],
+            Metrics: [{ Name: API_METRIC_NAME, Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: env,
+      Route: route,
+      Outcome: outcome,
+      [API_METRIC_NAME]: 1,
+    }),
+  );
+}
+
+export type ApiLogFields = {
+  route: ApiRoute;
+  outcome: ApiOutcome;
+  queryLength?: number;
+  resultCount?: number;
+  fileSizeBytes?: number;
+};
+
+/** Content-safe structured INFO log for HTTP API handlers. */
+export function logApiAction(fields: ApiLogFields): void {
+  const payload: Record<string, unknown> = {
+    riffsyncDiag: 'api',
+    route: fields.route,
+    outcome: fields.outcome,
+  };
+  if (fields.queryLength !== undefined) {
+    payload.queryLength = fields.queryLength;
+  }
+  if (fields.resultCount !== undefined) {
+    payload.resultCount = fields.resultCount;
+  }
+  if (fields.fileSizeBytes !== undefined) {
+    payload.fileSizeBytes = fields.fileSizeBytes;
+  }
+  console.info(JSON.stringify(payload));
+}
+
+/** Structured error log without secrets or request bodies. */
+export function logRiffsyncDiagError(diag: string, err: unknown): void {
+  const name =
+    err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : 'Error';
+  const message =
+    err && typeof err === 'object' && 'message' in err
+      ? String((err as { message: string }).message)
+      : String(err);
+  console.error(
+    JSON.stringify({
+      riffsyncDiag: diag,
+      errorType: name,
+      errorMessage: message.slice(0, 200),
+    }),
+  );
+}
+
+export function recordApiRoute(
+  route: ApiRoute,
+  outcome: ApiOutcome,
+  extras?: Pick<ApiLogFields, 'queryLength' | 'resultCount' | 'fileSizeBytes'>,
+): void {
+  emitApiEmf(route, outcome);
+  logApiAction({ route, outcome, ...extras });
 }
