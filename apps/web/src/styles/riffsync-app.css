@@ -1606,6 +1606,31 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   line-height: 1.1;
   font-size: 1rem;
   border-radius: 999px;
+  transition: opacity 120ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .riffsync-room-chat-log__row:not(:hover):not(:focus-within)
+    .riffsync-room-chat-reaction-add:not([aria-expanded='true']) {
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    min-width: 0;
+    padding-inline: 0;
+    overflow: hidden;
+    border-width: 0;
+  }
+
+  .riffsync-room-chat-log__row:not(:hover):not(:focus-within)
+    .riffsync-room-chat-reactions:not(:has(.riffsync-room-chat-reaction-chip)) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .riffsync-room-chat-reaction-add {
+    transition: none;
+  }
 }
 
 .riffsync-fan-avatar-thumb {
