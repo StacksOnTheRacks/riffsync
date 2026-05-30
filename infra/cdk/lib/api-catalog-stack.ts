@@ -594,6 +594,7 @@ export class ApiCatalogStack extends cdk.Stack {
       COGNITO_USER_POOL_ID: fanUserPool.userPoolId,
       COGNITO_CLIENT_ID: fanUserPoolClient.userPoolClientId,
       WS_MANAGEMENT_API_ENDPOINT: wsMgmtEndpoint,
+      RIFFSYNC_ENVIRONMENT: environment,
       NODE_OPTIONS: '--enable-source-maps',
     };
 

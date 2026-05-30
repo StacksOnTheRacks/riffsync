@@ -13,6 +13,7 @@ import {
 import { TextEncoder } from 'node:util';
 import { isHttpsGiphyCdnUrl } from './giphy-search-shared';
 import { lobbySortKey, LOBBY_PARTITION } from './room-shared';
+import { recordWsRealtimeRoute } from './riffsync-observability';
 import {
   broadcastRoomPresence,
   broadcastRoomPresenceNow,
@@ -236,14 +237,17 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
   if (routeKey === 'chat') {
     const fanSubDenied = requireFanSub(conn, 'chat');
     if (fanSubDenied) {
+      recordWsRealtimeRoute('chat', 403, connectionId, roomId);
       return fanSubDenied;
     }
     const text = typeof body.text === 'string' ? body.text.trim() : '';
     if (text === '' || text.length > 2000) {
+      recordWsRealtimeRoute('chat', 400, connectionId, roomId);
       return { statusCode: 400, body: 'text required, max 2000 chars' };
     }
     const messageId = typeof body.messageId === 'string' ? body.messageId.trim() : '';
     if (!isUuidMessageId(messageId)) {
+      recordWsRealtimeRoute('chat', 400, connectionId, roomId);
       return { statusCode: 400, body: 'messageId must be a valid UUID' };
     }
     const mgmt = wsManagementClient();
@@ -265,34 +269,41 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     }
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
+    recordWsRealtimeRoute('chat', 200, connectionId, roomId, { textLength: text.length });
     return { statusCode: 200, body: 'OK' };
   }
 
   if (routeKey === 'chat_gif') {
     const fanSubDenied = requireFanSub(conn, 'chat_gif');
     if (fanSubDenied) {
+      recordWsRealtimeRoute('chat_gif', 403, connectionId, roomId);
       return fanSubDenied;
     }
     const fanSub = fanSubFromConn(conn);
     const messageId = typeof body.messageId === 'string' ? body.messageId.trim() : '';
     if (!isUuidMessageId(messageId)) {
+      recordWsRealtimeRoute('chat_gif', 400, connectionId, roomId);
       return { statusCode: 400, body: 'messageId must be a valid UUID' };
     }
     const giphyId = typeof body.giphyId === 'string' ? body.giphyId.trim() : '';
     if (giphyId === '') {
+      recordWsRealtimeRoute('chat_gif', 400, connectionId, roomId, { hasGiphyId: false });
       return { statusCode: 400, body: 'giphyId required' };
     }
     const renditionUrl = typeof body.renditionUrl === 'string' ? body.renditionUrl.trim() : '';
     if (renditionUrl === '' || !isHttpsGiphyCdnUrl(renditionUrl)) {
+      recordWsRealtimeRoute('chat_gif', 400, connectionId, roomId, { hasGiphyId: true });
       return { statusCode: 400, body: 'renditionUrl must be HTTPS Giphy CDN URL' };
     }
     let title: string | undefined;
     if (body.title !== undefined) {
       if (typeof body.title !== 'string') {
+        recordWsRealtimeRoute('chat_gif', 400, connectionId, roomId, { hasGiphyId: true });
         return { statusCode: 400, body: 'title must be a string' };
       }
       const trimmed = body.title.trim();
       if (trimmed.length > CHAT_GIF_TITLE_MAX) {
+        recordWsRealtimeRoute('chat_gif', 400, connectionId, roomId, { hasGiphyId: true });
         return { statusCode: 400, body: `title max ${CHAT_GIF_TITLE_MAX} chars` };
       }
       if (trimmed !== '') {
@@ -301,10 +312,12 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     }
     const width = parseOptionalChatGifDimension(body.width);
     if (body.width !== undefined && width === undefined) {
+      recordWsRealtimeRoute('chat_gif', 400, connectionId, roomId, { hasGiphyId: true });
       return { statusCode: 400, body: 'width must be a positive integer' };
     }
     const height = parseOptionalChatGifDimension(body.height);
     if (body.height !== undefined && height === undefined) {
+      recordWsRealtimeRoute('chat_gif', 400, connectionId, roomId, { hasGiphyId: true });
       return { statusCode: 400, body: 'height must be a positive integer' };
     }
     const mgmt = wsManagementClient();
@@ -335,24 +348,29 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     }
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
+    recordWsRealtimeRoute('chat_gif', 200, connectionId, roomId, { hasGiphyId: true });
     return { statusCode: 200, body: 'OK' };
   }
 
   if (routeKey === 'react') {
     const fanSubDenied = requireFanSub(conn, 'react');
     if (fanSubDenied) {
+      recordWsRealtimeRoute('react', 403, connectionId, roomId);
       return fanSubDenied;
     }
     const messageId = typeof body.messageId === 'string' ? body.messageId.trim() : '';
     if (messageId === '' || messageId.length > 64) {
+      recordWsRealtimeRoute('react', 400, connectionId, roomId);
       return { statusCode: 400, body: 'messageId required, max 64 chars' };
     }
     const emoji = typeof body.emoji === 'string' ? body.emoji.trim() : '';
     if (emoji === '' || emoji.length > 32) {
+      recordWsRealtimeRoute('react', 400, connectionId, roomId);
       return { statusCode: 400, body: 'emoji required, max 32 chars' };
     }
     const reactionAction = body.reactionAction;
     if (reactionAction !== 'add' && reactionAction !== 'remove') {
+      recordWsRealtimeRoute('react', 400, connectionId, roomId);
       return { statusCode: 400, body: 'reactionAction must be add or remove' };
     }
     const mgmt = wsManagementClient();
@@ -370,6 +388,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     };
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
+    recordWsRealtimeRoute('react', 200, connectionId, roomId);
     return { statusCode: 200, body: 'OK' };
   }
 
