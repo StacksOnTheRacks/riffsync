@@ -99,6 +99,8 @@ describe('ws-route chat', () => {
   });
 
   it('accepts valid uuid messageId and fans out chat', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const body = JSON.stringify({
       action: 'chat',
       text: 'hi',
@@ -108,6 +110,16 @@ describe('ws-route chat', () => {
     const result = await handler(baseEvent({ routeKey: 'chat', body }), {} as never, () => undefined);
     expect(result).toEqual({ statusCode: 200, body: 'OK' });
     expect(mocks.postToConnections).toHaveBeenCalledTimes(1);
+
+    expect(logSpy).toHaveBeenCalled();
+    const emf = JSON.parse(logSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(emf.Route).toBe('chat');
+    expect(emf.Outcome).toBe('success');
+    const infoLine = JSON.parse(infoSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(infoLine).toMatchObject({ riffsyncDiag: 'ws_realtime', route: 'chat', outcome: 'success', textLength: 2 });
+    expect(infoLine.text).toBeUndefined();
+    logSpy.mockRestore();
+    infoSpy.mockRestore();
 
     const payload = mocks.postToConnections.mock.calls[0][4] as Uint8Array;
     const parsed = JSON.parse(new TextDecoder().decode(payload)) as Record<string, unknown>;

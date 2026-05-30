@@ -11,6 +11,11 @@ import {
   parseGiphyApiKey,
   parseGiphySearchQuery,
 } from './giphy-search-shared';
+import {
+  logRiffsyncDiagError,
+  recordApiRoute,
+  type GiphySearchOutcome,
+} from './riffsync-observability';
 
 const secrets = new SecretsManagerClient({});
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -35,7 +40,7 @@ async function loadGiphyApiKey(secretArn: string): Promise<string | null> {
     const out = await secrets.send(new GetSecretValueCommand({ SecretId: secretArn }));
     raw = out.SecretString;
   } catch (e) {
-    console.error('Giphy secret read failed', e);
+    logRiffsyncDiagError('giphy_secret_read_failed', e);
     return null;
   }
 
@@ -75,42 +80,55 @@ export async function enforceGiphyRateLimit(
     if (name === 'ConditionalCheckFailedException') {
       return false;
     }
-    console.error('Giphy rate limit update failed', e);
+    logRiffsyncDiagError('giphy_rate_limit_update_failed', e);
     throw e;
   }
+}
+
+function finish(
+  outcome: GiphySearchOutcome,
+  statusCode: number,
+  body: Record<string, unknown>,
+  extras?: { queryLength?: number; resultCount?: number },
+) {
+  recordApiRoute('GiphySearch', outcome, extras);
+  return jsonResponse(statusCode, body);
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const secretArn = process.env.GIPHY_SECRET_ARN;
   const rateTable = process.env.GIPHY_RATE_LIMIT_TABLE_NAME;
   if (!secretArn || !rateTable) {
-    return jsonResponse(500, { error: 'Server misconfigured' });
+    return finish('misconfigured', 500, { error: 'Server misconfigured' });
   }
 
   const jwtSub = getJwtSub(event);
   if (!jwtSub) {
-    return jsonResponse(401, { error: 'Unauthorized' });
+    return finish('unauthorized', 401, { error: 'Unauthorized' });
   }
 
   const parsed = parseGiphySearchQuery(event.queryStringParameters);
   if (!parsed.ok) {
-    return jsonResponse(400, { error: 'Invalid query parameters' });
+    return finish('validation_error', 400, { error: 'Invalid query parameters' });
   }
 
   const allowed = await enforceGiphyRateLimit(rateTable, jwtSub, rateLimitPerMinute());
   if (!allowed) {
-    return jsonResponse(429, { error: 'Giphy search rate limit exceeded' });
+    return finish('rate_limited', 429, { error: 'Giphy search rate limit exceeded' });
   }
 
   const apiKey = await loadGiphyApiKey(secretArn);
   if (!apiKey) {
-    return jsonResponse(503, { error: 'Giphy search is temporarily unavailable' });
+    return finish('secret_unavailable', 503, { error: 'Giphy search is temporarily unavailable' });
   }
 
   const upstream = await fetchGiphySearch(apiKey, parsed.query, fetch);
   if (!upstream.ok) {
-    return jsonResponse(upstream.status, { error: 'Giphy search is temporarily unavailable' });
+    return finish('upstream_error', upstream.status, { error: 'Giphy search is temporarily unavailable' });
   }
 
-  return jsonResponse(200, { results: upstream.results });
+  return finish('success', 200, { results: upstream.results }, {
+    queryLength: parsed.query.q.length,
+    resultCount: upstream.results.length,
+  });
 };

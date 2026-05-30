@@ -19,7 +19,7 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
 }));
 
 vi.mock('@aws-sdk/client-secrets-manager', () => ({
-  SecretsManagerClient: vi.fn(),
+  SecretsManagerClient: vi.fn(() => ({ send: mocks.secretsSend })),
   GetSecretValueCommand: vi.fn((input: unknown) => ({ input, kind: 'GetSecret' })),
 }));
 
@@ -236,8 +236,60 @@ describe('giphy-search handler', () => {
   });
 
   it('returns 429 when rate limit is exceeded', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     mocks.docSend.mockRejectedValue({ name: 'ConditionalCheckFailedException' });
     const res = await handler(fanEvent({ q: 'hello' }), {} as never, () => undefined);
     expect(res?.statusCode).toBe(429);
+
+    const emf = JSON.parse(logSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(emf.Route).toBe('GiphySearch');
+    expect(emf.Outcome).toBe('rate_limited');
+    const infoLine = JSON.parse(infoSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(infoLine).toMatchObject({ riffsyncDiag: 'api', route: 'GiphySearch', outcome: 'rate_limited' });
+    expect(infoLine.q).toBeUndefined();
+    logSpy.mockRestore();
+    infoSpy.mockRestore();
+  });
+
+  it('returns 200 with EMF success on happy path', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    mocks.docSend.mockResolvedValue({});
+    mocks.secretsSend.mockResolvedValue({ SecretString: JSON.stringify({ apiKey: 'test-key' }) });
+    mocks.fetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'gif1',
+              images: {
+                preview_gif: { url: 'https://media2.giphy.com/media/gif1/p.gif' },
+                fixed_height: { url: 'https://media2.giphy.com/media/gif1/r.gif' },
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const res = await handler(fanEvent({ q: 'cats' }), {} as never, () => undefined);
+    expect(res?.statusCode).toBe(200);
+
+    const emf = JSON.parse(logSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(emf.Route).toBe('GiphySearch');
+    expect(emf.Outcome).toBe('success');
+    const infoLine = JSON.parse(infoSpy.mock.calls[0][0] as string) as Record<string, unknown>;
+    expect(infoLine).toMatchObject({
+      riffsyncDiag: 'api',
+      route: 'GiphySearch',
+      outcome: 'success',
+      queryLength: 4,
+      resultCount: 1,
+    });
+    expect(infoLine.q).toBeUndefined();
+    logSpy.mockRestore();
+    infoSpy.mockRestore();
   });
 });

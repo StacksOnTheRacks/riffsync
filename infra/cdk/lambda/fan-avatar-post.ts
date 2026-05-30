@@ -15,11 +15,23 @@ import {
   validateAvatarBytes,
 } from './fan-profile-avatar';
 import { getJwtSub, headerValue } from './fan-profile-shared';
+import { logRiffsyncDiagError, recordApiRoute, type FanAvatarUploadOutcome } from './riffsync-observability';
 
 const s3 = new S3Client({});
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 const jsonHeaders = { 'content-type': 'application/json; charset=utf-8' };
+
+function finish(outcome: FanAvatarUploadOutcome, statusCode: number, body: Record<string, unknown>, extras?: {
+  fileSizeBytes?: number;
+}) {
+  recordApiRoute('FanAvatarUpload', outcome, extras);
+  return {
+    statusCode,
+    headers: jsonHeaders,
+    body: JSON.stringify(body),
+  };
+}
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const bucket = process.env.FAN_AVATARS_BUCKET_NAME;
@@ -27,20 +39,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const profilesTable = process.env.FAN_PROFILES_TABLE_NAME;
 
   if (!bucket || !publicBaseUrl || !profilesTable) {
-    return {
-      statusCode: 500,
-      headers: jsonHeaders,
-      body: JSON.stringify({ error: 'misconfigured_avatar_upload' }),
-    };
+    return finish('misconfigured', 500, { error: 'misconfigured_avatar_upload' });
   }
 
   const jwtSub = getJwtSub(event);
   if (!jwtSub) {
-    return { statusCode: 401, headers: jsonHeaders, body: JSON.stringify({ error: 'Unauthorized' }) };
+    return finish('unauthorized', 401, { error: 'Unauthorized' });
   }
 
   if (!assertSafeSubForS3Key(jwtSub)) {
-    return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'invalid_sub' }) };
+    return finish('validation_error', 400, { error: 'invalid_sub' });
   }
 
   const contentType = headerValue(event.headers, 'content-type');
@@ -53,76 +61,71 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     maxBytes: FAN_AVATAR_MAX_BYTES,
   });
   if (!parsed.ok) {
-    return {
-      statusCode: parsed.statusCode,
-      headers: jsonHeaders,
-      body: JSON.stringify({ error: parsed.error }),
-    };
+    return finish('validation_error', parsed.statusCode, { error: parsed.error });
   }
 
   const validated = validateAvatarBytes(parsed.file, parsed.partContentType);
   if (!validated.ok) {
-    return {
-      statusCode: validated.statusCode,
-      headers: jsonHeaders,
-      body: JSON.stringify({ error: validated.error }),
-    };
+    return finish('validation_error', validated.statusCode, { error: validated.error });
   }
 
   const ext = extensionForMime(validated.mime);
   const objectKey = avatarObjectKey(jwtSub, ext);
   const avatarUpdatedAt = Date.now();
 
-  const existing = await dynamo.send(
-    new GetCommand({
-      TableName: profilesTable,
-      Key: { sub: jwtSub },
-    }),
-  );
-  const priorUrl =
-    typeof existing.Item?.avatarUrl === 'string' ? existing.Item.avatarUrl.trim() : undefined;
-  const priorKey = priorUrl ? objectKeyFromAvatarUrl(priorUrl, publicBaseUrl) : null;
+  try {
+    const existing = await dynamo.send(
+      new GetCommand({
+        TableName: profilesTable,
+        Key: { sub: jwtSub },
+      }),
+    );
+    const priorUrl =
+      typeof existing.Item?.avatarUrl === 'string' ? existing.Item.avatarUrl.trim() : undefined;
+    const priorKey = priorUrl ? objectKeyFromAvatarUrl(priorUrl, publicBaseUrl) : null;
 
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: objectKey,
-      Body: parsed.file,
-      ContentType: validated.mime,
-      CacheControl: 'public, max-age=31536000, immutable',
-    }),
-  );
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        Body: parsed.file,
+        ContentType: validated.mime,
+        CacheControl: 'public, max-age=31536000, immutable',
+      }),
+    );
 
-  if (priorKey && priorKey !== objectKey) {
-    try {
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: bucket,
-          Key: priorKey,
-        }),
-      );
-    } catch {
-      // Best-effort cleanup; new avatar URL is already valid.
+    if (priorKey && priorKey !== objectKey) {
+      try {
+        await s3.send(
+          new DeleteObjectCommand({
+            Bucket: bucket,
+            Key: priorKey,
+          }),
+        );
+      } catch {
+        // Best-effort cleanup; new avatar URL is already valid.
+      }
     }
+
+    const avatarUrl = publicAvatarUrl(publicBaseUrl, objectKey);
+
+    await dynamo.send(
+      new UpdateCommand({
+        TableName: profilesTable,
+        Key: { sub: jwtSub },
+        UpdateExpression: 'SET avatarUrl = :url, avatarUpdatedAt = :at',
+        ExpressionAttributeValues: {
+          ':url': avatarUrl,
+          ':at': avatarUpdatedAt,
+        },
+      }),
+    );
+  } catch (e) {
+    logRiffsyncDiagError('fan_avatar_upload_failed', e);
+    return finish('server_error', 500, { error: 'avatar_upload_failed' });
   }
 
-  const avatarUrl = publicAvatarUrl(publicBaseUrl, objectKey);
-
-  await dynamo.send(
-    new UpdateCommand({
-      TableName: profilesTable,
-      Key: { sub: jwtSub },
-      UpdateExpression: 'SET avatarUrl = :url, avatarUpdatedAt = :at',
-      ExpressionAttributeValues: {
-        ':url': avatarUrl,
-        ':at': avatarUpdatedAt,
-      },
-    }),
-  );
-
-  return {
-    statusCode: 200,
-    headers: jsonHeaders,
-    body: JSON.stringify({ avatarUrl, avatarUpdatedAt }),
-  };
+  return finish('success', 200, { avatarUrl: publicAvatarUrl(publicBaseUrl, objectKey), avatarUpdatedAt }, {
+    fileSizeBytes: parsed.file.length,
+  });
 };
