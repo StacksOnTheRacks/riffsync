@@ -191,7 +191,7 @@ One account, **one CloudFormation stack** **`RiffSyncTurn`** ([`lib/media-server
 
 **Ordering in [`bin/riffsync.ts`](bin/riffsync.ts):** **`RiffSyncApi-prod`** **depends on** **`RiffSyncTurn`** (turn secret + deploy ordering).
 
-**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **media** (`RiffSyncTurn`) and **platform** in **parallel**, then **API** (`--exclusively`). **OAuth/CORS** also uses **`--exclusively`** so CDK does not redeploy **`RiffSyncTurn`** while updating Cognito + API. For **media-only** changes, **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** runs **`cdk deploy RiffSyncTurn`** (updates **both** EC2 roles; there is no separate SFU stack).
+**Deploy:** **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** runs **media** (`RiffSyncTurn`) and **platform** (**`RiffSyncFanAuth-prod`**, **`RiffSyncStaffAuth-prod`**, static, SES) in **parallel**, then **API** (`--exclusively`). **OAuth/CORS** deploys fan + staff Cognito and API with **`fanAuthOAuthExtras`**, **`staffAuthOAuthExtras`**, and **`catalogCorsOrigins`** from **`FanWebSiteUrl`**; it uses **`--exclusively`** so CDK does not redeploy **`RiffSyncTurn`**. The **fan-spa** job bakes **`VITE_STAFF_*`** from **`RiffSyncStaffAuth-prod`** outputs (see **`.ai/operations/build_packaging.md`**). For **media-only** changes, **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** runs **`cdk deploy RiffSyncTurn`** (updates **both** EC2 roles; there is no separate SFU stack).
 
 **Migrating from the old `RiffSyncSfu` stack:** CDK no longer defines that stack. If it still exists in AWS: after **`cdk deploy RiffSyncTurn`** succeeds and the **new** SFU in **`RiffSyncTurn`** is healthy (and **`wss://`** / DNS if used), delete the old stack (**`aws cloudformation delete-stack --stack-name RiffSyncSfu`**). If **`UPDATE`/`CREATE` fails** on the signaling **`A`** record because the name is still owned by **`RiffSyncSfu`**, delete **`RiffSyncSfu`** first (expect brief SFU gap), then deploy **`RiffSyncTurn`**.
 
@@ -302,7 +302,7 @@ Hosted stack **`RiffSyncStaffAuth-prod`** provisions an **invite-only** operator
 
 **Deploy IAM:** extend the OIDC deploy role with **Cognito** permissions for **`RiffSyncStaffAuth-prod`** if **`cdk deploy`** fails on **`cognito-idp:*`**.
 
-**Out of scope here:** **`ApiCatalogStack`** staff JWT authorizer ([#64](https://github.com/StacksOnTheRacks/riffsync/issues/64)), SPA staff auth modules ([#65](https://github.com/StacksOnTheRacks/riffsync/issues/65)), **`deploy-prod.yml`** ([#66](https://github.com/StacksOnTheRacks/riffsync/issues/66)).
+**Pipeline wiring:** **`deploy-prod.yml`** deploys this stack in the **platform** wave and refreshes **`staffAuthOAuthExtras`** in the **OAuth/CORS** job; SPA publish reads **`StaffHostedUiBaseUrl`** and **`StaffUserPoolClientId`** into **`VITE_STAFF_*`** (see **Deploy** and **Fan SPA publish** below).
 
 ### SES inbound → SNS (receive mail — shared)
 
@@ -402,6 +402,8 @@ After **`cdk deploy`**, **`deploy-prod.yml`** reads **CloudFormation outputs** f
 | **`DistributionDomainName`** | **CloudFront** hostname; **`FanWebSiteUrl`** is preferred when a custom domain is configured. |
 | **`HttpApiUrl`** ( **`RiffSyncApi-prod`** ) | **`VITE_PUBLIC_API_BASE_URL`** — catalog + rooms REST |
 | **`WebSocketUrl`** ( **`RiffSyncApi-prod`** ) | Build-time **`VITE_PUBLIC_WS_URL`** (**`wss://…`**) once SPA subscribes to realtime (**`contracts.websocket`**). |
+| **`StaffHostedUiBaseUrl`** ( **`RiffSyncStaffAuth-prod`** ) | **`VITE_STAFF_COGNITO_HOSTED_UI_DOMAIN`** — strip **`https://`** from output |
+| **`StaffUserPoolClientId`** ( **`RiffSyncStaffAuth-prod`** ) | **`VITE_STAFF_COGNITO_CLIENT_ID`** |
 
 **IAM for the GitHub OIDC deploy role** must allow, in addition to CDK/CloudFormation permissions:
 

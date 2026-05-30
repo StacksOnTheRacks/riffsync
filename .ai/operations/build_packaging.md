@@ -35,6 +35,22 @@
 | --- | --- |
 | **SPA** | Vite/Next/CRA per frontend doc; **TypeScript**; build output to **S3 + CloudFront** (or host elsewhere) — wired from CDK or separate pipeline (document in stack README when added). |
 
+### Production SPA env (fan + staff)
+
+**`deploy-prod.yml`** reads CloudFormation outputs and passes them into **`apps/web`** **`npm run build`**:
+
+| CfnOutput stack | Output key | Vite env var | Transform |
+| --- | --- | --- | --- |
+| **`RiffSyncStatic-prod`** | **`FanWebSiteUrl`** | **`VITE_PUBLIC_ORIGIN`** | Use as-is |
+| **`RiffSyncApi-prod`** | **`HttpApiUrl`** | **`VITE_PUBLIC_API_BASE_URL`** | Use as-is |
+| **`RiffSyncApi-prod`** | **`WebSocketUrl`** | **`VITE_PUBLIC_WS_URL`** | Use as-is |
+| **`RiffSyncFanAuth-prod`** | **`FanHostedUiBaseUrl`** | **`VITE_COGNITO_HOSTED_UI_DOMAIN`** | Strip **`https://`** prefix |
+| **`RiffSyncFanAuth-prod`** | **`FanUserPoolClientId`** | **`VITE_COGNITO_CLIENT_ID`** | Use as-is |
+| **`RiffSyncStaffAuth-prod`** | **`StaffHostedUiBaseUrl`** | **`VITE_STAFF_COGNITO_HOSTED_UI_DOMAIN`** | Strip **`https://`** prefix |
+| **`RiffSyncStaffAuth-prod`** | **`StaffUserPoolClientId`** | **`VITE_STAFF_COGNITO_CLIENT_ID`** | Use as-is |
+
+One **`dist/`** artifact serves fan routes and **`/admin/*`** (single S3 sync + invalidation).
+
 ## Pull-request CI (recommended)
 
 - **`cdk synth`** with **`--context environment=prod`** (and optionally **`cdk diff`** against the prod account).
