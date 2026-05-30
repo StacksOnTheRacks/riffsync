@@ -475,17 +475,21 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 /* Room shell: cinematic backdrop matching solo watch home-style treatment */
 .riffsync-site--room {
-  min-height: 100dvh;
-  --riffsync-room-stage-max-height: calc(100dvh - 4.5rem);
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  --riffsync-room-chrome-height: 4.5rem;
+  --riffsync-room-stage-max-height: calc(100dvh - var(--riffsync-room-chrome-height));
 }
 
 .riffsync-room-shell {
   position: relative;
   isolation: isolate;
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .riffsync-room-shell--backdrop > .container.riffsync-room-page {
@@ -501,19 +505,21 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-main--room {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   padding-top: 0.65rem;
   padding-bottom: 0.5rem;
 }
 
 .riffsync-main--room .container.riffsync-room-page {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   max-width: none;
   width: 100%;
   padding-inline: clamp(0.75rem, 1.5vw, 1.25rem);
@@ -635,8 +641,9 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   gap: 1rem 1.25rem;
   align-items: stretch;
   grid-template-columns: 1fr;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 @media (min-width: 992px) {
@@ -644,7 +651,9 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
     gap: 0.65rem 0.75rem;
     grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
     grid-template-rows: minmax(0, 1fr);
-    max-height: var(--riffsync-room-stage-max-height);
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 100%;
     overflow: hidden;
   }
 }
@@ -654,6 +663,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
 .riffsync-room-page__masthead {
@@ -994,6 +1004,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   border-radius: 8px;
   border: 1px solid rgb(255 255 255 / 0.08);
   background: rgb(7 10 14 / 0.72);
@@ -1011,15 +1022,16 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 @media (min-width: 992px) {
   .riffsync-room-page__chat-column {
-    max-height: var(--riffsync-room-stage-max-height);
     height: 100%;
+    max-height: 100%;
     min-height: 0;
+    align-self: stretch;
+    overflow: hidden;
   }
 
   .riffsync-room-page__chat {
-    max-height: 100%;
     height: 100%;
-    flex: 1 1 auto;
+    max-height: 100%;
     min-height: 0;
   }
 }
@@ -1258,11 +1270,21 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-room-page__tab-panel--chat {
   overflow: visible;
   min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .riffsync-room-page__tab-panel--chat .riffsync-room-chat-log {
-  flex: 1 1 auto;
+  grid-row: 1;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.riffsync-room-page__tab-panel--chat .riffsync-room-chat-compose-holder {
+  grid-row: 2;
 }
 
 .riffsync-room-page__room-panel {
@@ -1304,9 +1326,9 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 .riffsync-room-page__chat .riffsync-room-chat-log {
   list-style: none;
-  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem 0.65rem;
   margin: 0;
   font-size: 0.875rem;
