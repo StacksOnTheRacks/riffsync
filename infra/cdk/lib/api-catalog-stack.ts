@@ -573,9 +573,16 @@ export class ApiCatalogStack extends cdk.Stack {
       entry: path.join(__dirname, '../lambda/admin-session-get.ts'),
       handler: 'handler',
       environment: {
+        STAFF_USER_POOL_ID: staffUserPool.userPoolId,
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
+    adminSessionGetFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['cognito-idp:AdminListGroupsForUser'],
+        resources: [staffUserPool.userPoolArn],
+      }),
+    );
 
     const fanAvatarPostFn = new lambdaNodejs.NodejsFunction(this, 'FanAvatarPostFn', {
       runtime: lambda.Runtime.NODEJS_24_X,

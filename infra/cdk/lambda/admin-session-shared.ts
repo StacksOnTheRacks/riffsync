@@ -84,6 +84,30 @@ export function resolveStaffGroups(event: Parameters<APIGatewayProxyHandlerV2>[0
   return groupsFromClaimRecord(decodeJwtPayload(token) ?? undefined);
 }
 
+export function resolveStaffUsername(event: Parameters<APIGatewayProxyHandlerV2>[0]): string | undefined {
+  const fromRecord = (record: Record<string, unknown> | undefined): string | undefined => {
+    if (!record) {
+      return undefined;
+    }
+    for (const key of ['username', 'cognito:username', 'sub'] as const) {
+      const value = record[key];
+      if (typeof value === 'string' && value.length > 0) {
+        return value;
+      }
+    }
+    return undefined;
+  };
+  const fromAuthorizer = fromRecord(getStaffJwtClaims(event) as Record<string, unknown>);
+  if (fromAuthorizer) {
+    return fromAuthorizer;
+  }
+  const token = bearerAccessToken(event);
+  if (!token) {
+    return undefined;
+  }
+  return fromRecord(decodeJwtPayload(token) ?? undefined);
+}
+
 function parseGroupsString(raw: string): string[] {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {

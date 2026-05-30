@@ -1,9 +1,11 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyHandlerV2 } from 'aws-lambda';
+import { listStaffGroupsViaCognito } from './admin-session-cognito';
 import {
   decodeJwtPayload,
   getStaffJwtClaims,
   hasStaffRole,
   resolveStaffGroups,
+  resolveStaffUsername,
 } from './admin-session-shared';
 import { jsonResponse } from './giphy-search-shared';
 
@@ -37,6 +39,41 @@ function resolveEmail(event: APIGatewayProxyEventV2): string | null {
   return null;
 }
 
+async function resolveStaffGroupsForRequest(event: APIGatewayProxyEventV2): Promise<string[]> {
+  const fromToken = resolveStaffGroups(event);
+  if (hasStaffRole(fromToken)) {
+    return fromToken;
+  }
+
+  const userPoolId = process.env.STAFF_USER_POOL_ID?.trim();
+  if (!userPoolId) {
+    return fromToken;
+  }
+
+  const candidates = new Set<string>();
+  const username = resolveStaffUsername(event);
+  if (username) {
+    candidates.add(username);
+  }
+  const sub = resolveSub(event);
+  if (sub) {
+    candidates.add(sub);
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const fromCognito = await listStaffGroupsViaCognito(userPoolId, candidate);
+      if (fromCognito.length > 0) {
+        return fromCognito;
+      }
+    } catch {
+      /* try next candidate */
+    }
+  }
+
+  return fromToken;
+}
+
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const sub = resolveSub(event);
 
@@ -44,7 +81,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return jsonResponse(401, { error: 'Unauthorized', code: 'unauthorized' });
   }
 
-  const groups = resolveStaffGroups(event);
+  const groups = await resolveStaffGroupsForRequest(event);
   if (!hasStaffRole(groups)) {
     return jsonResponse(403, { error: 'Forbidden', code: 'staff_group_required' });
   }

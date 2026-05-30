@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 import { handler } from './admin-session-get';
+import * as adminSessionCognito from './admin-session-cognito';
 import {
   decodeJwtPayload,
   hasStaffRole,
@@ -115,6 +116,11 @@ describe('admin-session-shared', () => {
 });
 
 describe('admin-session-get handler', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.STAFF_USER_POOL_ID;
+  });
+
   it('returns 200 for admin group', async () => {
     const res = await handler(
       staffEvent({ sub: 'staff-1', email: 'op@example.com', 'cognito:groups': ['admin'] }),
@@ -187,6 +193,26 @@ describe('admin-session-get handler', () => {
       email: 'op@example.com',
       groups: ['admin', 'curator'],
     });
+  });
+
+  it('returns 200 when Cognito lookup supplies groups after token claims omit them', async () => {
+    process.env.STAFF_USER_POOL_ID = 'us-east-1_staffpool';
+    vi.spyOn(adminSessionCognito, 'listStaffGroupsViaCognito').mockResolvedValue(['admin']);
+    const res = await handler(
+      staffEvent({ sub: 'staff-cognito', username: 'op@example.com' }),
+      {} as never,
+      () => undefined,
+    );
+    expect(res?.statusCode).toBe(200);
+    expect(JSON.parse(res?.body ?? '')).toEqual({
+      sub: 'staff-cognito',
+      email: null,
+      groups: ['admin'],
+    });
+    expect(adminSessionCognito.listStaffGroupsViaCognito).toHaveBeenCalledWith(
+      'us-east-1_staffpool',
+      'op@example.com',
+    );
   });
 
   it('returns 401 when authorizer claims or sub absent', async () => {
