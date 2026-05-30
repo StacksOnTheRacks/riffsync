@@ -2,15 +2,29 @@ import { describe, expect, it } from 'vitest';
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 
 import { handler } from './admin-session-get';
-import { hasStaffRole, parseCognitoGroups } from './admin-session-shared';
+import {
+  decodeJwtPayload,
+  hasStaffRole,
+  parseCognitoGroups,
+  resolveStaffGroups,
+} from './admin-session-shared';
 
-function staffEvent(claims?: Record<string, unknown>): APIGatewayProxyEventV2 {
+function fakeAccessToken(payload: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return `${header}.${body}.test-signature`;
+}
+
+function staffEvent(
+  claims?: Record<string, unknown>,
+  opts?: { authorization?: string },
+): APIGatewayProxyEventV2 {
   return {
     version: '2.0',
     routeKey: 'GET /v1/admin/session',
     rawPath: '/v1/admin/session',
     rawQueryString: '',
-    headers: {},
+    headers: opts?.authorization ? { authorization: opts.authorization } : {},
     requestContext: {
       accountId: '123',
       apiId: 'api',
@@ -63,6 +77,30 @@ describe('admin-session-shared', () => {
     it('returns empty when groups absent', () => {
       expect(parseCognitoGroups({})).toEqual([]);
       expect(parseCognitoGroups(undefined)).toEqual([]);
+    });
+  });
+
+  describe('decodeJwtPayload', () => {
+    it('reads cognito:groups from bearer access token payload', () => {
+      const token = fakeAccessToken({
+        sub: 'staff-bearer',
+        'cognito:groups': ['admin', 'curator'],
+      });
+      expect(decodeJwtPayload(token)).toMatchObject({
+        sub: 'staff-bearer',
+        'cognito:groups': ['admin', 'curator'],
+      });
+    });
+  });
+
+  describe('resolveStaffGroups', () => {
+    it('falls back to Authorization bearer token when authorizer omits groups', () => {
+      const token = fakeAccessToken({
+        sub: 'staff-bearer',
+        'cognito:groups': ['admin'],
+      });
+      const event = staffEvent({ sub: 'staff-bearer' }, { authorization: `Bearer ${token}` });
+      expect(resolveStaffGroups(event)).toEqual(['admin']);
     });
   });
 
@@ -129,6 +167,25 @@ describe('admin-session-get handler', () => {
     expect(JSON.parse(res?.body ?? '')).toEqual({
       error: 'Forbidden',
       code: 'staff_group_required',
+    });
+  });
+
+  it('returns 200 when authorizer omits groups but bearer token includes admin', async () => {
+    const token = fakeAccessToken({
+      sub: 'staff-bearer',
+      email: 'op@example.com',
+      'cognito:groups': ['admin', 'curator'],
+    });
+    const res = await handler(
+      staffEvent({ sub: 'staff-bearer' }, { authorization: `Bearer ${token}` }),
+      {} as never,
+      () => undefined,
+    );
+    expect(res?.statusCode).toBe(200);
+    expect(JSON.parse(res?.body ?? '')).toEqual({
+      sub: 'staff-bearer',
+      email: 'op@example.com',
+      groups: ['admin', 'curator'],
     });
   });
 

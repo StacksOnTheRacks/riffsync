@@ -24,6 +24,66 @@ export function getStaffJwtClaims(
   ).authorizer?.jwt?.claims;
 }
 
+/** Decode JWT payload only — signature is validated by API Gateway before Lambda runs. */
+export function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+    return JSON.parse(Buffer.from(b64 + pad, 'base64').toString('utf8')) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function bearerAccessToken(event: Parameters<APIGatewayProxyHandlerV2>[0]): string | undefined {
+  const auth = event.headers?.authorization ?? event.headers?.Authorization;
+  if (typeof auth !== 'string' || !auth.startsWith('Bearer ')) {
+    return undefined;
+  }
+  const token = auth.slice('Bearer '.length).trim();
+  return token.length > 0 ? token : undefined;
+}
+
+function groupsFromClaimRecord(record: Record<string, unknown> | undefined): string[] {
+  if (!record) {
+    return [];
+  }
+  const direct = parseCognitoGroups(record as StaffJwtClaims);
+  if (direct.length > 0) {
+    return direct;
+  }
+  for (const [key, value] of Object.entries(record)) {
+    if (!key.toLowerCase().includes('groups')) {
+      continue;
+    }
+    const parsed = parseCognitoGroups({ 'cognito:groups': value as string | string[] });
+    if (parsed.length > 0) {
+      return parsed;
+    }
+  }
+  return [];
+}
+
+/**
+ * Resolve staff groups from authorizer claims, falling back to the Bearer access token payload.
+ * HTTP API JWT authorizers validate the token but may omit `cognito:groups` from `authorizer.jwt.claims`.
+ */
+export function resolveStaffGroups(event: Parameters<APIGatewayProxyHandlerV2>[0]): string[] {
+  const fromAuthorizer = groupsFromClaimRecord(getStaffJwtClaims(event) as Record<string, unknown>);
+  if (fromAuthorizer.length > 0) {
+    return fromAuthorizer;
+  }
+  const token = bearerAccessToken(event);
+  if (!token) {
+    return [];
+  }
+  return groupsFromClaimRecord(decodeJwtPayload(token) ?? undefined);
+}
+
 function parseGroupsString(raw: string): string[] {
   const trimmed = raw.trim();
   if (trimmed.length === 0) {
