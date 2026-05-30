@@ -48,6 +48,18 @@ describe('admin-session-shared', () => {
       expect(parseCognitoGroups({ 'cognito:groups': 'admin curator' })).toEqual(['admin', 'curator']);
     });
 
+    it('parses comma-separated string groups from API Gateway', () => {
+      expect(parseCognitoGroups({ 'cognito:groups': 'admin,curator' })).toEqual(['admin', 'curator']);
+      expect(parseCognitoGroups({ 'cognito:groups': 'admin, curator' })).toEqual(['admin', 'curator']);
+    });
+
+    it('parses JSON array string groups from API Gateway', () => {
+      expect(parseCognitoGroups({ 'cognito:groups': '["admin","curator"]' })).toEqual([
+        'admin',
+        'curator',
+      ]);
+    });
+
     it('returns empty when groups absent', () => {
       expect(parseCognitoGroups({})).toEqual([]);
       expect(parseCognitoGroups(undefined)).toEqual([]);
@@ -90,6 +102,20 @@ describe('admin-session-get handler', () => {
       sub: 'staff-2',
       email: null,
       groups: ['curator'],
+    });
+  });
+
+  it('returns 200 when API Gateway passes comma-separated groups string', async () => {
+    const res = await handler(
+      staffEvent({ sub: 'staff-4', email: 'op@example.com', 'cognito:groups': 'admin,curator' }),
+      {} as never,
+      () => undefined,
+    );
+    expect(res?.statusCode).toBe(200);
+    expect(JSON.parse(res?.body ?? '')).toEqual({
+      sub: 'staff-4',
+      email: 'op@example.com',
+      groups: ['admin', 'curator'],
     });
   });
 
