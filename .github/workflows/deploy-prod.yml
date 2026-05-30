@@ -2,7 +2,7 @@ name: Deploy CDK (production)
 
 # Policy: **`main` → production** (manual). See `.ai/operations/deployment_environments.md`.
 #
-# - **Media** (**`RiffSyncTurn`**: TURN + SFU + VPC) and **platform** (fan auth, static, SES) run in parallel.
+# - **Media** (**`RiffSyncTurn`**: TURN + SFU + VPC) and **platform** (fan + staff auth, static, SES) run in parallel.
 # - **API** (`--exclusively`) runs after both (**`RiffSyncApi-prod`** imports turn secret from **`RiffSyncTurn`**).
 # OAuth/CORS uses **`--exclusively`** so CDK does not redeploy **`RiffSyncTurn`** while updating Cognito + API.
 on:
@@ -65,7 +65,7 @@ jobs:
           npx cdk deploy RiffSyncTurn "${CDK_CTX[@]}" --require-approval never
 
   cdk-platform:
-    name: CDK prod – Fan auth, static site, SES inbound
+    name: CDK prod – Fan + staff auth, static site, SES inbound
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,12 +78,12 @@ jobs:
           aws_role_arn: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
           aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      - name: Deploy RiffSyncFanAuth-prod, RiffSyncStatic-prod, RiffSyncSesInbound
+      - name: Deploy RiffSyncFanAuth-prod, RiffSyncStaffAuth-prod, RiffSyncStatic-prod, RiffSyncSesInbound
         working-directory: infra/cdk
         run: |
           set -euo pipefail
           mapfile -t CDK_CTX < <(bash scripts/cdk-prod-context-args.sh)
-          npx cdk deploy RiffSyncFanAuth-prod RiffSyncStatic-prod RiffSyncSesInbound "${CDK_CTX[@]}" --require-approval never
+          npx cdk deploy RiffSyncFanAuth-prod RiffSyncStaffAuth-prod RiffSyncStatic-prod RiffSyncSesInbound "${CDK_CTX[@]}" --require-approval never
 
   cdk-api:
     name: CDK prod – API (exclusive; deps already deployed)
@@ -134,9 +134,10 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='FanWebSiteUrl'].OutputValue" --output text)"
           echo "Adding ${SITE_URL} to HTTP API CORS and Cognito SPA callbacks"
           # --exclusively: Api depends on RiffSyncTurn; without this CDK would redeploy media (TURN+SFU).
-          npx cdk deploy RiffSyncFanAuth-prod RiffSyncApi-prod --exclusively \
+          npx cdk deploy RiffSyncFanAuth-prod RiffSyncStaffAuth-prod RiffSyncApi-prod --exclusively \
             "${CDK_CTX[@]}" \
             --context "fanAuthOAuthExtras=${SITE_URL}/,${SITE_URL}/auth/callback" \
+            --context "staffAuthOAuthExtras=${SITE_URL}/admin/auth/callback,${SITE_URL}/admin/login" \
             --context "catalogCorsOrigins=${SITE_URL}" \
             --require-approval never
 
@@ -172,6 +173,7 @@ jobs:
           STACK_NAME: RiffSyncStatic-prod
           API_STACK_NAME: RiffSyncApi-prod
           FAN_AUTH_STACK_NAME: RiffSyncFanAuth-prod
+          STAFF_AUTH_STACK_NAME: RiffSyncStaffAuth-prod
         run: |
           set -euo pipefail
           SITE_URL="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
@@ -185,6 +187,11 @@ jobs:
           COGNITO_DOMAIN="${COGNITO_BASE#https://}"
           COGNITO_CLIENT="$(aws cloudformation describe-stacks --stack-name "$FAN_AUTH_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='FanUserPoolClientId'].OutputValue" --output text)"
+          STAFF_COGNITO_BASE="$(aws cloudformation describe-stacks --stack-name "$STAFF_AUTH_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='StaffHostedUiBaseUrl'].OutputValue" --output text)"
+          STAFF_COGNITO_DOMAIN="${STAFF_COGNITO_BASE#https://}"
+          STAFF_COGNITO_CLIENT="$(aws cloudformation describe-stacks --stack-name "$STAFF_AUTH_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='StaffUserPoolClientId'].OutputValue" --output text)"
           echo "Production public site URL: ${SITE_URL}"
           echo "Production HTTP API base: ${API_BASE}"
           cd "${GITHUB_WORKSPACE}/apps/web"
@@ -198,6 +205,8 @@ jobs:
             VITE_PUBLIC_WS_URL="${WS_URL}" \
             VITE_COGNITO_HOSTED_UI_DOMAIN="${COGNITO_DOMAIN}" \
             VITE_COGNITO_CLIENT_ID="${COGNITO_CLIENT}" \
+            VITE_STAFF_COGNITO_HOSTED_UI_DOMAIN="${STAFF_COGNITO_DOMAIN}" \
+            VITE_STAFF_COGNITO_CLIENT_ID="${STAFF_COGNITO_CLIENT}" \
             npm run build
           BUCKET="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text)"
