@@ -15,15 +15,15 @@ Runtime topology: **AWS serverless MVP** (**`docs/architecture.server.md`**).
 
 | Unit | Behavior |
 | --- | --- |
-| **Lambda** | **Stateless** **TypeScript** request handlers; concurrency scales with API Gateway / EventBridge. Assume **cold starts**; avoid long init (cache TMDB config in global with TTL). |
-| **API Gateway HTTP** | Routes to Lambda integration; optional **JWT authorizer** on admin routes. |
+| **Lambda** | **Stateless** **TypeScript** request handlers; concurrency scales with API Gateway / EventBridge. Assume **cold starts**; avoid long init (cache TMDB config in global with TTL). **Admin HTTP** handlers on **`/v1/admin/*`** trust **staff authorizer context** (`sub`, **`cognito:groups`**) at the edge; they do **not** repurpose the fan-only JWT verifier module bound to fan **`COGNITO_*`** env. WebSocket/SFU Lambdas keep fan pool env unchanged. |
+| **API Gateway HTTP** | Routes to Lambda integration; **fan JWT authorizer** on fan-protected routes; **staff JWT authorizer** on **`/v1/admin/*`** only (second authorizer, staff pool issuer + staff SPA client audience). Cross-pool tokens fail at the gateway. |
 | **API Gateway WebSocket** | **`$connect` / `$disconnect`** + route selection to Lambdas; **`PostToConnection`** for broadcast. |
 
 ## Client
 
 | Unit | Behavior |
 | --- | --- |
-| **Browser SPA (or SSR)** | TypeScript SPA (React/Next per **`docs/architecture.frontend.md`**); YouTube iframe per tab; WebSocket loop for parties; **no** privileged secrets. |
+| **Browser SPA (or SSR)** | Single TypeScript SPA (React per **`docs/architecture.frontend.md`**): fan catalog/rooms plus **gated `/admin/*`** operator surfaces in one build and one CloudFront origin; YouTube iframe per tab; WebSocket loop for parties; **no** privileged secrets. |
 
 ## Background
 

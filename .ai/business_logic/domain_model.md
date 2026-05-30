@@ -9,7 +9,26 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 - **Participant:** **`sessionId`** + display name (**anonymous**) or **`sub`** (**signed-in optional**) with optional **`avatarUrl`** (public HTTPS, one image per **`sub`**).
 - **Chat message (ephemeral):** room-scoped broadcast with **`messageId`**, kind **`text`** | **`gif`**, sender identity, timestamp; **not** persisted server-side.
 - **Chat reaction (ephemeral):** emoji on a **`messageId`**; toggle per signed-in sender; **not** persisted server-side.
-- **Room admin:** signed-in participant whose **Cognito `sub`** equals the room’s **`hostSub`** — **exclusive authority** to drive the **embedded player**, **start/stop broadcast capture**, and mutate durable room playback metadata. **Anonymous users cannot host.** **Guest promotion** and token-based **admin reclaim** beyond normal Cognito re-login for the same user are **out of scope** for MVP.
+- **Room admin:** signed-in participant whose **fan-pool Cognito `sub`** equals the room’s **`hostSub`** — **exclusive authority** to drive the **embedded player**, **start/stop broadcast capture**, and mutate durable room playback metadata. **Anonymous users cannot host.** **Guest promotion** and token-based **admin reclaim** beyond normal Cognito re-login for the same user are **out of scope** for MVP.
+- **Operator (staff):** invite-only principal in the **staff** Cognito pool, provisioned **out-of-band** (console, CLI, or IaC). When authorized, carries **`cognito:groups`** including **`admin`** and/or **`curator`**. **Distinct** from **Participant** and **Room admin** — operator identity does **not** grant fan **`hostSub`** authority, room publisher role, or participant chat identity unless the same person also holds a separate **fan** session.
+
+## Identity modes and trust boundary
+
+Three coexisting modes (see **`integration/authorization.md`**):
+
+| Mode | Pool / credential | Satisfies |
+| --- | --- | --- |
+| **Anonymous guest** | **`sessionId`** (no JWT) | Public catalog read, guest room join, chat read |
+| **Signed-in fan (host-capable)** | **Fan** pool JWT | Room create/host, publisher paths, chat send/react, avatar |
+| **Operator (staff)** | **Staff** pool JWT | **`/v1/admin/*`** only in this slice |
+
+**Rules:**
+
+1. **Separate pools:** Staff tokens **must not** satisfy fan-gated routes. Fan tokens **must not** satisfy **`/v1/admin/*`**.
+2. **Dual sessions:** Fan and staff sessions **may coexist** in one browser with **separate token stores**; authorities do **not** merge (signing in as operator does not make someone room admin, and hosting as fan does not grant admin API access).
+3. **Invite-only staff:** No self-service operator registration in MVP; group assignment is out-of-band.
+4. **Group gate (MVP auth slice):** Valid staff JWT with **`admin`** **or** **`curator`** suffices for admin API probe routes; **no route-level split** between those groups until catalog/list handlers ship.
+5. **Room domain unchanged:** **Room admin** remains **`JWT.sub === hostSub`** on the **fan** pool only. Staff auth does not add operator room takeover or bypass **lost admin / stale room** rules.
 
 ## Enumerations
 
@@ -32,5 +51,9 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 | GIF provider? | **Giphy** — server search, Giphy CDN renditions in chat; no RiffSync-hosted GIF uploads. |
 | Anonymous reactions? | **No** — reactions require fan JWT (same gate as send). |
 | Avatar visibility? | **Public HTTPS** URLs so anonymous guests can render avatars in chat. |
+| Staff vs room admin? | **Separate** — operator identity does not grant room admin; room admin remains fan **`JWT.sub === hostSub`**. |
+| Operator onboarding (MVP)? | **Invite-only** — manual Cognito console invite and group assignment acceptable; no in-app “request access” flow. |
+| `admin` vs `curator` on routes? | **Deferred** until catalog/list handlers — auth slice treats either group as authorized for staff API probe. |
+| Operator moderation of rooms? | **Out of scope** for auth slice; when it ships, remains a **staff** capability separate from **room admin** capture authority. |
 
 - Domain services colocated with Lambda packages when implemented.

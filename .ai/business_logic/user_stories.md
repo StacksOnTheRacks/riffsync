@@ -23,16 +23,21 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 
 | ID | As a… | I want… | So that… |
 | --- | --- | --- | --- |
+| US-P1-05 | operator | sign in via staff Hosted UI and reach admin entry | I can access staff-gated **`/v1/admin/*`** surfaces without using fan credentials |
+| US-P1-05a | operator | sign out of staff session only | I can leave admin surfaces without ending my fan host or guest session |
 | US-P1-01 | operator | TMDB-reconciled art/copy | catalog looks good without client-side TMDB |
 | US-P1-02 | operator | CloudWatch dashboards | I see health and reconcile outcomes |
 | US-P1-03 | fan | federated login (e.g. Facebook) | I can **host** rooms and retain continuity across devices |
-| US-P1-04 | operator | admin catalog + lists | I can curate without editing raw JSON in prod |
+| US-P1-04 | operator | admin catalog + lists | I can curate without editing raw JSON in prod (**depends on US-P1-05**) |
 
 ## Out of scope (MVP)
 
 - Verified YouTube Premium detection
 - Server-side video hosting
 - CRDT / multi-host democratic control
+- Self-service operator registration or in-app access requests (invite-only provisioning)
+- Catalog CRUD, curated lists, fan roster, and activity reporting as part of the **auth slice** (downstream of **US-P1-05**)
+- Room moderation or host takeover via staff login
 
 ## Primary code pointers (optional)
 

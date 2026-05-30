@@ -42,7 +42,8 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | **Secrets Manager** | TMDB, **Giphy**, optional other backend secrets. |
 | **S3** | Catalog assets, **fan avatars** (public HTTPS delivery). |
 | **CloudWatch** | Metrics, dashboards, logs, alarms (**`docs/architecture.server.md`** Observability). |
-| **Cognito** | Optional fan JWT; **separate** staff pool/client for **`/v1/admin/*`**. |
+| **Cognito (fan pool)** | **Fan user pool** + public SPA app client: optional **fan JWT** for hosting, **`/v1/fans/*`**, Giphy proxy; **self-sign-up enabled**; **COGNITO-only** IdP in current CDK (Facebook IdP remains **optional** per product—see Meta row). Hosted UI + PKCE; OAuth callback **`/auth/callback`**. Room **host** authority remains **`JWT.sub === room.hostSub`** on **fan** tokens only. |
+| **Cognito (staff pool)** | **Separate invite-only staff user pool** + staff SPA app client for **`/v1/admin/*`**: **`selfSignUpEnabled: false`**, **COGNITO-only** (no Facebook IdP), predefined groups **`admin`** / **`curator`**, **second HTTP JWT authorizer** (staff issuer + staff client audience) on the **same HTTP API** as fan routes. Hosted UI + PKCE; OAuth callback **`/admin/auth/callback`** on **same SPA origins** as fan. Staff verification/invite email reuses fan **SES From** (**`noreply@riffsync.tv`**) and shared configuration set. Operator onboarding MVP: **manual console invite** acceptable. |
 | **ElastiCache** | Optional read-through cache for catalog/lobby. |
 
 ## Decisions (answered)

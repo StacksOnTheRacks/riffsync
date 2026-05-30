@@ -1,49 +1,50 @@
-# Deployment environments
+# Deployment Environments
 
-RiffSync **hosted** footprint is **production only** in AWS (plus **local** development).
+## Stage model
 
-## Hosted (AWS)
-
-| Environment | Role | Notes |
-| --- | --- | --- |
-| **Production** | **Only** shared hosted environment | Live Cognito, HTTP/WebSocket APIs, DynamoDB, Lambdas, CloudFront fan SPA, shared TURN/SFU EC2. |
-
-## Promotion model (GitHub Actions)
-
-| Path | Policy |
+| Tier | Contract |
 | --- | --- |
-| **`main` → production** | **Manual** workflow run (**`workflow_dispatch`**): deploys **current `main` HEAD** to production. Ref input must stay **`main`** (enforced in the workflow). |
+| **Production (hosted)** | Single billable footprint: **`environment=prod`** in CDK (`bin/riffsync.ts`). **No** hosted staging stacks. |
+| **Local** | Workstation dev against **prod** API and Cognito pools (localhost OAuth callbacks); **no** separate deploy target. |
 
-**Not automatic by default:** production does not continuous deploy on every push unless product policy changes—keeps costs and surprise releases down (**`.ai/operations/build_packaging.md`**).
+Validation and smoke checks for hosted auth run in **production**, consistent with prod-only CDK synthesis.
 
-## Production deploy phases (`deploy-prod.yml`)
+## CloudFormation stacks (production)
 
-Manual **Deploy CDK (production)** runs these jobs in order (parallel where noted):
+| Stack | Role |
+| --- | --- |
+| **`RiffSyncTurn`** | TURN + mediasoup SFU (VPC, EC2) |
+| **`RiffSyncFanAuth-prod`** | Fan Cognito user pool, Hosted UI, SPA app client |
+| **`RiffSyncStaffAuth-prod`** | **Staff** Cognito user pool (invite-only), Hosted UI, SPA app client, **`admin`** / **`curator`** groups |
+| **`RiffSyncStatic-prod`** | Private S3 + CloudFront OAC for the **single** fan/staff SPA |
+| **`RiffSyncSesInbound`** | Shared SES inbound receipt rules |
+| **`RiffSyncApi-prod`** | HTTP + WebSocket API, DynamoDB, fan JWT authorizer, **staff JWT authorizer** on **`/v1/admin/*`**, Lambdas |
 
-| Phase | Workflow job | CDK / publish targets |
+**Staff auth is additive:** deploying **`RiffSyncStaffAuth-prod`** does not mutate the fan pool or fan authorizer. **`RiffSyncApi-prod`** update wires the staff authorizer and admin routes.
+
+## Deploy sequence (production)
+
+Manual workflow **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** (**`workflow_dispatch`**, ref **`main`**). See **[`build_packaging.md`](build_packaging.md)** for SPA publish.
+
+| Phase | Stacks / steps | Notes |
 | --- | --- | --- |
-| **1a** | **`cdk-media`** | **`RiffSyncTurn`** (TURN + SFU + VPC) |
-| **1b** | **`cdk-platform`** (parallel with 1a) | **`RiffSyncFanAuth-prod`**, **`RiffSyncStaffAuth-prod`**, **`RiffSyncStatic-prod`**, **`RiffSyncSesInbound`** |
-| **2** | **`cdk-api`** (after 1a + 1b) | **`RiffSyncApi-prod`** (`--exclusively`) |
-| **3** | **`cdk-oauth-cors`** (after 2) | **`RiffSyncFanAuth-prod`**, **`RiffSyncStaffAuth-prod`**, **`RiffSyncApi-prod`** (`--exclusively`) with **`fanAuthOAuthExtras`**, **`staffAuthOAuthExtras`**, **`catalogCorsOrigins`** from **`FanWebSiteUrl`** |
-| **4** | **`fan-spa`** (after 3) | Vite build with fan + staff Cognito outputs; **`aws s3 sync`** + CloudFront invalidation |
+| **1 — Media** | **`RiffSyncTurn`** | Parallel with platform. |
+| **2 — Platform** | **`RiffSyncFanAuth-prod`**, **`RiffSyncStaffAuth-prod`**, **`RiffSyncStatic-prod`**, **`RiffSyncSesInbound`** | Staff stack deploys **before** API (pool + client IDs must exist). **`apiCatalog.addDependency(staffAuth)`** in **`bin/riffsync.ts`** enforces synth order. |
+| **3 — API** | **`RiffSyncApi-prod`** (**`--exclusively`**) | After media + platform. Staff pool/client props + staff JWT authorizer + first **`/v1/admin/*`** route. |
+| **4 — OAuth / CORS refresh** | **`RiffSyncFanAuth-prod`**, **`RiffSyncStaffAuth-prod`**, **`RiffSyncApi-prod`** (**`--exclusively`**) | Point fan and staff Cognito callback allowlists and HTTP API CORS at **`FanWebSiteUrl`** from **`RiffSyncStatic-prod`**. Staff callbacks include **`/admin/auth/callback`** on the same origin as the fan SPA. |
+| **5 — SPA** | **`npm run build`** in **`apps/web`**, **`aws s3 sync`**, CloudFront invalidation | One artifact; fan + staff **`VITE_*`** vars baked at build time (see **`build_packaging.md`**). |
 
-**Media-only** changes use **`deploy-turn.yml`** without the full sequence above.
+**Brownfield first rollout:** deploy **`RiffSyncStaffAuth-prod`**, then **`RiffSyncApi-prod --exclusively`**, then rebuild and publish the SPA with staff Cognito outputs.
 
-## Removed: hosted staging
+**Operator onboarding (MVP):** invite-only staff accounts via Cognito console (**`AdminCreateUser`**) and **`admin`** / **`curator`** group assignment — no self-service registration.
 
-The former **staging** stacks (`RiffSyncFanAuth-staging`, `RiffSyncApi-staging`, `RiffSyncStatic-staging`) are **not** defined in CDK anymore. Operators should delete those stacks via **CloudFormation** after migrating any needed data and confirming DNS/clients no longer point at staging. See **`infra/cdk/README.md`** (Decommissioning hosted staging).
+## GitHub Actions and OIDC
 
-## Not used
-
-Long-lived **`dev`** or per-developer app stacks in AWS—developers use **local** workflows (**`.ai/runtime/configuration.md`**).
-
-## Local (not “an environment bill”)
-
-- SAM/local, Vite against **mock** or pointed at **production** APIs when needed (treat as **production traffic**: avoid destructive tests without coordination).
-- No requirement to parity every AWS locally on day one.
+- **CI:** **[`ci.yml`](../../.github/workflows/ci.yml)** — synth + lint; **no** AWS deploy credentials.
+- **Production deploy:** OIDC → **`AWS_DEPLOY_ROLE_ARN_PROD`**; extend deploy role **`cognito-idp:*`** (or minimal create/update actions) when the second pool is first deployed.
+- **Media-only:** **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)**.
 
 ## Primary code pointers (optional)
 
-- CDK **context** / CLI **`--context environment=prod`** (default in **`cdk.json`**).
-- Repo **`.github/workflows/`** (`deploy-prod.yml`, `deploy-turn.yml`, `ci.yml`}.
+- [`infra/cdk/bin/riffsync.ts`](../../infra/cdk/bin/riffsync.ts) — stack graph and **`addDependency`**
+- [`infra/cdk/README.md`](../../infra/cdk/README.md) — operator runbooks, outputs, smoke checks

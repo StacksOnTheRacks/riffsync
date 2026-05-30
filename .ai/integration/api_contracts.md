@@ -26,6 +26,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 | Verb / path | Purpose |
 | --- | --- |
+| **`GET /v1/admin/session`** | **Auth-slice probe** (staff JWT): returns operator identity from JWT claims (**`sub`**, **`email`**, **`groups`**). Proves staff authorizer + group check path end-to-end before catalog handlers ship. **403** when JWT is valid but caller lacks required **`cognito:groups`** membership; **401** when authorizer rejects token (wrong pool/audience/expiry). |
 | **`POST`**, **`PATCH`**, **`DELETE /v1/admin/catalog/episodes/:id`** | Catalog CRUD; payload compatible with **`data/catalog/catalog.schema.json`** (+ Dynamo-only fields per **`docs/architecture.catalog-images.md`**). |
 | **`POST /v1/admin/catalog/import`** | Bulk import before promoting catalog (**multipart** or **S3**-referenced payload—see admin doc). |
 | **`POST`**, **`PATCH /v1/admin/lists`** | Create/update curated list meta (**`slug`**, **`title`**, **`visibility`**, **`sortRule`**, optional hero). |
@@ -67,6 +68,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Public catalog without auth? | **Yes** for **`GET /v1/catalog`** (and public lists). |
 | WebSocket auth for guests? | **sessionId** sufficient for MVP; JWT optional enhancement for abuse resistance. |
 | Admin verification MVP? | **`JWT.sub === room.hostSub`** for **`POST /v1/rooms`**, **`PATCH`/`PUT`**, and publisher signaling; **anonymous guests** never satisfy this check. |
+| Staff auth end-to-end check? | **`GET /v1/admin/session`** under **`/v1/admin/*`** with staff JWT; validates authorizer + **`cognito:groups`** before catalog admin routes ship. |
 | GIF provider? | **Giphy** only for this product slice; server-side search + Giphy CDN renditions in messages (**`external_systems.md`**). |
 | Guest chat send / react? | **Fan JWT required** to send text/emoji/GIF and to add/remove reactions; guests **view only**. |
 

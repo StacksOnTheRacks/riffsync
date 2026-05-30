@@ -26,7 +26,26 @@ SPA builds for **prod** should inject **`https://riffsync.tv`** (or derive it fr
 
 Illustrative—final list in IaC:
 
-- **`CATALOG_CACHE_TTL`**, **`STALE_ROOM_MS`**, **`TMDB_IMAGE_POSTER_SIZE`**, **`COGNITO_*` pool ids (public config)**, API base URLs for SPA, **`PUBLIC_WEB_ORIGIN`** / build-time equivalent aligning with **`public_domain`** (**`https://riffsync.tv`** in prod).
+- **`CATALOG_CACHE_TTL`**, **`STALE_ROOM_MS`**, **`TMDB_IMAGE_POSTER_SIZE`**, API base URLs for SPA, **`PUBLIC_WEB_ORIGIN`** / build-time equivalent aligning with **`public_domain`** (**`https://riffsync.tv`** in prod).
+- **Fan Cognito (public):** fan user pool id and SPA client id for Lambdas and legacy **`COGNITO_*`** env on fan-scoped handlers (WebSocket, SFU, fan profile).
+- **Staff Cognito (public):** staff user pool id and SPA client id for API Gateway staff JWT authorizer issuer/audience at synth time; **not** interchangeable with fan pool ids.
+
+## SPA build-time config (fan + staff)
+
+The **single** fan SPA artifact (**`RiffSyncStatic-prod`**, **`https://riffsync.tv`**) receives **two parallel Vite namespaces** at **`npm run build`**, both **public and non-secret**:
+
+| Namespace | Injected at build | Consumed by |
+| --- | --- | --- |
+| **Fan** | Hosted UI domain + fan SPA client id (today’s **`VITE_COGNITO_*`** pattern) | Fan Hosted UI PKCE, **`/auth/callback`**, fan API calls |
+| **Staff** | Staff Hosted UI domain + staff SPA client id (distinct **`VITE_*`** prefix from fan) | Staff Hosted UI PKCE, **`/admin/auth/callback`**, **`/v1/admin/*`** HTTP calls |
+
+**Contract:** Cognito ids for the browser are **build-time only** (CloudFormation outputs in the prod deploy pipeline). There is **no** runtime fetch from S3, SSM, or a config endpoint for pool or client ids.
+
+**Local tier:** Developers point staff **`VITE_*`** at the **prod staff pool** (same pattern as fan local dev against **`riffsync-fan-prod`**), with **localhost** OAuth callbacks registered on the staff app client. Missing staff build-time config must **fail loudly** on admin login entry, not silently degrade fan routes.
+
+**Prod tier:** Production SPA build must include **both** fan and staff namespaces once staff auth is in scope; deploy reads **`RiffSyncFanAuth-prod`** and **`RiffSyncStaffAuth-prod`** outputs (exact output keys are implementation detail).
+
+**Secrets:** Staff uses a **public PKCE SPA client** (no client secret in the bundle). Invite, MFA, and group assignment stay in Cognito/operations, not in SPA config.
 
 ## Secrets
 

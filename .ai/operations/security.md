@@ -7,9 +7,23 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | Area | Mitigation |
 | --- | --- |
 | **Injection / abuse** | Input validation on chat and display names; **rate limits** (API GW / WAF) per environment. |
-| **AuthZ** | **Least privilege** IAM per Lambda; **admin** routes **staff JWT only**; **`cognito-idp:ListUsers`** scoped to fan pool ARN. |
+| **AuthZ** | **Least privilege** IAM per Lambda; **fan** routes accept **fan pool** JWT only; **`/v1/admin/*`** accepts **staff pool** JWT only (**second HTTP JWT authorizer** on staff issuer + staff app-client audience — cross-pool tokens fail at API Gateway). **`cognito-idp:ListUsers`** / **`AdminGetUser`** on admin Lambdas: **Resource** = **fan pool ARN** only (roster reads). Staff-pool **`cognito-idp:*`** (future invite automation): **staff pool ARN** only — never **`cognito-idp:*`** on both pools. |
 | **Secrets** | **Secrets Manager** / SSM secure params; **never** in git, env files committed, or browser. |
 | **Transport** | **TLS** everywhere (API Gateway defaults). |
+
+## Staff auth and admin Lambda IAM
+
+| Topic | Contract |
+| --- | --- |
+| **Staff JWT authorizer** | Second **`HttpJwtAuthorizer`** on **`RiffSyncApi-prod`**: issuer **`https://cognito-idp.<region>.amazonaws.com/<staffPoolId>`**, audience **staff SPA app client id**. Bound only on **`/v1/admin/*`**. Fan authorizer unchanged. Trust boundary: **[`authorization.md`](../integration/authorization.md)**. |
+| **Admin Lambda roles** | **Separate** execution role per admin handler; fan-route Lambdas do **not** assume admin roles. Handlers read **`cognito:groups`** from authorizer context (**`admin`**, **`curator`**). |
+| **Fan roster IAM** | **`cognito-idp:ListUsers`**, **`cognito-idp:AdminGetUser`**: **Resource** = **fan user pool ARN** only (future roster UI). |
+| **Staff pool IAM** | Future staff provisioning APIs: **`cognito-idp:*`** scoped to **staff user pool ARN** only — not account-wide. |
+| **DynamoDB** | Table-scoped grants when catalog/list handlers ship; auth MVP probe needs authorizer context only. |
+| **Staff pool email** | **`UserPoolEmail.withSES`**: reuse verified domain **`riffsync.tv`**, **`From`** **`RiffSync <noreply@riffsync.tv>`**, configuration set **`riffsync-ses-send-prod`** (same outbound reputation pipeline as fan pool). |
+| **Operator invites (MVP)** | Manual Cognito console **`AdminCreateUser`** + group assignment; **`selfSignUpEnabled: false`**. |
+| **MFA** | Staff pool MFA **`OPTIONAL`** at launch (recommended, not mandatory). |
+| **Deploy ordering** | **`RiffSyncStaffAuth-prod`** before **`RiffSyncApi-prod`**; SPA rebuild after staff outputs exist — **[`deployment_environments.md`](deployment_environments.md)**. |
 
 ## Data
 

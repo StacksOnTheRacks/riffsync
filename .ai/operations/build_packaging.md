@@ -1,63 +1,69 @@
-# Build & packaging
+# Build and Packaging
 
-## CDK application
+## Artifacts
 
-| Aspect | Contract |
+| Artifact | Source | Publish target |
+| --- | --- | --- |
+| **Fan + staff SPA** | **`apps/web`** — single Vite build (**`npm run build`** → **`dist/`**) | **`RiffSyncStatic-prod`** S3 bucket + CloudFront invalidation |
+| **Lambda handlers** | **`infra/cdk/lambda/`** — bundled by CDK | **`RiffSyncApi-prod`** (and other stacks as defined in IaC) |
+| **CDK templates** | **`infra/cdk`** — **`cdk synth`** | CloudFormation deploy via GitHub Actions or operator **`cdk deploy`** |
+
+The **admin UI** is **gated routes** under **`/admin/*`** in the **same** SPA as the fan catalog and rooms — **one** build, **one** CloudFront origin. Staff OAuth uses path **`/admin/auth/callback`** on the same **`FanWebSiteUrl`** origin as fan **`/auth/callback`**.
+
+## SPA build-time configuration
+
+Vite bakes public config at **`npm run build`**; the browser bundle does **not** fetch Cognito ids from S3 or SSM at runtime.
+
+### Fan auth (existing)
+
+Read from **`RiffSyncFanAuth-prod`** CloudFormation outputs in **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)**:
+
+| Output | Vite env |
 | --- | --- |
-| **IaC** | **AWS CDK v2**, **TypeScript** project (`cdk.json`, `bin/*.ts`, `lib/*.ts`). |
-| **Environments** | **Production** hosted stack only (**`.ai/runtime/configuration.md`**); ARNs/secrets use **`riffsync/prod/…`** names where applicable. |
+| **`FanHostedUiBaseUrl`** (host only) | **`VITE_COGNITO_HOSTED_UI_DOMAIN`** |
+| **`FanUserPoolClientId`** | **`VITE_COGNITO_CLIENT_ID`** |
 
-## CI / CD — GitHub Actions
+Also from **`RiffSyncStatic-prod`** / **`RiffSyncApi-prod`**: **`VITE_PUBLIC_ORIGIN`**, **`VITE_PUBLIC_API_BASE_URL`**, **`VITE_PUBLIC_WS_URL`**, optional **`VITE_PUBLIC_SFU_WS_URL`**.
 
-**CI is GitHub Actions.** **Deployment is on command** ( **`workflow_dispatch`** by default—no automatic prod deploy on every push unless you later choose otherwise).
+### Staff auth (same build)
 
-| Workflow (conceptual) | Trigger | Target | Versioning |
-| --- | --- | --- | --- |
-| **Deploy production** | **Manual** (**`workflow_dispatch`**) against **`main`** only | **`cdk deploy`** for prod stacks + fan SPA publish | Deploys **commit SHA** at workflow run (not necessarily a tag). |
-| **Deploy media only** | **Manual** | **`RiffSyncTurn`** (TURN + SFU + VPC) | For coturn/SFU UserData or media stack changes without full app deploy. |
+Read from **`RiffSyncStaffAuth-prod`** outputs in the **same** SPA build step (parallel to fan reads):
 
-**Practice**
-
-- **Optional:** **semver tags** / **GitHub Releases** remain useful for changelog and communication; they no longer gate the production deploy workflow.
-- **OIDC** federation from GitHub Actions → AWS IAM role is preferred over long-lived **AWS_ACCESS_KEY_ID** in secrets (implement in first pipeline story).
-- **`cdk synth` / `diff` / tests** on **`pull_request`** to **`main`** recommended; does not deploy.
-
-## Lambda bundles
-
-| Aspect | Contract |
+| Output | Vite env |
 | --- | --- |
-| **Language** | **TypeScript**; compile with **`tsc`** and/or **`esbuild`** (via **`NodejsFunction`** construct or **`@aws-cdk/aws-lambda-nodejs`**) so deploy artifacts are trimmed tree-shaken JS. |
-| **Dependencies** | Prefer **minimal** **`node_modules`** per function where feasible; AWS SDK v3 modular imports. |
+| **`StaffHostedUiBaseUrl`** (host only) | **`VITE_STAFF_COGNITO_HOSTED_UI_DOMAIN`** |
+| **`StaffUserPoolClientId`** | **`VITE_STAFF_COGNITO_CLIENT_ID`** |
 
-## Client
+**Namespace separation:** staff vars are distinct from fan **`VITE_COGNITO_*`** so the SPA preserves separate trust boundaries in token storage (**`riffsync.staff*`** vs fan keys). **No** SPA client secret in the bundle.
 
-| Aspect | Contract |
+**Local dev:** **`.env.local`** under **`apps/web`** may set staff **`VITE_*`** vars pointing at the prod staff pool (localhost OAuth callbacks mirror fan **`localDevCallbackLogoutBase`**). Missing staff env should fail loudly on admin login entry only; fan flows remain usable.
+
+### Deploy ordering vs build
+
+Staff Cognito outputs must exist **before** the SPA build that includes admin routes:
+
+1. Deploy **`RiffSyncStaffAuth-prod`**
+2. Deploy **`RiffSyncApi-prod`** (staff authorizer)
+3. Refresh OAuth/CORS (staff + fan allowlists include **`/admin/auth/callback`**)
+4. **`npm run build`** with fan + staff **`VITE_*`**, then S3 sync + invalidation
+
+See **[`deployment_environments.md`](deployment_environments.md)** for the full production sequence.
+
+## CI expectations
+
+| Job | Scope |
 | --- | --- |
-| **SPA** | Vite/Next/CRA per frontend doc; **TypeScript**; build output to **S3 + CloudFront** (or host elsewhere) — wired from CDK or separate pipeline (document in stack README when added). |
+| **`infra-cdk`** | **`cdk synth`**, **`cfn-lint`** on **`cdk.out`** |
+| **`web-app`** | **`apps/web`** **`npm run build`** + lint (may use placeholder env in CI; production deploy reads live Cfn outputs) |
 
-### Production SPA env (fan + staff)
+PR CI **does not deploy** to AWS.
 
-**`deploy-prod.yml`** reads CloudFormation outputs and passes them into **`apps/web`** **`npm run build`**:
+## Release and delivery
 
-| CfnOutput stack | Output key | Vite env var | Transform |
-| --- | --- | --- | --- |
-| **`RiffSyncStatic-prod`** | **`FanWebSiteUrl`** | **`VITE_PUBLIC_ORIGIN`** | Use as-is |
-| **`RiffSyncApi-prod`** | **`HttpApiUrl`** | **`VITE_PUBLIC_API_BASE_URL`** | Use as-is |
-| **`RiffSyncApi-prod`** | **`WebSocketUrl`** | **`VITE_PUBLIC_WS_URL`** | Use as-is |
-| **`RiffSyncFanAuth-prod`** | **`FanHostedUiBaseUrl`** | **`VITE_COGNITO_HOSTED_UI_DOMAIN`** | Strip **`https://`** prefix |
-| **`RiffSyncFanAuth-prod`** | **`FanUserPoolClientId`** | **`VITE_COGNITO_CLIENT_ID`** | Use as-is |
-| **`RiffSyncStaffAuth-prod`** | **`StaffHostedUiBaseUrl`** | **`VITE_STAFF_COGNITO_HOSTED_UI_DOMAIN`** | Strip **`https://`** prefix |
-| **`RiffSyncStaffAuth-prod`** | **`StaffUserPoolClientId`** | **`VITE_STAFF_COGNITO_CLIENT_ID`** | Use as-is |
-
-One **`dist/`** artifact serves fan routes and **`/admin/*`** (single S3 sync + invalidation).
-
-## Pull-request CI (recommended)
-
-- **`cdk synth`** with **`--context environment=prod`** (and optionally **`cdk diff`** against the prod account).
-- **`cfn-lint`** on synthesized templates.
-- **`npm test` / `vitest`** for handler and unit tests.
+- **Production:** manual **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** on **`main`** only.
+- **Deploy identity:** GitHub OIDC → IAM role (**`AWS_DEPLOY_ROLE_ARN_PROD`**) — prefer over long-lived access keys ([`docs/architecture.server.md`](../../docs/architecture.server.md) Delivery pipeline §).
 
 ## Primary code pointers (optional)
 
-- `.github/workflows/` (`deploy-prod.yml`, `deploy-turn.yml`, `ci.yml`).
-- `package.json` workspaces: `infra/cdk`, `apps/web` (example layout—finalize when scaffolding).
+- [`apps/web/src/auth/fanHostedUiPkce.ts`](../../apps/web/src/auth/fanHostedUiPkce.ts) — fan **`VITE_COGNITO_*`** consumption pattern
+- [`infra/cdk/lib/fan-auth-stack.ts`](../../infra/cdk/lib/fan-auth-stack.ts) — template for staff stack outputs and SES wiring
