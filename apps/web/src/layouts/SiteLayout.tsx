@@ -1,7 +1,7 @@
 import { Outlet, useMatch, useSearchParams } from 'react-router-dom'
 import { SiteHeader } from '../components/site/SiteHeader'
 import { SiteFooter } from '../components/site/SiteFooter'
-import { RoomChromeProvider } from '../room/RoomChromeContext'
+import { RoomChromeProvider } from '../room/RoomChromeProvider'
 
 export function SiteLayout() {
   const roomMatch = useMatch({ path: '/room/:roomId', end: true })

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
-import { useRoomChromeOptional } from '../../room/RoomChromeContext'
+import { useRoomChromeOptional } from '../../room/useRoomChrome'
 
 function PrimaryNavItem({
   to,
