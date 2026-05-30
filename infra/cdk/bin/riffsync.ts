@@ -117,6 +117,8 @@ const apiCatalog = new ApiCatalogStack(app, 'RiffSyncApi-prod', {
   description: 'RiffSync HTTP API + Catalog + Rooms + WebSocket (prod) — DynamoDB + Lambda',
   fanUserPool: fanAuth.fanUserPool,
   fanUserPoolClient: fanAuth.fanUserPoolClient,
+  staffUserPool: staffAuth.staffUserPool,
+  staffUserPoolClient: staffAuth.staffUserPoolClient,
   sesSendingConfigurationSetName: fanAuth.sesSendingConfigurationSetName,
   turnSharedSecret: mediaServer.turnSharedSecret,
   sfuDefaultSignalingWsUrl: sfuDefaultSignalingWsUrlFromContext(app, sfuProdSignalingHostname),
