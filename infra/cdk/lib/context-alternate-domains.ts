@@ -22,3 +22,9 @@ export function oauthCallbacksForHost(hostname: string): string[] {
   const h = hostname.replace(/\.$/, '').toLowerCase();
   return [`https://${h}/`, `https://${h}/auth/callback`];
 }
+
+/** Staff admin SPA OAuth allowlist paths under `/admin/*`. */
+export function oauthAdminCallbacksForHost(hostname: string): string[] {
+  const h = hostname.replace(/\.$/, '').toLowerCase();
+  return [`https://${h}/admin/auth/callback`, `https://${h}/admin/login`];
+}
