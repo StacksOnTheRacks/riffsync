@@ -1335,7 +1335,6 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   line-height: 1.4;
   --chat-avatar-size: 28px;
   --chat-avatar-gap: 0.35rem;
-  --chat-message-indent: calc(var(--chat-avatar-size) + var(--chat-avatar-gap));
 }
 
 .riffsync-room-chat-compose {
@@ -1582,68 +1581,102 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   text-decoration: underline;
 }
 
-.riffsync-room-chat-log__gif {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.riffsync-room-chat-log__gif-who {
-  display: flex;
-  align-items: center;
-  gap: var(--chat-avatar-gap);
-  max-width: min(100%, 14rem);
+.riffsync-room-chat-log__bubble:has(> .riffsync-room-chat-log__gif-img) {
+  padding: 0.3rem;
 }
 
 .riffsync-room-chat-log__gif-img {
   display: block;
   max-width: min(240px, 100%);
   height: auto;
-  border-radius: 6px;
-  margin-left: var(--chat-message-indent);
+  border-radius: 4px;
 }
 
 .riffsync-room-page__chat .riffsync-room-chat-log li + li {
-  margin-top: 0.35rem;
+  margin-top: 0.5rem;
 }
 
 .riffsync-room-page__chat .riffsync-room-chat-log li + li.riffsync-room-chat-log__row--continued {
-  margin-top: 0.1rem;
+  margin-top: 0.15rem;
 }
 
 .riffsync-room-chat-log__row {
   display: flex;
+  width: 100%;
+}
+
+.riffsync-room-chat-log__row--theirs {
+  justify-content: flex-start;
+}
+
+.riffsync-room-chat-log__row--mine {
+  justify-content: flex-end;
+}
+
+.riffsync-room-chat-log__entry {
+  display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  max-width: min(85%, 22rem);
+  min-width: 0;
 }
 
-.riffsync-room-chat-log__line {
-  display: grid;
-  grid-template-columns: var(--chat-avatar-size) 1fr;
-  column-gap: var(--chat-avatar-gap);
-  row-gap: 0.1rem;
-  word-break: break-word;
+.riffsync-room-chat-log__row--mine .riffsync-room-chat-log__entry {
+  align-items: flex-end;
 }
 
-.riffsync-room-chat-log__avatar {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  align-self: start;
+.riffsync-room-chat-log__row--theirs .riffsync-room-chat-log__entry {
+  align-items: flex-start;
+}
+
+.riffsync-room-chat-log__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--chat-avatar-gap);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .riffsync-room-chat-log__who-name {
-  grid-column: 2;
-  grid-row: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
+  font-size: 0.8125rem;
+  opacity: 0.92;
+}
+
+.riffsync-room-chat-log__bubble {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.85rem;
+  word-break: break-word;
+}
+
+.riffsync-room-chat-log__row--theirs .riffsync-room-chat-log__bubble {
+  background: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-top-left-radius: 0.25rem;
+}
+
+.riffsync-room-chat-log__row--mine .riffsync-room-chat-log__bubble {
+  background: color-mix(in srgb, var(--primary-color) 78%, rgb(255 255 255 / 0.08));
+  border: 1px solid color-mix(in srgb, var(--primary-color) 55%, transparent);
+  border-top-right-radius: 0.25rem;
+}
+
+.riffsync-room-chat-log__row--continued .riffsync-room-chat-log__bubble {
+  border-top-left-radius: 0.85rem;
+  border-top-right-radius: 0.85rem;
 }
 
 .riffsync-room-chat-log__body {
-  grid-column: 2;
-  grid-row: 2;
-  font-size: 1rem;
+  font-size: 0.9375rem;
+  line-height: 1.4;
 }
 
 .riffsync-room-chat-log__body--emoji-only {
@@ -1651,35 +1684,36 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   line-height: 1.2;
 }
 
-.riffsync-room-chat-log__row--continued .riffsync-room-chat-log__line {
-  display: block;
-  padding-left: var(--chat-message-indent);
-}
-
 .riffsync-room-chat-reactions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
-  padding-left: var(--chat-message-indent);
+  gap: 0.2rem;
+  min-height: 1.85rem;
+  padding-right: 1.65rem;
+}
+
+.riffsync-room-chat-reactions:not(:has(.riffsync-room-chat-reaction-chip)) {
+  min-height: 0;
+  padding-right: 0;
 }
 
 .riffsync-room-chat-reaction-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.15rem 0.45rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 999px;
-  border: 1px solid rgb(255 255 255 / 0.12);
-  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: rgb(0 0 0 / 0.18);
   color: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   line-height: 1.2;
   cursor: pointer;
 }
 
 .riffsync-room-chat-reaction-chip__emoji {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   line-height: 1;
 }
 
@@ -1689,46 +1723,58 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-chat-reaction-chip--mine {
-  border-color: rgb(120 180 255 / 0.55);
-  background: rgb(120 180 255 / 0.14);
+  border-color: rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.14);
 }
 
 .riffsync-room-chat-reaction-chip__count {
   font-variant-numeric: tabular-nums;
   opacity: 0.88;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
 }
 
 .riffsync-room-chat-reaction-picker {
-  position: relative;
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
   flex-shrink: 0;
 }
 
 .riffsync-room-chat-reaction-add {
-  min-width: 1.85rem;
-  min-height: 1.85rem;
-  padding: 0.15rem 0.45rem;
-  line-height: 1.1;
-  font-size: 1rem;
+  width: 1.65rem;
+  height: 1.65rem;
+  min-width: 1.65rem;
+  min-height: 1.65rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 0.95rem;
   border-radius: 999px;
-  transition: opacity 120ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(0 0 0 / 0.22);
+  transition: opacity 120ms ease, visibility 120ms ease;
+}
+
+.riffsync-room-chat-emoji-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.35rem);
+  z-index: 12;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgb(12 16 22);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.1);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .riffsync-room-chat-log__row:not(:hover):not(:focus-within)
+  .riffsync-room-chat-log__bubble:not(:hover):not(:focus-within)
     .riffsync-room-chat-reaction-add:not([aria-expanded='true']) {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    width: 0;
-    min-width: 0;
-    padding-inline: 0;
-    overflow: hidden;
-    border-width: 0;
-  }
-
-  .riffsync-room-chat-log__row:not(:hover):not(:focus-within)
-    .riffsync-room-chat-reactions:not(:has(.riffsync-room-chat-reaction-chip)) {
-    display: none;
   }
 }
 

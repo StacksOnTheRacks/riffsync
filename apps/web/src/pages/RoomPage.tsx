@@ -1482,59 +1482,54 @@ export function RoomPage() {
                       )
                       const reactionChips = chatReactions[m.messageId] ?? {}
                       const isContinued = isContinuedChatLine(chat, index)
-                      const rowClassName = `riffsync-room-chat-log__row${isContinued ? ' riffsync-room-chat-log__row--continued' : ''}`
+                      const isMine = m.sessionId === sessionId
+                      const rowClassName = [
+                        'riffsync-room-chat-log__row',
+                        isMine ? 'riffsync-room-chat-log__row--mine' : 'riffsync-room-chat-log__row--theirs',
+                        isContinued ? 'riffsync-room-chat-log__row--continued' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')
+                      const showTheirsMeta = !isMine && !isContinued
                       return (
                         <li key={m.messageId} className={rowClassName}>
-                          {m.kind === 'gif' ? (
-                            <div className="riffsync-room-chat-log__gif">
-                              {!isContinued ? (
-                                <div className="riffsync-room-chat-log__gif-who">
-                                  <FanAvatarThumb
-                                    displayName={chatDisplayName}
-                                    avatarUrl={chatAvatarUrl}
-                                  />
-                                  <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
-                                </div>
+                          <div className="riffsync-room-chat-log__entry">
+                            {showTheirsMeta ? (
+                              <div className="riffsync-room-chat-log__meta">
+                                <FanAvatarThumb
+                                  displayName={chatDisplayName}
+                                  avatarUrl={chatAvatarUrl}
+                                />
+                                <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
+                              </div>
+                            ) : (
+                              <span className="sr-only">{chatDisplayName}: </span>
+                            )}
+                            <div className="riffsync-room-chat-log__bubble">
+                              {m.kind === 'gif' ? (
+                                <img
+                                  className="riffsync-room-chat-log__gif-img"
+                                  src={m.renditionUrl}
+                                  alt={m.title?.trim() || 'GIF'}
+                                  loading="lazy"
+                                  width={m.width}
+                                  height={m.height}
+                                />
                               ) : (
-                                <span className="sr-only">{chatDisplayName}: </span>
+                                <div
+                                  className={`riffsync-room-chat-log__body${isEmojiOnlyChatMessage(m.text) ? ' riffsync-room-chat-log__body--emoji-only' : ''}`}
+                                >
+                                  {m.text}
+                                </div>
                               )}
-                              <img
-                                className="riffsync-room-chat-log__gif-img"
-                                src={m.renditionUrl}
-                                alt={m.title?.trim() || 'GIF'}
-                                loading="lazy"
-                                width={m.width}
-                                height={m.height}
+                              <ChatReactionsStrip
+                                messageId={m.messageId}
+                                chips={reactionChips}
+                                canReact={Boolean(fanToken)}
+                                onToggleReaction={toggleChatReaction}
                               />
                             </div>
-                          ) : (
-                            <div className="riffsync-room-chat-log__line">
-                              {!isContinued ? (
-                                <>
-                                  <div className="riffsync-room-chat-log__avatar">
-                                    <FanAvatarThumb
-                                      displayName={chatDisplayName}
-                                      avatarUrl={chatAvatarUrl}
-                                    />
-                                  </div>
-                                  <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
-                                </>
-                              ) : (
-                                <span className="sr-only">{chatDisplayName}: </span>
-                              )}
-                              <div
-                                className={`riffsync-room-chat-log__body${isEmojiOnlyChatMessage(m.text) ? ' riffsync-room-chat-log__body--emoji-only' : ''}`}
-                              >
-                                {m.text}
-                              </div>
-                            </div>
-                          )}
-                          <ChatReactionsStrip
-                            messageId={m.messageId}
-                            chips={reactionChips}
-                            canReact={Boolean(fanToken)}
-                            onToggleReaction={toggleChatReaction}
-                          />
+                          </div>
                         </li>
                       )
                     })}
