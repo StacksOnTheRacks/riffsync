@@ -1679,6 +1679,11 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   line-height: 1.4;
 }
 
+.riffsync-room-chat-log__bubble:has(.riffsync-room-chat-reaction-picker) .riffsync-room-chat-log__body {
+  min-height: 1.65rem;
+  padding-right: 2.15rem;
+}
+
 .riffsync-room-chat-log__body--emoji-only {
   font-size: 1.65rem;
   line-height: 1.2;
