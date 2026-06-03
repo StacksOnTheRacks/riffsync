@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { refreshStaffTokensIfStale } from '../auth/staffHostedUiPkce'
 import { getStaffAccessToken } from '../auth/staffTokens'
@@ -16,15 +8,7 @@ import {
   StaffSessionUnauthorizedError,
   type StaffSessionPayload,
 } from '../api/staffAdminSessionApi'
-
-export interface AdminSessionState {
-  session: StaffSessionPayload | null
-  loading: boolean
-  error: string | null
-  reload: () => void
-}
-
-const AdminSessionContext = createContext<AdminSessionState | null>(null)
+import { AdminSessionContext } from './adminSessionState'
 
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
@@ -77,21 +61,4 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   )
 
   return <AdminSessionContext.Provider value={value}>{children}</AdminSessionContext.Provider>
-}
-
-export function useAdminSession(): AdminSessionState {
-  const ctx = useContext(AdminSessionContext)
-  if (!ctx) {
-    throw new Error('useAdminSession must be used within AdminSessionProvider')
-  }
-  return ctx
-}
-
-/** Visible label for Cognito groups in the session strip (abbreviated when long). */
-export function abbreviateStaffGroups(groups: string[]): string {
-  if (groups.length === 0) return '(none)'
-  if (groups.length <= 2) return groups.join(', ')
-  const shown = groups.slice(0, 2).join(', ')
-  const rest = groups.length - 2
-  return `${shown} (+${rest})`
 }

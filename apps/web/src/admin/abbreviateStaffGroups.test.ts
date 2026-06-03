@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { abbreviateStaffGroups } from './AdminSessionContext'
+import { abbreviateStaffGroups } from './abbreviateStaffGroups'
 
 describe('abbreviateStaffGroups', () => {
   it('returns (none) for empty groups', () => {
