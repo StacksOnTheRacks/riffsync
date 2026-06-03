@@ -9,7 +9,7 @@ import {
 } from './admin-session-shared';
 import { jsonResponse } from './giphy-search-shared';
 
-function resolveSub(event: APIGatewayProxyEventV2): string | undefined {
+export function resolveStaffSub(event: APIGatewayProxyEventV2): string | undefined {
   const claims = getStaffJwtClaims(event);
   if (typeof claims?.sub === 'string' && claims.sub.length > 0) {
     return claims.sub;
@@ -40,7 +40,7 @@ async function resolveStaffGroupsForRequest(event: APIGatewayProxyEventV2): Prom
   if (username) {
     candidates.add(username);
   }
-  const sub = resolveSub(event);
+  const sub = resolveStaffSub(event);
   if (sub) {
     candidates.add(sub);
   }
@@ -63,7 +63,7 @@ async function resolveStaffGroupsForRequest(event: APIGatewayProxyEventV2): Prom
 export async function requireStaffAccess(
   event: APIGatewayProxyEventV2,
 ): Promise<ReturnType<typeof jsonResponse> | null> {
-  const sub = resolveSub(event);
+  const sub = resolveStaffSub(event);
   if (!sub) {
     return jsonResponse(401, { error: 'Unauthorized', code: 'unauthorized' });
   }

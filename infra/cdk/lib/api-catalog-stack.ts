@@ -610,9 +610,39 @@ export class ApiCatalogStack extends cdk.Stack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
+    const adminCatalogPostFn = new lambdaNodejs.NodejsFunction(this, 'AdminCatalogPostFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/admin-catalog-post.ts'),
+      handler: 'handler',
+      environment: {
+        CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        STAFF_USER_POOL_ID: staffUserPool.userPoolId,
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    const adminCatalogPatchFn = new lambdaNodejs.NodejsFunction(this, 'AdminCatalogPatchFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/admin-catalog-patch.ts'),
+      handler: 'handler',
+      environment: {
+        CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        STAFF_USER_POOL_ID: staffUserPool.userPoolId,
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
     this.catalogTable.grantReadData(adminCatalogListFn);
     this.catalogTable.grantReadData(adminCatalogGetFn);
-    for (const fn of [adminCatalogListFn, adminCatalogGetFn]) {
+    this.catalogTable.grantReadWriteData(adminCatalogPostFn);
+    this.catalogTable.grantReadWriteData(adminCatalogPatchFn);
+    for (const fn of [adminCatalogListFn, adminCatalogGetFn, adminCatalogPostFn, adminCatalogPatchFn]) {
       fn.addToRolePolicy(
         new iam.PolicyStatement({
           actions: ['cognito-idp:AdminListGroupsForUser'],
@@ -805,6 +835,14 @@ export class ApiCatalogStack extends cdk.Stack {
       'AdminCatalogGetInt',
       adminCatalogGetFn,
     );
+    const adminCatalogPostIntegration = new integrations.HttpLambdaIntegration(
+      'AdminCatalogPostInt',
+      adminCatalogPostFn,
+    );
+    const adminCatalogPatchIntegration = new integrations.HttpLambdaIntegration(
+      'AdminCatalogPatchInt',
+      adminCatalogPatchFn,
+    );
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -911,6 +949,20 @@ export class ApiCatalogStack extends cdk.Stack {
       authorizer: staffJwtAuthorizer,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/admin/catalog/episodes/{id}',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: adminCatalogPostIntegration,
+      authorizer: staffJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/admin/catalog/episodes/{id}',
+      methods: [apigwv2.HttpMethod.PATCH],
+      integration: adminCatalogPatchIntegration,
+      authorizer: staffJwtAuthorizer,
+    });
+
     const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     if (httpStageL1) {
       httpStageL1.defaultRouteSettings = {
@@ -967,7 +1019,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH).',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {

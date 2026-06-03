@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createStaffCatalogEpisode,
   fetchStaffCatalogEpisode,
   fetchStaffCatalogList,
+  patchStaffCatalogEpisode,
+  StaffCatalogValidationError,
 } from './staffAdminCatalogApi'
 import {
   StaffSessionForbiddenError,
@@ -75,5 +78,61 @@ describe('staffAdminCatalogApi', () => {
     await expect(fetchStaffCatalogEpisode('no-group', 'ep-1')).rejects.toBeInstanceOf(
       StaffSessionForbiddenError,
     )
+  })
+
+  it('createStaffCatalogEpisode POSTs writable body to episode path', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ entry: { id: 'new-ep' } }),
+    })
+
+    const body = {
+      experimentNumber: 1,
+      title: 'New',
+      era: 'other' as const,
+      youtubeVideoId: null,
+      youtubeWatchUrl: null,
+    }
+    await createStaffCatalogEpisode('staff-token', 'new-ep', body)
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.example.test/v1/admin/catalog/episodes/new-ep')
+    expect(init.method).toBe('POST')
+    expect(init.headers).toMatchObject({
+      Authorization: 'Bearer staff-token',
+      'Content-Type': 'application/json',
+    })
+    expect(JSON.parse(String(init.body))).toEqual(body)
+  })
+
+  it('patchStaffCatalogEpisode PATCHes partial body', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ entry: { id: 'ep-1', title: 'Updated' } }),
+    })
+
+    await patchStaffCatalogEpisode('staff-token', 'ep-1', { title: 'Updated' })
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.example.test/v1/admin/catalog/episodes/ep-1')
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(String(init.body))).toEqual({ title: 'Updated' })
+  })
+
+  it('maps 400 validation_error to StaffCatalogValidationError', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        code: 'validation_error',
+        details: [{ instancePath: '/title' }],
+      }),
+    })
+
+    await expect(
+      patchStaffCatalogEpisode('staff-token', 'ep-1', { title: '' }),
+    ).rejects.toBeInstanceOf(StaffCatalogValidationError)
   })
 })
