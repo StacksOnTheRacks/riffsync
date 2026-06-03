@@ -12,7 +12,10 @@ import { DataRemovalRequestPage } from './pages/DataRemovalRequestPage'
 import { HowToHostWatchPartyPage } from './pages/HowToHostWatchPartyPage'
 import { StaffAuthCallbackPage } from './pages/admin/StaffAuthCallbackPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
-import { AdminHomePage, StaffAdminGate } from './pages/admin/AdminHomePage'
+import { AdminCatalogRoutePlaceholder } from './pages/admin/AdminCatalogRoutePlaceholder'
+import { AdminHomePage } from './pages/admin/AdminHomePage'
+import { StaffAdminGate } from './pages/admin/StaffAdminGate'
+import { AdminLayout } from './layouts/AdminLayout'
 
 export function AppRoutes() {
   return (
@@ -21,8 +24,12 @@ export function AppRoutes() {
       <Route path="/admin/auth/callback" element={<StaffAuthCallbackPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin" element={<StaffAdminGate />}>
-        <Route index element={<AdminHomePage />} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
+        <Route element={<AdminLayout />}>
+          <Route index element={<AdminHomePage />} />
+          <Route path="catalog/new" element={<AdminCatalogRoutePlaceholder variant="new" />} />
+          <Route path="catalog/:id/edit" element={<AdminCatalogRoutePlaceholder variant="edit" />} />
+          <Route path="catalog" element={<AdminCatalogRoutePlaceholder variant="list" />} />
+        </Route>
       </Route>
       <Route element={<SiteLayout />}>
         <Route path="/" element={<HomePage />} />

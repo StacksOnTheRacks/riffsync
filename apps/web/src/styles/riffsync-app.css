@@ -2003,3 +2003,162 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
     animation: none;
   }
 }
+
+/* Operator admin shell (no fan SiteHeader / SiteFooter) */
+.riffsync-admin-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--dark-color);
+  color: var(--white-color);
+}
+
+.riffsync-admin-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--black-color);
+  border-bottom: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.riffsync-admin-wordmark {
+  font-family: var(--title-fonts);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--white-color);
+}
+
+.riffsync-admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.riffsync-admin-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  font-family: var(--title-fonts);
+  font-weight: 600;
+  color: var(--secondary-color);
+  text-decoration: none;
+}
+
+.riffsync-admin-nav-link:hover,
+.riffsync-admin-nav-link:focus {
+  color: var(--white-color);
+  background: rgb(255 255 255 / 0.08);
+  text-decoration: none;
+}
+
+.riffsync-admin-nav-link--active {
+  color: var(--white-color);
+  background: rgb(229 9 22 / 0.2);
+}
+
+.riffsync-admin-session-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-left: auto;
+  font-size: 0.875rem;
+}
+
+.riffsync-admin-session-strip__identity {
+  font-weight: 600;
+  color: var(--white-color);
+}
+
+.riffsync-admin-session-strip__groups {
+  color: var(--secondary-color);
+}
+
+.riffsync-admin-session-strip__alert {
+  margin: 0;
+}
+
+.riffsync-admin-session-strip__alert p {
+  margin: 0 0 0.25rem;
+}
+
+.riffsync-admin-sign-out {
+  min-height: 44px;
+}
+
+.riffsync-admin-main {
+  flex: 1;
+  padding: 2rem 0 3rem;
+}
+
+.riffsync-admin-page h1 {
+  font-family: var(--title-fonts);
+  font-size: 1.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.riffsync-admin-breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-size: 0.875rem;
+  color: var(--secondary-color);
+}
+
+.riffsync-admin-breadcrumb a {
+  color: var(--secondary-color);
+  text-decoration: none;
+}
+
+.riffsync-admin-breadcrumb a:hover,
+.riffsync-admin-breadcrumb a:focus {
+  color: var(--primary-color);
+}
+
+.riffsync-admin-breadcrumb li:not(:last-child)::after {
+  content: '/';
+  margin-left: 0.5rem;
+  color: rgb(255 255 255 / 0.35);
+}
+
+.riffsync-admin-breadcrumb li[aria-current='page'] {
+  color: var(--white-color);
+}
+
+.riffsync-admin-placeholder-note {
+  color: var(--secondary-color);
+}
+
+.riffsync-admin-placeholder-id code {
+  font-size: 0.875rem;
+}
+
+@media (max-width: 767px) {
+  .riffsync-admin-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .riffsync-admin-nav {
+    order: 2;
+    width: 100%;
+  }
+
+  .riffsync-admin-session-strip {
+    order: 3;
+    margin-left: 0;
+    width: 100%;
+  }
+}
