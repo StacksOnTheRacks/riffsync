@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   emitApiEmf,
   emitWsRealtimeEmf,
+  logAdminCatalogAudit,
   logApiAction,
   logRiffsyncDiagError,
   logWsAction,
+  recordAdminCatalogRoute,
   recordApiRoute,
   recordWsRealtimeRoute,
   riffsyncEnvironment,
@@ -176,5 +178,60 @@ describe('riffsync-observability', () => {
       errorType: 'Error',
       errorMessage: 'AccessDenied',
     });
+  });
+
+  it('emits AdminCatalogPost EMF without sub or episodeId dimensions', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'prod';
+    emitApiEmf('AdminCatalogPost', 'success');
+
+    expect(console.log).toHaveBeenCalledTimes(1);
+    const line = (console.log as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    expect(parsed.Route).toBe('AdminCatalogPost');
+    expect(parsed.Outcome).toBe('success');
+    expect(parsed.sub).toBeUndefined();
+    expect(parsed.episodeId).toBeUndefined();
+  });
+
+  it('logs admin catalog audit with operator and episode metadata', () => {
+    logAdminCatalogAudit({
+      route: 'AdminCatalogPost',
+      action: 'create',
+      outcome: 'success',
+      sub: 'staff-sub-1',
+      episodeId: 'tw-smoke',
+      requestId: 'req-abc',
+      statusCode: 201,
+    });
+
+    expect(console.info).toHaveBeenCalledTimes(1);
+    const line = (console.info as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    expect(parsed).toMatchObject({
+      riffsyncDiag: 'admin_catalog_audit',
+      route: 'AdminCatalogPost',
+      action: 'create',
+      sub: 'staff-sub-1',
+      episodeId: 'tw-smoke',
+      requestId: 'req-abc',
+      statusCode: 201,
+    });
+  });
+
+  it('recordAdminCatalogRoute emits EMF and audit together', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'prod';
+    recordAdminCatalogRoute('AdminCatalogPatch', 'validation_error', {
+      route: 'AdminCatalogPatch',
+      action: 'update',
+      outcome: 'validation_error',
+      sub: 'staff-sub-2',
+      episodeId: 'ep-1',
+      requestId: 'req-patch',
+      statusCode: 400,
+      validationFieldPaths: ['/title'],
+    });
+
+    expect(console.log).toHaveBeenCalledTimes(1);
+    expect(console.info).toHaveBeenCalledTimes(2);
   });
 });

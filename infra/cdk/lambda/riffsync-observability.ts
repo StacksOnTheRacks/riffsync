@@ -6,7 +6,11 @@ export type WsRealtimeOutcome =
   | 'auth_forbidden'
   | 'server_error';
 
-export type ApiRoute = 'GiphySearch' | 'FanAvatarUpload';
+export type ApiRoute =
+  | 'GiphySearch'
+  | 'FanAvatarUpload'
+  | 'AdminCatalogPost'
+  | 'AdminCatalogPatch';
 
 export type GiphySearchOutcome =
   | 'success'
@@ -24,7 +28,27 @@ export type FanAvatarUploadOutcome =
   | 'misconfigured'
   | 'server_error';
 
-export type ApiOutcome = GiphySearchOutcome | FanAvatarUploadOutcome;
+export type AdminCatalogPostOutcome =
+  | 'success'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'validation_error'
+  | 'conflict'
+  | 'server_error';
+
+export type AdminCatalogPatchOutcome =
+  | 'success'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'validation_error'
+  | 'not_found'
+  | 'server_error';
+
+export type ApiOutcome =
+  | GiphySearchOutcome
+  | FanAvatarUploadOutcome
+  | AdminCatalogPostOutcome
+  | AdminCatalogPatchOutcome;
 
 const REALTIME_METRIC_NAME = 'Requests';
 const API_METRIC_NAME = 'Requests';
@@ -188,4 +212,61 @@ export function recordApiRoute(
 ): void {
   emitApiEmf(route, outcome);
   logApiAction({ route, outcome, ...extras });
+}
+
+export type AdminCatalogAuditFields = {
+  route: 'AdminCatalogPost' | 'AdminCatalogPatch';
+  action: 'create' | 'update';
+  outcome: AdminCatalogPostOutcome | AdminCatalogPatchOutcome;
+  sub: string;
+  episodeId: string;
+  requestId: string;
+  statusCode: number;
+  validationFieldPaths?: string[];
+};
+
+/** Structured INFO audit log for admin catalog mutations (no request bodies). */
+export function logAdminCatalogAudit(fields: AdminCatalogAuditFields): void {
+  const payload: Record<string, unknown> = {
+    riffsyncDiag: 'admin_catalog_audit',
+    route: fields.route,
+    action: fields.action,
+    outcome: fields.outcome,
+    sub: fields.sub,
+    episodeId: fields.episodeId,
+    requestId: fields.requestId,
+    statusCode: fields.statusCode,
+  };
+  if (fields.validationFieldPaths !== undefined) {
+    payload.validationFieldPaths = fields.validationFieldPaths;
+  }
+  console.info(JSON.stringify(payload));
+}
+
+export function recordAdminCatalogRoute(
+  route: 'AdminCatalogPost' | 'AdminCatalogPatch',
+  outcome: AdminCatalogPostOutcome | AdminCatalogPatchOutcome,
+  audit: AdminCatalogAuditFields,
+): void {
+  emitApiEmf(route, outcome);
+  logApiAction({ route, outcome });
+  logAdminCatalogAudit(audit);
+}
+
+export function adminCatalogPostOutcomeFromStatus(statusCode: number): AdminCatalogPostOutcome {
+  if (statusCode === 201) return 'success';
+  if (statusCode === 401) return 'unauthorized';
+  if (statusCode === 403) return 'forbidden';
+  if (statusCode === 400) return 'validation_error';
+  if (statusCode === 409) return 'conflict';
+  return 'server_error';
+}
+
+export function adminCatalogPatchOutcomeFromStatus(statusCode: number): AdminCatalogPatchOutcome {
+  if (statusCode === 200) return 'success';
+  if (statusCode === 401) return 'unauthorized';
+  if (statusCode === 403) return 'forbidden';
+  if (statusCode === 400) return 'validation_error';
+  if (statusCode === 404) return 'not_found';
+  return 'server_error';
 }
