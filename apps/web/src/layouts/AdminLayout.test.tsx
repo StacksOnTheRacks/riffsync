@@ -3,7 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AdminSessionState } from '../admin/AdminSessionContext'
+import type { AdminSessionState } from '../admin/adminSessionState'
 import { AdminLayout } from './AdminLayout'
 
 const clearStaffTokens = vi.fn()
@@ -14,10 +14,8 @@ vi.mock('../auth/staffTokens', () => ({
   clearStaffTokens: () => clearStaffTokens(),
 }))
 
-vi.mock('../admin/AdminSessionContext', () => ({
+vi.mock('../admin/useAdminSession', () => ({
   useAdminSession: () => useAdminSession(),
-  abbreviateStaffGroups: (groups: string[]) =>
-    groups.length === 0 ? '(none)' : groups.length <= 2 ? groups.join(', ') : `${groups.slice(0, 2).join(', ')} (+${groups.length - 2})`,
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {

@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { abbreviateStaffGroups, useAdminSession } from '../admin/AdminSessionContext'
+import { abbreviateStaffGroups } from '../admin/abbreviateStaffGroups'
+import { useAdminSession } from '../admin/useAdminSession'
 import { clearStaffTokens } from '../auth/staffTokens'
 
 function adminNavClassName({ isActive }: { isActive: boolean }): string {

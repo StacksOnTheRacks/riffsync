@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { AdminSessionProvider } from '../../admin/AdminSessionContext'
+import { AdminSessionProvider } from '../../admin/AdminSessionProvider'
 import { StaffSessionKeepAlive } from '../../auth/StaffSessionKeepAlive'
 import { getStaffAccessToken } from '../../auth/staffTokens'
 

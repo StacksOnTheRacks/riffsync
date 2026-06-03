@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useAdminSession } from '../../admin/AdminSessionContext'
+import { useAdminSession } from '../../admin/useAdminSession'
 
 export function AdminHomePage() {
   const { loading, error, reload } = useAdminSession()
