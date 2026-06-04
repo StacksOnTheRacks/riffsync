@@ -5,7 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminCatalogForm } from './AdminCatalogForm'
-import { EMPTY_CATALOG_EPISODE_FORM_VALUES } from '../../catalog/validateCatalogEpisodeForm'
+import {
+  catalogEpisodeToFormValues,
+  EMPTY_CATALOG_EPISODE_FORM_VALUES,
+} from '../../catalog/validateCatalogEpisodeForm'
 import type { StaffCatalogEpisode } from '../../api/staffAdminCatalogApi'
 
 const navigate = vi.fn()
@@ -50,10 +53,21 @@ vi.mock('./AdminCatalogDeleteControl', () => ({
   AdminCatalogDeleteControl: () => null,
 }))
 
-function setInputValue(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+function setInputValue(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+): void {
+  const prototype =
+    input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set
   setter?.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+function uncheckCheckbox(checkbox: HTMLInputElement): void {
+  if (checkbox.checked) {
+    checkbox.click()
+  }
 }
 
 const baseEpisode: StaffCatalogEpisode = {
@@ -147,6 +161,9 @@ describe('AdminCatalogForm', () => {
           youtubeVideoId: null,
           youtubeWatchUrl: null,
           carousel: false,
+          movieSearchTitle: null,
+          embedAllows: true,
+          curatorNotes: null,
         }),
       )
     })
@@ -182,15 +199,7 @@ describe('AdminCatalogForm', () => {
     renderForm({
       mode: 'edit',
       initialEpisode: baseEpisode,
-      initialValues: {
-        id: baseEpisode.id,
-        experimentNumber: String(baseEpisode.experimentNumber),
-        title: baseEpisode.title,
-        era: baseEpisode.era,
-        youtubeVideoId: '',
-        youtubeWatchUrl: '',
-        carousel: baseEpisode.carousel,
-      },
+      initialValues: catalogEpisodeToFormValues(baseEpisode),
       breadcrumbLeaf: 'Edit',
       pageTitle: 'Edit episode',
     })
@@ -240,5 +249,89 @@ describe('AdminCatalogForm', () => {
     await vi.waitFor(() => {
       expect(container.textContent).toContain('too short')
     })
+  })
+
+  it('edit mode saves changed curator hints in PATCH body', async () => {
+    renderForm({
+      mode: 'edit',
+      initialEpisode: baseEpisode,
+      initialValues: catalogEpisodeToFormValues(baseEpisode),
+      breadcrumbLeaf: 'Edit',
+      pageTitle: 'Edit episode',
+    })
+
+    const movieSearchInput = container.querySelector(
+      '#catalog-form-movie-search-title',
+    ) as HTMLInputElement
+    const embedCheckbox = container.querySelector('#catalog-form-embed-allows') as HTMLInputElement
+    const notesInput = container.querySelector('#catalog-form-curator-notes') as HTMLTextAreaElement
+
+    await act(async () => {
+      setInputValue(movieSearchInput, 'The Crawling Eye')
+      uncheckCheckbox(embedCheckbox)
+      setInputValue(notesInput, 'Updated notes')
+    })
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(patchStaffCatalogEpisode).toHaveBeenCalledWith('staff-token', 'ep-1', {
+        movieSearchTitle: 'The Crawling Eye',
+        embedAllows: false,
+        curatorNotes: 'Updated notes',
+      })
+    })
+  })
+
+  it('shows embed-disabled note when embedAllows is unchecked', async () => {
+    renderForm({
+      mode: 'edit',
+      initialEpisode: { ...baseEpisode, embedAllows: true },
+      initialValues: catalogEpisodeToFormValues({ ...baseEpisode, embedAllows: true }),
+      breadcrumbLeaf: 'Edit',
+      pageTitle: 'Edit episode',
+    })
+
+    const embedCheckbox = container.querySelector('#catalog-form-embed-allows') as HTMLInputElement
+    await act(async () => {
+      uncheckCheckbox(embedCheckbox)
+    })
+
+    expect(container.textContent).toContain('In-app embed is disabled for this episode.')
+    expect(patchStaffCatalogEpisode).not.toHaveBeenCalled()
+  })
+
+  it('renders tmdbNeedsReview read-only and omits it from PATCH', async () => {
+    renderForm({
+      mode: 'edit',
+      initialEpisode: { ...baseEpisode, tmdbNeedsReview: true },
+      initialValues: catalogEpisodeToFormValues(baseEpisode),
+      breadcrumbLeaf: 'Edit',
+      pageTitle: 'Edit episode',
+    })
+
+    expect(container.textContent).toContain('TMDB needs review')
+    expect(container.textContent).toContain('Yes')
+
+    const titleInput = container.querySelector('#catalog-form-title') as HTMLInputElement
+    await act(async () => {
+      setInputValue(titleInput, 'Updated title')
+    })
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(patchStaffCatalogEpisode).toHaveBeenCalledWith('staff-token', 'ep-1', {
+        title: 'Updated title',
+      })
+    })
+    const patchBody = patchStaffCatalogEpisode.mock.calls[0]?.[2] as Record<string, unknown>
+    expect(patchBody).not.toHaveProperty('tmdbNeedsReview')
   })
 })

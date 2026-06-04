@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   EMPTY_CATALOG_EPISODE_FORM_VALUES,
   mapValidationDetailsToFieldErrors,
+  normalizeNullableTextField,
   validateCatalogEpisodeForm,
 } from './validateCatalogEpisodeForm'
 
@@ -84,5 +85,30 @@ describe('validateCatalogEpisodeForm', () => {
       title: 'must not be empty',
       era: 'This value is not valid.',
     })
+  })
+
+  it('defaults embedAllows to true on empty create form', () => {
+    expect(EMPTY_CATALOG_EPISODE_FORM_VALUES.embedAllows).toBe(true)
+  })
+
+  it('rejects movieSearchTitle over max length', () => {
+    const result = validateCatalogEpisodeForm(
+      { ...validCreate, movieSearchTitle: 'x'.repeat(257) },
+      'create',
+    )
+    expect(result.fieldErrors.movieSearchTitle).toBeTruthy()
+  })
+
+  it('rejects curatorNotes over max length', () => {
+    const result = validateCatalogEpisodeForm(
+      { ...validCreate, curatorNotes: 'x'.repeat(4097) },
+      'create',
+    )
+    expect(result.fieldErrors.curatorNotes).toBeTruthy()
+  })
+
+  it('clears nullable hint fields when input is empty', () => {
+    expect(normalizeNullableTextField('   ')).toBeNull()
+    expect(normalizeNullableTextField('  Manos  ')).toBe('Manos')
   })
 })

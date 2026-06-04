@@ -118,6 +118,20 @@
         "carousel": {
           "type": "boolean",
           "description": "When true, episode is eligible for home-page carousels; `GET /v1/catalog?carousel=true` returns only these rows (sorted by experimentNumber)."
+        },
+        "movieSearchTitle": {
+          "type": ["string", "null"],
+          "maxLength": 256,
+          "description": "Staff-only TMDB search hint; not exposed on public catalog reads."
+        },
+        "embedAllows": {
+          "type": "boolean",
+          "description": "When false, SPA should not offer in-app YouTube embed; exposed on public catalog when stored."
+        },
+        "curatorNotes": {
+          "type": ["string", "null"],
+          "maxLength": 4096,
+          "description": "Staff-only curator notes; not exposed on public catalog reads."
         }
       }
     }

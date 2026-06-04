@@ -18,6 +18,7 @@ import {
 import { formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTypes'
 import {
   mapValidationDetailsToFieldErrors,
+  normalizeNullableTextField,
   normalizeYoutubeField,
   validateCatalogEpisodeForm,
   type CatalogEpisodeFormMode,
@@ -32,7 +33,7 @@ const RECONCILE_HELPER =
   'These fields are updated by the scheduled reconcile job. Edit title or YouTube details above; TMDB art and tagline refresh automatically when matched.'
 
 const CURATOR_HINTS_HELPER =
-  'Operator hints stored in Dynamo. Editing hints ships in a follow-on milestone; values shown here are read-only.'
+  'Operator hints stored in Dynamo. movieSearchTitle guides reconcile search; embedAllows controls fan in-app embed; notes are staff-only.'
 
 function formValuesToWriteBody(values: CatalogEpisodeFormValues): StaffCatalogEpisodeWrite {
   return {
@@ -42,6 +43,9 @@ function formValuesToWriteBody(values: CatalogEpisodeFormValues): StaffCatalogEp
     youtubeVideoId: normalizeYoutubeField(values.youtubeVideoId),
     youtubeWatchUrl: normalizeYoutubeField(values.youtubeWatchUrl),
     carousel: values.carousel,
+    movieSearchTitle: normalizeNullableTextField(values.movieSearchTitle),
+    embedAllows: values.embedAllows,
+    curatorNotes: normalizeNullableTextField(values.curatorNotes),
   }
 }
 
@@ -61,6 +65,16 @@ function buildPatchBody(
     body.youtubeWatchUrl = next.youtubeWatchUrl
   }
   if (next.carousel !== baseline.carousel) body.carousel = next.carousel
+  if (next.movieSearchTitle !== baseline.movieSearchTitle) {
+    body.movieSearchTitle = next.movieSearchTitle
+  }
+  const baselineEmbedAllows = baseline.embedAllows !== false
+  if (next.embedAllows !== baselineEmbedAllows) {
+    body.embedAllows = next.embedAllows
+  }
+  if (next.curatorNotes !== baseline.curatorNotes) {
+    body.curatorNotes = next.curatorNotes
+  }
   return body
 }
 
@@ -176,19 +190,9 @@ export function AdminCatalogForm({
       ).filter(([, v]) => v != null && String(v).trim() !== '')
     : []
 
-  const hintFields = episode
-    ? (
-        [
-          ['Movie search title', episode.movieSearchTitle],
-          ['Embed allows', episode.embedAllows != null ? (episode.embedAllows ? 'Yes' : 'No') : null],
-          ['Curator notes', episode.curatorNotes],
-          ['TMDB needs review', episode.tmdbNeedsReview != null ? (episode.tmdbNeedsReview ? 'Yes' : 'No') : null],
-        ] as const
-      ).filter(([, v]) => v != null && String(v).trim() !== '')
-    : []
-
   const showReconcileSection = mode === 'edit' && (showTagline || reconcileFields.length > 0)
-  const showCuratorHintsSection = mode === 'edit' && (hintFields.length > 0 || episode?.embedAllows === false)
+  const showTmdbNeedsReview =
+    mode === 'edit' && episode?.tmdbNeedsReview != null
 
   if (episodeNotFound) {
     return (
@@ -422,20 +426,96 @@ export function AdminCatalogForm({
           </fieldset>
         ) : null}
 
-        {showCuratorHintsSection ? (
-          <fieldset className="riffsync-admin-form-section riffsync-admin-form-section--readonly">
-            <legend>Curator hints (read-only)</legend>
-            <p className="riffsync-admin-form-section-helper">{CURATOR_HINTS_HELPER}</p>
-            {episode?.embedAllows === false ? (
-              <p className="riffsync-admin-form-embed-note" role="note">
-                In-app embed is disabled for this episode.
+        <fieldset className="riffsync-admin-form-section">
+          <legend>Curator hints</legend>
+          <p className="riffsync-admin-form-section-helper">{CURATOR_HINTS_HELPER}</p>
+
+          <div className="riffsync-admin-form-field">
+            <label htmlFor="catalog-form-movie-search-title">Movie search title</label>
+            <input
+              id="catalog-form-movie-search-title"
+              name="movieSearchTitle"
+              type="text"
+              value={values.movieSearchTitle}
+              onChange={(e) => setField('movieSearchTitle', e.target.value)}
+              aria-invalid={fieldErrors.movieSearchTitle ? true : undefined}
+              aria-describedby={
+                fieldErrors.movieSearchTitle
+                  ? 'catalog-form-movie-search-title-error'
+                  : 'catalog-form-movie-search-title-helper'
+              }
+              disabled={saving}
+              placeholder="Leave empty to clear"
+            />
+            <p id="catalog-form-movie-search-title-helper" className="riffsync-admin-form-field-helper">
+              Override TMDB search title when reconcile has no movie id lock.
+            </p>
+            {fieldErrors.movieSearchTitle ? (
+              <p
+                id="catalog-form-movie-search-title-error"
+                className="riffsync-admin-form-field-error"
+                role="alert"
+              >
+                {fieldErrors.movieSearchTitle}
               </p>
             ) : null}
-            {hintFields.map(([label, value]) => (
-              <ReadOnlyField key={label} label={label} value={String(value)} />
-            ))}
-          </fieldset>
-        ) : null}
+          </div>
+
+          <div className="riffsync-admin-form-field riffsync-admin-form-field--checkbox">
+            <input
+              id="catalog-form-embed-allows"
+              name="embedAllows"
+              type="checkbox"
+              checked={values.embedAllows}
+              onChange={(e) => setField('embedAllows', e.target.checked)}
+              disabled={saving}
+            />
+            <label htmlFor="catalog-form-embed-allows">Allow in-app YouTube embed</label>
+          </div>
+          {!values.embedAllows ? (
+            <p className="riffsync-admin-form-embed-note" role="note">
+              In-app embed is disabled for this episode.
+            </p>
+          ) : null}
+
+          <div className="riffsync-admin-form-field">
+            <label htmlFor="catalog-form-curator-notes">Curator notes</label>
+            <textarea
+              id="catalog-form-curator-notes"
+              name="curatorNotes"
+              rows={4}
+              value={values.curatorNotes}
+              onChange={(e) => setField('curatorNotes', e.target.value)}
+              aria-invalid={fieldErrors.curatorNotes ? true : undefined}
+              aria-describedby={
+                fieldErrors.curatorNotes
+                  ? 'catalog-form-curator-notes-error'
+                  : 'catalog-form-curator-notes-helper'
+              }
+              disabled={saving}
+              placeholder="Leave empty to clear"
+            />
+            <p id="catalog-form-curator-notes-helper" className="riffsync-admin-form-field-helper">
+              Internal operator notes (staff-only, not shown on public catalog).
+            </p>
+            {fieldErrors.curatorNotes ? (
+              <p
+                id="catalog-form-curator-notes-error"
+                className="riffsync-admin-form-field-error"
+                role="alert"
+              >
+                {fieldErrors.curatorNotes}
+              </p>
+            ) : null}
+          </div>
+
+          {showTmdbNeedsReview && episode ? (
+            <ReadOnlyField
+              label="TMDB needs review"
+              value={episode.tmdbNeedsReview ? 'Yes' : 'No'}
+            />
+          ) : null}
+        </fieldset>
 
         <div className="riffsync-admin-catalog-form-actions">
           <button type="submit" className="btn btn-primary" disabled={saving}>

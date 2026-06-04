@@ -17,6 +17,8 @@ export interface CatalogEpisode {
   readonly tmdbArtworkSyncedAt: string | null;
   /** When true, row is included in **`GET /v1/catalog?carousel=true`**. */
   readonly carousel: boolean;
+  /** When false, SPA should not offer in-app YouTube embed; omitted when not stored on the row. */
+  readonly embedAllows?: boolean;
   readonly tmdbOverview?: string | null;
   readonly tmdbPopularity?: number | null;
   readonly tmdbPosterPath?: string | null;
@@ -62,6 +64,11 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
   const optionalNumberField = (v: unknown): number | undefined =>
     v === null || v === undefined ? undefined : Number(v);
 
+  const embedAllows =
+    Object.prototype.hasOwnProperty.call(item, 'embedAllows') && typeof item.embedAllows === 'boolean'
+      ? item.embedAllows
+      : undefined;
+
   return {
     id,
     experimentNumber,
@@ -75,6 +82,7 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
     tmdbMovieId: optionalNumber(item.tmdbMovieId),
     tmdbArtworkSyncedAt: optionalString(item.tmdbArtworkSyncedAt),
     carousel: parseCarouselFlag(item.carousel),
+    ...(embedAllows !== undefined ? { embedAllows } : {}),
     tmdbOverview: optionalStringField(item.tmdbOverview),
     tmdbPopularity: optionalNumberField(item.tmdbPopularity),
     tmdbPosterPath: optionalStringField(item.tmdbPosterPath),

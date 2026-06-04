@@ -125,6 +125,9 @@ describe('admin-catalog-post handler', () => {
     const body = JSON.parse(res?.body ?? '');
     expect(body.entry.id).toBe('ep-1');
     expect(body.entry.tagline).toBeNull();
+    expect(body.entry.embedAllows).toBe(true);
+    expect(body.entry.movieSearchTitle).toBeNull();
+    expect(body.entry.curatorNotes).toBeNull();
     expect(mocks.recordAdminCatalogRoute).toHaveBeenCalledWith(
       'AdminCatalogPost',
       'success',
@@ -175,6 +178,35 @@ describe('admin-catalog-post handler', () => {
       'validation_error',
       expect.objectContaining({ validationFieldPaths: ['/tagline'] }),
     );
+  });
+
+  it('persists curator hints on create', async () => {
+    mocks.docSend.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Attributes: { catalogGeneration: 3 },
+    });
+
+    const res = await postHandler(
+      staffEvent(
+        'POST',
+        '/v1/admin/catalog/episodes/ep-2',
+        {
+          ...writeBody,
+          movieSearchTitle: 'The Crawling Eye',
+          embedAllows: false,
+          curatorNotes: 'Test note',
+        },
+        { sub: 'staff-1', 'cognito:groups': ['admin'] },
+        { id: 'ep-2' },
+      ),
+      {} as never,
+      () => undefined,
+    );
+
+    expect(res?.statusCode).toBe(201);
+    const body = JSON.parse(res?.body ?? '');
+    expect(body.entry.movieSearchTitle).toBe('The Crawling Eye');
+    expect(body.entry.embedAllows).toBe(false);
+    expect(body.entry.curatorNotes).toBe('Test note');
   });
 
   it('returns 403 when staff groups omit admin/curator', async () => {
@@ -228,6 +260,55 @@ describe('admin-catalog-patch handler', () => {
       'success',
       expect.objectContaining({ action: 'update', episodeId: 'ep-1' }),
     );
+  });
+
+  it('patches curator hints and returns updated entry', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: existingItem })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Attributes: { catalogGeneration: 6 } });
+
+    const res = await patchHandler(
+      staffEvent(
+        'PATCH',
+        '/v1/admin/catalog/episodes/ep-1',
+        {
+          movieSearchTitle: 'The Crawling Eye',
+          embedAllows: false,
+          curatorNotes: 'Test note',
+        },
+        { sub: 'staff-1', 'cognito:groups': ['admin'] },
+        { id: 'ep-1' },
+      ),
+      {} as never,
+      () => undefined,
+    );
+
+    expect(res?.statusCode).toBe(200);
+    const body = JSON.parse(res?.body ?? '');
+    expect(body.entry.movieSearchTitle).toBe('The Crawling Eye');
+    expect(body.entry.embedAllows).toBe(false);
+    expect(body.entry.curatorNotes).toBe('Test note');
+  });
+
+  it('returns 400 when patch includes tmdbNeedsReview', async () => {
+    mocks.docSend.mockResolvedValueOnce({ Item: existingItem });
+
+    const res = await patchHandler(
+      staffEvent(
+        'PATCH',
+        '/v1/admin/catalog/episodes/ep-1',
+        { tmdbNeedsReview: true },
+        { sub: 'staff-1', 'cognito:groups': ['admin'] },
+        { id: 'ep-1' },
+      ),
+      {} as never,
+      () => undefined,
+    );
+
+    expect(res?.statusCode).toBe(400);
+    expect(JSON.parse(res?.body ?? '').code).toBe('validation_error');
+    expect(mocks.docSend).toHaveBeenCalledTimes(1);
   });
 
   it('returns 404 for unknown id', async () => {

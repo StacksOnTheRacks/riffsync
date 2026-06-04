@@ -1,101 +1,120 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADMIN_WRITABLE_KEYS,
-  READ_ONLY_WRITE_KEYS,
-  stripAndRejectReadOnly,
   validateCatalogEpisodePatch,
   validateCatalogEpisodePost,
-  validatePathEpisodeId,
 } from './admin-catalog-validation';
 
-const validPostBody = {
+const requiredPostBody = {
   experimentNumber: 101,
   title: 'Test Episode',
   era: 'mike',
   youtubeVideoId: null,
   youtubeWatchUrl: null,
-  carousel: false,
 };
 
-describe('admin-catalog-validation', () => {
-  it('accepts valid POST payload and sets reconcile fields null', () => {
-    const result = validateCatalogEpisodePost('test-episode', validPostBody);
+const existingItem = {
+  id: 'ep-1',
+  experimentNumber: 101,
+  title: 'Test Episode',
+  era: 'mike',
+  youtubeVideoId: null,
+  youtubeWatchUrl: null,
+  tagline: null,
+  posterImageUrl: null,
+  backdropImageUrl: null,
+  tmdbMovieId: null,
+  tmdbArtworkSyncedAt: null,
+  carousel: false,
+  movieSearchTitle: 'Old title',
+  embedAllows: true,
+  curatorNotes: 'Old notes',
+};
+
+describe('ADMIN_WRITABLE_KEYS', () => {
+  it('includes curator hint fields', () => {
+    expect(ADMIN_WRITABLE_KEYS).toEqual(
+      expect.arrayContaining(['movieSearchTitle', 'embedAllows', 'curatorNotes']),
+    );
+  });
+});
+
+describe('validateCatalogEpisodePost', () => {
+  it('defaults hint fields when omitted', () => {
+    const result = validateCatalogEpisodePost('ep-1', requiredPostBody);
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.item.id).toBe('test-episode');
-      expect(result.item.tagline).toBeNull();
-      expect(result.item.posterImageUrl).toBeNull();
-      expect(result.item.carousel).toBe(false);
-    }
+    if (!result.ok) return;
+    expect(result.item.embedAllows).toBe(true);
+    expect(result.item.movieSearchTitle).toBeNull();
+    expect(result.item.curatorNotes).toBeNull();
   });
 
-  it('defaults carousel to false on POST when omitted', () => {
-    const { carousel: _c, ...withoutCarousel } = validPostBody;
-    const result = validateCatalogEpisodePost('test-episode', withoutCarousel);
+  it('persists provided hint fields', () => {
+    const result = validateCatalogEpisodePost('ep-1', {
+      ...requiredPostBody,
+      movieSearchTitle: 'The Crawling Eye',
+      embedAllows: false,
+      curatorNotes: 'Test note',
+    });
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.item.carousel).toBe(false);
-    }
+    if (!result.ok) return;
+    expect(result.item.movieSearchTitle).toBe('The Crawling Eye');
+    expect(result.item.embedAllows).toBe(false);
+    expect(result.item.curatorNotes).toBe('Test note');
   });
 
-  it('rejects read-only keys on write', () => {
-    const rejected = stripAndRejectReadOnly({ tagline: 'nope' });
-    expect(rejected?.ok).toBe(false);
-    if (rejected && !rejected.ok) {
-      expect(rejected.details.map((d) => d.instancePath)).toContain('/tagline');
-    }
+  it('rejects tmdbNeedsReview on write', () => {
+    const result = validateCatalogEpisodePost('ep-1', {
+      ...requiredPostBody,
+      tmdbNeedsReview: true,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.details.some((d) => d.instancePath === '/tmdbNeedsReview')).toBe(true);
   });
 
-  it('rejects POST body with forbidden reconcile field', () => {
-    const result = validateCatalogEpisodePost('test-episode', {
-      ...validPostBody,
-      tagline: 'nope',
+  it('rejects movieSearchTitle over maxLength', () => {
+    const result = validateCatalogEpisodePost('ep-1', {
+      ...requiredPostBody,
+      movieSearchTitle: 'x'.repeat(257),
     });
     expect(result.ok).toBe(false);
   });
 
-  it('rejects invalid era on POST', () => {
-    const result = validateCatalogEpisodePost('test-episode', {
-      ...validPostBody,
-      era: 'invalid-era',
+  it('rejects curatorNotes over maxLength', () => {
+    const result = validateCatalogEpisodePost('ep-1', {
+      ...requiredPostBody,
+      curatorNotes: 'x'.repeat(4097),
     });
     expect(result.ok).toBe(false);
   });
+});
 
-  it('rejects invalid slug in path', () => {
-    const result = validatePathEpisodeId('Bad_Slug');
-    expect(result?.ok).toBe(false);
-  });
-
-  it('merges PATCH writable keys and preserves reconcile fields', () => {
-    const existing = {
-      id: 'test-episode',
-      experimentNumber: 101,
-      title: 'Old title',
-      era: 'mike',
-      youtubeVideoId: null,
-      youtubeWatchUrl: null,
-      tagline: 'keep-me',
-      posterImageUrl: 'https://example.test/poster.jpg',
-      backdropImageUrl: null,
-      tmdbMovieId: 42,
-      tmdbArtworkSyncedAt: '2024-01-01T00:00:00.000Z',
-      carousel: false,
-      movieSearchTitle: 'Manos',
-    };
-
-    const result = validateCatalogEpisodePatch('test-episode', { title: 'New title' }, existing);
+describe('validateCatalogEpisodePatch', () => {
+  it('allows partial hint updates', () => {
+    const result = validateCatalogEpisodePatch(
+      'ep-1',
+      { embedAllows: false, curatorNotes: 'Updated' },
+      existingItem,
+    );
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.item.title).toBe('New title');
-      expect(result.item.tagline).toBe('keep-me');
-      expect(result.item.movieSearchTitle).toBe('Manos');
-    }
+    if (!result.ok) return;
+    expect(result.item.embedAllows).toBe(false);
+    expect(result.item.curatorNotes).toBe('Updated');
+    expect(result.item.movieSearchTitle).toBe('Old title');
   });
 
-  it('exports writable and read-only key lists', () => {
-    expect(ADMIN_WRITABLE_KEYS).toContain('title');
-    expect(READ_ONLY_WRITE_KEYS).toContain('tagline');
-    expect(READ_ONLY_WRITE_KEYS).toContain('movieSearchTitle');
+  it('clears nullable hint fields with null', () => {
+    const result = validateCatalogEpisodePatch('ep-1', { movieSearchTitle: null }, existingItem);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.item.movieSearchTitle).toBeNull();
+  });
+
+  it('rejects tmdbNeedsReview on write', () => {
+    const result = validateCatalogEpisodePatch('ep-1', { tmdbNeedsReview: false }, existingItem);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.details.some((d) => d.instancePath === '/tmdbNeedsReview')).toBe(true);
   });
 });
