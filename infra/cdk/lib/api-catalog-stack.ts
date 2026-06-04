@@ -290,6 +290,7 @@ export class ApiCatalogStack extends cdk.Stack {
       handler: 'handler',
       environment: {
         CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        CATALOG_HTTP_MAX_AGE_SECONDS: '60',
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
@@ -303,6 +304,7 @@ export class ApiCatalogStack extends cdk.Stack {
       handler: 'handler',
       environment: {
         CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        CATALOG_HTTP_MAX_AGE_SECONDS: '60',
         NODE_OPTIONS: '--enable-source-maps',
       },
     });

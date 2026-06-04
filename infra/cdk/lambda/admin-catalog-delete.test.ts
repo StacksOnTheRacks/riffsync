@@ -17,6 +17,7 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
   GetCommand: vi.fn((input: unknown) => ({ input, kind: 'Get' })),
   ScanCommand: vi.fn((input: unknown) => ({ input, kind: 'Scan' })),
   DeleteCommand: vi.fn((input: unknown) => ({ input, kind: 'Delete' })),
+  UpdateCommand: vi.fn((input: unknown) => ({ input, kind: 'Update' })),
 }));
 
 vi.mock('./riffsync-observability', async (importOriginal) => {
@@ -80,7 +81,8 @@ describe('admin-catalog-delete handler', () => {
     mocks.docSend
       .mockResolvedValueOnce({ Item: { id: 'ep-1' } })
       .mockResolvedValueOnce({ Count: 0 })
-      .mockResolvedValueOnce({});
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Attributes: { catalogGeneration: 3 } });
 
     const res = await deleteHandler(
       deleteEvent(
