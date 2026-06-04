@@ -68,6 +68,8 @@ Public catalog reads use a monotonic **`catalogGeneration`** counter stored on t
 | **`ETag`** | Weak validator: **`W/"{generation}-{variant}"`**. Variants: **`full`** (list), **`carousel`** (**`?carousel=true`**), **`episode-{id}`** (single entry). |
 | **`Cache-Control`** | **`public, max-age=<seconds>`** — default **60**; Lambda env **`CATALOG_HTTP_MAX_AGE_SECONDS`** (integer, clamped **0–86400**). |
 
+**CORS:** API Gateway HTTP API must list **`ETag`** in **`exposeHeaders`** so the fan SPA on **`https://www.riffsync.tv`** (and other allowed origins) can read the header via **`fetch`** for **`If-None-Match`** revalidation.
+
 ### Conditional requests
 
 Send **`If-None-Match`** with the **`ETag`** from a prior response (weak prefix optional). When the generation and variant match, the API returns **`304 Not Modified`** with an empty body and the same cache headers. List **`304`** avoids a full table **`Scan`**.

@@ -811,6 +811,8 @@ export class ApiCatalogStack extends cdk.Stack {
           apigwv2.CorsHttpMethod.OPTIONS,
         ],
         allowOrigins,
+        // SPA reads ETag for conditional GET; browsers hide it cross-origin unless exposed.
+        exposeHeaders: ['ETag'],
         maxAge: cdk.Duration.days(1),
       },
     });
