@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createStaffCatalogEpisode,
+  deleteStaffCatalogEpisode,
   fetchStaffCatalogEpisode,
   fetchStaffCatalogList,
   patchStaffCatalogEpisode,
+  StaffCatalogEpisodeInUseError,
   StaffCatalogValidationError,
 } from './staffAdminCatalogApi'
 import {
@@ -134,5 +136,42 @@ describe('staffAdminCatalogApi', () => {
     await expect(
       patchStaffCatalogEpisode('staff-token', 'ep-1', { title: '' }),
     ).rejects.toBeInstanceOf(StaffCatalogValidationError)
+  })
+
+  it('deleteStaffCatalogEpisode sends DELETE and resolves on 204', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 204,
+      text: async () => '',
+    })
+
+    await deleteStaffCatalogEpisode('staff-token', 'ep-1')
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://api.example.test/v1/admin/catalog/episodes/ep-1')
+    expect(init.method).toBe('DELETE')
+    expect(init.headers).toMatchObject({
+      Authorization: 'Bearer staff-token',
+      Accept: 'application/json',
+    })
+  })
+
+  it('deleteStaffCatalogEpisode maps 409 catalog_episode_in_use', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: 'Conflict',
+        code: 'catalog_episode_in_use',
+        references: { rooms: 3, lists: 1 },
+      }),
+    })
+
+    await expect(deleteStaffCatalogEpisode('staff-token', 'ep-1')).rejects.toMatchObject({
+      references: { rooms: 3, lists: 1 },
+    })
+    await expect(deleteStaffCatalogEpisode('staff-token', 'ep-1')).rejects.toBeInstanceOf(
+      StaffCatalogEpisodeInUseError,
+    )
   })
 })

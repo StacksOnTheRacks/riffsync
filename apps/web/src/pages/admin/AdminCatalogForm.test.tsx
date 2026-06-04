@@ -36,6 +36,19 @@ vi.mock('../../api/staffAdminCatalogApi', async (importOriginal) => {
   }
 })
 
+vi.mock('../../admin/useAdminSession', () => ({
+  useAdminSession: () => ({
+    session: { sub: 'op', email: 'op@test', groups: ['admin'] },
+    loading: false,
+    error: null,
+    reload: vi.fn(),
+  }),
+}))
+
+vi.mock('./AdminCatalogDeleteControl', () => ({
+  AdminCatalogDeleteControl: () => null,
+}))
+
 function setInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
   setter?.call(input, value)

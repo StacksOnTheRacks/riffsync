@@ -38,6 +38,12 @@ export function AdminCatalogListPage() {
   const savedFromQuery = searchParams.get('saved') === '1'
   const [savedBannerVisible, setSavedBannerVisible] = useState(savedFromState || savedFromQuery)
 
+  const deletedFromState = (location.state as { deleted?: boolean } | null)?.deleted === true
+  const deletedFromQuery = searchParams.get('deleted') === '1'
+  const [deletedBannerVisible, setDeletedBannerVisible] = useState(
+    deletedFromState || deletedFromQuery,
+  )
+
   const dismissSavedBanner = useCallback(() => {
     setSavedBannerVisible(false)
     if (savedFromState) {
@@ -50,11 +56,37 @@ export function AdminCatalogListPage() {
     }
   }, [location.pathname, location.search, navigate, savedFromQuery, savedFromState, searchParams, setSearchParams])
 
+  const dismissDeletedBanner = useCallback(() => {
+    setDeletedBannerVisible(false)
+    if (deletedFromState) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
+    }
+    if (deletedFromQuery) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('deleted')
+      setSearchParams(next, { replace: true })
+    }
+  }, [
+    deletedFromQuery,
+    deletedFromState,
+    location.pathname,
+    location.search,
+    navigate,
+    searchParams,
+    setSearchParams,
+  ])
+
   useEffect(() => {
     if (!savedBannerVisible) return
     const timer = window.setTimeout(() => dismissSavedBanner(), SAVED_BANNER_TIMEOUT_MS)
     return () => window.clearTimeout(timer)
   }, [dismissSavedBanner, savedBannerVisible])
+
+  useEffect(() => {
+    if (!deletedBannerVisible) return
+    const timer = window.setTimeout(() => dismissDeletedBanner(), SAVED_BANNER_TIMEOUT_MS)
+    return () => window.clearTimeout(timer)
+  }, [deletedBannerVisible, dismissDeletedBanner])
 
   useEffect(() => {
     let cancelled = false
@@ -137,6 +169,15 @@ export function AdminCatalogListPage() {
         <div role="status" className="riffsync-admin-catalog-saved-banner">
           <p>Episode saved</p>
           <button type="button" className="btn btn-secondary" onClick={dismissSavedBanner}>
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {deletedBannerVisible ? (
+        <div role="status" className="riffsync-admin-catalog-saved-banner">
+          <p>Episode deleted.</p>
+          <button type="button" className="btn btn-secondary" onClick={dismissDeletedBanner}>
             Dismiss
           </button>
         </div>

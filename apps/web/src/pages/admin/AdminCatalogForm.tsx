@@ -22,6 +22,7 @@ import {
   type CatalogEpisodeFormMode,
   type CatalogEpisodeFormValues,
 } from '../../catalog/validateCatalogEpisodeForm'
+import { AdminCatalogDeleteControl } from './AdminCatalogDeleteControl'
 
 const CATALOG_ERAS: CatalogEra[] = ['joel', 'mike', 'jonah', 'emily', 'other']
 
@@ -87,6 +88,7 @@ export function AdminCatalogForm({
   const [values, setValues] = useState(initialValues)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
+  const [episodeNotFound, setEpisodeNotFound] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const setField = useCallback(
@@ -182,6 +184,19 @@ export function AdminCatalogForm({
 
   const showReconcileSection = mode === 'edit' && (showTagline || reconcileFields.length > 0)
   const showCuratorHintsSection = mode === 'edit' && (hintFields.length > 0 || episode?.embedAllows === false)
+
+  if (episodeNotFound) {
+    return (
+      <div className="container riffsync-admin-page">
+        <div role="alert" className="riffsync-scaffold-note">
+          <p>Episode not found.</p>
+          <p>
+            <Link to="/admin/catalog">Back to catalog</Link>
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="container riffsync-admin-page riffsync-admin-catalog-form-page">
@@ -426,6 +441,13 @@ export function AdminCatalogForm({
           </Link>
         </div>
       </form>
+
+      {mode === 'edit' && episode ? (
+        <AdminCatalogDeleteControl
+          episodeId={episode.id}
+          onEpisodeNotFound={() => setEpisodeNotFound(true)}
+        />
+      ) : null}
     </div>
   )
 }

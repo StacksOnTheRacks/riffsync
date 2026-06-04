@@ -75,3 +75,20 @@ export async function requireStaffAccess(
 
   return null;
 }
+
+/** Admin-only gate — **`curator`** receives **403** **`staff_group_required`**. */
+export async function requireAdminAccess(
+  event: APIGatewayProxyEventV2,
+): Promise<ReturnType<typeof jsonResponse> | null> {
+  const sub = resolveStaffSub(event);
+  if (!sub) {
+    return jsonResponse(401, { error: 'Unauthorized', code: 'unauthorized' });
+  }
+
+  const groups = await resolveStaffGroupsForRequest(event);
+  if (!groups.includes('admin')) {
+    return jsonResponse(403, { error: 'Forbidden', code: 'staff_group_required' });
+  }
+
+  return null;
+}

@@ -10,7 +10,8 @@ export type ApiRoute =
   | 'GiphySearch'
   | 'FanAvatarUpload'
   | 'AdminCatalogPost'
-  | 'AdminCatalogPatch';
+  | 'AdminCatalogPatch'
+  | 'AdminCatalogDelete';
 
 export type GiphySearchOutcome =
   | 'success'
@@ -44,11 +45,20 @@ export type AdminCatalogPatchOutcome =
   | 'not_found'
   | 'server_error';
 
+export type AdminCatalogDeleteOutcome =
+  | 'success'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'not_found'
+  | 'conflict'
+  | 'server_error';
+
 export type ApiOutcome =
   | GiphySearchOutcome
   | FanAvatarUploadOutcome
   | AdminCatalogPostOutcome
-  | AdminCatalogPatchOutcome;
+  | AdminCatalogPatchOutcome
+  | AdminCatalogDeleteOutcome;
 
 const REALTIME_METRIC_NAME = 'Requests';
 const API_METRIC_NAME = 'Requests';
@@ -215,9 +225,12 @@ export function recordApiRoute(
 }
 
 export type AdminCatalogAuditFields = {
-  route: 'AdminCatalogPost' | 'AdminCatalogPatch';
-  action: 'create' | 'update';
-  outcome: AdminCatalogPostOutcome | AdminCatalogPatchOutcome;
+  route: 'AdminCatalogPost' | 'AdminCatalogPatch' | 'AdminCatalogDelete';
+  action: 'create' | 'update' | 'delete';
+  outcome:
+    | AdminCatalogPostOutcome
+    | AdminCatalogPatchOutcome
+    | AdminCatalogDeleteOutcome;
   sub: string;
   episodeId: string;
   requestId: string;
@@ -244,8 +257,8 @@ export function logAdminCatalogAudit(fields: AdminCatalogAuditFields): void {
 }
 
 export function recordAdminCatalogRoute(
-  route: 'AdminCatalogPost' | 'AdminCatalogPatch',
-  outcome: AdminCatalogPostOutcome | AdminCatalogPatchOutcome,
+  route: 'AdminCatalogPost' | 'AdminCatalogPatch' | 'AdminCatalogDelete',
+  outcome: AdminCatalogPostOutcome | AdminCatalogPatchOutcome | AdminCatalogDeleteOutcome,
   audit: AdminCatalogAuditFields,
 ): void {
   emitApiEmf(route, outcome);
@@ -268,5 +281,14 @@ export function adminCatalogPatchOutcomeFromStatus(statusCode: number): AdminCat
   if (statusCode === 403) return 'forbidden';
   if (statusCode === 400) return 'validation_error';
   if (statusCode === 404) return 'not_found';
+  return 'server_error';
+}
+
+export function adminCatalogDeleteOutcomeFromStatus(statusCode: number): AdminCatalogDeleteOutcome {
+  if (statusCode === 204) return 'success';
+  if (statusCode === 401) return 'unauthorized';
+  if (statusCode === 403) return 'forbidden';
+  if (statusCode === 404) return 'not_found';
+  if (statusCode === 409) return 'conflict';
   return 'server_error';
 }
