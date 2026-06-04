@@ -3,6 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { projectAdminEpisode } from './admin-catalog-shared';
 import { requireStaffAccess } from './admin-staff-access';
+import { CATALOG_META_ID } from './catalog-meta';
 import { jsonResponse } from './giphy-search-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -21,6 +22,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const id = event.pathParameters?.id;
   if (!id) {
     return jsonResponse(400, { error: 'Missing path parameter id' });
+  }
+  if (id === CATALOG_META_ID) {
+    return jsonResponse(404, { error: 'Not found' });
   }
 
   const out = await client.send(

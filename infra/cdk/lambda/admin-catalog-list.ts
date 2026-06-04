@@ -3,6 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { projectAdminEpisode, sortEpisodes } from './admin-catalog-shared';
 import { requireStaffAccess } from './admin-staff-access';
+import { CATALOG_META_ID } from './catalog-meta';
 import { jsonResponse } from './giphy-search-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -29,7 +30,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       }),
     );
     for (const raw of out.Items ?? []) {
-      entries.push(projectAdminEpisode(raw as Record<string, unknown>));
+      const item = raw as Record<string, unknown>;
+      if (item.id === CATALOG_META_ID) {
+        continue;
+      }
+      entries.push(projectAdminEpisode(item));
     }
     startKey = out.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (startKey);

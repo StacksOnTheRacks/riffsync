@@ -99,6 +99,25 @@ describe('admin-catalog-list handler', () => {
     expect(body.entries[1].curatorNotes).toBe('notes');
   });
 
+  it('skips catalog _meta generation row during scan', async () => {
+    mocks.docSend.mockResolvedValueOnce({
+      Items: [catalogItem, { id: '_meta', catalogGeneration: 2 }],
+    });
+
+    const res = await listHandler(
+      staffEvent('GET /v1/admin/catalog', '/v1/admin/catalog', {
+        sub: 'staff-1',
+        'cognito:groups': ['admin'],
+      }),
+      {} as never,
+      () => undefined,
+    );
+
+    expect(res?.statusCode).toBe(200);
+    expect(JSON.parse(res?.body ?? '').entries).toHaveLength(1);
+    expect(JSON.parse(res?.body ?? '').entries[0].id).toBe('ep-1');
+  });
+
   it('returns 403 when staff groups omit admin/curator', async () => {
     const res = await listHandler(
       staffEvent('GET /v1/admin/catalog', '/v1/admin/catalog', {
@@ -158,6 +177,22 @@ describe('admin-catalog-get handler', () => {
 
     expect(res?.statusCode).toBe(404);
     expect(JSON.parse(res?.body ?? '')).toEqual({ error: 'Not found' });
+  });
+
+  it('returns 404 for catalog _meta id without Dynamo read', async () => {
+    const res = await getHandler(
+      staffEvent(
+        'GET /v1/admin/catalog/episodes/{id}',
+        '/v1/admin/catalog/episodes/_meta',
+        { sub: 'staff-1', 'cognito:groups': ['admin'] },
+        { id: '_meta' },
+      ),
+      {} as never,
+      () => undefined,
+    );
+
+    expect(res?.statusCode).toBe(404);
+    expect(mocks.docSend).not.toHaveBeenCalled();
   });
 
   it('returns 403 when staff groups omit admin/curator', async () => {
