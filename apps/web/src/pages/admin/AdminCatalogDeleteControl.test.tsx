@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminCatalogDeleteControl } from './AdminCatalogDeleteControl'
@@ -52,8 +53,10 @@ function setInputValue(input: HTMLInputElement, value: string): void {
 describe('AdminCatalogDeleteControl', () => {
   let container: HTMLDivElement
   let root: Root | null = null
+  let queryClient: QueryClient
 
   beforeEach(() => {
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     navigate.mockReset()
     deleteStaffCatalogEpisode.mockReset()
     onEpisodeNotFound.mockReset()
@@ -84,9 +87,11 @@ describe('AdminCatalogDeleteControl', () => {
     root = createRoot(container)
     act(() => {
       root!.render(
-        <MemoryRouter>
-          <AdminCatalogDeleteControl episodeId="ep-1" onEpisodeNotFound={onEpisodeNotFound} />
-        </MemoryRouter>,
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter>
+            <AdminCatalogDeleteControl episodeId="ep-1" onEpisodeNotFound={onEpisodeNotFound} />
+          </MemoryRouter>
+        </QueryClientProvider>,
       )
     })
   }

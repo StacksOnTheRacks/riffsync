@@ -1,4 +1,5 @@
 import { useCallback, useState, type FormEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { refreshStaffTokensIfStale } from '../../auth/staffHostedUiPkce'
 import { getStaffAccessToken } from '../../auth/staffTokens'
@@ -22,6 +23,7 @@ import {
   type CatalogEpisodeFormMode,
   type CatalogEpisodeFormValues,
 } from '../../catalog/validateCatalogEpisodeForm'
+import { invalidatePublicCatalogQueries } from '../../catalog/catalogQueries'
 import { AdminCatalogDeleteControl } from './AdminCatalogDeleteControl'
 
 const CATALOG_ERAS: CatalogEra[] = ['joel', 'mike', 'jonah', 'emily', 'other']
@@ -85,6 +87,7 @@ export function AdminCatalogForm({
   pageTitle: string
 }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [values, setValues] = useState(initialValues)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
@@ -130,12 +133,14 @@ export function AdminCatalogForm({
       } else if (initialEpisode) {
         const patchBody = buildPatchBody(initialEpisode, values)
         if (Object.keys(patchBody).length === 0) {
+          await invalidatePublicCatalogQueries(queryClient)
           navigate('/admin/catalog', { state: { saved: true } })
           return
         }
         await patchStaffCatalogEpisode(token, initialEpisode.id, patchBody)
       }
 
+      await invalidatePublicCatalogQueries(queryClient)
       navigate('/admin/catalog', { state: { saved: true } })
     } catch (e: unknown) {
       if (e instanceof StaffCatalogValidationError) {

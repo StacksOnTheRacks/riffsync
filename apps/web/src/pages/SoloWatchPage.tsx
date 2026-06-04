@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
-import { useCatalogEpisodeQuery } from '../catalog/useCatalogQuery'
+import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { formatCatalogEraLabel } from '../catalog/catalogTypes'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 

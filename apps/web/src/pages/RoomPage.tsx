@@ -7,8 +7,7 @@ import {
   uploadFanProfileAvatar,
 } from '../api/fanProfileApi'
 import { fetchRoom, patchRoom } from '../api/roomsApi'
-import { fetchCatalogEpisodeById } from '../catalog/catalogApi'
-import type { CatalogEpisode } from '../catalog/catalogTypes'
+import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { cognitoSub } from '../auth/jwtDecode'
 import { getFanAccessToken } from '../auth/fanTokens'
 import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
@@ -150,7 +149,11 @@ export function RoomPage() {
 
   const [room, setRoom] = useState<RoomSnapshot | null | undefined>(undefined)
   const [roomErr, setRoomErr] = useState<string | null>(null)
-  const [catalogEp, setCatalogEp] = useState<CatalogEpisode | null>(null)
+  const catalogEpisodeIdForQuery =
+    room && room !== undefined && room !== null && room.roomId === roomId
+      ? room.catalogEpisodeId
+      : undefined
+  const { data: catalogEp } = useCatalogEpisodeQuery(catalogEpisodeIdForQuery)
   const [chat, setChat] = useState<ChatLine[]>([])
   const [chatReactions, setChatReactions] = useState<ReactionsByMessage>({})
   const [chatDraft, setChatDraft] = useState('')
@@ -482,13 +485,6 @@ export function RoomPage() {
     }, 5000)
     return () => window.clearInterval(t)
   }, [roomId, room, loadRoom])
-
-  useEffect(() => {
-    if (!room?.catalogEpisodeId) return
-    void fetchCatalogEpisodeById(room.catalogEpisodeId)
-      .then(setCatalogEp)
-      .catch(() => setCatalogEp(null))
-  }, [room?.catalogEpisodeId])
 
   useEffect(() => {
     const prev = document.title

@@ -1,6 +1,17 @@
 import type { CatalogBundle, CatalogEpisode, CatalogEra, PlaybackExpectation } from './catalogTypes'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 
+/** Default public catalog `Cache-Control` max-age when env does not override (see `docs/api.catalog.md`). */
+export const CATALOG_HTTP_MAX_AGE_MS = 60_000
+
+export type CatalogFetchResult<T> =
+  | { kind: 'notModified' }
+  | { kind: 'ok'; etag: string; data: T }
+
+export type CatalogEpisodeByIdResult =
+  | { kind: 'notModified' }
+  | { kind: 'ok'; etag: string; entry: CatalogEpisode | null }
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
@@ -27,6 +38,13 @@ function parseCarouselFlag(v: unknown): boolean {
   }
   if (typeof v === 'number' && Number.isFinite(v)) return v === 1
   return false
+}
+
+/** Trim and preserve weak ETag form for `If-None-Match` round-trips. */
+export function normalizeCatalogEtag(header: string | null | undefined): string | undefined {
+  if (header == null) return undefined
+  const trimmed = header.trim()
+  return trimmed.length > 0 ? trimmed : undefined
 }
 
 export function normalizeEpisode(raw: unknown): CatalogEpisode {
@@ -79,25 +97,49 @@ async function loadDevSeedBundle(): Promise<CatalogBundle> {
   return mod.default as CatalogBundle
 }
 
-export async function fetchCatalogEntries(): Promise<CatalogEpisode[]> {
+async function catalogJsonGet(
+  url: string,
+  etag?: string,
+): Promise<Response> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (etag) {
+    headers['If-None-Match'] = etag
+  }
+  return fetch(url, { headers })
+}
+
+function parseListBody(body: unknown): CatalogEpisode[] {
+  if (!isRecord(body) || !Array.isArray(body.entries)) {
+    throw new Error('Catalog response missing entries array')
+  }
+  return body.entries.map(normalizeEpisode)
+}
+
+export async function fetchCatalogEntries(etag?: string): Promise<CatalogFetchResult<CatalogEpisode[]>> {
   const base = getPublicApiBaseUrl()
   if (base) {
-    const res = await fetch(`${base}/v1/catalog`, {
-      headers: { Accept: 'application/json' },
-    })
+    const res = await catalogJsonGet(`${base}/v1/catalog`, etag)
+    if (res.status === 304) {
+      return { kind: 'notModified' }
+    }
     if (!res.ok) {
       throw new Error(`Catalog request failed (${res.status})`)
     }
-    const body = (await res.json()) as { entries?: unknown[] }
-    if (!Array.isArray(body.entries)) {
-      throw new Error('Catalog response missing entries array')
+    const responseEtag = normalizeCatalogEtag(res.headers.get('ETag'))
+    if (!responseEtag) {
+      throw new Error('Catalog response missing ETag')
     }
-    return body.entries.map(normalizeEpisode)
+    const body = (await res.json()) as unknown
+    return { kind: 'ok', etag: responseEtag, data: parseListBody(body) }
   }
 
   if (import.meta.env.DEV) {
     const bundle = await loadDevSeedBundle()
-    return bundle.entries.map(normalizeEpisode)
+    return {
+      kind: 'ok',
+      etag: 'dev-seed-full',
+      data: bundle.entries.map(normalizeEpisode),
+    }
   }
 
   throw new Error(
@@ -105,29 +147,35 @@ export async function fetchCatalogEntries(): Promise<CatalogEpisode[]> {
   )
 }
 
-export async function fetchCatalogCarouselEntries(): Promise<CatalogEpisode[]> {
+export async function fetchCatalogCarouselEntries(
+  etag?: string,
+): Promise<CatalogFetchResult<CatalogEpisode[]>> {
   const base = getPublicApiBaseUrl()
   if (base) {
     const url = new URL(`${base}/v1/catalog`)
     url.searchParams.set('carousel', 'true')
-    const res = await fetch(url.toString(), {
-      headers: { Accept: 'application/json' },
-    })
+    const res = await catalogJsonGet(url.toString(), etag)
+    if (res.status === 304) {
+      return { kind: 'notModified' }
+    }
     if (!res.ok) {
       throw new Error(`Catalog carousel request failed (${res.status})`)
     }
-    const body = (await res.json()) as { entries?: unknown[] }
-    if (!Array.isArray(body.entries)) {
-      throw new Error('Catalog carousel response missing entries array')
+    const responseEtag = normalizeCatalogEtag(res.headers.get('ETag'))
+    if (!responseEtag) {
+      throw new Error('Catalog carousel response missing ETag')
     }
-    return body.entries.map(normalizeEpisode)
+    const body = (await res.json()) as unknown
+    return { kind: 'ok', etag: responseEtag, data: parseListBody(body) }
   }
 
   if (import.meta.env.DEV) {
     const bundle = await loadDevSeedBundle()
-    return bundle.entries
-      .map(normalizeEpisode)
-      .filter((e) => e.carousel === true)
+    return {
+      kind: 'ok',
+      etag: 'dev-seed-carousel',
+      data: bundle.entries.map(normalizeEpisode).filter((e) => e.carousel === true),
+    }
   }
 
   throw new Error(
@@ -135,23 +183,38 @@ export async function fetchCatalogCarouselEntries(): Promise<CatalogEpisode[]> {
   )
 }
 
-export async function fetchCatalogEpisodeById(id: string): Promise<CatalogEpisode | null> {
+export async function fetchCatalogEpisodeById(
+  id: string,
+  etag?: string,
+): Promise<CatalogEpisodeByIdResult> {
   const base = getPublicApiBaseUrl()
   if (base) {
-    const res = await fetch(`${base}/v1/catalog/${encodeURIComponent(id)}`, {
-      headers: { Accept: 'application/json' },
-    })
-    if (res.status === 404) return null
+    const res = await catalogJsonGet(`${base}/v1/catalog/${encodeURIComponent(id)}`, etag)
+    if (res.status === 304) {
+      return { kind: 'notModified' }
+    }
+    if (res.status === 404) {
+      const responseEtag = normalizeCatalogEtag(res.headers.get('ETag')) ?? ''
+      return { kind: 'ok', etag: responseEtag, entry: null }
+    }
     if (!res.ok) {
       throw new Error(`Catalog item request failed (${res.status})`)
+    }
+    const responseEtag = normalizeCatalogEtag(res.headers.get('ETag'))
+    if (!responseEtag) {
+      throw new Error('Catalog item response missing ETag')
     }
     const body = (await res.json()) as { entry?: unknown }
     if (!body.entry) {
       throw new Error('Catalog item response missing entry')
     }
-    return normalizeEpisode(body.entry)
+    return { kind: 'ok', etag: responseEtag, entry: normalizeEpisode(body.entry) }
   }
 
-  const entries = await fetchCatalogEntries()
-  return entries.find((e) => e.id === id) ?? null
+  const list = await fetchCatalogEntries()
+  if (list.kind === 'notModified') {
+    throw new Error('Catalog episode lookup requires a prior list cache in dev without API')
+  }
+  const entry = list.data.find((e) => e.id === id) ?? null
+  return { kind: 'ok', etag: 'dev-seed-episode', entry }
 }
