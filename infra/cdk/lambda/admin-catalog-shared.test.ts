@@ -24,6 +24,13 @@ describe('projectAdminEpisode', () => {
     expect(admin).toMatchObject(pub);
   });
 
+  it('public projection omits staff-only hints but keeps embedAllows when stored', () => {
+    const pub = projectEpisode({ ...baseItem, movieSearchTitle: 'Manos', embedAllows: false, curatorNotes: 'n' });
+    expect(pub.embedAllows).toBe(false);
+    expect(pub).not.toHaveProperty('movieSearchTitle');
+    expect(pub).not.toHaveProperty('curatorNotes');
+  });
+
   it('maps staff-only curator hints when present', () => {
     const admin = projectAdminEpisode({
       ...baseItem,

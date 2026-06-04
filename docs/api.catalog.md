@@ -40,11 +40,13 @@ Returns a bundle aligned with **`data/catalog/episodes.json`**:
 
 Clients should treat optional / **`null`** enrichment fields as "not yet available."
 
-### Optional SPA hints (not in git schema)
+### Optional SPA hints (not in git seed)
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| **`embedAllows`** | `boolean` | When **`false`**, SPA should not offer in-app YouTube embed (see **`architecture.frontend.md`**). |
+| **`embedAllows`** | `boolean` | Operator-writable via admin catalog **POST**/**PATCH**; included on public **`CatalogEpisode`** when stored (especially **`false`**). When **`false`**, SPA should not offer in-app YouTube embed (see **`architecture.frontend.md`**). |
+| **`movieSearchTitle`** | `string \| null` | Staff-only TMDB search hint; admin API and staff reads only, not public projection. |
+| **`curatorNotes`** | `string \| null` | Staff-only curator notes; admin API and staff reads only, not public projection. |
 | **`playbackExpectation`** | `"premium"` \| `"ad_supported"` \| `"unknown"` | Honor-system advisory for **US-P0-07**; not verified server-side. |
 
 ## `GET /v1/catalog/{id}`

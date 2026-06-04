@@ -185,4 +185,18 @@ describe('catalog-get handler cache headers', () => {
     expect(res?.headers?.ETag).toBe('W/"3-episode-101-the-crawling-eye"');
     expect(JSON.parse(res?.body ?? '').entry.id).toBe('101-the-crawling-eye');
   });
+
+  it('includes embedAllows on entry when stored', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: { id: '_meta', catalogGeneration: 3 } })
+      .mockResolvedValueOnce({ Item: { ...sampleEpisode, embedAllows: false } });
+
+    const res = await getHandler(getEvent('101-the-crawling-eye'), {} as never, () => undefined);
+
+    expect(res?.statusCode).toBe(200);
+    const entry = JSON.parse(res?.body ?? '').entry;
+    expect(entry.embedAllows).toBe(false);
+    expect(entry).not.toHaveProperty('movieSearchTitle');
+    expect(entry).not.toHaveProperty('curatorNotes');
+  });
 });

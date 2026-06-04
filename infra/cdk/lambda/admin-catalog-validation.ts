@@ -9,6 +9,9 @@ export const ADMIN_WRITABLE_KEYS = [
   'youtubeVideoId',
   'youtubeWatchUrl',
   'carousel',
+  'movieSearchTitle',
+  'embedAllows',
+  'curatorNotes',
 ] as const;
 
 export type AdminWritableKey = (typeof ADMIN_WRITABLE_KEYS)[number];
@@ -19,9 +22,6 @@ export const READ_ONLY_WRITE_KEYS = [
   'backdropImageUrl',
   'tmdbMovieId',
   'tmdbArtworkSyncedAt',
-  'movieSearchTitle',
-  'embedAllows',
-  'curatorNotes',
   'tmdbNeedsReview',
   'youtubeThumbnailUrl',
   'tmdbOverview',
@@ -166,6 +166,16 @@ export function validateCatalogEpisodePost(
     ? writable.carousel
     : false;
 
+  const embedAllows = Object.prototype.hasOwnProperty.call(writable, 'embedAllows')
+    ? writable.embedAllows
+    : true;
+  const movieSearchTitle = Object.prototype.hasOwnProperty.call(writable, 'movieSearchTitle')
+    ? writable.movieSearchTitle
+    : null;
+  const curatorNotes = Object.prototype.hasOwnProperty.call(writable, 'curatorNotes')
+    ? writable.curatorNotes
+    : null;
+
   const item: Record<string, unknown> = {
     id: pathId,
     experimentNumber: writable.experimentNumber,
@@ -174,6 +184,9 @@ export function validateCatalogEpisodePost(
     youtubeVideoId: writable.youtubeVideoId,
     youtubeWatchUrl: writable.youtubeWatchUrl,
     carousel,
+    embedAllows,
+    movieSearchTitle,
+    curatorNotes,
     tagline: null,
     posterImageUrl: null,
     backdropImageUrl: null,

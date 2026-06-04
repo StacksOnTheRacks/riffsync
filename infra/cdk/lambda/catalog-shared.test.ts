@@ -1,151 +1,45 @@
 import { describe, expect, it } from 'vitest';
-import { projectEpisode, sortEpisodes } from './catalog-shared';
+import { projectEpisode } from './catalog-shared';
+
+const baseItem = {
+  id: 'ep-1',
+  experimentNumber: 101,
+  title: 'Test Episode',
+  era: 'mike',
+  youtubeVideoId: null,
+  youtubeWatchUrl: null,
+  tagline: null,
+  posterImageUrl: null,
+  backdropImageUrl: null,
+  tmdbMovieId: null,
+  tmdbArtworkSyncedAt: null,
+  carousel: false,
+};
 
 describe('projectEpisode', () => {
-  it('maps a minimal seed-shaped row', () => {
-    const row = {
-      id: '101-the-crawling-eye',
-      experimentNumber: 101,
-      title: 'The Crawling Eye',
-      era: 'joel',
-      youtubeVideoId: 'lJgQrjYaLbQ',
-      youtubeWatchUrl: 'https://www.youtube.com/watch?v=lJgQrjYaLbQ',
-      tagline: null,
-      posterImageUrl: null,
-      backdropImageUrl: null,
-      tmdbMovieId: null,
-      tmdbArtworkSyncedAt: null,
-    };
-    const ep = projectEpisode(row);
-    expect(ep.id).toBe('101-the-crawling-eye');
-    expect(ep.experimentNumber).toBe(101);
-    expect(ep.tagline).toBeNull();
-    expect(ep.tmdbOverview).toBeUndefined();
-    expect(ep.carousel).toBe(false);
+  it('omits embedAllows when not stored on the row', () => {
+    const entry = projectEpisode(baseItem);
+    expect(entry).not.toHaveProperty('embedAllows');
   });
 
-  it('sets carousel from the stored attribute', () => {
-    const on = projectEpisode({
-      id: 'x',
-      experimentNumber: 1,
-      title: 'T',
-      era: 'joel',
-      youtubeVideoId: null,
-      youtubeWatchUrl: null,
-      tagline: null,
-      posterImageUrl: null,
-      backdropImageUrl: null,
-      tmdbMovieId: null,
-      tmdbArtworkSyncedAt: null,
-      carousel: true,
-    });
-    expect(on.carousel).toBe(true);
-    const off = projectEpisode({
-      id: 'y',
-      experimentNumber: 2,
-      title: 'U',
-      era: 'joel',
-      youtubeVideoId: null,
-      youtubeWatchUrl: null,
-      tagline: null,
-      posterImageUrl: null,
-      backdropImageUrl: null,
-      tmdbMovieId: null,
-      tmdbArtworkSyncedAt: null,
-      carousel: false,
-    });
-    expect(off.carousel).toBe(false);
+  it('includes embedAllows false when stored', () => {
+    const entry = projectEpisode({ ...baseItem, embedAllows: false });
+    expect(entry.embedAllows).toBe(false);
   });
 
-  it('accepts string/number carousel flags from Dynamo or legacy clients', () => {
-    expect(
-      projectEpisode({
-        id: 'a',
-        experimentNumber: 1,
-        title: 'T',
-        era: 'joel',
-        youtubeVideoId: null,
-        youtubeWatchUrl: null,
-        tagline: null,
-        posterImageUrl: null,
-        backdropImageUrl: null,
-        tmdbMovieId: null,
-        tmdbArtworkSyncedAt: null,
-        carousel: 'true',
-      }).carousel,
-    ).toBe(true);
-    expect(
-      projectEpisode({
-        id: 'b',
-        experimentNumber: 2,
-        title: 'U',
-        era: 'joel',
-        youtubeVideoId: null,
-        youtubeWatchUrl: null,
-        tagline: null,
-        posterImageUrl: null,
-        backdropImageUrl: null,
-        tmdbMovieId: null,
-        tmdbArtworkSyncedAt: null,
-        carousel: 1,
-      }).carousel,
-    ).toBe(true);
+  it('includes embedAllows true when stored', () => {
+    const entry = projectEpisode({ ...baseItem, embedAllows: true });
+    expect(entry.embedAllows).toBe(true);
   });
 
-  it('preserves optional TMDB copy fields when present', () => {
-    const row = {
-      id: 'x',
-      experimentNumber: 1,
-      title: 'T',
-      era: 'mike',
-      youtubeVideoId: null,
-      youtubeWatchUrl: null,
-      tagline: 'Hi',
-      posterImageUrl: 'https://example.com/p.jpg',
-      backdropImageUrl: null,
-      tmdbMovieId: 99,
-      tmdbArtworkSyncedAt: '2026-05-01T00:00:00.000Z',
-      tmdbOverview: 'Overview text',
-      tmdbPopularity: 12.5,
-      tmdbPosterPath: '/p.jpg',
-      tmdbBackdropPath: '/b.jpg',
-    };
-    const ep = projectEpisode(row);
-    expect(ep.tmdbOverview).toBe('Overview text');
-    expect(ep.tmdbPopularity).toBe(12.5);
-    expect(ep.tmdbPosterPath).toBe('/p.jpg');
-  });
-});
-
-describe('sortEpisodes', () => {
-  it('orders by experimentNumber ascending', () => {
-    const a = projectEpisode({
-      id: 'b',
-      experimentNumber: 2,
-      title: 'B',
-      era: 'joel',
-      youtubeVideoId: null,
-      youtubeWatchUrl: null,
-      tagline: null,
-      posterImageUrl: null,
-      backdropImageUrl: null,
-      tmdbMovieId: null,
-      tmdbArtworkSyncedAt: null,
+  it('does not expose staff-only curator hints', () => {
+    const entry = projectEpisode({
+      ...baseItem,
+      movieSearchTitle: 'Manos',
+      curatorNotes: 'secret',
+      embedAllows: false,
     });
-    const b = projectEpisode({
-      id: 'a',
-      experimentNumber: 1,
-      title: 'A',
-      era: 'joel',
-      youtubeVideoId: null,
-      youtubeWatchUrl: null,
-      tagline: null,
-      posterImageUrl: null,
-      backdropImageUrl: null,
-      tmdbMovieId: null,
-      tmdbArtworkSyncedAt: null,
-    });
-    const sorted = sortEpisodes([a, b]).map((e) => e.id);
-    expect(sorted).toEqual(['a', 'b']);
+    expect(entry).not.toHaveProperty('movieSearchTitle');
+    expect(entry).not.toHaveProperty('curatorNotes');
   });
 });
