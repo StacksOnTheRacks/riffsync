@@ -115,6 +115,23 @@ function parseListBody(body: unknown): CatalogEpisode[] {
   return body.entries.map(normalizeEpisode)
 }
 
+/**
+ * Read weak ETag from a CORS-visible response. When the header is hidden (misconfigured
+ * `Access-Control-Expose-Headers`) but the JSON body is present, synthesize a validator
+ * so the catalog can still load (conditional GET disabled until the next 200 with a real ETag).
+ */
+function readCatalogListEtag(res: Response, body: unknown, variant: 'full' | 'carousel'): string {
+  const fromHeader = normalizeCatalogEtag(res.headers.get('ETag'))
+  if (fromHeader) {
+    return fromHeader
+  }
+  if (!isRecord(body) || !Array.isArray(body.entries)) {
+    throw new Error('Catalog response missing ETag')
+  }
+  const version = typeof body.version === 'number' ? body.version : 0
+  return `W/"fallback-${variant}-v${version}-n${body.entries.length}"`
+}
+
 export async function fetchCatalogEntries(etag?: string): Promise<CatalogFetchResult<CatalogEpisode[]>> {
   const base = getPublicApiBaseUrl()
   if (base) {
@@ -125,11 +142,8 @@ export async function fetchCatalogEntries(etag?: string): Promise<CatalogFetchRe
     if (!res.ok) {
       throw new Error(`Catalog request failed (${res.status})`)
     }
-    const responseEtag = normalizeCatalogEtag(res.headers.get('ETag'))
-    if (!responseEtag) {
-      throw new Error('Catalog response missing ETag')
-    }
     const body = (await res.json()) as unknown
+    const responseEtag = readCatalogListEtag(res, body, 'full')
     return { kind: 'ok', etag: responseEtag, data: parseListBody(body) }
   }
 
@@ -161,11 +175,8 @@ export async function fetchCatalogCarouselEntries(
     if (!res.ok) {
       throw new Error(`Catalog carousel request failed (${res.status})`)
     }
-    const responseEtag = normalizeCatalogEtag(res.headers.get('ETag'))
-    if (!responseEtag) {
-      throw new Error('Catalog carousel response missing ETag')
-    }
     const body = (await res.json()) as unknown
+    const responseEtag = readCatalogListEtag(res, body, 'carousel')
     return { kind: 'ok', etag: responseEtag, data: parseListBody(body) }
   }
 
@@ -200,14 +211,13 @@ export async function fetchCatalogEpisodeById(
     if (!res.ok) {
       throw new Error(`Catalog item request failed (${res.status})`)
     }
-    const responseEtag = normalizeCatalogEtag(res.headers.get('ETag'))
-    if (!responseEtag) {
-      throw new Error('Catalog item response missing ETag')
-    }
     const body = (await res.json()) as { entry?: unknown }
     if (!body.entry) {
       throw new Error('Catalog item response missing entry')
     }
+    const responseEtag =
+      normalizeCatalogEtag(res.headers.get('ETag')) ??
+      `W/"fallback-episode-${id}"`
     return { kind: 'ok', etag: responseEtag, entry: normalizeEpisode(body.entry) }
   }
 

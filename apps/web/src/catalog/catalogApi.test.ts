@@ -61,6 +61,40 @@ describe('catalogApi conditional GET', () => {
     })
   })
 
+  it('fetchCatalogEntries loads when ETag header is hidden but body is valid', async () => {
+    fetchMock.mockResolvedValue(
+      mockFetchResponse({
+        status: 200,
+        headers: {},
+        body: {
+          version: 1,
+          entries: [
+            {
+              id: 'ep-1',
+              experimentNumber: 1,
+              title: 'T',
+              era: 'joel',
+              youtubeVideoId: null,
+              youtubeWatchUrl: null,
+              tagline: null,
+              posterImageUrl: null,
+              backdropImageUrl: null,
+              tmdbMovieId: null,
+              tmdbArtworkSyncedAt: null,
+            },
+          ],
+        },
+      }),
+    )
+
+    const result = await fetchCatalogEntries()
+
+    expect(result.kind).toBe('ok')
+    if (result.kind !== 'ok') return
+    expect(result.etag).toBe('W/"fallback-full-v1-n1"')
+    expect(result.data).toHaveLength(1)
+  })
+
   it('fetchCatalogEntries parses ETag and entries on 200', async () => {
     fetchMock.mockResolvedValue(
       mockFetchResponse({
