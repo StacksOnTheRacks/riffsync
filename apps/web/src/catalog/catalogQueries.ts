@@ -35,10 +35,11 @@ function setStoredEtag(queryKey: readonly unknown[], etag: string): void {
 }
 
 function resolveNotModified<T>(
-  ctx: QueryFunctionContext<readonly unknown[], unknown>,
+  client: QueryClient,
+  queryKey: readonly unknown[],
   label: string,
 ): T {
-  const cached = ctx.client.getQueryData<T>(ctx.queryKey)
+  const cached = client.getQueryData<T>(queryKey)
   if (cached === undefined) {
     throw new Error(`${label}: 304 Not Modified without cached data`)
   }
@@ -52,7 +53,7 @@ async function runCatalogListQuery(
   const etag = getStoredEtag(ctx.queryKey)
   const result = await fetcher(etag)
   if (result.kind === 'notModified') {
-    return resolveNotModified(ctx, 'Catalog list')
+    return resolveNotModified(ctx.client, ctx.queryKey, 'Catalog list')
   }
   setStoredEtag(ctx.queryKey, result.etag)
   return result.data
@@ -68,7 +69,7 @@ async function runCatalogEpisodeQuery(
   const etag = getStoredEtag(ctx.queryKey)
   const result: CatalogEpisodeByIdResult = await fetchCatalogEpisodeById(id, etag)
   if (result.kind === 'notModified') {
-    return resolveNotModified(ctx, 'Catalog episode')
+    return resolveNotModified(ctx.client, ctx.queryKey, 'Catalog episode')
   }
   if (result.etag) {
     setStoredEtag(ctx.queryKey, result.etag)
