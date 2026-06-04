@@ -14,21 +14,25 @@ import {
 import { catalogEpisodeToFormValues } from '../../catalog/validateCatalogEpisodeForm'
 import { AdminCatalogForm } from './AdminCatalogForm'
 
-export function AdminCatalogEditPage() {
-  const { id: routeId } = useParams<{ id: string }>()
-  const episodeId = routeId ? decodeURIComponent(routeId) : ''
+function AdminCatalogEditMissingId() {
+  return (
+    <div className="container riffsync-admin-page">
+      <div role="alert" className="riffsync-scaffold-note">
+        <p>Missing episode id in URL.</p>
+        <p>
+          <Link to="/admin/catalog">Back to catalog</Link>
+        </p>
+      </div>
+    </div>
+  )
+}
 
+function AdminCatalogEditPageLoaded({ episodeId }: { episodeId: string }) {
   const [episode, setEpisode] = useState<StaffCatalogEpisode | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!episodeId) {
-      setError('Missing episode id in URL.')
-      setLoading(false)
-      return
-    }
-
     let cancelled = false
 
     const load = async () => {
@@ -107,4 +111,15 @@ export function AdminCatalogEditPage() {
       pageTitle="Edit episode"
     />
   )
+}
+
+export function AdminCatalogEditPage() {
+  const { id: routeId } = useParams<{ id: string }>()
+  const episodeId = routeId ? decodeURIComponent(routeId) : ''
+
+  if (!episodeId) {
+    return <AdminCatalogEditMissingId />
+  }
+
+  return <AdminCatalogEditPageLoaded episodeId={episodeId} />
 }

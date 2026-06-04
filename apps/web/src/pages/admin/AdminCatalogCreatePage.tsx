@@ -1,7 +1,5 @@
-import {
-  AdminCatalogForm,
-  EMPTY_CATALOG_EPISODE_FORM_VALUES,
-} from './AdminCatalogForm'
+import { EMPTY_CATALOG_EPISODE_FORM_VALUES } from '../../catalog/validateCatalogEpisodeForm'
+import { AdminCatalogForm } from './AdminCatalogForm'
 
 export function AdminCatalogCreatePage() {
   return (

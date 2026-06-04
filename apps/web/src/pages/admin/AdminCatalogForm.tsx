@@ -429,5 +429,3 @@ export function AdminCatalogForm({
     </div>
   )
 }
-
-export { catalogEpisodeToFormValues, EMPTY_CATALOG_EPISODE_FORM_VALUES } from '../../catalog/validateCatalogEpisodeForm'
