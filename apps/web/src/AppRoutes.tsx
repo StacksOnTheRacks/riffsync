@@ -12,8 +12,9 @@ import { DataRemovalRequestPage } from './pages/DataRemovalRequestPage'
 import { HowToHostWatchPartyPage } from './pages/HowToHostWatchPartyPage'
 import { StaffAuthCallbackPage } from './pages/admin/StaffAuthCallbackPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
+import { AdminCatalogCreatePage } from './pages/admin/AdminCatalogCreatePage'
+import { AdminCatalogEditPage } from './pages/admin/AdminCatalogEditPage'
 import { AdminCatalogListPage } from './pages/admin/AdminCatalogListPage'
-import { AdminCatalogRoutePlaceholder } from './pages/admin/AdminCatalogRoutePlaceholder'
 import { AdminHomePage } from './pages/admin/AdminHomePage'
 import { StaffAdminGate } from './pages/admin/StaffAdminGate'
 import { AdminLayout } from './layouts/AdminLayout'
@@ -27,8 +28,8 @@ export function AppRoutes() {
       <Route path="/admin" element={<StaffAdminGate />}>
         <Route element={<AdminLayout />}>
           <Route index element={<AdminHomePage />} />
-          <Route path="catalog/new" element={<AdminCatalogRoutePlaceholder variant="new" />} />
-          <Route path="catalog/:id/edit" element={<AdminCatalogRoutePlaceholder variant="edit" />} />
+          <Route path="catalog/new" element={<AdminCatalogCreatePage />} />
+          <Route path="catalog/:id/edit" element={<AdminCatalogEditPage />} />
           <Route path="catalog" element={<AdminCatalogListPage />} />
         </Route>
       </Route>

@@ -58,6 +58,25 @@ export class StaffCatalogValidationError extends Error {
   }
 }
 
+export class StaffCatalogEpisodeConflictError extends Error {
+  readonly statusCode = 409
+  readonly code = 'catalog_episode_exists'
+
+  constructor() {
+    super('An episode with this id already exists.')
+    this.name = 'StaffCatalogEpisodeConflictError'
+  }
+}
+
+export class StaffCatalogEpisodeNotFoundError extends Error {
+  readonly statusCode = 404
+
+  constructor() {
+    super('Episode not found.')
+    this.name = 'StaffCatalogEpisodeNotFoundError'
+  }
+}
+
 function staffCatalogJsonHeaders(accessToken: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,
@@ -81,6 +100,9 @@ async function mapStaffCatalogWriteError(res: Response): Promise<never> {
       /* use default copy */
     }
     throw new StaffSessionForbiddenError(detail)
+  }
+  if (res.status === 409) {
+    throw new StaffCatalogEpisodeConflictError()
   }
   if (res.status === 400) {
     try {
@@ -161,6 +183,9 @@ async function mapStaffCatalogError(res: Response): Promise<never> {
       /* use default copy */
     }
     throw new StaffSessionForbiddenError(detail)
+  }
+  if (res.status === 404) {
+    throw new StaffCatalogEpisodeNotFoundError()
   }
   const t = await res.text()
   throw new Error(`Staff catalog read failed (${res.status}): ${t}`)
