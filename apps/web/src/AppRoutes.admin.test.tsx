@@ -28,6 +28,34 @@ vi.mock('./api/staffAdminSessionApi', () => ({
   StaffSessionForbiddenError: class StaffSessionForbiddenError extends Error {},
 }))
 
+vi.mock('./api/staffAdminCatalogApi', () => ({
+  fetchStaffCatalogList: vi.fn().mockResolvedValue({
+    version: 1,
+    entries: [
+      {
+        id: 'ep-route-test',
+        experimentNumber: 42,
+        title: 'Route Test Episode',
+        era: 'joel',
+        youtubeVideoId: null,
+        youtubeWatchUrl: null,
+        tagline: null,
+        posterImageUrl: null,
+        backdropImageUrl: null,
+        tmdbMovieId: null,
+        tmdbArtworkSyncedAt: null,
+        carousel: false,
+        movieSearchTitle: null,
+        embedAllows: true,
+        curatorNotes: null,
+        youtubeThumbnailUrl: null,
+      },
+    ],
+  }),
+  StaffSessionUnauthorizedError: class StaffSessionUnauthorizedError extends Error {},
+  StaffSessionForbiddenError: class StaffSessionForbiddenError extends Error {},
+}))
+
 describe('AppRoutes admin tree', () => {
   let container: HTMLDivElement
   let root: Root | null = null
@@ -38,7 +66,7 @@ describe('AppRoutes admin tree', () => {
     container?.remove()
   })
 
-  it('renders catalog placeholder inside admin shell without fan header', async () => {
+  it('renders catalog list inside admin shell without fan header', async () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -52,8 +80,10 @@ describe('AppRoutes admin tree', () => {
     })
 
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('Catalog list UI ships')
+      expect(container.textContent).toContain('Route Test Episode')
     })
+
+    expect(container.querySelector('.riffsync-admin-catalog-table')).not.toBeNull()
 
     expect(container.querySelector('.riffsync-admin-shell')).not.toBeNull()
     expect(container.querySelector('#gen-header')).toBeNull()
