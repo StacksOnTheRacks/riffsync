@@ -638,11 +638,34 @@ export class ApiCatalogStack extends cdk.Stack {
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
+    const adminCatalogDeleteFn = new lambdaNodejs.NodejsFunction(this, 'AdminCatalogDeleteFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(15),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/admin-catalog-delete.ts'),
+      handler: 'handler',
+      environment: {
+        CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        STAFF_USER_POOL_ID: staffUserPool.userPoolId,
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
     this.catalogTable.grantReadData(adminCatalogListFn);
     this.catalogTable.grantReadData(adminCatalogGetFn);
     this.catalogTable.grantReadWriteData(adminCatalogPostFn);
     this.catalogTable.grantReadWriteData(adminCatalogPatchFn);
-    for (const fn of [adminCatalogListFn, adminCatalogGetFn, adminCatalogPostFn, adminCatalogPatchFn]) {
+    this.catalogTable.grantReadWriteData(adminCatalogDeleteFn);
+    this.roomsTable.grantReadData(adminCatalogDeleteFn);
+    for (const fn of [
+      adminCatalogListFn,
+      adminCatalogGetFn,
+      adminCatalogPostFn,
+      adminCatalogPatchFn,
+      adminCatalogDeleteFn,
+    ]) {
       fn.addToRolePolicy(
         new iam.PolicyStatement({
           actions: ['cognito-idp:AdminListGroupsForUser'],
@@ -782,6 +805,7 @@ export class ApiCatalogStack extends cdk.Stack {
           apigwv2.CorsHttpMethod.POST,
           apigwv2.CorsHttpMethod.PATCH,
           apigwv2.CorsHttpMethod.PUT,
+          apigwv2.CorsHttpMethod.DELETE,
           apigwv2.CorsHttpMethod.OPTIONS,
         ],
         allowOrigins,
@@ -842,6 +866,10 @@ export class ApiCatalogStack extends cdk.Stack {
     const adminCatalogPatchIntegration = new integrations.HttpLambdaIntegration(
       'AdminCatalogPatchInt',
       adminCatalogPatchFn,
+    );
+    const adminCatalogDeleteIntegration = new integrations.HttpLambdaIntegration(
+      'AdminCatalogDeleteInt',
+      adminCatalogDeleteFn,
     );
 
     this.httpApi.addRoutes({
@@ -963,6 +991,13 @@ export class ApiCatalogStack extends cdk.Stack {
       authorizer: staffJwtAuthorizer,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/admin/catalog/episodes/{id}',
+      methods: [apigwv2.HttpMethod.DELETE],
+      integration: adminCatalogDeleteIntegration,
+      authorizer: staffJwtAuthorizer,
+    });
+
     const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     if (httpStageL1) {
       httpStageL1.defaultRouteSettings = {
@@ -1019,7 +1054,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH).',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE).',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {

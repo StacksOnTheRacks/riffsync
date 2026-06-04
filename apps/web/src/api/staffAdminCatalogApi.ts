@@ -77,6 +77,18 @@ export class StaffCatalogEpisodeNotFoundError extends Error {
   }
 }
 
+export class StaffCatalogEpisodeInUseError extends Error {
+  readonly statusCode = 409
+  readonly code = 'catalog_episode_in_use'
+  readonly references: { rooms: number; lists: number }
+
+  constructor(references: { rooms: number; lists: number }) {
+    super('Episode is referenced by rooms or lists and cannot be deleted.')
+    this.name = 'StaffCatalogEpisodeInUseError'
+    this.references = references
+  }
+}
+
 function staffCatalogJsonHeaders(accessToken: string): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,
@@ -159,6 +171,60 @@ export async function patchStaffCatalogEpisode(
     await mapStaffCatalogWriteError(res)
   }
   return (await res.json()) as StaffCatalogEpisodeResponse
+}
+
+export async function deleteStaffCatalogEpisode(
+  accessToken: string,
+  id: string,
+): Promise<void> {
+  const base = getPublicApiBaseUrl()
+  if (!base) throw new Error('Configure VITE_PUBLIC_API_BASE_URL.')
+  const encodedId = encodeURIComponent(id)
+  const res = await fetch(`${base}/v1/admin/catalog/episodes/${encodedId}`, {
+    method: 'DELETE',
+    headers: staffCatalogAuthHeaders(accessToken),
+  })
+  if (res.status === 204) {
+    return
+  }
+  if (res.status === 401) {
+    throw new StaffSessionUnauthorizedError()
+  }
+  if (res.status === 403) {
+    let detail = 'Staff group required — contact an administrator'
+    try {
+      const parsed = (await res.json()) as { code?: string; error?: string }
+      if (parsed.code === 'staff_group_required' || parsed.error === 'Forbidden') {
+        detail = 'Staff group required — contact an administrator'
+      }
+    } catch {
+      /* use default copy */
+    }
+    throw new StaffSessionForbiddenError(detail)
+  }
+  if (res.status === 404) {
+    throw new StaffCatalogEpisodeNotFoundError()
+  }
+  if (res.status === 409) {
+    try {
+      const parsed = (await res.json()) as {
+        code?: string
+        references?: { rooms?: number; lists?: number }
+      }
+      if (parsed.code === 'catalog_episode_in_use') {
+        throw new StaffCatalogEpisodeInUseError({
+          rooms: parsed.references?.rooms ?? 0,
+          lists: parsed.references?.lists ?? 0,
+        })
+      }
+    } catch (err) {
+      if (err instanceof StaffCatalogEpisodeInUseError) {
+        throw err
+      }
+    }
+  }
+  const t = await res.text()
+  throw new Error(`Staff catalog delete failed (${res.status}): ${t}`)
 }
 
 function staffCatalogAuthHeaders(accessToken: string): HeadersInit {
