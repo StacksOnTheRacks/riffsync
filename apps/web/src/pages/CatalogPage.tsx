@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useCatalogEntriesQuery } from '../catalog/useCatalogQuery'
+import { useCatalogListQuery } from '../catalog/catalogQueries'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogCardImageUrl, catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
@@ -47,7 +47,7 @@ function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
 
 export function CatalogPage() {
   const navigate = useNavigate()
-  const { data, isPending, isError, error } = useCatalogEntriesQuery()
+  const { data, isPending, isError, error } = useCatalogListQuery()
 
   useResumePendingPartyRoom(data, navigate)
 

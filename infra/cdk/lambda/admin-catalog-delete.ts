@@ -6,6 +6,7 @@ import {
   catalogEpisodeExists,
   countCatalogEpisodeReferences,
 } from './admin-catalog-delete-shared';
+import { bumpCatalogGeneration } from './catalog-meta';
 import { jsonResponse } from './giphy-search-shared';
 import {
   adminCatalogDeleteOutcomeFromStatus,
@@ -107,6 +108,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         Key: { id: episodeId },
       }),
     );
+
+    await bumpCatalogGeneration(client, catalogTableName);
   } catch (err) {
     logRiffsyncDiagError('admin_catalog_delete_failed', err);
     return finishDelete(event, staffSub, episodeId, 500, { error: 'Internal server error' });

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useCatalogCarouselQuery, useCatalogEntriesQuery } from '../catalog/useCatalogQuery'
+import { useCatalogCarouselQuery, useCatalogListQuery } from '../catalog/catalogQueries'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import {
   buildHeroSlides,
@@ -20,7 +20,7 @@ import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
  */
 export function HomePage() {
   const navigate = useNavigate()
-  const { data, isPending, isError, error } = useCatalogEntriesQuery()
+  const { data, isPending, isError, error } = useCatalogListQuery()
   const carouselQ = useCatalogCarouselQuery()
 
   useResumePendingPartyRoom(data, navigate)

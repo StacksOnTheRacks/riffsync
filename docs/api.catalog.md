@@ -38,7 +38,7 @@ Returns a bundle aligned with **`data/catalog/episodes.json`**:
 | **`tmdbPosterPath`** | `string \| optional` | Raw TMDB path; **`posterImageUrl`** is the resolved CDN URL when set. |
 | **`tmdbBackdropPath`** | `string \| optional` | |
 
-Clients should treat optional / **`null`** enrichment fields as “not yet available.”
+Clients should treat optional / **`null`** enrichment fields as "not yet available."
 
 ### Optional SPA hints (not in git schema)
 
@@ -55,7 +55,32 @@ Clients should treat optional / **`null`** enrichment fields as “not yet avail
 
 **`404`** when the **`id`** is unknown.
 
+## HTTP caching (M13)
+
+Public catalog reads use a monotonic **`catalogGeneration`** counter stored on the Catalog table meta row (**`id: "_meta"`**). Admin catalog create, patch, and delete bump the counter after a successful Dynamo write so clients and intermediaries can revalidate without scanning for **`max(updatedAt)`**.
+
+### Response headers
+
+| Header | Rule |
+| --- | --- |
+| **`ETag`** | Weak validator: **`W/"{generation}-{variant}"`**. Variants: **`full`** (list), **`carousel`** (**`?carousel=true`**), **`episode-{id}`** (single entry). |
+| **`Cache-Control`** | **`public, max-age=<seconds>`** — default **60**; Lambda env **`CATALOG_HTTP_MAX_AGE_SECONDS`** (integer, clamped **0–86400**). |
+
+### Conditional requests
+
+Send **`If-None-Match`** with the **`ETag`** from a prior response (weak prefix optional). When the generation and variant match, the API returns **`304 Not Modified`** with an empty body and the same cache headers. List **`304`** avoids a full table **`Scan`**.
+
+After an admin catalog mutation, generation increments; repeat **`GET`** with the old **`If-None-Match`** returns **`200`** and a new **`ETag`**.
+
+### Meta row
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| **`catalogGeneration`** | non-negative integer | Starts at **`1`** on first bump; defaults to **`1`** when the row is absent (pre-M13 tables). |
+
+Reconcile/TMDB batch writers should call the same bump helper when they mutate catalog rows (not wired in the initial M13 slice).
+
 ## Infrastructure
 
-- **Table:** **`RiffSyncApi-prod`** stack output **`CatalogTableName`** — PK **`id`** (string). No sort key; list route uses **`Scan`** (see **`infra/cdk/README.md`**).
+- **Table:** **`RiffSyncApi-prod`** stack output **`CatalogTableName`** — PK **`id`** (string). No sort key; list route uses **`Scan`** (see **`infra/cdk/README.md`**). Reserved meta PK **`_meta`** holds **`catalogGeneration`**.
 - **Seed:** **`infra/cdk`** → **`npm run seed:catalog -- <CatalogTableName>`** after deploy (validates against **`catalog.schema.json`**).

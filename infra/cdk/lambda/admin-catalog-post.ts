@@ -8,6 +8,7 @@ import {
   validationErrorResponse,
   type ValidationDetail,
 } from './admin-catalog-validation';
+import { bumpCatalogGeneration } from './catalog-meta';
 import { jsonResponse } from './giphy-search-shared';
 import {
   adminCatalogPostOutcomeFromStatus,
@@ -119,6 +120,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       });
     }
     logRiffsyncDiagError('admin_catalog_post_dynamo_failed', err);
+    return finishPost(event, staffSub, episodeId, 500, { error: 'Internal server error' });
+  }
+
+  try {
+    await bumpCatalogGeneration(client, tableName);
+  } catch (err) {
+    logRiffsyncDiagError('admin_catalog_post_bump_generation_failed', err);
     return finishPost(event, staffSub, episodeId, 500, { error: 'Internal server error' });
   }
 

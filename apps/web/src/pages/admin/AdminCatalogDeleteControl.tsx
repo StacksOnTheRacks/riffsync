@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { refreshStaffTokensIfStale } from '../../auth/staffHostedUiPkce'
 import { getStaffAccessToken } from '../../auth/staffTokens'
@@ -13,6 +14,7 @@ import {
   StaffSessionForbiddenError,
   StaffSessionUnauthorizedError,
 } from '../../api/staffAdminSessionApi'
+import { invalidatePublicCatalogQueries } from '../../catalog/catalogQueries'
 import { formatCatalogEpisodeInUseMessage } from '../../catalog/formatCatalogEpisodeInUseMessage'
 
 export function AdminCatalogDeleteControl({
@@ -23,6 +25,7 @@ export function AdminCatalogDeleteControl({
   onEpisodeNotFound: () => void
 }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { session } = useAdminSession()
   const dialogTitleId = useId()
   const confirmInputId = useId()
@@ -72,6 +75,7 @@ export function AdminCatalogDeleteControl({
         return
       }
       await deleteStaffCatalogEpisode(token, episodeId)
+      await invalidatePublicCatalogQueries(queryClient)
       closeDialog()
       navigate('/admin/catalog', { state: { deleted: true } })
     } catch (e: unknown) {

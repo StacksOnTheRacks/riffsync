@@ -105,7 +105,9 @@ describe('admin-catalog-post handler', () => {
   });
 
   it('creates row with null reconcile fields and returns 201', async () => {
-    mocks.docSend.mockResolvedValueOnce({});
+    mocks.docSend.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Attributes: { catalogGeneration: 2 },
+    });
 
     const res = await postHandler(
       staffEvent(
@@ -202,7 +204,8 @@ describe('admin-catalog-patch handler', () => {
   it('updates allowed fields and preserves reconcile columns', async () => {
     mocks.docSend
       .mockResolvedValueOnce({ Item: existingItem })
-      .mockResolvedValueOnce({});
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Attributes: { catalogGeneration: 5 } });
 
     const res = await patchHandler(
       staffEvent(

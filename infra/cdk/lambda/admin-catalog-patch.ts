@@ -8,6 +8,7 @@ import {
   validationErrorResponse,
   type ValidationDetail,
 } from './admin-catalog-validation';
+import { bumpCatalogGeneration } from './catalog-meta';
 import { jsonResponse } from './giphy-search-shared';
 import {
   adminCatalogPatchOutcomeFromStatus,
@@ -154,6 +155,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     );
   } catch (err) {
     logRiffsyncDiagError('admin_catalog_patch_update_failed', err);
+    return finishPatch(event, staffSub, episodeId, 500, { error: 'Internal server error' });
+  }
+
+  try {
+    await bumpCatalogGeneration(client, tableName);
+  } catch (err) {
+    logRiffsyncDiagError('admin_catalog_patch_bump_generation_failed', err);
     return finishPatch(event, staffSub, episodeId, 500, { error: 'Internal server error' });
   }
 

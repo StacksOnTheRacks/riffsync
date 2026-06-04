@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminCatalogForm } from './AdminCatalogForm'
@@ -77,6 +78,7 @@ const baseEpisode: StaffCatalogEpisode = {
 describe('AdminCatalogForm', () => {
   let container: HTMLDivElement
   let root: Root | null = null
+  let queryClient: QueryClient
 
   beforeEach(() => {
     navigate.mockReset()
@@ -84,6 +86,7 @@ describe('AdminCatalogForm', () => {
     patchStaffCatalogEpisode.mockReset()
     createStaffCatalogEpisode.mockResolvedValue({ entry: { id: 'new-ep' } })
     patchStaffCatalogEpisode.mockResolvedValue({ entry: baseEpisode })
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   })
 
   afterEach(() => {
@@ -106,9 +109,11 @@ describe('AdminCatalogForm', () => {
     }
     act(() => {
       root!.render(
-        <MemoryRouter>
-          <AdminCatalogForm {...defaults} {...props} />
-        </MemoryRouter>,
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter>
+            <AdminCatalogForm {...defaults} {...props} />
+          </MemoryRouter>
+        </QueryClientProvider>,
       )
     })
   }
@@ -147,6 +152,30 @@ describe('AdminCatalogForm', () => {
     })
 
     expect(navigate).toHaveBeenCalledWith('/admin/catalog', { state: { saved: true } })
+  })
+
+  it('invalidates public catalog queries after successful create', async () => {
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+    renderForm({ mode: 'create' })
+
+    const idInput = container.querySelector('#catalog-form-id') as HTMLInputElement
+    const titleInput = container.querySelector('#catalog-form-title') as HTMLInputElement
+    const experimentInput = container.querySelector('#catalog-form-experiment') as HTMLInputElement
+
+    await act(async () => {
+      setInputValue(idInput, 'new-ep')
+      setInputValue(experimentInput, '99')
+      setInputValue(titleInput, 'New title')
+    })
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['catalog'] })
+    })
   })
 
   it('edit mode keeps id out of PATCH and sends only changed fields', async () => {
