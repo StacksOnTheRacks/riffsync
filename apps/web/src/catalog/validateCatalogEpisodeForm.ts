@@ -14,7 +14,13 @@ export type CatalogEpisodeFormValues = {
   youtubeVideoId: string
   youtubeWatchUrl: string
   carousel: boolean
+  movieSearchTitle: string
+  embedAllows: boolean
+  curatorNotes: string
 }
+
+const MOVIE_SEARCH_TITLE_MAX_LENGTH = 256
+const CURATOR_NOTES_MAX_LENGTH = 4096
 
 export type CatalogEpisodeFormValidation = {
   fieldErrors: Record<string, string>
@@ -29,6 +35,9 @@ export const EMPTY_CATALOG_EPISODE_FORM_VALUES: CatalogEpisodeFormValues = {
   youtubeVideoId: '',
   youtubeWatchUrl: '',
   carousel: false,
+  movieSearchTitle: '',
+  embedAllows: true,
+  curatorNotes: '',
 }
 
 function isValidHttpUrl(value: string): boolean {
@@ -96,6 +105,28 @@ export function normalizeYoutubeField(raw: string): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
+export function normalizeNullableTextField(raw: string): string | null {
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function validateMovieSearchTitle(raw: string): string | undefined {
+  const trimmed = raw.trim()
+  if (!trimmed) return undefined
+  if (trimmed.length > MOVIE_SEARCH_TITLE_MAX_LENGTH) {
+    return `Movie search title must be ${MOVIE_SEARCH_TITLE_MAX_LENGTH} characters or fewer.`
+  }
+  return undefined
+}
+
+function validateCuratorNotes(raw: string): string | undefined {
+  const trimmed = raw.trim()
+  if (trimmed.length > CURATOR_NOTES_MAX_LENGTH) {
+    return `Curator notes must be ${CURATOR_NOTES_MAX_LENGTH} characters or fewer.`
+  }
+  return undefined
+}
+
 export function validateCatalogEpisodeForm(
   values: CatalogEpisodeFormValues,
   mode: CatalogEpisodeFormMode,
@@ -121,6 +152,12 @@ export function validateCatalogEpisodeForm(
 
   const watchUrlError = validateYoutubeWatchUrl(values.youtubeWatchUrl)
   if (watchUrlError) fieldErrors.youtubeWatchUrl = watchUrlError
+
+  const movieSearchTitleError = validateMovieSearchTitle(values.movieSearchTitle)
+  if (movieSearchTitleError) fieldErrors.movieSearchTitle = movieSearchTitleError
+
+  const curatorNotesError = validateCuratorNotes(values.curatorNotes)
+  if (curatorNotesError) fieldErrors.curatorNotes = curatorNotesError
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
@@ -156,6 +193,9 @@ export function catalogEpisodeToFormValues(
     youtubeVideoId: string | null
     youtubeWatchUrl: string | null
     carousel: boolean
+    movieSearchTitle?: string | null
+    embedAllows?: boolean | null
+    curatorNotes?: string | null
   },
 ): CatalogEpisodeFormValues {
   return {
@@ -166,5 +206,8 @@ export function catalogEpisodeToFormValues(
     youtubeVideoId: entry.youtubeVideoId ?? '',
     youtubeWatchUrl: entry.youtubeWatchUrl ?? '',
     carousel: entry.carousel,
+    movieSearchTitle: entry.movieSearchTitle ?? '',
+    embedAllows: entry.embedAllows !== false,
+    curatorNotes: entry.curatorNotes ?? '',
   }
 }

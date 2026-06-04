@@ -44,6 +44,9 @@ export interface StaffCatalogEpisodeWrite {
   youtubeVideoId?: string | null
   youtubeWatchUrl?: string | null
   carousel?: boolean
+  movieSearchTitle?: string | null
+  embedAllows?: boolean
+  curatorNotes?: string | null
 }
 
 export class StaffCatalogValidationError extends Error {
