@@ -31,11 +31,16 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | Reconcile on every catalog read? | **No**; scheduled/batch only. |
 | Room mode / AV kill switch ordering? | **Durable room write before fan-out** when persisted; best-effort delivery order across connections (same as playback **`PATCH`** + chat). |
 
-## Open implementation decisions
+## Kill-switch side-effect ordering (#102 / #103 split)
 
-- Kill-switch **SFU producer teardown** trigger: synchronous HTTP admin callback from room **`PATCH`** Lambda vs async invoke vs SFU polling room flags (prefer **explicit teardown hook** with idempotent close-by-**`sessionId`**).
-- Whether **`av_disabled`** WS fan-out is emitted by the **room PATCH handler** only, the **WS route handler** only, or both (avoid duplicate events).
-- Retry/backoff when **`PostToConnection`** fails mid-kill-switch fan-out (best-effort vs at-least-once to all tabs).
+| Step | Owner | Contract |
+| --- | --- | --- |
+| 1 | **#101 / room `PATCH` Lambda** | Conditional Dynamo write sets **`avDisabled: true`**. |
+| 2 | **#102** | Synchronous **`POST /admin/teardown-producers`** on SFU (participant class only). |
+| 3 | **#103** | **`PostToConnection`** **`av_disabled`** fan-out from **room `PATCH` handler only** (not duplicate WS inbound route). |
+| 4 | **#102** | Deny new **`participant_av`** producer tokens at **`webrtc-sfu-token`**. |
+
+- **`PostToConnection`** failures during kill-switch fan-out: **best-effort** + log/metric; late joiners read **`avDisabled`** from room snapshot.
 
 ## Primary code pointers (optional)
 

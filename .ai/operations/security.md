@@ -56,9 +56,14 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | --- | --- |
 | **Third-party ToS** | YouTube embed + TMDB attribution + **Giphy** usage + Meta login rules documented for operators (**Giphy:** [`docs/operations/giphy.md`](../../docs/operations/giphy.md)). |
 
-## Open implementation decisions
+## SFU token mint abuse controls
 
-- **Abuse controls for token minting:** Whether **`POST /v1/webrtc/sfu-token`** needs per-session rate limits or stricter producer mint rules when multiple signed-in fans can publish (API Gateway / Lambda guard — no PII in logs).
+| Control | Contract |
+| --- | --- |
+| **Per-`fanSub` throttle** | Max **30** participant producer mints per rolling minute at **`webrtc-sfu-token`** Lambda (in-memory counter per execution environment + API Gateway route throttle). |
+| **Per-room cap** | Lambda rejects mint when estimated **`participant_av`** publishers would exceed **`SFU_MAX_PRODUCERS_PER_ROOM`**; SFU enforces hard cap at **`produce`**. |
+| **Logging** | Denials log **`code`** / **`reason`** only at INFO — **no** **`fanSub`** or JWT material. |
+| **Metrics** | **`RiffSync/Media/sfu_token_denied`** with **`reason`** dimension. |
 
 ## Primary code pointers (optional)
 
