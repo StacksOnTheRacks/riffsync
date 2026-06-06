@@ -110,7 +110,19 @@ export function normalizeEpisode(raw: unknown): CatalogEpisode {
 
 async function loadDevSeedBundle(): Promise<CatalogBundle> {
   const mod = await import('../../../../data/catalog/episodes.json')
-  return mod.default as CatalogBundle
+  const raw = mod.default as unknown
+  if (!isRecord(raw) || !Array.isArray(raw.entries)) {
+    throw new CatalogLoadError(CATALOG_UNAVAILABLE_MESSAGE, {
+      devDetail: 'Dev seed catalog missing entries array',
+    })
+  }
+  const updated =
+    raw.updated === null || raw.updated === undefined ? undefined : String(raw.updated)
+  return {
+    version: 1,
+    updated,
+    entries: raw.entries.map(normalizeEpisode),
+  }
 }
 
 function missingApiBaseUrlError(scope: string): CatalogLoadError {
