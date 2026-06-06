@@ -33,7 +33,7 @@
 
 ## Open implementation decisions
 
-- Ordering when host sets **`avDisabled`** concurrently with in-flight participant **`produce`** requests (Dynamo write vs SFU tear-down vs WebSocket broadcast).
+- **Kill-switch ordering (resolved #102 / #103):** durable **`avDisabled`** write → SFU **`/admin/teardown-producers`** → WebSocket fan-out → token mint denial. In-flight **`produce`** after teardown may fail at SFU or close shortly; clients unpublish on **`av_disabled`** (#104).
 - **`roomMode`** change to **`videoChat`** while **`broadcastCaptureActive`** is true: single **`PATCH`** vs two-step client sequence and which field write wins on **`409`** retry.
 - Whether WebSocket **`room_mode`** / **`av_disabled`** (exact **`type`** TBD) messages are emitted only after Dynamo commit or optimistically before ack.
 - SFU producer list freshness vs **RoomPresence** roster for layout (stale tile when producer exists but presence row expired).

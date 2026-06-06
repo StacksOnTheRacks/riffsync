@@ -80,13 +80,23 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Theater participant audio? | **Client-side mixing** — consumers attach multiple SFU audio consumers (host movie + participant mics); no server-side mixer in MVP. |
 | Video Chat vs host screen? | Clients **stop consuming** host screen producer in **`videoChat`** mode; host **fully stops** tab-capture on enter (resume requires **Share Source Tab** again). |
 
-## Open implementation decisions
+## `POST /v1/webrtc/sfu-token` response (#102)
+
+| Field | Contract |
+| --- | --- |
+| **`token`** | HMAC join JWT embedding **`SfuJoinClaims`** (see **`authorization.md`**). |
+| **`role`** | **`producer`** or **`consumer`**. |
+| **`producerClass`** | Present when **`role === producer`**: **`host_screen`** or **`participant_av`**. |
+| **`wsUrl`** | Public SFU signaling URL. |
+| **`expiresInSeconds`** | **900** today. |
+
+- **Cap enforcement:** **Both** Lambda (mint-time estimate + **`avDisabled`** gate) **and** SFU service **`SFU_MAX_*`** at **`produce`**.
+- **Token refresh:** Re-mint on SFU signaling reconnect or **~60s before `exp`** while tracks remain active (#104 implements client timer).
+
+## Open implementation decisions (#103 / WebSocket)
 
 - **`room_mode`** / **`av_disabled`** vs unified host action (e.g. **`room_av_control`**) and exact inbound JSON field names; align with **`docs/contracts.websocket.md`** when updated.
-- Whether host **`PATCH`** alone triggers **`PostToConnection`** fan-out or the SPA sends a follow-up WS action after successful **`PATCH`** (prefer **server fan-out after durable write**).
-- **`SfuJoinClaims`** field names and whether **`POST /v1/webrtc/sfu-token`** response includes **`producerClass`** alongside **`role`**.
-- SFU join token **refresh** while camera/mic tracks stay active (**900s** expiry): silent refresh interval vs re-mint on producer **`transport`** reconnect only.
-- Participant producer cap enforcement location: **`webrtc-sfu-token`** Lambda only vs SFU service **`SFU_MAX_*`** env caps vs both.
+- Whether host **`PATCH`** alone triggers **`PostToConnection`** fan-out or the SPA sends a follow-up WS action after successful **`PATCH`** (prefer **server fan-out after durable write** — #103).
 - **`room_mode`** fan-out payload: include full room snapshot subset vs **`roomMode`** + **`ts`** only.
 
 ## Open implementation details

@@ -47,9 +47,15 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | **ElastiCache** | Optional read-through cache for catalog/lobby. |
 | **EC2 (`RiffSyncTurn`)** | **mediasoup SFU** + **coturn** on shared VPC instances; **`POST /v1/webrtc/sfu-token`** mints HMAC join JWTs; browsers connect **`wss://`** for RTP. Multi-producer rooms replace single **`producersByKind`** slot model. |
 
-## Open implementation decisions
+## SFU admin teardown (kill switch)
 
-- SFU **admin teardown** surface for kill switch (internal HTTP on SFU EC2 vs mediasoup signaling message) — not a third-party boundary but affects how **`RiffSyncApi-prod`** Lambdas invoke **`RiffSyncTurn`**.
+| Topic | Contract |
+| --- | --- |
+| **Surface** | Internal HTTP on the SFU EC2 process: **`POST /admin/teardown-producers`**. |
+| **Auth** | Shared **`SFU_ADMIN_SECRET`** header; bind to loopback or VPC-only callers. |
+| **Body** | **`{ env, roomId, producerClass?: "participant_av" }`** — omit **`producerClass`** to tear down all **`participant_av`** producers in the room; **`host_screen`** is never torn down by kill switch. |
+| **Caller** | Room **`PATCH`** Lambda after durable **`avDisabled: true`** write (#101 / #102). Idempotent close-by-**`sessionId`** / **`producerId`**. |
+| **Failure** | Log + metric; room state remains **`avDisabled`**; token mint denial prevents re-publish. |
 
 ## Decisions (answered)
 

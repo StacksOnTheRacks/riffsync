@@ -43,16 +43,23 @@ Runtime topology: **AWS serverless MVP** (**`docs/architecture.server.md`**).
 | AV kill switch enforcement? | **Server-enforced:** deny participant producer SFU tokens, tear down active participant producers on SFU, broadcast authoritative **`avDisabled`** on room WebSocket. |
 | SFU producer registry? | **Per-producer registry** (not one producer per kind); **`tearDownSession`** removes **only that session's producers**, not a room-wide wipe. |
 
-## Open implementation decisions
+## SFU producer registry (mediasoup service)
 
-- Module layout: extend **`sfuRoomSession`** vs separate participant-AV helper; how **`RoomPage`** refs compose with existing **`sfuSessionRef`**.
-- Independent mic/cam toggles: one or two mediasoup producers per session; **`track.enabled`** vs **`producer.pause()`** when mic muted but camera on.
-- Map SFU **`newProducer`** / **`producerClosed`** events to per-participant UI streams (strip/grid) using **`sessionId`** in event payload.
-- Page Visibility / background tab: pause participant video producers or leave running; battery and bandwidth policy.
-- Producer registry schema in SFU **`rooms.ts`**; **`listProducerSummaries`** payload shape (**`sessionId`**, producer class, **`kind`**).
-- Room idle close (**`ROOM_IDLE_MS`**) when only participant producers remain (no host screen share).
-- Whether one fan with two tabs may hold two producer sessions; dedupe by **`sub`** or allow.
-- Per-room or per-session producer caps: env var names and default values safe for party scale.
+| Topic | Contract |
+| --- | --- |
+| **Registry shape** | Replace single **`producersByKind`** slot with **`producers: Map<producerId, { producer, sessionId, producerClass, kind }>`**. Upsert replaces the prior producer for the same **`(sessionId, producerClass, kind)`** tuple. |
+| **`listProducers` / events** | Summaries and **`newProducer`** / **`producerClosed`** fan-out include **`{ producerId, kind, sessionId, producerClass }`**. |
+| **Session teardown** | On SFU WebSocket close, remove **only** producers owned by that **`sessionId`** — never room-wide wipe. |
+| **Room idle** | **`ROOM_IDLE_MS`** schedules router close when the room has **zero** producers across all classes. |
+| **Two tabs per fan** | **Allow** — each tab **`sessionId`** may publish independently; per-room cap is the abuse guard (no **`fanSub`** dedupe MVP). |
+| **Caps (env)** | **`SFU_MAX_PRODUCERS_PER_SESSION`** default **3**; **`SFU_MAX_PRODUCERS_PER_ROOM`** default **24**. Enforced at **`produce`**; Lambda mirrors room-level estimate at mint. |
+
+## Client mapping (handoff to #104 / #105)
+
+- Map **`newProducer`** / **`producerClosed`** to strip/grid tiles by **`sessionId`** + **`producerClass`**.
+- Mic mute with camera on: prefer **`producer.pause()`** / **`resume()`** on the audio producer (#104).
+- Page Visibility: leave participant producers running for MVP (#104 may revisit battery policy).
+- Module layout (**`sfuRoomSession`** extension vs helper) is a #104 implementation choice; SFU contract above is normative.
 
 ## Primary code pointers (optional)
 

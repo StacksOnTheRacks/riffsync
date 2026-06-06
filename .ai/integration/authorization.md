@@ -71,13 +71,38 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | AV kill switch enforcement? | **Server-enforced** — deny SFU participant producer tokens, tear down active participant producers, broadcast **`avDisabled`**; not client-cooperative-only. |
 | Host participant A/V while screen sharing? | **Allowed** — host may publish **participant A/V** alongside **host screen** (two video sources on the same SFU router). |
 
-## Open implementation decisions
+## SFU join token claims (`SfuJoinClaims`)
 
-- Exact **`SfuJoinClaims`** shape: e.g. **`producerClass`**: **`host_screen`** \| **`participant_av`** vs extending binary **`role`**; include **`sub`** / **`fanSub`** on participant producer tokens for audit and rate limits.
-- Whether one SFU join token covers **both** participant camera and mic producers per session or separate mint per track kind.
-- Host with concurrent **host screen** + **participant A/V**: single SFU WebSocket session with multiple producers vs separate sessions (Architect default: **one session per tab**).
-- **`webrtc-sfu-token`** **403** error body discriminator when **`avDisabled`**, missing **`fanSub`**, or publisher cap exceeded (client UX copy).
-- Per-**`sub`** rate limit for participant producer token minting (mirror Giphy/chat throttle patterns in IaC).
+| Field | When present | Contract |
+| --- | --- | --- |
+| **`env`** | Always | API environment slug (today **`prod`**). |
+| **`roomId`** | Always | Target watch room. |
+| **`sessionId`** | Always | Browser tab presence id (**`X-Session-Id`**). |
+| **`role`** | Always | **`producer`** or **`consumer`**. |
+| **`producerClass`** | **`role === producer`** | **`host_screen`** (tab capture) or **`participant_av`** (**`getUserMedia`**). |
+| **`fanSub`** | **`producerClass === participant_av`** | Cognito **`sub`** for audit and rate limits. |
+| **`iat`**, **`exp`** | Always | HMAC JWT lifetime (**900s** today). |
+
+- **One producer token per session** authorizes **multiple** mediasoup **`produce`** calls on the same SFU WebSocket (separate **`audio`** and **`video`** producers). No per-kind re-mint.
+- **Host concurrent producers:** **one SFU WebSocket per browser tab** may carry **`host_screen`** and **`participant_av`** producers together.
+
+## `POST /v1/webrtc/sfu-token` denial codes
+
+When status is **403** (or **429** for throttle), body includes stable **`code`** for client copy:
+
+| **`code`** | Meaning |
+| --- | --- |
+| **`av_disabled`** | Room **`avDisabled`** is true (participant producer only). |
+| **`fan_auth_required`** | Participant producer requested without verified fan JWT / **`fanSub`** on presence row. |
+| **`not_host`** | **`host_screen`** producer requested but **`JWT.sub !== room.hostSub`**. |
+| **`unknown_session`** | No active presence row for **`X-Session-Id`**. |
+| **`publisher_cap_exceeded`** | Per-room participant publisher estimate at cap. |
+| **`rate_limited`** | Per-**`fanSub`** mint throttle exceeded. |
+
+## Participant producer mint rate limit
+
+- **30** participant producer token mints per **`fanSub`** per rolling minute (Lambda guard + API Gateway route throttle).
+- Emit aggregate metric **`RiffSync/Media/sfu_token_denied`** with **`reason`** dimension; **no** **`fanSub`** in logs at INFO.
 
 ## Primary code pointers (optional)
 
