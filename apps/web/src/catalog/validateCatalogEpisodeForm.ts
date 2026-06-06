@@ -14,6 +14,7 @@ export type CatalogEpisodeFormValues = {
   youtubeVideoId: string
   youtubeWatchUrl: string
   carousel: boolean
+  spotlight: boolean
   movieSearchTitle: string
   tmdbMovieId: string
   embedAllows: boolean
@@ -36,6 +37,7 @@ export const EMPTY_CATALOG_EPISODE_FORM_VALUES: CatalogEpisodeFormValues = {
   youtubeVideoId: '',
   youtubeWatchUrl: '',
   carousel: false,
+  spotlight: false,
   movieSearchTitle: '',
   tmdbMovieId: '',
   embedAllows: true,
@@ -215,6 +217,7 @@ export function catalogEpisodeToFormValues(
     youtubeVideoId: string | null
     youtubeWatchUrl: string | null
     carousel: boolean
+    spotlight?: boolean
     movieSearchTitle?: string | null
     tmdbMovieId?: number | null
     embedAllows?: boolean | null
@@ -229,6 +232,7 @@ export function catalogEpisodeToFormValues(
     youtubeVideoId: entry.youtubeVideoId ?? '',
     youtubeWatchUrl: entry.youtubeWatchUrl ?? '',
     carousel: entry.carousel,
+    spotlight: entry.spotlight === true,
     movieSearchTitle: entry.movieSearchTitle ?? '',
     tmdbMovieId: entry.tmdbMovieId != null ? String(entry.tmdbMovieId) : '',
     embedAllows: entry.embedAllows !== false,

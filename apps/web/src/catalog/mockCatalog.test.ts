@@ -20,6 +20,7 @@ function ep(
     tmdbMovieId: null,
     tmdbArtworkSyncedAt: null,
     carousel: false,
+    spotlight: false,
     tmdbPopularity,
   }
 }

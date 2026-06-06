@@ -39,6 +39,7 @@ const baseEpisode: StaffCatalogEpisode = {
   tmdbMovieId: null,
   tmdbArtworkSyncedAt: null,
   carousel: true,
+  spotlight: false,
   movieSearchTitle: null,
   embedAllows: true,
   curatorNotes: null,

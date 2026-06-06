@@ -26,6 +26,7 @@ describe('catalog cache ETag helpers', () => {
   it('builds weak validators per variant', () => {
     expect(buildCatalogETag(3, 'full')).toBe('W/"3-full"');
     expect(buildCatalogETag(3, 'carousel')).toBe('W/"3-carousel"');
+    expect(buildCatalogETag(3, 'spotlight')).toBe('W/"3-spotlight"');
     expect(buildCatalogETag(5, 'episode-ep-1')).toBe('W/"5-episode-ep-1"');
   });
 

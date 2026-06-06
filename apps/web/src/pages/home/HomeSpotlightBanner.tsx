@@ -12,7 +12,7 @@ function tagForIndex(i: number): string {
   return 'Spotlight'
 }
 
-/** `episodes` should be the carousel list from **`GET /v1/catalog?carousel=true`**. */
+/** `episodes` should be the spotlight list from **`GET /v1/catalog?spotlight=true`**. */
 export function HomeSpotlightBanner({ episodes }: { episodes: CatalogEpisode[] }) {
   const slides = episodes.slice(0, 3)
   if (slides.length === 0) return null

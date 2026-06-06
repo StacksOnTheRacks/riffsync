@@ -15,6 +15,7 @@ function episode(overrides: Partial<StaffCatalogEpisode> & Pick<StaffCatalogEpis
     tmdbMovieId: null,
     tmdbArtworkSyncedAt: null,
     carousel: false,
+    spotlight: false,
     movieSearchTitle: null,
     embedAllows: true,
     curatorNotes: null,

@@ -9,6 +9,7 @@ export const ADMIN_WRITABLE_KEYS = [
   'youtubeVideoId',
   'youtubeWatchUrl',
   'carousel',
+  'spotlight',
   'movieSearchTitle',
   'tmdbMovieId',
   'embedAllows',
@@ -186,6 +187,9 @@ export function validateCatalogEpisodePost(
   const carousel = Object.prototype.hasOwnProperty.call(writable, 'carousel')
     ? writable.carousel
     : false;
+  const spotlight = Object.prototype.hasOwnProperty.call(writable, 'spotlight')
+    ? writable.spotlight
+    : false;
 
   const embedAllows = Object.prototype.hasOwnProperty.call(writable, 'embedAllows')
     ? writable.embedAllows
@@ -205,6 +209,7 @@ export function validateCatalogEpisodePost(
     youtubeVideoId: writable.youtubeVideoId,
     youtubeWatchUrl: writable.youtubeWatchUrl,
     carousel,
+    spotlight,
     embedAllows,
     movieSearchTitle,
     curatorNotes,

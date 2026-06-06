@@ -21,6 +21,7 @@ const episode: CatalogEpisode = {
   tmdbMovieId: null,
   tmdbArtworkSyncedAt: null,
   carousel: true,
+  spotlight: false,
 }
 
 function listCtx(client: QueryClient): QueryFunctionContext<typeof catalogListCarouselQueryKey> {

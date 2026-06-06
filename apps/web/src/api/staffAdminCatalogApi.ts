@@ -17,6 +17,7 @@ export interface StaffCatalogEpisode {
   tmdbMovieId: number | null
   tmdbArtworkSyncedAt: string | null
   carousel: boolean
+  spotlight: boolean
   tmdbOverview?: string | null
   tmdbPopularity?: number | null
   tmdbPosterPath?: string | null
@@ -44,6 +45,7 @@ export interface StaffCatalogEpisodeWrite {
   youtubeVideoId?: string | null
   youtubeWatchUrl?: string | null
   carousel?: boolean
+  spotlight?: boolean
   movieSearchTitle?: string | null
   tmdbMovieId?: number | null
   embedAllows?: boolean

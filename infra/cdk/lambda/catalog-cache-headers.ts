@@ -1,4 +1,4 @@
-export type CatalogCacheVariant = 'full' | 'carousel' | `episode-${string}`;
+export type CatalogCacheVariant = 'full' | 'carousel' | 'spotlight' | `episode-${string}`;
 
 const DEFAULT_MAX_AGE_SECONDS = 60;
 

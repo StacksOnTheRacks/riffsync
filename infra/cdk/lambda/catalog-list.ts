@@ -19,8 +19,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const carouselParam = event.queryStringParameters?.carousel;
+  const spotlightParam = event.queryStringParameters?.spotlight;
   const carouselOnly = carouselParam === 'true' || carouselParam === '1';
-  const variant = carouselOnly ? 'carousel' : 'full';
+  const spotlightOnly = spotlightParam === 'true' || spotlightParam === '1';
+  const variant = spotlightOnly ? 'spotlight' : carouselOnly ? 'carousel' : 'full';
   const maxAgeSeconds = parseCatalogHttpMaxAgeSeconds(process.env.CATALOG_HTTP_MAX_AGE_SECONDS);
 
   const generation = await getCatalogGeneration(client, tableName);
@@ -53,7 +55,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   } while (startKey);
 
   let sorted = sortEpisodes(entries);
-  if (carouselOnly) {
+  if (spotlightOnly) {
+    sorted = sorted.filter((e) => e.spotlight === true);
+  } else if (carouselOnly) {
     sorted = sorted.filter((e) => e.carousel === true);
   }
   return {

@@ -63,6 +63,7 @@ const catalogItem = {
   era: 'mike',
   youtubeVideoId: 'abc123',
   carousel: false,
+  spotlight: false,
   movieSearchTitle: 'Manos',
   embedAllows: false,
   curatorNotes: 'notes',

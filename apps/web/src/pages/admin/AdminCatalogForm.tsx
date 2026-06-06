@@ -47,6 +47,7 @@ function formValuesToWriteBody(
     youtubeVideoId: normalizeYoutubeField(values.youtubeVideoId),
     youtubeWatchUrl: normalizeYoutubeField(values.youtubeWatchUrl),
     carousel: values.carousel,
+    spotlight: values.spotlight,
     movieSearchTitle: normalizeNullableTextField(values.movieSearchTitle),
     embedAllows: values.embedAllows,
     curatorNotes: normalizeNullableTextField(values.curatorNotes),
@@ -73,6 +74,7 @@ function buildPatchBody(
     body.youtubeWatchUrl = next.youtubeWatchUrl
   }
   if (next.carousel !== baseline.carousel) body.carousel = next.carousel
+  if (next.spotlight !== baseline.spotlight) body.spotlight = next.spotlight
   if (next.movieSearchTitle !== baseline.movieSearchTitle) {
     body.movieSearchTitle = next.movieSearchTitle
   }
@@ -409,7 +411,7 @@ export function AdminCatalogForm({
         </fieldset>
 
         <fieldset className="riffsync-admin-form-section">
-          <legend>Featured on home carousel</legend>
+          <legend>Featured on home page</legend>
           <div className="riffsync-admin-form-field riffsync-admin-form-field--checkbox">
             <input
               id="catalog-form-carousel"
@@ -419,7 +421,18 @@ export function AdminCatalogForm({
               onChange={(e) => setField('carousel', e.target.checked)}
               disabled={saving}
             />
-            <label htmlFor="catalog-form-carousel">Show on home carousel</label>
+            <label htmlFor="catalog-form-carousel">Show on home hero carousel</label>
+          </div>
+          <div className="riffsync-admin-form-field riffsync-admin-form-field--checkbox">
+            <input
+              id="catalog-form-spotlight"
+              name="spotlight"
+              type="checkbox"
+              checked={values.spotlight}
+              onChange={(e) => setField('spotlight', e.target.checked)}
+              disabled={saving}
+            />
+            <label htmlFor="catalog-form-spotlight">Feature in spotlight carousel</label>
           </div>
         </fieldset>
 

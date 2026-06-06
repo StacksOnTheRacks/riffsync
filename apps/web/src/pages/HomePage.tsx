@@ -1,5 +1,9 @@
 import { useNavigate } from 'react-router-dom'
-import { useCatalogCarouselQuery, useCatalogListQuery } from '../catalog/catalogQueries'
+import {
+  useCatalogCarouselQuery,
+  useCatalogListQuery,
+  useCatalogSpotlightQuery,
+} from '../catalog/catalogQueries'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import {
@@ -13,17 +17,19 @@ import { HomeMovieRowSection } from './home/HomeMovieRowSection'
 import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
 
 /**
- * Catalog landing (/) — full list from **`GET /v1/catalog`**; hero + spotlight from
- * **`GET /v1/catalog?carousel=true`** when **`VITE_PUBLIC_API_BASE_URL`** is set.
- * In **`vite dev`** without that var, both load from **`data/catalog/episodes.json`** (carousel rows filtered client-side).
+ * Catalog landing (/) — full list from **`GET /v1/catalog`**; hero from
+ * **`GET /v1/catalog?carousel=true`**; spotlight from **`GET /v1/catalog?spotlight=true`**
+ * when **`VITE_PUBLIC_API_BASE_URL`** is set.
+ * In **`vite dev`** without that var, all load from **`data/catalog/episodes.json`** (filtered client-side).
  * Rows use only episodes that include a **YouTube** id (same filter as **`/catalog`**).
- * **Most Popular** / **Trending picks** rank playable episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order).
+ * **Most Popular** ranks playable episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order).
  * Era strips take the first **10** per Joel / Mike / Jonah from that playable set.
  */
 export function HomePage() {
   const navigate = useNavigate()
   const { data, isPending, isError, error, refetch } = useCatalogListQuery()
   const carouselQ = useCatalogCarouselQuery()
+  const spotlightQ = useCatalogSpotlightQuery()
 
   useResumePendingPartyRoom(data, navigate)
 
@@ -53,8 +59,10 @@ export function HomePage() {
 
   const entries = data ?? []
   const carouselEntries = carouselQ.data ?? []
+  const spotlightEntries = spotlightQ.data ?? []
   const playableEntries = catalogEntriesWithYoutubeLink(entries)
   const carouselWithYoutube = catalogEntriesWithYoutubeLink(carouselEntries)
+  const spotlightWithYoutube = catalogEntriesWithYoutubeLink(spotlightEntries)
 
   if (entries.length === 0) {
     return (
@@ -86,12 +94,7 @@ export function HomePage() {
         title="Most Popular"
         episodes={topEpisodesByTmdbPopularity(playableEntries, 12)}
       />
-      <HomeMovieRowSection
-        sectionId="home-trending-picks"
-        title="Trending picks"
-        episodes={topEpisodesByTmdbPopularity(playableEntries, 12, 12)}
-      />
-      <HomeSpotlightBanner episodes={carouselWithYoutube} />
+      <HomeSpotlightBanner episodes={spotlightWithYoutube} />
       {joelYoutubeRow.length > 0 ? (
         <HomeMovieRowSection
           sectionId="home-joel-era"

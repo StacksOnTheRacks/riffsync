@@ -15,8 +15,10 @@ export interface CatalogEpisode {
   readonly backdropImageUrl: string | null;
   readonly tmdbMovieId: number | null;
   readonly tmdbArtworkSyncedAt: string | null;
-  /** When true, row is included in **`GET /v1/catalog?carousel=true`**. */
+  /** When true, row is included in **`GET /v1/catalog?carousel=true`** (home hero). */
   readonly carousel: boolean;
+  /** When true, row is included in **`GET /v1/catalog?spotlight=true`** (home spotlight strip). */
+  readonly spotlight: boolean;
   /** When false, SPA should not offer in-app YouTube embed; omitted when not stored on the row. */
   readonly embedAllows?: boolean;
   readonly tmdbOverview?: string | null;
@@ -28,7 +30,7 @@ export interface CatalogEpisode {
 const ERAS = new Set(['joel', 'mike', 'jonah', 'emily', 'other']);
 
 /** Dynamo / hand-edited rows may use BOOL, or accidentally String/Number — treat like UI expectations. */
-function parseCarouselFlag(v: unknown): boolean {
+function parseBooleanCatalogFlag(v: unknown): boolean {
   if (v === true) return true;
   if (v === false || v === null || v === undefined) return false;
   if (typeof v === 'string') {
@@ -81,7 +83,8 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
     backdropImageUrl: optionalString(item.backdropImageUrl),
     tmdbMovieId: optionalNumber(item.tmdbMovieId),
     tmdbArtworkSyncedAt: optionalString(item.tmdbArtworkSyncedAt),
-    carousel: parseCarouselFlag(item.carousel),
+    carousel: parseBooleanCatalogFlag(item.carousel),
+    spotlight: parseBooleanCatalogFlag(item.spotlight),
     ...(embedAllows !== undefined ? { embedAllows } : {}),
     tmdbOverview: optionalStringField(item.tmdbOverview),
     tmdbPopularity: optionalNumberField(item.tmdbPopularity),

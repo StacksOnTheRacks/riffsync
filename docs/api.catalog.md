@@ -8,7 +8,8 @@ Query parameters:
 
 | Param | Values | Effect |
 | --- | --- | --- |
-| **`carousel`** | **`true`** or **`1`** | Response **`entries`** only include rows where **`carousel`** is **`true`** in storage (still sorted by **`experimentNumber`**). Omit for the full catalog. |
+| **`carousel`** | **`true`** or **`1`** | Response **`entries`** only include rows where **`carousel`** is **`true`** in storage (home hero; still sorted by **`experimentNumber`**). |
+| **`spotlight`** | **`true`** or **`1`** | Response **`entries`** only include rows where **`spotlight`** is **`true`** in storage (home spotlight strip). Takes precedence over **`carousel`** when both are set. |
 
 Returns a bundle aligned with **`data/catalog/episodes.json`**:
 
@@ -32,7 +33,8 @@ Returns a bundle aligned with **`data/catalog/episodes.json`**:
 | **`backdropImageUrl`** | `string \| null` | |
 | **`tmdbMovieId`** | `number \| null` | |
 | **`tmdbArtworkSyncedAt`** | `string \| null` | ISO-8601 when enrichment last wrote artwork/tagline. |
-| **`carousel`** | `boolean` | **`true`** when the row is curated for home carousels; omitted in git seed is stored/fetched as **`false`**. |
+| **`carousel`** | `boolean` | **`true`** when the row is curated for the home hero carousel; omitted in git seed is stored/fetched as **`false`**. |
+| **`spotlight`** | `boolean` | **`true`** when the row is curated for the home spotlight strip; omitted in git seed is stored/fetched as **`false`**. |
 | **`tmdbOverview`** | `string \| optional` | Present when reconcile persisted copy (**`architecture.catalog-images.md`**). |
 | **`tmdbPopularity`** | `number \| optional` | |
 | **`tmdbPosterPath`** | `string \| optional` | Raw TMDB path; **`posterImageUrl`** is the resolved CDN URL when set. |
@@ -65,7 +67,7 @@ Public catalog reads use a monotonic **`catalogGeneration`** counter stored on t
 
 | Header | Rule |
 | --- | --- |
-| **`ETag`** | Weak validator: **`W/"{generation}-{variant}"`**. Variants: **`full`** (list), **`carousel`** (**`?carousel=true`**), **`episode-{id}`** (single entry). |
+| **`ETag`** | Weak validator: **`W/"{generation}-{variant}"`**. Variants: **`full`** (list), **`carousel`** (**`?carousel=true`**), **`spotlight`** (**`?spotlight=true`**), **`episode-{id}`** (single entry). |
 | **`Cache-Control`** | **`public, max-age=<seconds>`** — default **60**; Lambda env **`CATALOG_HTTP_MAX_AGE_SECONDS`** (integer, clamped **0–86400**). |
 
 **CORS:** API Gateway HTTP API must list **`ETag`** in **`exposeHeaders`** and **`if-none-match`** in **`allowHeaders`** so the fan SPA on **`https://www.riffsync.tv`** (and other allowed origins) can send conditional **`GET`** requests (the header triggers an **`OPTIONS`** preflight).

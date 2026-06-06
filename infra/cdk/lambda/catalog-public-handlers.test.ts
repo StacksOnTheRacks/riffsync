@@ -33,6 +33,7 @@ const sampleEpisode = {
   tmdbMovieId: null,
   tmdbArtworkSyncedAt: null,
   carousel: false,
+  spotlight: false,
 };
 
 function listEvent(
@@ -151,6 +152,19 @@ describe('catalog-list handler cache headers', () => {
 
     expect(res?.statusCode).toBe(304);
     expect(res?.headers?.ETag).toBe('W/"1-carousel"');
+  });
+
+  it('uses spotlight variant in ETag when spotlight query is set', async () => {
+    mocks.docSend.mockResolvedValueOnce({ Item: { id: '_meta', catalogGeneration: 1 } });
+
+    const res = await listHandler(
+      listEvent({ spotlight: 'true' }, { 'if-none-match': 'W/"1-spotlight"' }),
+      {} as never,
+      () => undefined,
+    );
+
+    expect(res?.statusCode).toBe(304);
+    expect(res?.headers?.ETag).toBe('W/"1-spotlight"');
   });
 });
 

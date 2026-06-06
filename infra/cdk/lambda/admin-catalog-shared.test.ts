@@ -15,6 +15,7 @@ const baseItem = {
   tmdbMovieId: null,
   tmdbArtworkSyncedAt: null,
   carousel: true,
+  spotlight: false,
 };
 
 describe('projectAdminEpisode', () => {

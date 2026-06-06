@@ -24,8 +24,10 @@ export interface CatalogEpisode {
   backdropImageUrl: string | null
   tmdbMovieId: number | null
   tmdbArtworkSyncedAt: string | null
-  /** When true, row appears in **`GET /v1/catalog?carousel=true`** and home carousels. */
+  /** When true, row appears in **`GET /v1/catalog?carousel=true`** (home hero). */
   carousel: boolean
+  /** When true, row appears in **`GET /v1/catalog?spotlight=true`** (home spotlight strip). */
+  spotlight: boolean
   /** When `false`, in-app YouTube embed should not be offered for this row. */
   embedAllows?: boolean
   /** Advisory label for ads vs Premium (honor-system). */

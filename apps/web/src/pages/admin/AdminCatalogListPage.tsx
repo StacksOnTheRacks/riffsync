@@ -226,7 +226,8 @@ export function AdminCatalogListPage() {
                 <th scope="col">Poster</th>
                 <th scope="col">title</th>
                 <th scope="col">era</th>
-                <th scope="col">carousel</th>
+                <th scope="col">hero</th>
+                <th scope="col">spotlight</th>
                 <th scope="col">YouTube</th>
                 <th scope="col">Actions</th>
               </tr>
@@ -261,6 +262,7 @@ export function AdminCatalogListPage() {
                     <td>{entry.title}</td>
                     <td>{formatCatalogEraLabel(entry.era)}</td>
                     <td>{entry.carousel ? 'Yes' : 'No'}</td>
+                    <td>{entry.spotlight ? 'Yes' : 'No'}</td>
                     <td>{entry.youtubeVideoId ? 'Yes' : 'No'}</td>
                     <td>
                       <Link

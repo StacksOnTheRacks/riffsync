@@ -26,6 +26,7 @@ const existingItem = {
   tmdbMovieId: null,
   tmdbArtworkSyncedAt: null,
   carousel: false,
+  spotlight: false,
   movieSearchTitle: 'Old title',
   embedAllows: true,
   curatorNotes: 'Old notes',

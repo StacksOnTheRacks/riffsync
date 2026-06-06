@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   fetchCatalogCarouselEntries,
+  fetchCatalogSpotlightEntries,
   fetchCatalogEntries,
   fetchCatalogEpisodeById,
   normalizeCatalogEtag,
@@ -180,6 +181,22 @@ describe('catalogApi conditional GET', () => {
     await fetchCatalogCarouselEntries()
 
     expect(fetchMock).toHaveBeenCalledWith(`${API_BASE}/v1/catalog?carousel=true`, {
+      headers: { Accept: 'application/json' },
+    })
+  })
+
+  it('fetchCatalogSpotlightEntries requests spotlight query param', async () => {
+    fetchMock.mockResolvedValue(
+      mockFetchResponse({
+        status: 200,
+        headers: { ETag: 'W/"4-spotlight"' },
+        body: { entries: [] },
+      }),
+    )
+
+    await fetchCatalogSpotlightEntries()
+
+    expect(fetchMock).toHaveBeenCalledWith(`${API_BASE}/v1/catalog?spotlight=true`, {
       headers: { Accept: 'application/json' },
     })
   })

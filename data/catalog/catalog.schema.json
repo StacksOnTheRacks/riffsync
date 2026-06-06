@@ -117,7 +117,11 @@
         },
         "carousel": {
           "type": "boolean",
-          "description": "When true, episode is eligible for home-page carousels; `GET /v1/catalog?carousel=true` returns only these rows (sorted by experimentNumber)."
+          "description": "When true, episode is eligible for the home-page hero carousel; `GET /v1/catalog?carousel=true` returns only these rows (sorted by experimentNumber)."
+        },
+        "spotlight": {
+          "type": "boolean",
+          "description": "When true, episode is eligible for the home-page spotlight strip; `GET /v1/catalog?spotlight=true` returns only these rows (sorted by experimentNumber)."
         },
         "movieSearchTitle": {
           "type": ["string", "null"],

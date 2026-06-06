@@ -34,7 +34,7 @@ function parsePlaybackExpectation(v: unknown): PlaybackExpectation | undefined {
   return undefined
 }
 
-function parseCarouselFlag(v: unknown): boolean {
+function parseBooleanCatalogFlag(v: unknown): boolean {
   if (v === true) return true
   if (v === false || v === null || v === undefined) return false
   if (typeof v === 'string') {
@@ -94,7 +94,8 @@ export function normalizeEpisode(raw: unknown): CatalogEpisode {
       raw.tmdbArtworkSyncedAt === null || raw.tmdbArtworkSyncedAt === undefined
         ? null
         : String(raw.tmdbArtworkSyncedAt),
-    carousel: parseCarouselFlag(raw.carousel),
+    carousel: parseBooleanCatalogFlag(raw.carousel),
+    spotlight: parseBooleanCatalogFlag(raw.spotlight),
     embedAllows:
       raw.embedAllows === false ? false : raw.embedAllows === true ? true : undefined,
     playbackExpectation: parsePlaybackExpectation(raw.playbackExpectation),
@@ -143,7 +144,11 @@ function parseListBody(body: unknown): CatalogEpisode[] {
  * `Access-Control-Expose-Headers`) but the JSON body is present, synthesize a validator
  * so the catalog can still load (conditional GET disabled until the next 200 with a real ETag).
  */
-function readCatalogListEtag(res: Response, body: unknown, variant: 'full' | 'carousel'): string {
+function readCatalogListEtag(
+  res: Response,
+  body: unknown,
+  variant: 'full' | 'carousel' | 'spotlight',
+): string {
   const fromHeader = normalizeCatalogEtag(res.headers.get('ETag'))
   if (fromHeader) {
     return fromHeader
@@ -161,7 +166,7 @@ async function fetchCatalogListFromApi(
   url: string,
   etag: string | undefined,
   scope: string,
-  variant: 'full' | 'carousel',
+  variant: 'full' | 'carousel' | 'spotlight',
 ): Promise<CatalogFetchResult<CatalogEpisode[]>> {
   try {
     const res = await catalogJsonGet(url, etag)
@@ -224,6 +229,28 @@ export async function fetchCatalogCarouselEntries(
   }
 
   throw missingApiBaseUrlError('Catalog carousel')
+}
+
+export async function fetchCatalogSpotlightEntries(
+  etag?: string,
+): Promise<CatalogFetchResult<CatalogEpisode[]>> {
+  const base = getPublicApiBaseUrl()
+  if (base) {
+    const url = new URL(`${base}/v1/catalog`)
+    url.searchParams.set('spotlight', 'true')
+    return fetchCatalogListFromApi(url.toString(), etag, 'Catalog spotlight', 'spotlight')
+  }
+
+  if (import.meta.env.DEV) {
+    const bundle = await loadDevSeedBundle()
+    return {
+      kind: 'ok',
+      etag: 'dev-seed-spotlight',
+      data: bundle.entries.map(normalizeEpisode).filter((e) => e.spotlight === true),
+    }
+  }
+
+  throw missingApiBaseUrlError('Catalog spotlight')
 }
 
 export async function fetchCatalogEpisodeById(

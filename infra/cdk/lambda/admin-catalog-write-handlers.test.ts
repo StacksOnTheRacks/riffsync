@@ -80,6 +80,7 @@ const writeBody = {
   youtubeVideoId: null,
   youtubeWatchUrl: null,
   carousel: false,
+  spotlight: false,
 };
 
 const existingItem = {
@@ -95,6 +96,7 @@ const existingItem = {
   tmdbMovieId: null,
   tmdbArtworkSyncedAt: null,
   carousel: false,
+  spotlight: false,
 };
 
 describe('admin-catalog-post handler', () => {

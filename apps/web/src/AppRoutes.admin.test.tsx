@@ -45,6 +45,7 @@ vi.mock('./api/staffAdminCatalogApi', () => ({
         tmdbMovieId: null,
         tmdbArtworkSyncedAt: null,
         carousel: false,
+        spotlight: false,
         movieSearchTitle: null,
         embedAllows: true,
         curatorNotes: null,

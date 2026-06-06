@@ -14,6 +14,7 @@ const baseItem = {
   tmdbMovieId: null,
   tmdbArtworkSyncedAt: null,
   carousel: false,
+  spotlight: false,
 };
 
 describe('projectEpisode', () => {
@@ -30,6 +31,16 @@ describe('projectEpisode', () => {
   it('includes embedAllows true when stored', () => {
     const entry = projectEpisode({ ...baseItem, embedAllows: true });
     expect(entry.embedAllows).toBe(true);
+  });
+
+  it('defaults spotlight to false when omitted', () => {
+    const entry = projectEpisode(baseItem);
+    expect(entry.spotlight).toBe(false);
+  });
+
+  it('parses spotlight true from storage', () => {
+    const entry = projectEpisode({ ...baseItem, spotlight: true });
+    expect(entry.spotlight).toBe(true);
   });
 
   it('does not expose staff-only curator hints', () => {

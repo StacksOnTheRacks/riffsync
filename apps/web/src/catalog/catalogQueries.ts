@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-query'
 import {
   fetchCatalogCarouselEntries,
+  fetchCatalogSpotlightEntries,
   fetchCatalogEntries,
   fetchCatalogEpisodeById,
   CATALOG_HTTP_MAX_AGE_MS,
@@ -14,6 +15,7 @@ import type { CatalogEpisode } from './catalogTypes'
 
 export const catalogListFullQueryKey = ['catalog', 'list', 'full'] as const
 export const catalogListCarouselQueryKey = ['catalog', 'list', 'carousel'] as const
+export const catalogListSpotlightQueryKey = ['catalog', 'list', 'spotlight'] as const
 
 export function catalogEpisodeQueryKey(id: string) {
   return ['catalog', 'episode', id] as const
@@ -150,6 +152,14 @@ export function useCatalogCarouselQuery() {
   return useQuery({
     queryKey: catalogListCarouselQueryKey,
     queryFn: (ctx) => runCatalogListQuery(ctx, fetchCatalogCarouselEntries),
+    staleTime: CATALOG_HTTP_MAX_AGE_MS,
+  })
+}
+
+export function useCatalogSpotlightQuery() {
+  return useQuery({
+    queryKey: catalogListSpotlightQueryKey,
+    queryFn: (ctx) => runCatalogListQuery(ctx, fetchCatalogSpotlightEntries),
     staleTime: CATALOG_HTTP_MAX_AGE_MS,
   })
 }
