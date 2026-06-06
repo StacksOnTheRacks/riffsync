@@ -801,7 +801,8 @@ export class ApiCatalogStack extends cdk.Stack {
       apiName: `riffsync-${environment}-http`,
       description: `RiffSync public HTTP API (${environment})`,
       corsPreflight: {
-        allowHeaders: ['content-type', 'authorization', 'x-session-id'],
+        // `if-none-match` required for fan SPA conditional catalog GET (triggers OPTIONS preflight).
+        allowHeaders: ['content-type', 'authorization', 'x-session-id', 'if-none-match'],
         allowMethods: [
           apigwv2.CorsHttpMethod.GET,
           apigwv2.CorsHttpMethod.POST,

@@ -52,8 +52,7 @@ export function HomePage() {
   }
 
   const entries = data ?? []
-  const carouselEntries =
-    carouselQ.isSuccess ? (carouselQ.data ?? []) : carouselQ.isError ? [] : []
+  const carouselEntries = carouselQ.data ?? []
   const playableEntries = catalogEntriesWithYoutubeLink(entries)
   const carouselWithYoutube = catalogEntriesWithYoutubeLink(carouselEntries)
 

@@ -49,27 +49,62 @@ function resolveNotModified<T>(
   return client.getQueryData<T>(queryKey)
 }
 
-async function runCatalogListQuery(
+async function finishCatalogListResult(
   ctx: QueryFunctionContext<readonly ['catalog', 'list', string]>,
-  fetcher: (etag?: string) => Promise<CatalogFetchResult<CatalogEpisode[]>>,
+  result: CatalogFetchResult<CatalogEpisode[]>,
+  tryFetch: (etag?: string) => Promise<CatalogFetchResult<CatalogEpisode[]>>,
 ): Promise<CatalogEpisode[]> {
-  const tryFetch = async (etag?: string) => fetcher(etag)
-
-  const etag = getStoredEtag(ctx.queryKey)
-  let result = await tryFetch(etag)
   if (result.kind === 'notModified') {
     const cached = resolveNotModified<CatalogEpisode[]>(ctx.client, ctx.queryKey)
     if (cached !== undefined) {
       return cached
     }
     clearStoredEtag(ctx.queryKey)
-    result = await tryFetch(undefined)
-  }
-  if (result.kind === 'notModified') {
-    throw new Error('Catalog list: 304 Not Modified after unconditional retry')
+    return finishCatalogListResult(ctx, await tryFetch(undefined), tryFetch)
   }
   setStoredEtag(ctx.queryKey, result.etag)
   return result.data
+}
+
+export async function runCatalogListQuery(
+  ctx: QueryFunctionContext<readonly ['catalog', 'list', string]>,
+  fetcher: (etag?: string) => Promise<CatalogFetchResult<CatalogEpisode[]>>,
+): Promise<CatalogEpisode[]> {
+  const tryFetch = async (etag?: string) => fetcher(etag)
+
+  const etag = getStoredEtag(ctx.queryKey)
+  try {
+    return await finishCatalogListResult(ctx, await tryFetch(etag), tryFetch)
+  } catch (error) {
+    if (!etag) {
+      throw error
+    }
+    clearStoredEtag(ctx.queryKey)
+    const cached = resolveNotModified<CatalogEpisode[]>(ctx.client, ctx.queryKey)
+    if (cached !== undefined) {
+      return cached
+    }
+    return finishCatalogListResult(ctx, await tryFetch(undefined), tryFetch)
+  }
+}
+
+async function finishCatalogEpisodeResult(
+  ctx: QueryFunctionContext<ReturnType<typeof catalogEpisodeQueryKey>>,
+  result: Awaited<ReturnType<typeof fetchCatalogEpisodeById>>,
+  tryFetch: (etag?: string) => ReturnType<typeof fetchCatalogEpisodeById>,
+): Promise<CatalogEpisode | null> {
+  if (result.kind === 'notModified') {
+    const cached = resolveNotModified<CatalogEpisode | null>(ctx.client, ctx.queryKey)
+    if (cached !== undefined) {
+      return cached
+    }
+    clearStoredEtag(ctx.queryKey)
+    return finishCatalogEpisodeResult(ctx, await tryFetch(undefined), tryFetch)
+  }
+  if (result.etag) {
+    setStoredEtag(ctx.queryKey, result.etag)
+  }
+  return result.entry
 }
 
 async function runCatalogEpisodeQuery(
@@ -83,22 +118,19 @@ async function runCatalogEpisodeQuery(
   const tryFetch = async (etag?: string) => fetchCatalogEpisodeById(id, etag)
 
   const etag = getStoredEtag(ctx.queryKey)
-  let result = await tryFetch(etag)
-  if (result.kind === 'notModified') {
+  try {
+    return await finishCatalogEpisodeResult(ctx, await tryFetch(etag), tryFetch)
+  } catch (error) {
+    if (!etag) {
+      throw error
+    }
+    clearStoredEtag(ctx.queryKey)
     const cached = resolveNotModified<CatalogEpisode | null>(ctx.client, ctx.queryKey)
     if (cached !== undefined) {
       return cached
     }
-    clearStoredEtag(ctx.queryKey)
-    result = await tryFetch(undefined)
+    return finishCatalogEpisodeResult(ctx, await tryFetch(undefined), tryFetch)
   }
-  if (result.kind === 'notModified') {
-    throw new Error('Catalog episode: 304 Not Modified after unconditional retry')
-  }
-  if (result.etag) {
-    setStoredEtag(ctx.queryKey, result.etag)
-  }
-  return result.entry
 }
 
 export function invalidatePublicCatalogQueries(queryClient: QueryClient): Promise<void> {
