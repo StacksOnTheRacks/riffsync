@@ -1,5 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useCatalogCarouselQuery, useCatalogListQuery } from '../catalog/catalogQueries'
+import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import {
   buildHeroSlides,
@@ -20,12 +21,12 @@ import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
  */
 export function HomePage() {
   const navigate = useNavigate()
-  const { data, isPending, isError, error } = useCatalogListQuery()
+  const { data, isPending, isError, error, refetch } = useCatalogListQuery()
   const carouselQ = useCatalogCarouselQuery()
 
   useResumePendingPartyRoom(data, navigate)
 
-  if (isPending) {
+  if (isPending && !data) {
     return (
       <div className="riffsync-home">
         <p className="container">Loading catalog…</p>
@@ -33,19 +34,17 @@ export function HomePage() {
     )
   }
 
-  if (isError) {
+  if (isError && !data) {
     return (
-      <div className="riffsync-home" role="alert">
+      <div className="riffsync-home">
         <div className="container">
-          <h1>Catalog unavailable</h1>
-          <p>{error instanceof Error ? error.message : 'Unknown error'}</p>
-          <p>
-            For production builds, set <code>VITE_PUBLIC_API_BASE_URL</code> to your HTTP API origin.
-            For local dev against the API, add it to <code>.env.development</code> (see{' '}
-            <code>.env.development.example</code>).</p>
-          <p>
-            <Link to="/catalog">Catalog page</Link>
-          </p>
+          <CatalogLoadErrorPanel
+            error={error}
+            onRetry={() => {
+              void refetch()
+            }}
+            catalogLink
+          />
         </div>
       </div>
     )

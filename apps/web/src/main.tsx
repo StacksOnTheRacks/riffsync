@@ -8,7 +8,14 @@ import { FanSessionKeepAlive } from './auth/FanSessionKeepAlive'
 import { ScrollToTop } from './components/ScrollToTop'
 import { AppRoutes } from './AppRoutes.tsx'
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 8000),
+    },
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

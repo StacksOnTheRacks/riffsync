@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
+import { EPISODE_UNAVAILABLE_MESSAGE, formatCatalogUserError } from '../catalog/catalogLoadError'
 import { formatCatalogEraLabel } from '../catalog/catalogTypes'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 
@@ -40,7 +41,7 @@ export function SoloWatchPage() {
   const [searchParams] = useSearchParams()
   const partyCapture = searchParams.get('partyCapture') === '1'
 
-  const { data: episode, isPending, isError, error } = useCatalogEpisodeQuery(catalogEpisodeId)
+  const { data: episode, isPending, isError, error, refetch } = useCatalogEpisodeQuery(catalogEpisodeId)
 
   useEffect(() => {
     const prev = document.title
@@ -72,7 +73,7 @@ export function SoloWatchPage() {
     }
   }, [catalogEpisodeId, episode, isError, isPending, partyCapture])
 
-  if (isPending) {
+  if (isPending && !episode) {
     if (partyCapture) {
       return (
         <div className="riffsync-solo-watch-page riffsync-solo-watch-page--party-capture">
@@ -89,13 +90,18 @@ export function SoloWatchPage() {
     )
   }
 
-  if (isError) {
+  if (isError && !episode) {
+    const message = formatCatalogUserError(error, EPISODE_UNAVAILABLE_MESSAGE)
     if (partyCapture) {
       return (
         <div className="riffsync-solo-watch-page riffsync-solo-watch-page--party-capture" role="alert">
           <div className="riffsync-solo-watch riffsync-solo-watch--capture">
-            <p>Could not load this episode.</p>
-            <p>{error instanceof Error ? error.message : 'Unknown error'}</p>
+            <p>{message}</p>
+            <p>
+              <button type="button" className="btn btn-primary" onClick={() => void refetch()}>
+                Try again
+              </button>
+            </p>
             <p>
               <Link to="/">← Home</Link>
             </p>
@@ -105,8 +111,12 @@ export function SoloWatchPage() {
     }
     return (
       <div className="container riffsync-solo-watch" role="alert">
-        <p>Could not load this episode.</p>
-        <p>{error instanceof Error ? error.message : 'Unknown error'}</p>
+        <p>{message}</p>
+        <p>
+          <button type="button" className="btn btn-primary" onClick={() => void refetch()}>
+            Try again
+          </button>
+        </p>
         <p>
           <Link to="/">← Home</Link>
         </p>

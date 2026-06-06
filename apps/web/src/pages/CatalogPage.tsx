@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useCatalogListQuery } from '../catalog/catalogQueries'
+import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogCardImageUrl, catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
@@ -47,11 +48,11 @@ function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
 
 export function CatalogPage() {
   const navigate = useNavigate()
-  const { data, isPending, isError, error } = useCatalogListQuery()
+  const { data, isPending, isError, error, refetch } = useCatalogListQuery()
 
   useResumePendingPartyRoom(data, navigate)
 
-  if (isPending) {
+  if (isPending && !data) {
     return (
       <div className="container">
         <h1>Catalog</h1>
@@ -60,14 +61,16 @@ export function CatalogPage() {
     )
   }
 
-  if (isError) {
+  if (isError && !data) {
     return (
-      <div className="container" role="alert">
-        <h1>Catalog</h1>
-        <p>{error instanceof Error ? error.message : 'Could not load catalog'}</p>
-        <p>
-          <Link to="/">← Home</Link>
-        </p>
+      <div className="container">
+        <CatalogLoadErrorPanel
+          error={error}
+          onRetry={() => {
+            void refetch()
+          }}
+          homeLink
+        />
       </div>
     )
   }
