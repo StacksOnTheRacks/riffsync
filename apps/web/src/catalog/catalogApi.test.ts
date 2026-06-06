@@ -4,6 +4,7 @@ import {
   fetchCatalogEntries,
   fetchCatalogEpisodeById,
   normalizeCatalogEtag,
+  normalizeEpisode,
 } from './catalogApi'
 
 const API_BASE = 'https://api.example.test'
@@ -15,6 +16,44 @@ vi.mock('../config/apiBaseUrl', () => ({
 describe('normalizeCatalogEtag', () => {
   it('trims weak ETag values', () => {
     expect(normalizeCatalogEtag('  W/"42-full"  ')).toBe('W/"42-full"')
+  })
+})
+
+describe('normalizeEpisode', () => {
+  it('parses optional tmdbPopularity from API rows', () => {
+    const episode = normalizeEpisode({
+      id: 'ep-1',
+      experimentNumber: 1,
+      title: 'T',
+      era: 'joel',
+      youtubeVideoId: null,
+      youtubeWatchUrl: null,
+      tagline: null,
+      posterImageUrl: null,
+      backdropImageUrl: null,
+      tmdbMovieId: 99,
+      tmdbArtworkSyncedAt: '2026-01-01T00:00:00.000Z',
+      tmdbPopularity: 12.5,
+    })
+    expect(episode.tmdbPopularity).toBe(12.5)
+  })
+
+  it('omits invalid tmdbPopularity', () => {
+    const episode = normalizeEpisode({
+      id: 'ep-1',
+      experimentNumber: 1,
+      title: 'T',
+      era: 'joel',
+      youtubeVideoId: null,
+      youtubeWatchUrl: null,
+      tagline: null,
+      posterImageUrl: null,
+      backdropImageUrl: null,
+      tmdbMovieId: null,
+      tmdbArtworkSyncedAt: null,
+      tmdbPopularity: 'nope',
+    })
+    expect(episode.tmdbPopularity).toBeUndefined()
   })
 })
 

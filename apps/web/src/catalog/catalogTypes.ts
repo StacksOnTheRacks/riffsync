@@ -30,6 +30,8 @@ export interface CatalogEpisode {
   embedAllows?: boolean
   /** Advisory label for ads vs Premium (honor-system). */
   playbackExpectation?: PlaybackExpectation
+  /** TMDB movie popularity from reconcile; higher = more popular on TMDB. */
+  tmdbPopularity?: number | null
 }
 
 export interface CatalogBundle {

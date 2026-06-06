@@ -88,3 +88,28 @@ export function cycleSlice(entries: CatalogEpisode[], start: number, count: numb
   }
   return out
 }
+
+function hasFiniteTmdbPopularity(ep: CatalogEpisode): boolean {
+  return ep.tmdbPopularity != null && Number.isFinite(ep.tmdbPopularity)
+}
+
+/** Descending TMDB popularity; unreconciled rows trail in experiment order. */
+export function compareByTmdbPopularity(a: CatalogEpisode, b: CatalogEpisode): number {
+  const aHas = hasFiniteTmdbPopularity(a)
+  const bHas = hasFiniteTmdbPopularity(b)
+  if (aHas && bHas) {
+    const diff = b.tmdbPopularity! - a.tmdbPopularity!
+    return diff !== 0 ? diff : a.experimentNumber - b.experimentNumber
+  }
+  if (aHas !== bHas) return aHas ? -1 : 1
+  return a.experimentNumber - b.experimentNumber
+}
+
+/** Playable episodes ranked by **`tmdbPopularity`** (reconcile), with optional offset for a second row. */
+export function topEpisodesByTmdbPopularity(
+  entries: CatalogEpisode[],
+  limit: number,
+  offset = 0,
+): CatalogEpisode[] {
+  return [...entries].sort(compareByTmdbPopularity).slice(offset, offset + limit)
+}

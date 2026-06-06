@@ -5,8 +5,8 @@ import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import {
   buildHeroSlides,
   catalogEntriesWithYoutubeLink,
-  cycleSlice,
   firstEpisodesWithYoutubeForEra,
+  topEpisodesByTmdbPopularity,
 } from '../catalog/mockCatalog'
 import { HomeHeroBanner } from './home/HomeHeroBanner'
 import { HomeMovieRowSection } from './home/HomeMovieRowSection'
@@ -17,6 +17,7 @@ import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
  * **`GET /v1/catalog?carousel=true`** when **`VITE_PUBLIC_API_BASE_URL`** is set.
  * In **`vite dev`** without that var, both load from **`data/catalog/episodes.json`** (carousel rows filtered client-side).
  * Rows use only episodes that include a **YouTube** id (same filter as **`/catalog`**).
+ * **Most Popular** / **Trending picks** rank playable episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order).
  * Era strips take the first **10** per Joel / Mike / Jonah from that playable set.
  */
 export function HomePage() {
@@ -84,12 +85,12 @@ export function HomePage() {
       <HomeMovieRowSection
         sectionId="home-most-popular"
         title="Most Popular"
-        episodes={cycleSlice(playableEntries, 0, 12)}
+        episodes={topEpisodesByTmdbPopularity(playableEntries, 12)}
       />
       <HomeMovieRowSection
-        sectionId="home-most-viewed"
-        title="Most Viewed"
-        episodes={cycleSlice(playableEntries, 12, 12)}
+        sectionId="home-trending-picks"
+        title="Trending picks"
+        episodes={topEpisodesByTmdbPopularity(playableEntries, 12, 12)}
       />
       <HomeSpotlightBanner episodes={carouselWithYoutube} />
       {joelYoutubeRow.length > 0 ? (

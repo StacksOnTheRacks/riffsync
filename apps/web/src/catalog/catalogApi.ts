@@ -98,6 +98,12 @@ export function normalizeEpisode(raw: unknown): CatalogEpisode {
     embedAllows:
       raw.embedAllows === false ? false : raw.embedAllows === true ? true : undefined,
     playbackExpectation: parsePlaybackExpectation(raw.playbackExpectation),
+    tmdbPopularity: (() => {
+      const v = raw.tmdbPopularity
+      if (v === null || v === undefined) return undefined
+      const n = Number(v)
+      return Number.isFinite(n) ? n : undefined
+    })(),
   }
 }
 
