@@ -145,6 +145,21 @@ export const handler: Handler = async () => {
   let failed = 0;
   let skipped = 0;
 
+  async function persistPatch(catalogId: string, patch: Record<string, unknown>): Promise<boolean> {
+    const { UpdateExpression, ExpressionAttributeNames, ExpressionAttributeValues } =
+      buildUpdateParts(patch);
+    await doc.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: { id: catalogId },
+        UpdateExpression,
+        ExpressionAttributeNames,
+        ExpressionAttributeValues,
+      }),
+    );
+    return true;
+  }
+
   for (const item of candidates) {
     const result = await reconcileOneItemForPatch(item, tmdbToken, imageConfig, globalThis.fetch, nowIso);
     if (!result.ok) {
@@ -161,21 +176,26 @@ export const handler: Handler = async () => {
           }),
         );
       }
+      if (result.catalogId && result.patch) {
+        try {
+          await persistPatch(result.catalogId, result.patch);
+        } catch (e) {
+          failed++;
+          console.log(
+            JSON.stringify({
+              level: 'ERROR',
+              event: 'dynamo_skip_patch_failed',
+              catalogId: result.catalogId,
+              message: e instanceof Error ? e.message : 'unknown',
+            }),
+          );
+        }
+      }
       continue;
     }
 
     try {
-      const { UpdateExpression, ExpressionAttributeNames, ExpressionAttributeValues } =
-        buildUpdateParts(result.patch);
-      await doc.send(
-        new UpdateCommand({
-          TableName: tableName,
-          Key: { id: result.catalogId },
-          UpdateExpression,
-          ExpressionAttributeNames,
-          ExpressionAttributeValues,
-        }),
-      );
+      await persistPatch(result.catalogId, result.patch);
       processed++;
       console.log(
         JSON.stringify({

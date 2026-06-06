@@ -350,7 +350,7 @@ export class ApiCatalogStack extends cdk.Stack {
     if (!reconcileScheduleOff) {
       const reconcileRule = new events.Rule(this, 'TmdbReconcileSchedule', {
         description: `TMDB catalog enrichment (${environment}) — disable: context catalogReconcileScheduleEnabled=false, EventBridge console, or env RECONCILE_DISABLED`,
-        schedule: events.Schedule.rate(cdk.Duration.hours(6)),
+        schedule: events.Schedule.rate(cdk.Duration.hours(2)),
       });
       reconcileRule.addTarget(new eventsTargets.LambdaFunction(tmdbReconcileFn));
     }

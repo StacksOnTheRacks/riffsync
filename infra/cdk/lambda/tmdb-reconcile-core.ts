@@ -105,7 +105,33 @@ export function mapMovieDetailToDynamoPatch(
     posterImageUrl,
     backdropImageUrl,
     tmdbArtworkSyncedAt: nowIso,
+    tmdbNeedsReview: false,
   };
+}
+
+/** Curator **`movieSearchTitle`** when set, else episode **`title`** (see architecture.catalog-images.md). */
+export function resolveTmdbSearchTitle(item: Record<string, unknown>): string {
+  const hint = String(item.movieSearchTitle ?? '').trim();
+  if (hint.length > 0) return hint;
+  return String(item.title ?? '').trim();
+}
+
+/** Stamp skipped search outcomes so they leave the batch queue and surface in admin. */
+export function mapSkipToDynamoPatch(
+  reason: string | undefined,
+  nowIso: string,
+): Record<string, unknown> | null {
+  switch (reason) {
+    case 'ambiguous_search':
+    case 'no_search_results':
+    case 'no_title':
+      return {
+        tmdbNeedsReview: true,
+        tmdbArtworkSyncedAt: nowIso,
+      };
+    default:
+      return null;
+  }
 }
 
 /** Prefer single search hit; multiple hits = ambiguous (skip). */
@@ -120,7 +146,25 @@ export function resolveMovieIdFromSearch(
 }
 
 export function itemNeedsReconcile(item: Record<string, unknown>): boolean {
-  return item.tmdbArtworkSyncedAt == null || item.tmdbArtworkSyncedAt === '';
+  const posterMissing = item.posterImageUrl == null || item.posterImageUrl === '';
+  const movieId = item.tmdbMovieId;
+  const hasPinnedId = typeof movieId === 'number' && movieId > 0;
+
+  if (hasPinnedId && posterMissing) {
+    return true;
+  }
+
+  const searchHint = String(item.movieSearchTitle ?? '').trim();
+  if (posterMissing && searchHint.length > 0) {
+    return true;
+  }
+
+  if (item.tmdbNeedsReview === true && posterMissing) {
+    return false;
+  }
+
+  const syncedAt = item.tmdbArtworkSyncedAt;
+  return syncedAt == null || syncedAt === '';
 }
 
 async function tmdbGet(pathAndQuery: string, token: string, fetchImpl: FetchLike): Promise<Response> {
@@ -129,7 +173,28 @@ async function tmdbGet(pathAndQuery: string, token: string, fetchImpl: FetchLike
 
 export type ReconcileItemResult =
   | { ok: true; catalogId: string; patch: Record<string, unknown> }
-  | { ok: false; status: 'skipped' | 'failed'; catalogId?: string; reason?: string };
+  | {
+      ok: false;
+      status: 'skipped' | 'failed';
+      catalogId?: string;
+      reason?: string;
+      patch?: Record<string, unknown>;
+    };
+
+function skippedResult(
+  catalogId: string,
+  reason: string,
+  nowIso: string,
+): ReconcileItemResult {
+  const patch = mapSkipToDynamoPatch(reason, nowIso);
+  return {
+    ok: false,
+    status: 'skipped',
+    catalogId,
+    reason,
+    ...(patch ? { patch } : {}),
+  };
+}
 
 export async function reconcileOneItemForPatch(
   item: Record<string, unknown>,
@@ -148,13 +213,13 @@ export async function reconcileOneItemForPatch(
       typeof item.tmdbMovieId === 'number' && item.tmdbMovieId > 0 ? item.tmdbMovieId : null;
 
     if (movieId == null) {
-      const title = String(item.title ?? '').trim();
-      if (!title) {
-        return { ok: false, status: 'skipped', catalogId: cid, reason: 'no_title' };
+      const searchTitle = resolveTmdbSearchTitle(item);
+      if (!searchTitle) {
+        return skippedResult(cid, 'no_title', nowIso);
       }
       await sleep(SLEEP_MS);
       const searchRes = await tmdbGet(
-        `/search/movie?query=${encodeURIComponent(title)}&include_adult=false&language=en-US&page=1`,
+        `/search/movie?query=${encodeURIComponent(searchTitle)}&include_adult=false&language=en-US&page=1`,
         token,
         fetchImpl,
       );
@@ -164,12 +229,11 @@ export async function reconcileOneItemForPatch(
       const searchBody = (await searchRes.json()) as { results?: { id?: number }[] };
       const resolved = resolveMovieIdFromSearch(searchBody.results ?? []);
       if (resolved === 'none' || resolved === 'ambiguous') {
-        return {
-          ok: false,
-          status: 'skipped',
-          catalogId: cid,
-          reason: resolved === 'ambiguous' ? 'ambiguous_search' : 'no_search_results',
-        };
+        return skippedResult(
+          cid,
+          resolved === 'ambiguous' ? 'ambiguous_search' : 'no_search_results',
+          nowIso,
+        );
       }
       movieId = resolved.movieId;
     }
