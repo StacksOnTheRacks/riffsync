@@ -71,11 +71,11 @@ describe('filterCatalogEntries', () => {
     expect(result.map((e) => e.experimentNumber)).toEqual([101, 200, 999])
   })
 
-  it('filters by default catalog eras (Joel, Mike, Jonah)', () => {
+  it('filters by default catalog eras (Joel, Mike, Jonah, Emily)', () => {
     const result = filterCatalogEntries(sampleEntries, {
       titleQuery: '',
       eras: DEFAULT_CATALOG_FILTER_ERAS,
     })
-    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c'])
+    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-d'])
   })
 })
