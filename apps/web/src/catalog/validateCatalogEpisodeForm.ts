@@ -15,6 +15,7 @@ export type CatalogEpisodeFormValues = {
   youtubeWatchUrl: string
   carousel: boolean
   movieSearchTitle: string
+  tmdbMovieId: string
   embedAllows: boolean
   curatorNotes: string
 }
@@ -36,6 +37,7 @@ export const EMPTY_CATALOG_EPISODE_FORM_VALUES: CatalogEpisodeFormValues = {
   youtubeWatchUrl: '',
   carousel: false,
   movieSearchTitle: '',
+  tmdbMovieId: '',
   embedAllows: true,
   curatorNotes: '',
 }
@@ -119,6 +121,23 @@ function validateMovieSearchTitle(raw: string): string | undefined {
   return undefined
 }
 
+function validateTmdbMovieId(raw: string, mode: CatalogEpisodeFormMode): string | undefined {
+  if (mode === 'create') return undefined
+  const trimmed = raw.trim()
+  if (!trimmed) return undefined
+  if (!/^\d+$/.test(trimmed)) return 'Enter a positive TMDB movie id or leave empty.'
+  const n = Number.parseInt(trimmed, 10)
+  if (!Number.isInteger(n) || n < 1) return 'Enter a positive TMDB movie id or leave empty.'
+  return undefined
+}
+
+export function normalizeTmdbMovieIdField(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const n = Number.parseInt(trimmed, 10)
+  return Number.isInteger(n) && n >= 1 ? n : null
+}
+
 function validateCuratorNotes(raw: string): string | undefined {
   const trimmed = raw.trim()
   if (trimmed.length > CURATOR_NOTES_MAX_LENGTH) {
@@ -155,6 +174,9 @@ export function validateCatalogEpisodeForm(
 
   const movieSearchTitleError = validateMovieSearchTitle(values.movieSearchTitle)
   if (movieSearchTitleError) fieldErrors.movieSearchTitle = movieSearchTitleError
+
+  const tmdbMovieIdError = validateTmdbMovieId(values.tmdbMovieId, mode)
+  if (tmdbMovieIdError) fieldErrors.tmdbMovieId = tmdbMovieIdError
 
   const curatorNotesError = validateCuratorNotes(values.curatorNotes)
   if (curatorNotesError) fieldErrors.curatorNotes = curatorNotesError
@@ -194,6 +216,7 @@ export function catalogEpisodeToFormValues(
     youtubeWatchUrl: string | null
     carousel: boolean
     movieSearchTitle?: string | null
+    tmdbMovieId?: number | null
     embedAllows?: boolean | null
     curatorNotes?: string | null
   },
@@ -207,6 +230,7 @@ export function catalogEpisodeToFormValues(
     youtubeWatchUrl: entry.youtubeWatchUrl ?? '',
     carousel: entry.carousel,
     movieSearchTitle: entry.movieSearchTitle ?? '',
+    tmdbMovieId: entry.tmdbMovieId != null ? String(entry.tmdbMovieId) : '',
     embedAllows: entry.embedAllows !== false,
     curatorNotes: entry.curatorNotes ?? '',
   }

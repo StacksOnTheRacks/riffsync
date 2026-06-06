@@ -10,6 +10,7 @@ export const ADMIN_WRITABLE_KEYS = [
   'youtubeWatchUrl',
   'carousel',
   'movieSearchTitle',
+  'tmdbMovieId',
   'embedAllows',
   'curatorNotes',
 ] as const;
@@ -20,7 +21,6 @@ export const READ_ONLY_WRITE_KEYS = [
   'tagline',
   'posterImageUrl',
   'backdropImageUrl',
-  'tmdbMovieId',
   'tmdbArtworkSyncedAt',
   'tmdbNeedsReview',
   'youtubeThumbnailUrl',
@@ -127,6 +127,27 @@ function validateMergedEpisode(item: Record<string, unknown>): CatalogValidation
   return null;
 }
 
+function tmdbMovieIdsEqual(a: unknown, b: unknown): boolean {
+  const normalize = (value: unknown): number | null => {
+    if (value === null || value === undefined) return null;
+    return typeof value === 'number' && Number.isInteger(value) && value >= 1 ? value : null;
+  };
+  return normalize(a) === normalize(b);
+}
+
+/** Drop stale TMDB enrichment when a curator changes the pinned movie id. */
+function clearTmdbEnrichmentForReconcile(item: Record<string, unknown>): void {
+  item.tmdbArtworkSyncedAt = null;
+  item.tmdbNeedsReview = false;
+  item.tagline = null;
+  item.posterImageUrl = null;
+  item.backdropImageUrl = null;
+  item.tmdbOverview = null;
+  item.tmdbPopularity = null;
+  item.tmdbPosterPath = null;
+  item.tmdbBackdropPath = null;
+}
+
 export function validateCatalogEpisodePost(
   pathId: string,
   body: Record<string, unknown>,
@@ -229,6 +250,12 @@ export function validateCatalogEpisodePatch(
   }
 
   const merged: Record<string, unknown> = { ...existing, ...writable, id: pathId };
+  if (
+    Object.prototype.hasOwnProperty.call(writable, 'tmdbMovieId') &&
+    !tmdbMovieIdsEqual(existing.tmdbMovieId, writable.tmdbMovieId)
+  ) {
+    clearTmdbEnrichmentForReconcile(merged);
+  }
   const schemaError = validateMergedEpisode(pickSchemaEpisodeFields(merged));
   if (schemaError) return schemaError;
 

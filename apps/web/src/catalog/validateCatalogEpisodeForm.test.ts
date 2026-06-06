@@ -111,4 +111,14 @@ describe('validateCatalogEpisodeForm', () => {
     expect(normalizeNullableTextField('   ')).toBeNull()
     expect(normalizeNullableTextField('  Manos  ')).toBe('Manos')
   })
+
+  it('ignores tmdbMovieId validation on create', () => {
+    const result = validateCatalogEpisodeForm({ ...validCreate, tmdbMovieId: 'abc' }, 'create')
+    expect(result.fieldErrors.tmdbMovieId).toBeUndefined()
+  })
+
+  it('rejects invalid tmdbMovieId on edit', () => {
+    const result = validateCatalogEpisodeForm({ ...validCreate, tmdbMovieId: 'abc' }, 'edit')
+    expect(result.fieldErrors.tmdbMovieId).toBeTruthy()
+  })
 })

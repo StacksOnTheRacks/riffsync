@@ -19,6 +19,7 @@ import { formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTyp
 import {
   mapValidationDetailsToFieldErrors,
   normalizeNullableTextField,
+  normalizeTmdbMovieIdField,
   normalizeYoutubeField,
   validateCatalogEpisodeForm,
   type CatalogEpisodeFormMode,
@@ -30,13 +31,16 @@ import { AdminCatalogDeleteControl } from './AdminCatalogDeleteControl'
 const CATALOG_ERAS: CatalogEra[] = ['joel', 'mike', 'jonah', 'emily', 'other']
 
 const RECONCILE_HELPER =
-  'These fields are updated by the scheduled reconcile job. Edit title or YouTube details above; TMDB art and tagline refresh automatically when matched.'
+  'These fields are updated by the scheduled reconcile job. Pin a TMDB movie id or set a search title in Curator hints; art and tagline refresh on the next reconcile run.'
 
 const CURATOR_HINTS_HELPER =
-  'Operator hints stored in Dynamo. movieSearchTitle guides reconcile search; embedAllows controls fan in-app embed; notes are staff-only.'
+  'Operator hints stored in Dynamo. tmdbMovieId locks reconcile to GET /movie/{id}; movieSearchTitle guides search when no id is set; embedAllows controls fan in-app embed; notes are staff-only.'
 
-function formValuesToWriteBody(values: CatalogEpisodeFormValues): StaffCatalogEpisodeWrite {
-  return {
+function formValuesToWriteBody(
+  values: CatalogEpisodeFormValues,
+  mode: CatalogEpisodeFormMode,
+): StaffCatalogEpisodeWrite {
+  const body: StaffCatalogEpisodeWrite = {
     experimentNumber: Number.parseInt(values.experimentNumber.trim(), 10),
     title: values.title.trim(),
     era: values.era,
@@ -47,13 +51,17 @@ function formValuesToWriteBody(values: CatalogEpisodeFormValues): StaffCatalogEp
     embedAllows: values.embedAllows,
     curatorNotes: normalizeNullableTextField(values.curatorNotes),
   }
+  if (mode === 'edit') {
+    body.tmdbMovieId = normalizeTmdbMovieIdField(values.tmdbMovieId)
+  }
+  return body
 }
 
 function buildPatchBody(
   baseline: StaffCatalogEpisode,
   values: CatalogEpisodeFormValues,
 ): StaffCatalogEpisodeWrite {
-  const next = formValuesToWriteBody(values)
+  const next = formValuesToWriteBody(values, 'edit')
   const body: StaffCatalogEpisodeWrite = {}
   if (next.experimentNumber !== baseline.experimentNumber) {
     body.experimentNumber = next.experimentNumber
@@ -67,6 +75,9 @@ function buildPatchBody(
   if (next.carousel !== baseline.carousel) body.carousel = next.carousel
   if (next.movieSearchTitle !== baseline.movieSearchTitle) {
     body.movieSearchTitle = next.movieSearchTitle
+  }
+  if (next.tmdbMovieId !== baseline.tmdbMovieId) {
+    body.tmdbMovieId = next.tmdbMovieId
   }
   const baselineEmbedAllows = baseline.embedAllows !== false
   if (next.embedAllows !== baselineEmbedAllows) {
@@ -143,7 +154,7 @@ export function AdminCatalogForm({
 
       if (mode === 'create') {
         const id = values.id.trim()
-        await createStaffCatalogEpisode(token, id, formValuesToWriteBody(values))
+        await createStaffCatalogEpisode(token, id, formValuesToWriteBody(values, 'create'))
       } else if (initialEpisode) {
         const patchBody = buildPatchBody(initialEpisode, values)
         if (Object.keys(patchBody).length === 0) {
@@ -183,7 +194,6 @@ export function AdminCatalogForm({
         [
           ['Poster image URL', episode.posterImageUrl],
           ['Backdrop image URL', episode.backdropImageUrl],
-          ['TMDB movie id', episode.tmdbMovieId != null ? String(episode.tmdbMovieId) : null],
           ['TMDB artwork synced at', episode.tmdbArtworkSyncedAt],
           ['YouTube thumbnail URL', episode.youtubeThumbnailUrl],
         ] as const
@@ -460,6 +470,42 @@ export function AdminCatalogForm({
               </p>
             ) : null}
           </div>
+
+          {mode === 'edit' ? (
+            <div className="riffsync-admin-form-field">
+              <label htmlFor="catalog-form-tmdb-movie-id">TMDB movie id</label>
+              <input
+                id="catalog-form-tmdb-movie-id"
+                name="tmdbMovieId"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={values.tmdbMovieId}
+                onChange={(e) => setField('tmdbMovieId', e.target.value)}
+                aria-invalid={fieldErrors.tmdbMovieId ? true : undefined}
+                aria-describedby={
+                  fieldErrors.tmdbMovieId
+                    ? 'catalog-form-tmdb-movie-id-error'
+                    : 'catalog-form-tmdb-movie-id-helper'
+                }
+                disabled={saving}
+                placeholder="Leave empty to clear"
+              />
+              <p id="catalog-form-tmdb-movie-id-helper" className="riffsync-admin-form-field-helper">
+                Pin the TMDB movie id from themoviedb.org. Reconcile fetches poster and tagline from
+                this id and skips title search.
+              </p>
+              {fieldErrors.tmdbMovieId ? (
+                <p
+                  id="catalog-form-tmdb-movie-id-error"
+                  className="riffsync-admin-form-field-error"
+                  role="alert"
+                >
+                  {fieldErrors.tmdbMovieId}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="riffsync-admin-form-field riffsync-admin-form-field--checkbox">
             <input

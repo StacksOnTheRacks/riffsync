@@ -45,6 +45,7 @@ export interface StaffCatalogEpisodeWrite {
   youtubeWatchUrl?: string | null
   carousel?: boolean
   movieSearchTitle?: string | null
+  tmdbMovieId?: number | null
   embedAllows?: boolean
   curatorNotes?: string | null
 }

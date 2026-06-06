@@ -34,7 +34,7 @@ const existingItem = {
 describe('ADMIN_WRITABLE_KEYS', () => {
   it('includes curator hint fields', () => {
     expect(ADMIN_WRITABLE_KEYS).toEqual(
-      expect.arrayContaining(['movieSearchTitle', 'embedAllows', 'curatorNotes']),
+      expect.arrayContaining(['movieSearchTitle', 'tmdbMovieId', 'embedAllows', 'curatorNotes']),
     );
   });
 });
@@ -116,5 +116,31 @@ describe('validateCatalogEpisodePatch', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.details.some((d) => d.instancePath === '/tmdbNeedsReview')).toBe(true);
+  });
+
+  it('allows pinning tmdbMovieId and clears stale enrichment', () => {
+    const result = validateCatalogEpisodePatch(
+      'ep-1',
+      { tmdbMovieId: 603 },
+      {
+        ...existingItem,
+        posterImageUrl: 'https://example.test/old.jpg',
+        tmdbArtworkSyncedAt: '2024-01-01T00:00:00.000Z',
+        tmdbNeedsReview: true,
+        tagline: 'Old tagline',
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.item.tmdbMovieId).toBe(603);
+    expect(result.item.posterImageUrl).toBeNull();
+    expect(result.item.tmdbArtworkSyncedAt).toBeNull();
+    expect(result.item.tmdbNeedsReview).toBe(false);
+    expect(result.item.tagline).toBeNull();
+  });
+
+  it('rejects invalid tmdbMovieId', () => {
+    const result = validateCatalogEpisodePatch('ep-1', { tmdbMovieId: 0 }, existingItem);
+    expect(result.ok).toBe(false);
   });
 });

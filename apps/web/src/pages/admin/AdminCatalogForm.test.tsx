@@ -334,4 +334,30 @@ describe('AdminCatalogForm', () => {
     const patchBody = patchStaffCatalogEpisode.mock.calls[0]?.[2] as Record<string, unknown>
     expect(patchBody).not.toHaveProperty('tmdbNeedsReview')
   })
+
+  it('saves changed tmdbMovieId in PATCH body', async () => {
+    renderForm({
+      mode: 'edit',
+      initialEpisode: { ...baseEpisode, tmdbMovieId: null },
+      initialValues: catalogEpisodeToFormValues({ ...baseEpisode, tmdbMovieId: null }),
+      breadcrumbLeaf: 'Edit',
+      pageTitle: 'Edit episode',
+    })
+
+    const tmdbInput = container.querySelector('#catalog-form-tmdb-movie-id') as HTMLInputElement
+    await act(async () => {
+      setInputValue(tmdbInput, '603')
+    })
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(patchStaffCatalogEpisode).toHaveBeenCalledWith('staff-token', 'ep-1', {
+        tmdbMovieId: 603,
+      })
+    })
+  })
 })
