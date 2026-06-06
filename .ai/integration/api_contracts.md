@@ -15,7 +15,8 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | **`GET /v1/lists`**, **`GET /v1/lists/{slug}`** | None (public) when shipped. | Curated collections; **`slug`** URL-safe. |
 | **`POST /v1/rooms` (create)** | **Fan Cognito JWT** — **`hostSub`** on new room **= JWT `sub`**. **`sessionId`** optional telemetry only—**not** host binding. | Mint **`roomId`**, seed **`catalogEpisodeId`** / visibility / **`playbackExpectation`** per payload. |
 | **`GET /v1/rooms/:id`**, **`GET /v1/lobby`**, lobby joins | **`sessionId`** via **`X-Session-Id`** (guest); optional JWT if viewer signs in. | Read snapshots for lobby/detail/join validation. |
-| **`PATCH` / `PUT` … room playback metadata** | **Fan JWT**; **`JWT.sub === room.hostSub`**. | **Mutable current episode**, advisory labels, visibility flags—conditional **`version`** writes. |
+| **`PATCH` / `PUT` … room playback metadata** | **Fan JWT**; **`JWT.sub === room.hostSub`**. | **Mutable current episode**, advisory labels, visibility flags—conditional **`version`** writes. Same host-only gate for durable **`roomMode`** (**`theater`** \| **`videoChat`**, default **`theater`**) and **`avDisabled`** (room-wide participant A/V kill switch). |
+| **`POST /v1/webrtc/sfu-token`** | **`X-Session-Id`** required; active room WebSocket presence row; **`Authorization`** fan JWT for **producer** grants. | Mint short-lived mediasoup join JWT (**900s** TTL today). **Host screen** producer when **`JWT.sub === room.hostSub`**. **Participant A/V** producer when **`fanSub`** on connection, **`avDisabled`** false, signed-in (not anonymous). **Consumer** role for others. Returns **`wsUrl`**, **`role`**, **`expiresInSeconds`**. **403** when prerequisites missing or kill switch active. |
 | **`GET /v1/health`** | None. | **Normative** liveness path (matches **`/v1`** versioning). Smoke: process up + critical dependencies **best-effort** (Dynamo **DescribeTable** or shallow read—**IaC** chooses depth vs cold-start cost). |
 | **`GET /v1/fans/me`**, **`PATCH /v1/fans/me`** | **Fan Cognito JWT**. | Read/update **`displayName`** on **FanProfiles** row keyed by **`sub`**; **`GET`** also returns optional **`avatarUrl`** / **`avatarUpdatedAt`**. |
 | **`POST /v1/fans/me/avatar`** *(multipart body; presigned PUT deferred)* | **Fan Cognito JWT**. | Upload/replace **one** avatar image; persists **`avatarUrl`** + **`avatarUpdatedAt`** on FanProfiles; object in **S3** served via **public HTTPS** (see **`data_model.md`**). |
@@ -36,12 +37,13 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 ## WebSocket (API Gateway WebSocket API)
 
-- **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **WebRTC signaling** (SDP / ICE relay — schemas TBD), **`chat`** (text/emoji and **Giphy GIF** posts), **`react`** (emoji reaction add/remove on a **`messageId`**), **`ping`** (liveness for **`lastActivityAt`**).
+- **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **WebRTC signaling** (SDP / ICE relay — schemas TBD), **`chat`** (text/emoji and **Giphy GIF** posts), **`react`** (emoji reaction add/remove on a **`messageId`**), **`ping`** (liveness for **`lastActivityAt`**), **`share_state`** (host screen-share lifecycle), **`room_mode`** (host layout: **`theater`** \| **`videoChat`**), **`av_disabled`** (host AV kill switch: **`enabled`** \| **`disabled`** or boolean **`avDisabled`**).
 - **Chat payloads (broadcast):** discriminated by **`type`** — e.g. **`chat`** (text/unicode emoji), **`chat_gif`** (**`giphyId`**, rendition URL, optional title/dimensions), **`chat_reaction`** (**`messageId`**, emoji, **`action`**: add | remove, **`sessionId`** / sender identity). Each chat line carries client-generated **`messageId`** (UUID) within scrollback. Server enriches with **`displayName`** and optional **`avatarUrl`** for signed-in senders.
+- **Room control fan-out (broadcast):** discriminated by **`type`** — **`share_state`** (**`state`**: **`started`** \| **`stopped`**, optional **`shareGeneration`**); **`room_mode`** (**`roomMode`**: **`theater`** \| **`videoChat`**, **`sessionId`**, **`ts`**); **`av_disabled`** (**`avDisabled`**: boolean, **`sessionId`**, **`ts`**). Host-only inbound actions mirror **`share_state`** authority (**`JWT.sub === hostSub`** on connection).
 - **Send auth:** **`chat`**, **`chat_gif`**, and **`react`** require **fan JWT** on the connection (or per-action validation); anonymous **`sessionId`** connections are **receive-only** for chat fanout.
-- **Connect context:** **`roomId`** required; **`sessionId`** for guest envelope; **`Authorization`** **required** when connection assumes **publisher/admin** role — **`JWT.sub`** must equal **`room.hostSub`** after load.
-- **Room-admin only:** durable playback-intent updates and **signaling publisher role**; server validates **`JWT.sub === hostSub`** before accepting publisher-bound envelopes or mutating authoritative room fields.
-- **Broadcast:** Lambda uses **`execute-api:ManageConnections`** **`PostToConnection`** to room members after durable room write succeeds (ordering: best-effort; see consistency contract).
+- **Connect context:** **`roomId`** required; **`sessionId`** for guest envelope; fan JWT at **`$connect`** (**query `accessToken`** or **`Authorization`**) stores **`fanSub`** and marks host publisher when **`sub === hostSub`**.
+- **Room-admin only:** durable playback-intent updates, **`roomMode`**, **`avDisabled`**, and **host screen-share** signaling; server validates **`JWT.sub === hostSub`** before accepting host control envelopes or mutating authoritative room fields.
+- **Broadcast:** Lambda uses **`execute-api:ManageConnections`** **`PostToConnection`** to room members after durable room write succeeds for persisted fields (**`roomMode`**, **`avDisabled`**, playback); ordering best-effort (see **`messaging_async.md`**).
 
 ## HTTP idempotency & abuse (cost-first OSS)
 
@@ -58,6 +60,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | **Lobby listing** | **50** rows per page; clients paginate (caps total listed rooms if needed for cost). |
 | **Chat** | **20** chat actions per **minute** per **`sessionId`** (text, GIF post, and reaction add/remove each count; HTTP/WS enforced); ephemeral only (**no durable chat log** in Dynamo—see **`operations/security.md`**). |
 | **Giphy search** | **30** search requests per **minute** per **`sub`** (HTTP; tune in IaC). |
+| **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
 | **WebSocket** | Subject to **API Gateway** account/service quotas; design for **≤50 concurrent connections per room** under normal use (matches participant cap). |
 
 ## Decisions (answered)
@@ -71,6 +74,20 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Staff auth end-to-end check? | **`GET /v1/admin/session`** under **`/v1/admin/*`** with staff JWT; validates authorizer + **`cognito:groups`** before catalog admin routes ship. |
 | GIF provider? | **Giphy** only for this product slice; server-side search + Giphy CDN renditions in messages (**`external_systems.md`**). |
 | Guest chat send / react? | **Fan JWT required** to send text/emoji/GIF and to add/remove reactions; guests **view only**. |
+| Participant AV publish? | **Signed-in fans only**; SFU path in production; mesh dev-only (**`VITE_WEBRTC_USE_MEDIASOU_SFU`** off). |
+| Room mode + AV kill switch durability? | **Durable** on room document; host **`PATCH`**; returned on snapshot/join; fan-out over WebSocket after write. |
+| AV kill switch enforcement? | **Server-enforced** — deny participant producer tokens, SFU tears down participant producers, broadcast **`avDisabled`**. |
+| Theater participant audio? | **Client-side mixing** — consumers attach multiple SFU audio consumers (host movie + participant mics); no server-side mixer in MVP. |
+| Video Chat vs host screen? | Clients **stop consuming** host screen producer in **`videoChat`** mode; host **fully stops** tab-capture on enter (resume requires **Share Source Tab** again). |
+
+## Open implementation decisions
+
+- **`room_mode`** / **`av_disabled`** vs unified host action (e.g. **`room_av_control`**) and exact inbound JSON field names; align with **`docs/contracts.websocket.md`** when updated.
+- Whether host **`PATCH`** alone triggers **`PostToConnection`** fan-out or the SPA sends a follow-up WS action after successful **`PATCH`** (prefer **server fan-out after durable write**).
+- **`SfuJoinClaims`** field names and whether **`POST /v1/webrtc/sfu-token`** response includes **`producerClass`** alongside **`role`**.
+- SFU join token **refresh** while camera/mic tracks stay active (**900s** expiry): silent refresh interval vs re-mint on producer **`transport`** reconnect only.
+- Participant producer cap enforcement location: **`webrtc-sfu-token`** Lambda only vs SFU service **`SFU_MAX_*`** env caps vs both.
+- **`room_mode`** fan-out payload: include full room snapshot subset vs **`roomMode`** + **`ts`** only.
 
 ## Open implementation details
 

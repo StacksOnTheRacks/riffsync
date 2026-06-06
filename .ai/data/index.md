@@ -8,6 +8,7 @@ Scopes **logical entities**, **Dynamo/access patterns**, **JSON serialization**,
 ## Scope
 
 - Record durable constraints and boundaries for this domain.
+- Watch-party **participant A/V** adds host-admin fields on **Rooms** (`roomMode`, `avDisabled`, existing **`broadcastCaptureActive`** precedent), **RoomPresence** roster rows for SFU token gates, and **SFU runtime** producer state (not Dynamo).
 - Keep this file aligned with mapped child contracts.
 
 ## Primary code pointers (optional)

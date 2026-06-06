@@ -41,11 +41,24 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | **Availability** | **No formal SLA** for the open-source project; self-hosters tune **CloudWatch** alarms and **budgets** per **`.ai/operations/observability.md`**. |
 | **Logs** | Avoid logging **raw chat text** at **INFO** in production—prefer **metrics** + sampled **DEBUG** if needed (cardinality / cost). |
 
+## Participant AV (WebRTC media)
+
+| Topic | Contract |
+| --- | --- |
+| **Join secret** | SFU join HMAC secret class (**`riffsync/sfu-join-hmac-secret`**) unchanged; extending publish eligibility to signed-in fans is an **integration** token-claims change, not a new secret surface. |
+| **Publish eligibility** | Only **signed-in fans** receive SFU **`producer`** grants for participant camera/mic; anonymous guests remain **`consumer`**. Preconditions (**open room WebSocket**, active presence row) unchanged. |
+| **TURN credentials** | **`GET /v1/webrtc/ice`** REST credentials via **`riffsync/turn-static-auth-secret`**; more publishers increase relay load on the shared TURN instance. |
+| **Transport** | TLS on API Gateway; **`wss://`** SFU signaling via Caddy when **`PROD_SFU_SIGNALING_HOSTNAME`** is set. |
+
 ## Compliance cues
 
 | Topic | Contract |
 | --- | --- |
 | **Third-party ToS** | YouTube embed + TMDB attribution + **Giphy** usage + Meta login rules documented for operators (**Giphy:** [`docs/operations/giphy.md`](../../docs/operations/giphy.md)). |
+
+## Open implementation decisions
+
+- **Abuse controls for token minting:** Whether **`POST /v1/webrtc/sfu-token`** needs per-session rate limits or stricter producer mint rules when multiple signed-in fans can publish (API Gateway / Lambda guard — no PII in logs).
 
 ## Primary code pointers (optional)
 

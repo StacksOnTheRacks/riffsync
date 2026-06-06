@@ -63,6 +63,22 @@ PR CI **does not deploy** to AWS.
 - **Production:** manual **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** on **`main`** only.
 - **Deploy identity:** GitHub OIDC → IAM role (**`AWS_DEPLOY_ROLE_ARN_PROD`**) — prefer over long-lived access keys ([`docs/architecture.server.md`](../../docs/architecture.server.md) Delivery pipeline §).
 
+## Participant AV (watch-party rooms)
+
+Participant camera/microphone ships through the **same** artifact graph as host screen-share:
+
+| Change surface | Artifact / workflow |
+| --- | --- |
+| Room UI, toggles, layouts | **`apps/web`** SPA rebuild → **`RiffSyncStatic-prod`** |
+| SFU token mint, WebSocket fan-out | **`RiffSyncApi-prod`** Lambdas |
+| mediasoup multi-producer SFU | **`services/riffsync-sfu`** → **`RiffSyncTurn`** S3 bundle via **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** or phase 1 of **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** |
+
+Media-only SFU hotfixes may use **`deploy-turn.yml`** without a full platform/API/SPA sequence. Post-deploy verification extends **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)** (see **`## Open implementation decisions`**).
+
+## Open implementation decisions
+
+- **`docs/sfu-deploy-checklist.md`:** Add multi-publisher cases — N signed-in fans publish camera+mic; Theater mixed participant audio with movie; Video Chat grid; host AV kill switch clears participant producers; mid-party join with existing publishers; SFU signaling drop recovery with multiple producers.
+
 ## Primary code pointers (optional)
 
 - [`apps/web/src/auth/fanHostedUiPkce.ts`](../../apps/web/src/auth/fanHostedUiPkce.ts) — fan **`VITE_COGNITO_*`** consumption pattern

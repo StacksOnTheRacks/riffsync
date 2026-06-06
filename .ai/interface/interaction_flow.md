@@ -8,7 +8,7 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | --- | --- |
 | **`/` / catalog** | Grid/list → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. |
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
-| **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat (**`authorization.md`**). |
+| **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV (**`authorization.md`**). |
 | **`/lobby`** | Public rooms from **`GET` lobby API** → navigate to **`/room/:id`**. |
 | **`/admin/login`** | **Unlisted** operator gate (bookmark or direct URL only; no links from catalog or room chrome). Primary action starts **staff** Cognito Hosted UI + PKCE; copy makes clear this is **operators only**, not fan Facebook sign-in. |
 | **`/admin/auth/callback`** | Staff OAuth code exchange; on success navigates to stored **`returnTo`** or **`/admin`**; on failure shows **recoverable** error with **retry sign-in** (no silent blank shell). |
@@ -40,6 +40,35 @@ Fan token keys (**`riffsync.fan*`**) and fan PKCE session keys remain **untouche
 1. **Client:** generate **`sessionId`** + display name at that first boundary; keep stable until site data cleared (**`architecture.frontend.md`**).
 2. **WebSocket `$connect`:** send **`roomId` + sessionId`** (+ **`Authorization`** if signed in).
 
+## Watch party participant AV (`/room/:roomId`)
+
+No new routes; AV extends the existing room shell.
+
+### Host flows
+
+1. **Room mode:** Host selects **Theater** or **Video Chat** from the control bar below the stage. Change is **durable** on the room document and **fan-out** to all participants via WebSocket.
+2. **Theater → Video Chat:** If tab-capture is active, **fully stop** capture. Stage swaps to participant video grid; movie region is replaced.
+3. **Video Chat → Theater:** Stage restores movie-primary layout. Host must click **Share Source Tab** again to resume broadcast (not automatic warm-resume).
+4. **AV kill switch on:** Deny participant AV publish/consume server-side; UI reverts to movie + text chat only. **Video Chat** unavailable until re-enabled.
+5. **AV kill switch off:** Restore participant AV surfaces per active **room mode**.
+
+### Signed-in fan flows
+
+1. **Enable camera/mic:** Toggle above compose (visible on any sidebar tab). Request device permission → mint SFU producer token → publish. Default **off** on join; **off** again after disconnect/refresh (manual re-enable).
+2. **Disable camera/mic:** Toggle off tears down local producer; strip/grid updates for remote viewers.
+3. **Anonymous or unsigned:** Controls show **Sign In to Chat** overlay pattern; no publish until signed in.
+4. **Host kill switch active:** Toggles visible but **disabled** with explanation; no publish until host re-enables AV.
+
+### Guest (anonymous) flows
+
+- Subscribe to host screen-share and, when AV enabled, participant AV per layout rules.
+- No camera/mic publish; may view video-on participants and hear mixed audio in **Theater** or **Video Chat**.
+
+### Layout fan-out (all roles)
+
+- Participants receive authoritative **room mode** and **AV kill switch** state on join snapshot and realtime updates.
+- Non-host users cannot change mode; they see layout swap without confirmation.
+
 ## Decisions (answered)
 
 | Question | Decision |
@@ -49,8 +78,22 @@ Fan token keys (**`riffsync.fan*`**) and fan PKCE session keys remain **untouche
 | Admin UI delivery shape? | **Gated `/admin/*` routes** in the existing **`apps/web` SPA** (one build, one origin); not a separate admin SPA deploy target. |
 | Fan + staff sessions in one browser? | **Coexist independently**; staff sign-out clears staff tokens only. |
 | Discoverability of `/admin/login`? | **Unlisted** — bookmark/direct URL only; no public SPA links from fan surfaces. |
+| Participant AV toggle visibility across sidebar tabs? | **Always visible** above compose on **Chat**, **People**, **Room**, **Profile**. |
+| Mic-only in Video Chat grid? | **Excluded**; audio heard; identity via **People** / chat. |
+| Host in strip/grid? | **Yes** when host camera is on. |
+| Kill switch toggle UX? | **Visible but disabled** with explanation when host disabled room AV. |
+| Video Chat tab-capture? | **Fully stop** on enter; **Share Source Tab** again on return to **Theater**. |
+| Reconnect AV state? | Camera/mic **default off**; manual re-enable. |
+
+## Open implementation decisions
+
+- Sequencing of layout swap vs SFU producer attach/detach during Theater ↔ Video Chat (loading states between modes).
+- Whether non-host viewers get an explicit **read-only mode badge** or infer mode from layout alone.
+- Sign-in overlay at AV controls: reuse exact **Sign In to Chat** copy vs AV-specific variant.
+- Host **Share Source Tab** prompt timing and copy when returning from Video Chat with no active capture.
 
 ## Primary code pointers (optional)
 
 - Router config when SPA exists.
 - **`apps/web/src/auth/fanHostedUiPkce.ts`**, **`fanTokens.ts`** — fan OAuth/PKCE and **`riffsync.fan*`** storage pattern to mirror for staff (**`/admin/auth/callback`**, **`riffsync.staff*`**).
+- **`apps/web/src/pages/RoomPage.tsx`** — room shell; AV toggles, host bar, strip/grid extend existing stage + sidebar flow.

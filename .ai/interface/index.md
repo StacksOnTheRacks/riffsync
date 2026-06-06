@@ -9,6 +9,7 @@ Scopes **inputs**, **presentation** states, **navigation/flow**, and **accessibi
 
 - Record durable constraints and boundaries for this domain.
 - Keep this file aligned with mapped child contracts.
+- **`/room/:roomId`** participant AV (camera/microphone), host **room mode** (**Theater** | **Video Chat**), and host **AV kill switch** are in scope; child docs define layout, flow, input, and accessibility boundaries.
 
 ## Primary code pointers (optional)
 

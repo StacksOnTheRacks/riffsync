@@ -44,6 +44,24 @@ Manual workflow **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)**
 - **Production deploy:** OIDC → **`AWS_DEPLOY_ROLE_ARN_PROD`**; extend deploy role **`cognito-idp:*`** (or minimal create/update actions) when the second pool is first deployed.
 - **Media-only:** **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)**.
 
+## Participant AV — media capacity and promotion
+
+| Contract | Value |
+| --- | --- |
+| **Per-room AV publishers** | Target and hard ceiling **8** concurrent signed-in fans publishing camera and/or microphone per watch-party room. |
+| **Footprint-wide concurrency** | Singleton SFU on **`RiffSyncTurn`** comfortably supports **tens** of simultaneous AV-active rooms before instance-type or architecture upsize review. |
+| **Limit-hit behavior** | **Hard-fail** publish toggle with visible client error when SFU session caps or instance capacity block a new publisher — **no** auto-degrade (audio-only, drop newest video) in MVP. |
+| **Hosted staging SFU** | **None** — load and soak for multi-producer rooms run against **production** media stack or **local dev** with prod API pools. |
+| **Topology** | Unchanged: SPA + **`RiffSyncApi-prod`** + **`RiffSyncTurn`** S3 bundle; TURN remains shared coturn on the same **`RiffSyncTurn`** stack. |
+
+SFU runtime guardrails (**`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`**, **`SFU_MAX_CONSUMERS_PER_SESSION`**, RTC port range) must align with the per-room publisher ceiling when wired through EC2 user-data.
+
+## Open implementation decisions
+
+- **SFU runtime env on EC2:** Wire **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`**, **`SFU_MAX_CONSUMERS_PER_SESSION`**, and optionally **`MEDIASOUP_RTC_MIN/MAX_PORT`** through CDK user-data **`/etc/riffsync-sfu.env`** (today only **`SFU_JWT_SECRET`**, **`PORT`**, **`MEDIASOUP_ANNOUNCED_IP`**, RTC min/max are set in **`media-server-stack.ts`**).
+- **Redeploy runbook:** Document when participant AV SFU changes require **`deploy-turn.yml`** vs full **`deploy-prod.yml`**, and post-deploy **`curl`** **`/healthz`** + checklist steps for multi-publisher scenarios.
+- **Capacity worksheet:** Back-of-envelope bandwidth and mediasoup worker limits for **8** concurrent publishers per room; input to EC2 instance type review (**`t3.medium`** vs upsize).
+
 ## Primary code pointers (optional)
 
 - [`infra/cdk/bin/riffsync.ts`](../../infra/cdk/bin/riffsync.ts) — stack graph and **`addDependency`**

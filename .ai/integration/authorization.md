@@ -6,8 +6,9 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 | Mode | Representation | Typical use |
 | --- | --- | --- |
-| **Anonymous guest** | Opaque **`sessionId`** (UUID) + **display name** in **`localStorage`** once the user crosses **lobby** or **joins `/room/:id`** (**lazy mint**); **`X-Session-Id`** + WS **`$connect`**. | **Browse**, **join**, **watch**, **view room chat** (text, GIFs, reactions, avatars)—**cannot** **send** chat, **react**, upload avatars, create rooms, or publish WebRTC. |
-| **Signed-in fan (host)** | **Cognito JWT** (**`sub`**, claims); Facebook or other IdP. | **Create room**, **room admin**, **PATCH** authoritative playback, **WebRTC publisher**; **`hostSub`** on room **=** **`sub`**. |
+| **Anonymous guest** | Opaque **`sessionId`** (UUID) + **display name** in **`localStorage`** once the user crosses **lobby** or **joins `/room/:id`** (**lazy mint**); **`X-Session-Id`** + WS **`$connect`**. | **Browse**, **join**, **watch**, **view room chat** (text, GIFs, reactions, avatars)—**cannot** **send** chat, **react**, upload avatars, create rooms, or **publish** WebRTC (host screen share **or** participant camera/mic). May **subscribe** to participant A/V when the room **`avDisabled`** kill switch is off. |
+| **Signed-in fan** | **Cognito JWT** (**`sub`**, claims); **`fanSub`** stored on WS connection row when JWT verified at **`$connect`**. | **Send** chat/GIF/react; **publish participant camera/mic** over SFU when **`avDisabled`** is false; **consume** host screen share and participant A/V. Non-host fans **cannot** mutate **`roomMode`**, **`avDisabled`**, or authoritative playback. |
+| **Signed-in fan (host)** | Same fan JWT; **`JWT.sub === room.hostSub`**. | **Create room**, **room admin**, **PATCH** authoritative playback + **`roomMode`** + **`avDisabled`**, **host screen-share SFU producer**, **participant camera/mic** (same publish tier as other signed-in fans), host-only WS control actions (**`share_state`**, room mode, AV kill switch). **`hostSub`** on room **=** **`sub`**. |
 | **Staff / operator** | **Invite-only** Cognito **staff user pool** (distinct from the fan pool) + **staff JWT authorizer** on **`/v1/admin/*`**. Tokens live in a **separate browser namespace** from fan auth; fan and staff sessions may **coexist** in one browser. | Catalog edits, curated lists, roster/API tools—not fan Facebook login. |
 
 ## Staff pool (operator)
@@ -38,13 +39,24 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | Layer | Behavior |
 | --- | --- |
 | **HTTP** | **Staff JWT authorizer** on **`/v1/admin/*`**; **fan JWT authorizer** on fan-gated routes; **`POST /v1/rooms`** and room-admin **`PATCH`/`PUT`** require **fan JWT** (**`sub`**); **`GET /v1/catalog`**, **`GET /v1/lobby`**, room **read/join** paths accept **`sessionId`** via **`X-Session-Id`** for anonymous guests. |
-| **WebSocket** | **`$connect`**: **`roomId`** + **`sessionId`**; **publisher paths** additionally require **JWT** whose **`sub`** matches **`room.hostSub`** (authorizer or Lambda validation). Map **`connectionId → roomId`** (+ optional **`sub`** / **`sessionId`** metadata). |
+| **WebSocket** | **`$connect`**: **`roomId`** + **`sessionId`**; optional fan JWT (**query `accessToken`** or **`Authorization`**) stores **`fanSub`**. **Host-only control routes** (**`share_state`**, **`room_mode`**, **`av_disabled`**) require connection row **`hostSub === room.hostSub`**. Map **`connectionId → roomId`** (+ optional **`fanSub`** / **`sessionId`** metadata). |
+| **SFU join token** | **`POST /v1/webrtc/sfu-token`**: **`X-Session-Id`** + active presence row required; **`Authorization`** fan JWT required for **producer** grants. Host screen-share producer: **`JWT.sub === room.hostSub`**. Participant A/V producer: **`fanSub`** on connection row, room **`avDisabled`** false, caller not anonymous. **403** when kill switch on or prerequisites missing. |
+
+## WebRTC publish tiers
+
+| Tier | Who | SFU producer class | Notes |
+| --- | --- | --- | --- |
+| **Host screen share** | **`JWT.sub === room.hostSub`** only | **`host_screen`** (video + audio from tab capture) | Distinct from participant **`getUserMedia`**; host may hold **both** host screen and participant A/V producers concurrently. |
+| **Participant A/V** | Signed-in fan with **`fanSub`** on WS connection | **`participant_av`** (camera and/or mic) | **Not** anonymous guests; denied when **`avDisabled`** is true (server-enforced: no new tokens, active producers torn down). |
+| **Consumer** | Any connected participant (guest or fan) | N/A — SFU **consumer** role | Subscribes to host screen and/or participant producers per **`roomMode`** and kill-switch rules (**`api_contracts.md`**). |
 
 ## Rules (domain)
 
-- **Room-admin authority:** only **`JWT.sub === room.hostSub`** may publish WebRTC signaling or mutate authoritative playback metadata.
+- **Room-admin authority:** only **`JWT.sub === room.hostSub`** may mutate authoritative playback metadata, **`roomMode`**, **`avDisabled`**, host tab-capture lifecycle, and host-only WebSocket control actions.
+- **Participant publish:** signed-in non-host fans and the host (when using participant toggles) may publish **participant A/V** only; never room-admin playback or layout fields.
+- **AV kill switch (server-enforced):** when **`avDisabled`** is true, deny new participant producer SFU tokens, tear down active participant producers on the SFU, and broadcast authoritative disabled state; room reverts to movie + text chat (no participant A/V publish or consumption).
 - **Moderation:** target **`sessionId`** / **`connectionId`** for anonymous guests; **`sub`** for signed-in hosts (**`docs/architecture.admin.md`**).
-- **Principle:** never require an IdP to **browse catalog**, **join**, **watch**, or **read** room chat; **do** require **fan JWT** to **send** chat (text/emoji/GIF), **react**, **upload avatar**, or **host**.
+- **Principle:** never require an IdP to **browse catalog**, **join**, **watch**, or **read** room chat; **do** require **fan JWT** to **send** chat (text/emoji/GIF), **react**, **upload avatar**, **publish participant A/V**, or **host**.
 
 ## Decisions (answered)
 
@@ -53,8 +65,19 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | Same Cognito pool for fans and staff? | **No** — **separate staff user pool** and staff SPA client; independent token stores in the browser. |
 | Fan + staff session in one browser? | **Allow coexistence** — staff sign-out clears **staff** tokens only; fan hosting and guest **`sessionId`** continue unaffected. |
 | Who enforces **`cognito:groups`**? | **Lambdas** (and future route guards) after API Gateway staff JWT validation; authorizer does **not** filter by group. |
-| JWT on WebSocket? | **Required** for **publisher/admin** signaling paths (**`sub === hostSub`**); **guest** subscriptions may be **`sessionId`**-only if architecture keeps signaling separate—document chosen pattern in OpenAPI. |
+| JWT on WebSocket? | **Required** for **host control** routes and **fan send** paths; **`fanSub`** from verified JWT at **`$connect`** gates chat/react and participant publish eligibility. Anonymous **`sessionId`**-only connect remains valid for subscribe-only participation. |
 | Admin role claims MVP? | **`cognito:groups`** on **staff** pool tokens (e.g. **`admin`**, **`curator`**); Lambdas read group membership from the authorizer context. **Custom JWT claims** for roles are **out of scope** until IAM/Cognito needs them. |
+| Who may publish participant camera/mic? | **Signed-in fans only** (**fanSub** on connection); anonymous guests **subscribe-only** for participant A/V. |
+| AV kill switch enforcement? | **Server-enforced** — deny SFU participant producer tokens, tear down active participant producers, broadcast **`avDisabled`**; not client-cooperative-only. |
+| Host participant A/V while screen sharing? | **Allowed** — host may publish **participant A/V** alongside **host screen** (two video sources on the same SFU router). |
+
+## Open implementation decisions
+
+- Exact **`SfuJoinClaims`** shape: e.g. **`producerClass`**: **`host_screen`** \| **`participant_av`** vs extending binary **`role`**; include **`sub`** / **`fanSub`** on participant producer tokens for audit and rate limits.
+- Whether one SFU join token covers **both** participant camera and mic producers per session or separate mint per track kind.
+- Host with concurrent **host screen** + **participant A/V**: single SFU WebSocket session with multiple producers vs separate sessions (Architect default: **one session per tab**).
+- **`webrtc-sfu-token`** **403** error body discriminator when **`avDisabled`**, missing **`fanSub`**, or publisher cap exceeded (client UX copy).
+- Per-**`sub`** rate limit for participant producer token minting (mirror Giphy/chat throttle patterns in IaC).
 
 ## Primary code pointers (optional)
 

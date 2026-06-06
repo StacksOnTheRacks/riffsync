@@ -1,9 +1,9 @@
 # Index — runtime
 
-Scopes **Lambda/API execution**, **configuration**, **bootstrap/shutdown** (serverless equivalents).
+Scopes **Lambda/API execution**, **EC2 mediasoup SFU**, **browser SPA** bootstrap, **configuration**, and **shutdown** across control plane (API Gateway WebSocket) and media plane (direct SFU WebSocket).
 
-- Child contracts: **`execution_model.md`** (includes **AWS CDK** + TypeScript Lambda standard), **`configuration.md`**, **`startup_bootstrap.md`**, **`lifecycle_shutdown.md`**.
-- See **`docs/architecture.server.md`** for component diagram.
+- Child contracts: **`execution_model.md`** (includes **AWS CDK** + TypeScript Lambda standard and **EC2 SFU** process), **`configuration.md`**, **`startup_bootstrap.md`**, **`lifecycle_shutdown.md`**.
+- See **`docs/architecture.server.md`** and **`docs/architecture.frontend.md`** for component diagrams.
 
 ## Scope
 

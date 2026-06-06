@@ -8,6 +8,7 @@ Scopes **domain concepts**, **user stories**, **errors** and recovery UX—not U
 ## Scope
 
 - Record durable constraints and boundaries for this domain.
+- Covers **room layout mode** (**Theater** | **Video Chat**), **participant camera/microphone** eligibility and lifecycle, and the host **AV kill switch** alongside existing host capture and chat rules.
 - Keep this file aligned with mapped child contracts.
 
 ## Primary code pointers (optional)

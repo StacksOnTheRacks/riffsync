@@ -60,6 +60,22 @@ The **single** fan SPA artifact (**`RiffSyncStatic-prod`**, **`https://riffsync.
 | --- | --- |
 | Feature flags? | **Optional** (SSM, AppConfig, LaunchDarkly); **not** contractually required for MVP. |
 
+## SFU (EC2) configuration surface
+
+Non-secret env knobs on the **`riffsync-sfu`** process (exact names in IaC):
+
+- **Capacity:** max WebRTC transports per session, max consumers per session, mediasoup RTC port range, announced public IP for ICE.
+- **Room lifecycle:** room idle timeout before SFU tears down empty signaling room state.
+- **Multi-publisher:** per-room or per-session producer caps enforced at SFU request handling (403 or error response), not client-only.
+
+SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU WebSocket URL (or token-embedded **`wsUrl`**). Participant AV uses the **same** SFU signaling host as host screen share; no separate media endpoint.
+
+## Open implementation decisions
+
+- New SFU env vars for max producers per room/session; defaults safe for target party scale (~8 concurrent AV publishers per room).
+- Whether SPA needs a new build-time flag for participant AV feature gate beyond existing **`VITE_WEBRTC_USE_MEDIASOU_SFU`**.
+- CDK wiring for **`SFU_PUBLIC_WS_URL`** unchanged; document that participant path shares host signaling URL.
+
 ## Primary code pointers (optional)
 
 - `.env.example` (local only); **AWS CDK** app context (**`prod`** for hosted stacks; default in **`infra/cdk/cdk.json`**).
