@@ -9,7 +9,6 @@ import {
   fetchCatalogEpisodeById,
   CATALOG_HTTP_MAX_AGE_MS,
   type CatalogFetchResult,
-  type CatalogEpisodeByIdResult,
 } from './catalogApi'
 import type { CatalogEpisode } from './catalogTypes'
 
@@ -46,13 +45,8 @@ export function clearStoredCatalogEtags(): void {
 function resolveNotModified<T>(
   client: QueryClient,
   queryKey: readonly unknown[],
-  label: string,
 ): T | undefined {
-  const cached = client.getQueryData<T>(queryKey)
-  if (cached === undefined) {
-    return undefined
-  }
-  return cached
+  return client.getQueryData<T>(queryKey)
 }
 
 async function runCatalogListQuery(
@@ -64,7 +58,7 @@ async function runCatalogListQuery(
   let etag = getStoredEtag(ctx.queryKey)
   let result = await tryFetch(etag)
   if (result.kind === 'notModified') {
-    const cached = resolveNotModified(ctx.client, ctx.queryKey, 'Catalog list')
+    const cached = resolveNotModified<CatalogEpisode[]>(ctx.client, ctx.queryKey)
     if (cached !== undefined) {
       return cached
     }
@@ -91,7 +85,7 @@ async function runCatalogEpisodeQuery(
   let etag = getStoredEtag(ctx.queryKey)
   let result = await tryFetch(etag)
   if (result.kind === 'notModified') {
-    const cached = resolveNotModified(ctx.client, ctx.queryKey, 'Catalog episode')
+    const cached = resolveNotModified<CatalogEpisode | null>(ctx.client, ctx.queryKey)
     if (cached !== undefined) {
       return cached
     }
