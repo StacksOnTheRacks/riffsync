@@ -4,6 +4,8 @@
  */
 export type CatalogEra = 'joel' | 'mike' | 'jonah' | 'emily' | 'other'
 
+export const CATALOG_ERAS: readonly CatalogEra[] = ['joel', 'mike', 'jonah', 'emily', 'other']
+
 /** Title-case label for chips and banners (e.g. `joel` → Joel). */
 export function formatCatalogEraLabel(era: CatalogEra): string {
   return era.replace(/^./, (c) => c.toUpperCase())
