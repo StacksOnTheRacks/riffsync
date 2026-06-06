@@ -55,7 +55,7 @@ async function runCatalogListQuery(
 ): Promise<CatalogEpisode[]> {
   const tryFetch = async (etag?: string) => fetcher(etag)
 
-  let etag = getStoredEtag(ctx.queryKey)
+  const etag = getStoredEtag(ctx.queryKey)
   let result = await tryFetch(etag)
   if (result.kind === 'notModified') {
     const cached = resolveNotModified<CatalogEpisode[]>(ctx.client, ctx.queryKey)
@@ -82,7 +82,7 @@ async function runCatalogEpisodeQuery(
 
   const tryFetch = async (etag?: string) => fetchCatalogEpisodeById(id, etag)
 
-  let etag = getStoredEtag(ctx.queryKey)
+  const etag = getStoredEtag(ctx.queryKey)
   let result = await tryFetch(etag)
   if (result.kind === 'notModified') {
     const cached = resolveNotModified<CatalogEpisode | null>(ctx.client, ctx.queryKey)
