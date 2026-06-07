@@ -38,9 +38,9 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 ## WebSocket (API Gateway WebSocket API)
 
-- **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **WebRTC signaling** (SDP / ICE relay — schemas TBD), **`chat`** (text/emoji and **Giphy GIF** posts), **`react`** (emoji reaction add/remove on a **`messageId`**), **`ping`** (liveness for **`lastActivityAt`**), **`share_state`** (host screen-share lifecycle), **`room_mode`** (host layout: **`theater`** \| **`videoChat`**), **`av_disabled`** (host AV kill switch: **`enabled`** \| **`disabled`** or boolean **`avDisabled`**).
+- **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **WebRTC signaling** (SDP / ICE relay — schemas TBD), **`chat`** (text/emoji and **Giphy GIF** posts), **`react`** (emoji reaction add/remove on a **`messageId`**), **`ping`** (liveness for **`lastActivityAt`**), **`share_state`** (host screen-share lifecycle). **Durable** **`roomMode`** and **`avDisabled`** changes use **HTTP `PATCH` only** — no inbound **`room_mode`** / **`av_disabled`** WebSocket application routes; **`room-patch` Lambda** fans out outbound **`room_mode`** / **`av_disabled`** broadcasts after Dynamo commit (#103).
 - **Chat payloads (broadcast):** discriminated by **`type`** — e.g. **`chat`** (text/unicode emoji), **`chat_gif`** (**`giphyId`**, rendition URL, optional title/dimensions), **`chat_reaction`** (**`messageId`**, emoji, **`action`**: add | remove, **`sessionId`** / sender identity). Each chat line carries client-generated **`messageId`** (UUID) within scrollback. Server enriches with **`displayName`** and optional **`avatarUrl`** for signed-in senders.
-- **Room control fan-out (broadcast):** discriminated by **`type`** — **`share_state`** (**`state`**: **`started`** \| **`stopped`**, optional **`shareGeneration`**); **`room_mode`** (**`roomMode`**: **`theater`** \| **`videoChat`**, **`sessionId`**, **`ts`**); **`av_disabled`** (**`avDisabled`**: boolean, **`sessionId`**, **`ts`**). Host-only inbound actions mirror **`share_state`** authority (**`JWT.sub === hostSub`** on connection).
+- **Room control fan-out (broadcast):** discriminated by **`type`** — **`share_state`** (**`state`**: **`started`** \| **`stopped`**, optional **`shareGeneration`**); **`room_mode`** (**`roomMode`**: **`theater`** \| **`videoChat`**, **`roomId`**, **`sessionId`**, **`ts`**, optional **`version`**); **`av_disabled`** (**`avDisabled`**: boolean, **`roomId`**, **`sessionId`**, **`ts`**, optional **`version`**). **`share_state`** is host-inbound over WebSocket; **`room_mode`** / **`av_disabled`** are **outbound-only** from **`room-patch`** after host **`PATCH`** succeeds (**`JWT.sub === hostSub`** on HTTP caller).
 - **Send auth:** **`chat`**, **`chat_gif`**, and **`react`** require **fan JWT** on the connection (or per-action validation); anonymous **`sessionId`** connections are **receive-only** for chat fanout.
 - **Connect context:** **`roomId`** required; **`sessionId`** for guest envelope; fan JWT at **`$connect`** (**query `accessToken`** or **`Authorization`**) stores **`fanSub`** and marks host publisher when **`sub === hostSub`**.
 - **Room-admin only:** durable playback-intent updates, **`roomMode`**, **`avDisabled`**, and **host screen-share** signaling; server validates **`JWT.sub === hostSub`** before accepting host control envelopes or mutating authoritative room fields.
@@ -104,11 +104,16 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 - **Cap enforcement:** **Both** Lambda (mint-time estimate + **`avDisabled`** gate) **and** SFU service **`SFU_MAX_*`** at **`produce`**.
 - **Token refresh:** Re-mint on SFU signaling reconnect or **~60s before `exp`** while tracks remain active (#104 implements client timer).
 
-## Open implementation decisions (#103 / WebSocket)
+## Decisions (answered — #103 WebSocket fan-out)
 
-- **`room_mode`** / **`av_disabled`** vs unified host action (e.g. **`room_av_control`**) and exact inbound JSON field names; align with **`docs/contracts.websocket.md`** when updated.
-- Whether host **`PATCH`** alone triggers **`PostToConnection`** fan-out or the SPA sends a follow-up WS action after successful **`PATCH`** (prefer **server fan-out after durable write** — #103).
-- **`room_mode`** fan-out payload: include full room snapshot subset vs **`roomMode`** + **`ts`** only.
+| Question | Decision |
+| --- | --- |
+| Unified **`room_av_control`** vs separate types? | **Separate outbound `type`** values **`room_mode`** and **`av_disabled`** — not a unified action. |
+| Inbound WebSocket routes for durable fields? | **No** — host **`PATCH /v1/rooms/{roomId}`** only; avoids duplicate mutation paths. |
+| Fan-out trigger? | **`room-patch` Lambda** after successful conditional Dynamo write; SPA **does not** send follow-up WS actions for **`roomMode`** / **`avDisabled`**. |
+| **`room_mode`** payload? | **Minimal** — **`roomMode`**, **`roomId`**, **`sessionId`**, **`ts`** (epoch ms), optional **`version`**; not a full room snapshot. |
+| **`av_disabled`** payload? | **Minimal** — boolean **`avDisabled`**, **`roomId`**, **`sessionId`**, **`ts`**, optional **`version`**. |
+| **`sessionId` on fan-out?** | From host **`X-Session-Id`** on **`PATCH`** when present; clients treat field values as authoritative regardless. |
 
 ## Open implementation details
 

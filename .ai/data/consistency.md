@@ -35,13 +35,19 @@
 
 | Question | Decision |
 | --- | --- |
-| **`roomMode`** → **`videoChat`** with active tab capture? | **Single atomic host `PATCH`** with **`roomMode: videoChat`** and **`broadcastCaptureActive: false`** (#109). On **`409`**, client refreshes snapshot and retries with updated **`version`** — no server-side merge of partial field intent across conflicting writes. |
+| **`roomMode`** → **`videoChat`** with active tab capture? | **Single atomic host `PATCH`** with **`roomMode: videoChat`** and **`broadcastCaptureActive: false`** (#109). On **`409`**, client refreshes snapshot and retries with updated **`version`** — no server-side merge of partial field intent across conflicting writes. One **`room_mode`** fan-out after commit (#103). Client still sends local **`share_state: stopped`** per #104. |
+
+## Decisions (answered — #103 fan-out)
+
+| Question | Decision |
+| --- | --- |
+| Kill-switch ordering (#102 / #103)? | Durable **`avDisabled`** write → SFU **`/admin/teardown-producers`** (#112) → **`av_disabled`** WebSocket fan-out → token mint denial (#111/#112). In-flight **`produce`** after teardown may fail at SFU or close shortly; clients unpublish on **`av_disabled`** (#104). |
+| WS fan-out timing? | **After Dynamo commit only** — no optimistic **`PostToConnection`** before conditional write succeeds. |
+| SFU producer vs **RoomPresence** staleness? | **Out of scope #103** — layout runtime (#104/#105) reconciles SFU events with roster. |
 
 ## Open implementation decisions
 
-- **Kill-switch ordering (#102 / #103):** durable **`avDisabled`** write → SFU **`/admin/teardown-producers`** (#112) → **`av_disabled`** WebSocket fan-out → token mint denial (#111/#112). In-flight **`produce`** after teardown may fail at SFU or close shortly; clients unpublish on **`av_disabled`** (#104).
-- Whether WebSocket **`room_mode`** / **`av_disabled`** messages are emitted only after Dynamo commit or optimistically before ack — **#103** (prefer **after commit only**).
-- SFU producer list freshness vs **RoomPresence** roster for layout — **#104** / **#105**.
+- (none for #103 WebSocket fan-out scope)
 
 ## Primary code pointers (optional)
 
