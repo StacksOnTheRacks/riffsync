@@ -23,9 +23,24 @@
 | --- | --- |
 | **Reconcile TMDB failure** | Per-row retry next run; **`PutMetricData`** **`Failed`** count; partial batch success allowed. |
 
-## Open implementation decisions
+## Kill-switch WebSocket fan-out (#103 / #116)
 
-- **Kill-switch WebSocket envelope:** exact event shape for force-unpublish alongside durable **`avDisabled`** on room document (integration owns wire format; business outcome is immediate participant A/V teardown for all connected clients).
+After durable **`avDisabled`** write on room document, room **`PATCH`** Lambda fans out (no inbound WS mutation route):
+
+```json
+{
+  "type": "av_disabled",
+  "roomId": "<uuid>",
+  "sessionId": "<host-session-id>",
+  "avDisabled": true,
+  "ts": 1717700000000,
+  "version": 42
+}
+```
+
+- **`avDisabled: false`** on re-enable uses the same envelope with boolean **false**; no SFU teardown call on re-enable.
+- **Business outcome:** all connected clients unpublish / unsubscribe participant A/V immediately; toggles reflect disabled state (**`error_state.md`**).
+- Ordering: Dynamo commit → SFU **`/admin/teardown-producers`** (when disabling) → **`PostToConnection`** fan-out (**`data/consistency.md`**).
 
 ## Primary code pointers (optional)
 

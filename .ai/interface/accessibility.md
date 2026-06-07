@@ -36,15 +36,27 @@ Accessible-by-default contract for presentation and interaction surfaces.
 
 ### Errors
 
-- Permission, device, and SFU errors use **text** associated with the triggering control or a dedicated status region — not toast-only for blocking failures.
+- Permission, device, and SFU errors use **text** associated with the triggering control or a dedicated **`role="status"`** region — **not toast-only** for blocking failures.
+- Each toggle's error text is referenced by **`aria-describedby`** when publish fails; errors clear when the user successfully enables or dismisses via a successful retry.
+- Stable **`code`** values and copy templates live in **`error_state.md`** (**Participant A/V error taxonomy**).
+
+### Keyboard verification matrix (#106)
+
+| Surface | Requirement |
+| --- | --- |
+| Camera / Microphone toggles | **Tab** reachable on every sidebar tab; **Enter** / **Space** toggles when enabled; **disabled** toggles remain focusable with explanation |
+| Host room mode control | Radio-group or select semantics; current mode exposed to assistive tech |
+| Host AV kill switch | Pressed/checked state programmatically determinable |
+| Live announcer | Mode and kill-switch **remote** changes announce via **`#riffsync-a11y-announcer`** (`aria-live="polite"`) |
+| Narrow viewport tiles | Horizontal scroll row tiles have per-tile accessible names (**You** / display name); row is not sole identity source |
 
 ## Theater fullscreen
 
 - Fullscreen wrapper including participant strip/grid must preserve **escape** to exit fullscreen and not trap keyboard focus inside video elements.
 
-## Open implementation decisions
+## Out of scope (post-M14)
 
-- **Captioning / transcription** for participant audio — out of scope in MVP; expanded error/a11y matrices tracked in **#106**.
+- **Captioning / live transcription** for participant audio — not in M14; no MVP placeholder UI.
 
 ## Primary code pointers (optional)
 

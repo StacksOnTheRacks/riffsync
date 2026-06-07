@@ -73,11 +73,11 @@ Participant camera/microphone ships through the **same** artifact graph as host 
 | SFU token mint, WebSocket fan-out | **`RiffSyncApi-prod`** Lambdas |
 | mediasoup multi-producer SFU | **`services/riffsync-sfu`** → **`RiffSyncTurn`** S3 bundle via **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** or phase 1 of **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** |
 
-Media-only SFU hotfixes may use **`deploy-turn.yml`** without a full platform/API/SPA sequence. Post-deploy verification extends **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)** (see **`## Open implementation decisions`**).
+Media-only SFU hotfixes may use **`deploy-turn.yml`** without a full platform/API/SPA sequence. Post-deploy verification extends **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)** (including multi-publisher participant AV section).
 
-## Open implementation decisions
+## SFU deploy checklist (#106)
 
-- **`docs/sfu-deploy-checklist.md`:** Add multi-publisher cases — N signed-in fans publish camera+mic; Theater mixed participant audio with movie; Video Chat grid; host AV kill switch clears participant producers; mid-party join with existing publishers; SFU signaling drop recovery with multiple producers.
+Post-deploy verification for participant AV extends **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)** with multi-publisher cases (section **Multi-publisher participant AV**). Run after **`deploy-turn.yml`** or full **`deploy-prod.yml`** when SFU, token mint, or SPA AV error surfaces change.
 
 ## Primary code pointers (optional)
 

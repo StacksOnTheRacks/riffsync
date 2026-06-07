@@ -56,11 +56,46 @@ Manual workflow **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)**
 
 SFU runtime guardrails (**`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`**, **`SFU_MAX_CONSUMERS_PER_SESSION`**, RTC port range) must align with the per-room publisher ceiling when wired through EC2 user-data.
 
-## Open implementation decisions
+## SFU runtime env on EC2 (#106)
 
-- **SFU runtime env on EC2:** Wire **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`**, **`SFU_MAX_CONSUMERS_PER_SESSION`**, and optionally **`MEDIASOUP_RTC_MIN/MAX_PORT`** through CDK user-data **`/etc/riffsync-sfu.env`** (today only **`SFU_JWT_SECRET`**, **`PORT`**, **`MEDIASOUP_ANNOUNCED_IP`**, RTC min/max are set in **`media-server-stack.ts`**).
-- **Redeploy runbook:** Document when participant AV SFU changes require **`deploy-turn.yml`** vs full **`deploy-prod.yml`**, and post-deploy **`curl`** **`/healthz`** + checklist steps for multi-publisher scenarios.
-- **Capacity worksheet:** Back-of-envelope bandwidth and mediasoup worker limits for **8** concurrent publishers per room; input to EC2 instance type review (**`t3.medium`** vs upsize).
+CDK user-data writes **`/etc/riffsync-sfu.env`** (systemd **`EnvironmentFile`**). Required and participant-AV caps:
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| **`SFU_JWT_SECRET`** | (Secrets Manager) | Existing |
+| **`PORT`** | **3000** | Existing |
+| **`MEDIASOUP_ANNOUNCED_IP`** | EIP | Existing |
+| **`MEDIASOUP_RTC_MIN_PORT`** / **`MAX_PORT`** | **40000–49999** | Existing in **`media-server-stack.ts`** |
+| **`SFU_MAX_PRODUCERS_PER_SESSION`** | **3** | Host screen + participant video + audio on one tab |
+| **`SFU_MAX_PRODUCERS_PER_ROOM`** | **24** | ~8 fans × 2 tracks + host headroom |
+| **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`** | **8** | Align with multi-consumer sessions |
+| **`SFU_MAX_CONSUMERS_PER_SESSION`** | **64** | Theater grid + strip consumers |
+
+Lambda mint-time **`publisher_cap_exceeded`** estimate uses **8 fan publishers** (not raw producer count).
+
+## Redeploy runbook (#106)
+
+| Change | Workflow | Post-deploy |
+| --- | --- | --- |
+| **`services/riffsync-sfu`** only | **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** | **`docs/sfu-deploy-checklist.md`** through step 6 + multi-publisher section |
+| **`webrtc-sfu-token`** / room PATCH | **`deploy-prod.yml`** phase 3 (API) | Token denial smoke + checklist |
+| SPA error copy / a11y | **`deploy-prod.yml`** phase 5 (SPA) | Manual toggle error smoke |
+| CDK SFU env / alarms | **`deploy-turn.yml`** (media stack) | **`curl /healthz`** + optional alarm verification |
+
+Always run **`curl -sSf "${SFU_HTTP}/healthz"`** after media deploy before announcing AV-ready.
+
+## Capacity worksheet (#106)
+
+Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room on **`t3.medium`** SFU:
+
+| Assumption | Value |
+| --- | --- |
+| Video per publisher | ~720p24 simulcast-friendly; ~1–2 Mbps uplink per active camera |
+| Audio per publisher | ~50 Kbps Opus |
+| **8** fans video-on | ~8–16 Mbps aggregate SFU ingress (order-of-magnitude) |
+| Consumers | N viewers × M remote tiles scales **`SFU_MAX_CONSUMERS_PER_SESSION`** |
+
+**Comfort zone:** tens of simultaneous AV-active rooms on singleton **`t3.medium`** before instance-type review. Upsize trigger: sustained CPU > 80% (optional alarm) or frequent **`TransportLimitRejected`** / **`ConsumerLimitRejected`** counters.
 
 ## Primary code pointers (optional)
 

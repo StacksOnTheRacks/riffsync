@@ -45,12 +45,48 @@ Participant AV increases silent degradation risk on the **singleton** mediasoup 
 - Relying on **admin HTTP** as the only reporting path for core KPIs.
 - Per-room or per-session SFU telemetry that would explode CloudWatch cost at party scale.
 
-## Open implementation decisions
+## `RiffSync/Media` metrics (#106)
 
-- **SFU signal classes:** Define aggregate metrics namespace (e.g. **`RiffSync/Media`**) with dimensions **`Environment`**, **`Signal`** only: SFU health probe success, **`workerAlive`**, aggregate **`signalingConnections`**, **`routerRoomCount`**, transport/consumer limit rejections (counter, no room id).
-- **EC2 alarms:** Optional IaC **`AWS::CloudWatch::Alarm`** on SFU instance CPU/network and/or synthetic **`/healthz`** check; threshold values and SNS wiring left to **`/refine-issue`**.
-- **Log path:** Decide whether SFU structured JSON logs ship to **CloudWatch Logs** (agent/cron) vs maintainer **SSM session + journalctl** only; align with OSS cost posture.
-- **Worker failure runbook:** Operator steps when mediasoup **`worker.on('died')`** fires (all rooms cleared on instance); tie to **`/healthz`** and instance reboot policy.
+Aggregate namespace for participant AV and SFU health. Dimensions **`Environment`**, **`Signal`** only — **no** **`roomId`**, **`sessionId`**, or **`sub`**.
+
+| **`Signal`** | Type | Source |
+| --- | --- | --- |
+| **`HealthProbeSuccess`** | counter | Synthetic or operator **`curl /healthz`** (optional external probe) |
+| **`WorkerAlive`** | gauge (0/1) | Parsed from **`/healthz`** **`workerAlive`** on scrape |
+| **`SignalingConnections`** | gauge | **`/healthz`** **`signalingConnections`** |
+| **`RouterRoomCount`** | gauge | **`/healthz`** **`routerRoomCount`** |
+| **`TransportLimitRejected`** | counter | SFU process when **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`** blocks |
+| **`ConsumerLimitRejected`** | counter | SFU process when **`SFU_MAX_CONSUMERS_PER_SESSION`** blocks |
+| **`SfuTokenDenied`** | counter | Lambda **`webrtc-sfu-token`** denials; optional second dimension **`Reason`** (`av_disabled`, `publisher_cap_exceeded`, `rate_limited`, …) — **no** **`fanSub`** |
+
+Emit via SFU stdout EMF or **`PutMetricData`** from a lightweight scrape Lambda later; MVP may start with **`/healthz`** manual checks plus SFU JSON logs.
+
+## EC2 alarms (optional, OSS posture)
+
+| Alarm | Metric | Threshold | Action |
+| --- | --- | --- | --- |
+| **SFU high CPU** | **`AWS/EC2` CPUUtilization** on SFU instance | **> 80%** for **5** consecutive minutes | Optional SNS email to maintainer |
+| **SFU status check** | **`StatusCheckFailed`** | **≥ 1** for **2** minutes | Optional SNS email |
+
+No mandatory PagerDuty. Tune in **`media-server-stack.ts`** when wired.
+
+## SFU log path (#106)
+
+- **MVP:** Structured JSON on SFU EC2 **stdout** / **journalctl**; operators use **SSM Session Manager** + **`journalctl -u riffsync-sfu -f`**.
+- **No** CloudWatch Logs agent on SFU EC2 in MVP (cost posture). Maintainer may add agent later without contract change.
+
+## Worker failure runbook (#106)
+
+When mediasoup **`worker.on('died')`** fires (all room routers on the instance are cleared):
+
+1. Confirm **`curl -sSf "${SFU_HTTP}/healthz"`** shows **`workerAlive: false`** or probe failure.
+2. Check **`journalctl -u riffsync-sfu`** for **`worker died`** JSON line.
+3. **Restart** SFU systemd unit: **`sudo systemctl restart riffsync-sfu`** (user-data installs unit).
+4. Re-probe **`/healthz`** — expect **`workerAlive: true`**, **`routerRoomCount: 0`** until rooms reconnect.
+5. If restart fails twice, **reboot EC2** instance via console or **`aws ec2 reboot-instances`**.
+6. Notify active parties via community channel if sustained outage; no in-app SLA copy.
+
+Document these steps in **`infra/cdk/README.md`** SFU section and **`docs/sfu-deploy-checklist.md`**.
 
 ## Primary code pointers (optional)
 
