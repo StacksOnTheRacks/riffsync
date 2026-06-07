@@ -54,12 +54,17 @@ Runtime topology: **AWS serverless MVP** (**`docs/architecture.server.md`**).
 | **Two tabs per fan** | **Allow** — each tab **`sessionId`** may publish independently; per-room cap is the abuse guard (no **`fanSub`** dedupe MVP). |
 | **Caps (env)** | **`SFU_MAX_PRODUCERS_PER_SESSION`** default **3**; **`SFU_MAX_PRODUCERS_PER_ROOM`** default **24**. Enforced at **`produce`**; Lambda mirrors room-level estimate at mint. |
 
-## Client mapping (handoff to #104 / #105)
+## Client participant AV runtime (#104)
 
-- Map **`newProducer`** / **`producerClosed`** to strip/grid tiles by **`sessionId`** + **`producerClass`**.
-- Mic mute with camera on: prefer **`producer.pause()`** / **`resume()`** on the audio producer (#104).
-- Page Visibility: leave participant producers running for MVP (#104 may revisit battery policy).
-- Module layout (**`sfuRoomSession`** extension vs helper) is a #104 implementation choice; SFU contract above is normative.
+| Topic | Contract |
+| --- | --- |
+| **Single session per tab** | One SFU WebSocket + one mediasoup send/receive transport pair per browser tab. Host may publish **`host_screen`** and **`participant_av`** concurrently; all participants attach multiple remote consumers via **`newProducer`** / **`producerClosed`** events on that session. |
+| **Tile routing** | Map strip/grid attachment to **`sessionId`** + **`producerClass`** + **`kind`** from SFU events. No **`fanSub`** dedupe across tabs in MVP — two tabs from one fan appear as two tiles when both cameras are on. |
+| **Mic mute with camera on** | **`producer.pause()`** / **`resume()`** on the audio producer; camera track stays live. |
+| **Page Visibility** | Leave participant producers running for MVP; battery policy revisit is out of scope. |
+| **Module layout** | Extend **`sfuRoomSession`** and/or add **`participantAvSession`** helper — implementation choice; SFU registry contract above is normative. |
+| **Theater audio mix** | **Web Audio API** graph: host movie audio + each **`participant_av`** audio consumer at equal gain (**1.0**); no automatic ducking in MVP. |
+| **Reconnect privacy** | After refresh or disconnect, local camera and microphone state **default off**; fan must manually re-enable (no sessionStorage persistence of publish intent). |
 
 ## Primary code pointers (optional)
 

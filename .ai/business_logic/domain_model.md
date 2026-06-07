@@ -75,9 +75,15 @@ Three coexisting modes (see **`integration/authorization.md`**):
 
 ## Open implementation decisions
 
-- **Room document field names:** exact attribute keys for **`roomMode`** and **`avDisabled`** on the room item (data/integration own persistence shape; business rule is durable host-admin fields on snapshot/join).
-- **Participant tile identity:** map strip/grid tiles to **`sessionId`** vs **`sub`** when one fan has multiple tabs; dedupe rules for concurrent publishes from the same fan.
-- **Theater audio mixing:** client-side gain/ducking when movie audio and multiple participant mics are active; behavior when kill switch is off but host tab-capture is not active.
-- **Mode transition edge cases:** UX when switching to **Video Chat** with no video-on participants; when switching to **Theater** before host has ever started tab-capture.
+- **Room document field names:** exact attribute keys for **`roomMode`** and **`avDisabled`** on the room item (**#101** / data/integration own persistence shape; business rule is durable host-admin fields on snapshot/join).
+- **Mode transition empty-state UX:** copy and layout when switching to **Video Chat** with zero video-on participants, or **Theater** before host has started tab-capture (**#105** / **`interface/presentation.md`**).
+
+## Decisions (participant AV runtime — #104)
+
+| Question | Decision |
+| --- | --- |
+| Participant tile identity? | Strip/grid tiles keyed by **`sessionId`** + **`producerClass`** from SFU metadata. One fan with two tabs may appear twice when both publish camera — no **`fanSub`** dedupe in MVP. |
+| Theater audio mixing? | **Equal-gain** client-side mix (Web Audio **1.0** per source). Movie audio and participant mics play in parallel; **no** automatic ducking in MVP. When host tab-capture is inactive, participant mic audio still mixes normally. |
+| Kill switch client reaction? | Immediate local teardown on authoritative **`avDisabled`** WebSocket event — stop **`getUserMedia`**, close producers, tear down participant consumers. |
 
 - Domain services colocated with Lambda packages when implemented.

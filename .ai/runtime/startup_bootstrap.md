@@ -14,7 +14,7 @@
 - **Publish gate:** Participant camera/microphone publish requires signed-in fan JWT, open room WebSocket, active presence row, and **`avDisabled === false`**. Server refuses participant producer SFU tokens when kill switch is on.
 - **Media API separation:** Host lawful movie path uses **`getDisplayMedia`** (tab capture). Participant AV uses **`getUserMedia`**. Never substitute one for the other.
 - **Reconnect:** After refresh or disconnect, participant camera and microphone default **off**; fan must re-enable manually (privacy-first).
-- **Anonymous guests:** Subscribe-only for participant AV; no **`getUserMedia`** publish bootstrap. SFU consumer attach timing (eager on room entry vs lazy) is an open implementation decision below.
+- **Anonymous guests:** Subscribe-only for participant AV; no **`getUserMedia`** publish bootstrap. Attach participant AV SFU consumers **eagerly** after room snapshot + WebSocket open when **`avDisabled === false`**.
 - **General:** read **`sessionId`** / display name from **localStorage**; configure API Gateway **WebSocket URL** + HTTP **API base URL** from build-time env (**`architecture.frontend.md`**). **Production** SPA canonical page origin is **`https://riffsync.tv`** (**`.ai/runtime/configuration.md`**, **`.ai/project.json`** **`public_domain`**).
 - **Fan auth:** Hosted UI + PKCE on **`/auth/callback`**; fan tokens in the fan **localStorage** namespace; fan refresh and API attachment independent of staff.
 
@@ -33,16 +33,16 @@
 | Global Dynamo DAX? | **Not** MVP baseline. |
 | Room mode / kill switch bootstrap? | **Durable room snapshot** before layout render; do not wait for first WebSocket **`room_mode`** / **`avDisabled`** event. |
 | Video Chat host capture? | Entering **Video Chat** **fully stops** active tab-capture (not suspend); returning to **Theater** requires host **Share Source Tab** again. |
+| Participant toggle gating? | Camera/mic toggles activate only when **`wsStatus === 'open'`**, fan JWT present, and room snapshot **`avDisabled === false`**. |
+| **`getUserMedia`** profile? | **`{ video: { width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 }, frameRate: { ideal: 24, max: 30 } }, audio: { echoCancellation: true, noiseSuppression: true } }`**. If video permission denied but audio granted, allow **mic-only** publish (no camera producer). |
+| Anonymous guest consumer attach? | **Eager** after room snapshot + room WebSocket open when **`avDisabled === false`** — same cadence as guest host-screen consumer bootstrap. |
+| Token refresh while publishing? | Refetch fan access token on **401** from HTTP APIs; **`startSfuRoomSession`** reconnect loop picks up refreshed token on next iteration without preemptively tearing down active producers unless the token is invalid or revoked. |
+| Roster GSI race on participant token? | Reuse **`sfuRoomSession`** backoff — suppress user-visible token error for roster **403** on attempts **1–3** (same as host/guest race handling). |
 
 ## Open implementation decisions
 
-- Gate participant toggles on **`wsStatus === 'open'`**, fan JWT present, and server **`avDisabled`** flag from snapshot.
-- **`getUserMedia`** constraint profile (resolution, frame rate, echo cancellation) and fallback when video denied but audio allowed.
-- Anonymous guest SFU consumer attach: on room entry vs lazy when layout requires participant AV.
-- Token refresh while camera on: refetch interval vs on-401; overlap with **`startSfuRoomSession`** attempt counter.
-- **`webrtc-sfu-token`** branches for participant producer grant; **`avDisabled`** room attribute check at mint time.
-- Roster GSI retry/backoff for participant token (reuse host guest race handling in **`sfuRoomSession`**).
-- Rate limits on participant producer token mint per **`sub`**.
+- **`webrtc-sfu-token`** branches for participant producer grant and **`avDisabled`** check at mint time (**#102** / **`integration/api_contracts.md`**).
+- Rate limits on participant producer token mint per **`sub`** (**#102** / **`operations/security.md`**).
 
 ## Primary code pointers (optional)
 
