@@ -12,10 +12,13 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 
 ### Participant camera/microphone toggles
 
-- **Placement:** above chat compose; **always** in tab order regardless of active sidebar tab (**Chat**, **People**, **Room**, **Profile**).
+- **Placement:** above chat compose when fan JWT present; **omitted entirely** for anonymous guests (not in tab order, no overlay).
+- When rendered: **always** in tab order regardless of active sidebar tab (**Chat**, **People**, **Room**, **Profile**).
 - **Activation:** click or keyboard (**Enter** / **Space**) toggles local publish intent when enabled.
 - **Disabled state (host AV kill switch):** control receives focus but does not activate; **`aria-disabled="true"`** or native **`disabled`** with explanation text associated via **`aria-describedby`**.
-- **Unsigned / anonymous:** overlay blocks activation; primary action routes to fan sign-in (same interaction pattern as **Sign In to Chat**).
+- **No keyboard shortcuts** (e.g. mute hotkey) in MVP.
+- **Touch targets:** minimum **44×44** CSS px on toggles.
+- **Focus on sidebar tab change:** focus moves to the active tab panel; toggles remain earlier in tab order and reachable via Tab.
 
 ### Host control bar
 
@@ -37,13 +40,6 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 
 - Fullscreen enter/exit control remains keyboard-accessible.
 - When participant AV is in fullscreen scope, strip/grid tiles do not steal focus from fullscreen exit on open.
-
-## Open implementation decisions
-
-- Whether camera/mic toggles expose **keyboard shortcuts** (e.g. mute hotkey) in MVP.
-- Focus order when sidebar tab changes while a toggle had focus (restore vs move to tab panel).
-- Minimum **touch target** size for toggles and host bar controls on narrow viewports under reduced mobile scope.
-- Pointer vs keyboard path for **Sign In to Chat** overlay on AV controls when compose overlay pattern differs slightly.
 
 ## Primary code pointers (optional)
 

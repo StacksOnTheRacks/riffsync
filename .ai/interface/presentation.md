@@ -34,37 +34,42 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 ### Host control bar (below stage)
 
 - Visible only when **`JWT.sub === hostSub`**.
-- Holds **room mode** selector (**Theater** default, **Video Chat** alternate) and **AV kill switch** (disables all room participant AV publish and consumption; room reverts to movie + text chat only).
-- Extension point for future host share controls; room mode is the first occupant.
+- Flex row directly below the stage: **room layout** segmented control (**Theater** default, **Video Chat** alternate) on the left; **Disable room A/V** kill switch on the right. Wraps on narrow widths; extension point for future host share controls.
 - When **AV kill switch** is on, **Video Chat** selection is unavailable or inert until AV is re-enabled.
 
 ### Participant camera/microphone toggles
 
-- Two controls (**camera**, **microphone**) sit **above chat compose** in the sidebar.
-- **Always visible** regardless of active sidebar tab (**Chat**, **People**, **Room**, **Profile**) — session-level AV controls, not tab-scoped.
-- Icons reflect explicit on/off state for the local publisher.
-- Only **signed-in fans** may publish; **anonymous guests** see the same chrome with the existing **Sign In to Chat** overlay pattern at the controls (subscribe-only for participant AV).
-- When the host has disabled room AV, toggles **remain visible but disabled** with a short explanation that the host turned room A/V off.
+- Two controls (**Camera**, **Microphone**) sit **above chat compose** in the sidebar when the viewer has a **fan JWT** (signed-in fan or host using participant A/V).
+- **Not rendered** for **anonymous guests** — no toggle chrome and no sign-in overlay at this placement; guests remain subscribe-only for participant AV and use chat compose's existing **Sign In to Chat** overlay only for chat send.
+- When rendered, toggles stay **visible on every sidebar tab** (**Chat**, **People**, **Room**, **Profile**) — session-level AV controls, not tab-scoped.
+- Each control pairs an icon with a visible text label and reflects explicit on/off state for the local publisher.
+- When the host has disabled room AV, toggles **remain visible but disabled** with explanation copy: **"The host turned room A/V off."** (associated via **`aria-describedby`**).
 
 ### Theater room mode
 
 - Shared movie player (host tab-capture / guest inbound screen-share stream) stays **primary**.
-- A **vertical participant strip** sits **immediately right of the video** within the stage region (not in the chat column).
-- Strip lists **video-on** participants only; **mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat).
+- On viewports **≥ 992px**, a **vertical participant strip** sits **immediately right of the video** within the stage region (not in the chat column).
+- Strip lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab); **no speaking/active border hints** in MVP.
+- **Mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat).
+- The **local publisher** appears in the strip when their camera is on, labeled **You** (live preview tile).
 - The **host** appears in the strip when their camera is on, same as other signed-in fans.
+- When zero video-on participants, the strip container is **not rendered** (no empty chrome).
 - Participant **microphones** are audible alongside movie audio while AV is enabled.
 
 ### Video Chat room mode
 
-- The movie player region is **replaced** by a **grid** of **video-on** participants.
+- The movie player region is **replaced** by a **grid** of **video-on** participants on viewports **≥ 992px** (`auto-fill` tiles, **16:9**, scroll when overflow).
 - **Mic-only** participants are **excluded** from the grid; audio is still heard; identity via **People** tab and chat.
+- The **local publisher** appears in the grid when their camera is on, labeled **You**.
 - The **host** appears in the grid when their camera is on.
-- Entering **Video Chat** **fully stops** active host tab-capture; returning to **Theater** requires the host to activate **Share Source Tab** again (no warm-resume).
+- When zero video-on participants, show centered copy: **"No cameras on yet. Mic-only participants are still audible."**
+- Entering **Video Chat** **fully stops** active host tab-capture; returning to **Theater** requires the host to activate **Share Source Tab** again (no warm-resume). Reuse the existing host feedback/status region in stage chrome for **Share Source Tab** prompt when capture is inactive after a Theater return.
 
 ### Layout authority and fan-out
 
 - Only the host may change **room mode** or **AV kill switch**; changes are **host-authoritative** and reflected immediately for all participants (no guest confirm step).
-- Non-host participants see the active layout but cannot change mode.
+- Non-host participants see the active layout but cannot change mode; they **infer mode from layout** — no read-only mode badge or pill in stage chrome in MVP.
+- During Theater ↔ Video Chat swap, show brief inline status **"Updating room layout…"** in the stage until consumer attachment reflects the new mode or **3s** elapses (then show empty/sparse state). Cross-fade **200ms** opacity on swap unless **`prefers-reduced-motion: reduce`**, then **instant cut**.
 
 ### Errors and limits
 
@@ -73,8 +78,8 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 
 ### Viewport scope
 
-- **Desktop-first:** full Theater strip, Video Chat grid, and host control bar layouts are optimized for desktop viewports.
-- **Narrow/mobile:** honest **reduced** experience in MVP (participant AV surfaces may simplify or defer); do not imply parity with desktop layouts.
+- **Desktop (≥ 992px):** vertical Theater strip beside movie; Video Chat uses full-stage grid; host control bar uses full flex row.
+- **Narrow (< 992px):** honest **reduced** layout — participant video surfaces render as a **single horizontal scroll row** of tiles positioned **below** the movie primary region (Theater) or **below** the grid primary region (Video Chat). Toggles and host bar remain usable; do not imply desktop layout parity.
 
 ### Theater fullscreen with participant AV
 
@@ -89,19 +94,6 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 ## Operator framing
 
 - **Charts / health:** direct maintainers to **AWS CloudWatch** dashboards—**no in-app uptime SLA** promises for the OSS deployment.
-
-## Open implementation decisions
-
-- Labels and icons for camera/mic toggles, room mode selector, AV kill switch, and read-only mode indicator for non-host viewers.
-- **Empty / sparse states:** Video Chat grid with zero video-on participants; Theater strip empty; copy while host capture is stopped in Video Chat.
-- Strip ordering, grid pagination/scroll, max visible tiles, and speaking/active hints (if any).
-- Host control bar layout relative to future share controls; visual grouping and responsive wrapping on narrow viewports.
-- **Layout transition** motion and **`prefers-reduced-motion`** behavior when switching Theater ↔ Video Chat.
-- **Live region / screen-reader** announcements for room mode changes, kill switch, and local cam/mic state (see **`accessibility.md`**).
-- Narrow-viewport specifics for strip/grid/host bar (bottom sheet, collapse, or hide) under desktop-first MVP scope.
-- Whether **local self-preview** appears in strip/grid or only remote participants.
-- Tab-capture stop / **Share Source Tab** prompt **status line** in stage chrome during Video Chat ↔ Theater transitions.
-- Exact disabled-toggle explanation copy when host AV kill switch is on.
 
 ## Primary code pointers (optional)
 

@@ -8,7 +8,7 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | --- | --- |
 | **`/` / catalog** | Grid/list → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. |
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
-| **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV (**`authorization.md`**). |
+| **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
 | **`/lobby`** | Public rooms from **`GET` lobby API** → navigate to **`/room/:id`**. |
 | **`/admin/login`** | **Unlisted** operator gate (bookmark or direct URL only; no links from catalog or room chrome). Primary action starts **staff** Cognito Hosted UI + PKCE; copy makes clear this is **operators only**, not fan Facebook sign-in. |
 | **`/admin/auth/callback`** | Staff OAuth code exchange; on success navigates to stored **`returnTo`** or **`/admin`**; on failure shows **recoverable** error with **retry sign-in** (no silent blank shell). |
@@ -54,14 +54,14 @@ No new routes; AV extends the existing room shell.
 
 ### Signed-in fan flows
 
-1. **Enable camera/mic:** Toggle above compose (visible on any sidebar tab). Request device permission → mint SFU producer token → publish. Default **off** on join; **off** again after disconnect/refresh (manual re-enable).
-2. **Disable camera/mic:** Toggle off tears down local producer; strip/grid updates for remote viewers.
-3. **Anonymous or unsigned:** Controls show **Sign In to Chat** overlay pattern; no publish until signed in.
-4. **Host kill switch active:** Toggles visible but **disabled** with explanation; no publish until host re-enables AV.
+1. **Enable camera/mic:** Toggle above compose (rendered on any sidebar tab when fan JWT present). Request device permission → mint SFU producer token → publish. Default **off** on join; **off** again after disconnect/refresh (manual re-enable).
+2. **Disable camera/mic:** Toggle off tears down local producer; strip/grid updates for remote viewers and removes local **You** tile when camera off.
+3. **Host kill switch active:** Toggles visible but **disabled** with explanation; no publish until host re-enables AV.
 
 ### Guest (anonymous) flows
 
 - Subscribe to host screen-share and, when AV enabled, participant AV per layout rules.
+- **No camera/mic toggle chrome** rendered; no sign-in overlay at AV placement. Chat compose retains its own **Sign In to Chat** overlay for send only.
 - No camera/mic publish; may view video-on participants and hear mixed audio in **Theater** or **Video Chat**.
 
 ### Layout fan-out (all roles)
@@ -78,19 +78,15 @@ No new routes; AV extends the existing room shell.
 | Admin UI delivery shape? | **Gated `/admin/*` routes** in the existing **`apps/web` SPA** (one build, one origin); not a separate admin SPA deploy target. |
 | Fan + staff sessions in one browser? | **Coexist independently**; staff sign-out clears staff tokens only. |
 | Discoverability of `/admin/login`? | **Unlisted** — bookmark/direct URL only; no public SPA links from fan surfaces. |
-| Participant AV toggle visibility across sidebar tabs? | **Always visible** above compose on **Chat**, **People**, **Room**, **Profile**. |
+| Participant AV toggle visibility across sidebar tabs? | **Always visible** above compose on **Chat**, **People**, **Room**, **Profile** when fan JWT present; **hidden** for anonymous guests. |
+| Local self-preview in strip/grid? | **Yes** — **You** tile when local camera on. |
+| Non-host room mode indicator? | **Layout only** — no read-only mode badge in MVP. |
+| Narrow viewport participant video? | **Horizontal scroll row** below movie/grid primary region. |
 | Mic-only in Video Chat grid? | **Excluded**; audio heard; identity via **People** / chat. |
 | Host in strip/grid? | **Yes** when host camera is on. |
 | Kill switch toggle UX? | **Visible but disabled** with explanation when host disabled room AV. |
 | Video Chat tab-capture? | **Fully stop** on enter; **Share Source Tab** again on return to **Theater**. |
 | Reconnect AV state? | Camera/mic **default off**; manual re-enable. |
-
-## Open implementation decisions
-
-- Sequencing of layout swap vs SFU producer attach/detach during Theater ↔ Video Chat (loading states between modes).
-- Whether non-host viewers get an explicit **read-only mode badge** or infer mode from layout alone.
-- Sign-in overlay at AV controls: reuse exact **Sign In to Chat** copy vs AV-specific variant.
-- Host **Share Source Tab** prompt timing and copy when returning from Video Chat with no active capture.
 
 ## Primary code pointers (optional)
 

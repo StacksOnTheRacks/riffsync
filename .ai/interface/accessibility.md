@@ -24,13 +24,15 @@ Accessible-by-default contract for presentation and interaction surfaces.
 
 ### Live regions
 
-- **Room mode** changes and **AV kill switch** changes should announce to screen-reader users via a **live region** (polite; avoid interrupting media unnecessarily).
-- Local **camera/mic** on/off changes should announce locally (polite) when the user initiated the toggle.
+- Single polite announcer (**`#riffsync-a11y-announcer`**) in the room shell for **room mode** and **AV kill switch** changes received from host fan-out.
+- Local **camera/mic** on/off changes announce via the same announcer when the user initiated the toggle.
+- **No** polite announcements for remote participants joining or leaving video tiles in MVP (chatter risk at party scale).
 
 ### Participant video surfaces
 
-- Video tiles in Theater strip and Video Chat grid need **perceivable labels** (display name or participant identity from roster); avoid unlabeled generic "video" elements.
+- Video tiles in Theater strip and Video Chat grid need **perceivable labels** (display name from roster; local tile **You**).
 - **Mic-only** participants not in strip/grid remain discoverable via **People** tab roster (do not rely on video surface alone for identity).
+- Empty Video Chat grid exposes accessible status text matching visible copy (**"No cameras on yet…"**).
 
 ### Errors
 
@@ -42,11 +44,7 @@ Accessible-by-default contract for presentation and interaction surfaces.
 
 ## Open implementation decisions
 
-- Exact **live region** placement (global announcer vs per-region) for mode/kill-switch fan-out.
-- Whether remote participants joining/leaving video surfaces warrant **polite** announcements (risk of chatter at party scale).
-- **Captioning / transcription** for participant audio — out of scope unless added later; document absence explicitly in UI if needed.
-- Reduced-motion fallback for Theater ↔ Video Chat layout swap (cross-fade vs instant cut).
-- Accessible naming for **empty** strip/grid states (zero video-on participants).
+- **Captioning / transcription** for participant audio — out of scope in MVP; expanded error/a11y matrices tracked in **#106**.
 
 ## Primary code pointers (optional)
 
