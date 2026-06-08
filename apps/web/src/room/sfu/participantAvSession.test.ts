@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { canParticipantAvPublish, createParticipantAvController } from './participantAvSession'
 
 describe('canParticipantAvPublish', () => {
@@ -72,5 +72,75 @@ describe('createParticipantAvController', () => {
       error: null,
       busy: false,
     })
+  })
+
+  it('attachSession(null) does not clear publish intent', () => {
+    const controller = createParticipantAvController({
+      canPublish: () => true,
+    })
+    controller.attachSession(null)
+    expect(controller.getState()).toMatchObject({
+      cameraEnabled: false,
+      micEnabled: false,
+      needsProducerToken: false,
+    })
+  })
+
+  it('syncPublish waits for a producer session instead of failing on consumer-only attach', async () => {
+    const publishStream = vi.fn()
+    const controller = createParticipantAvController({
+      canPublish: () => true,
+    })
+    const consumerSession = {
+      supportsPublish: false,
+      ready: Promise.resolve(),
+      publishStream,
+      unpublishProducerClass: vi.fn(),
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
+
+    controller.attachSession(consumerSession)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(publishStream).not.toHaveBeenCalled()
+    expect(controller.getState().error).toBeNull()
+  })
+
+  it('syncPublish runs after attaching a producer session', async () => {
+    const publishStream = vi.fn().mockResolvedValue(undefined)
+    const mockTrack = { kind: 'video', readyState: 'live', stop: vi.fn() }
+    const stream = {
+      getVideoTracks: () => [mockTrack],
+      getAudioTracks: () => [],
+      getTracks: () => [mockTrack],
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+
+    const controller = createParticipantAvController({
+      canPublish: () => true,
+    })
+    await controller.enableCamera()
+    expect(controller.getState().cameraEnabled).toBe(true)
+
+    const producerSession = {
+      supportsPublish: true,
+      ready: Promise.resolve(),
+      publishStream,
+      unpublishProducerClass: vi.fn(),
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
+
+    controller.attachSession(producerSession)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(publishStream).toHaveBeenCalledWith(stream, 'participant_av')
+    expect(controller.getState().error).toBeNull()
+
+    vi.unstubAllGlobals()
   })
 })
