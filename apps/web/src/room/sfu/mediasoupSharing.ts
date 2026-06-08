@@ -414,6 +414,11 @@ export async function connectSfuUnifiedSession(options: {
     try {
       await signaling.connect()
     } catch {
+      if (userClosed) {
+        finish('user_close')
+        rejectReady(new Error('user_close'))
+        return
+      }
       onMediaError?.('signaling_failed', 'Could not connect to video relay (signaling).')
       finish('signaling_close')
       rejectReady(new Error('signaling_failed'))

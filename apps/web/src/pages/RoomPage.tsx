@@ -1090,9 +1090,9 @@ export function RoomPage() {
   }, [theaterMixEnabled, isPublisher, captureStream, guestRemote])
 
   useEffect(() => {
-    if (!sfuEnabled || wsStatus !== 'open' || !room) return
+    if (!sfuEnabled || wsStatus !== 'open' || !canonicalRoomId) return
     const api = getPublicApiBaseUrl()
-    if (!api || !canonicalRoomId) return
+    if (!api) return
 
     const { cancel } = startSfuRoomSession({
       apiBaseUrl: api,
@@ -1127,25 +1127,54 @@ export function RoomPage() {
     })
     return () => {
       participantAvController.teardownPublishing()
-      stopMediaStreamTracks(captureStreamRef.current)
-      captureStreamRef.current = null
       sfuSessionRef.current?.unpublishProducerClass('host_screen')
       cancel()
     }
   }, [
     sfuEnabled,
     wsStatus,
-    room,
     avDisabled,
     canonicalRoomId,
     sessionId,
     fanToken,
     getIceServers,
-    captureStream,
     sfuTokenIntentTick,
     participantAvController,
     onParticipantAvConsumerTrack,
   ])
+
+  /** Publish or unpublish host tab capture on the existing SFU session (no full reconnect). */
+  useEffect(() => {
+    if (!sfuEnabled || wsStatus !== 'open' || !isPublisher) return
+    const session = sfuSessionRef.current
+    if (!session) return
+
+    if (roomMode === 'videoChat') {
+      session.unpublishProducerClass('host_screen')
+      return
+    }
+
+    const stream = captureStream
+    const live = stream?.getTracks().some((track) => track.readyState === 'live') ?? false
+    if (!live || !stream) {
+      session.unpublishProducerClass('host_screen')
+      return
+    }
+
+    let cancelled = false
+    void (async () => {
+      try {
+        await session.ready
+        if (cancelled) return
+        await session.publishStream(stream, 'host_screen')
+      } catch {
+        /* session closed or reconnecting */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [captureStream, roomMode, sfuEnabled, wsStatus, isPublisher])
 
   useEffect(() => {
     if (isPublisher) return
