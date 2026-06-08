@@ -302,7 +302,7 @@ export class MediaServerStack extends cdk.Stack {
     sfuUserData.addCommands(
       'set -euxo pipefail',
       'dnf install -y gcc-c++ make python3 python3-pip',
-      'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -',
+      'curl -fsSL https://rpm.nodesource.com/setup_22.x | bash -',
       'dnf install -y nodejs awscli',
       `SFU_JOIN_SECRET_ID='${SFU_JOIN_SECRET_NAME}'`,
       `SFU_ADMIN_SECRET_ID='${SFU_ADMIN_SECRET_NAME}'`,

@@ -9,7 +9,7 @@
     "dev": "node --import tsx src/index.ts"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "mediasoup": "^3.14.14",

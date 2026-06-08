@@ -114,6 +114,10 @@ async function publishHostScreenIfNeeded(
   }
   try {
     await session.ready
+  } catch {
+    return
+  }
+  try {
     await session.publishStream(stream, 'host_screen')
   } catch (e) {
     onMediaError(
