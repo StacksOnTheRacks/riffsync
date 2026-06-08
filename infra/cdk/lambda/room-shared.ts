@@ -2,6 +2,7 @@
 
 export type RoomVisibility = 'public' | 'private';
 export type PlaybackExpectation = 'free' | 'premium';
+export type RoomMode = 'theater' | 'videoChat';
 
 export const LOBBY_PARTITION = 'PUBLIC';
 
@@ -16,6 +17,11 @@ export function parsePlaybackExpectation(v: unknown): PlaybackExpectation | null
 
 export function parseVisibility(v: unknown): RoomVisibility | null {
   if (v === 'public' || v === 'private') return v;
+  return null;
+}
+
+export function parseRoomMode(v: unknown): RoomMode | null {
+  if (v === 'theater' || v === 'videoChat') return v;
   return null;
 }
 

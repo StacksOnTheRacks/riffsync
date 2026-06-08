@@ -5,6 +5,7 @@ import {
   lobbySortKey,
   normalizeRoomDisplayTitle,
   parsePlaybackExpectation,
+  parseRoomMode,
   parseVisibility,
   ROOM_DISPLAY_TITLE_MAX_LEN,
 } from './room-shared';
@@ -25,6 +26,19 @@ describe('room-shared', () => {
     it('accepts public/private', () => {
       expect(parseVisibility('public')).toBe('public');
       expect(parseVisibility('private')).toBe('private');
+    });
+  });
+
+  describe('parseRoomMode', () => {
+    it('accepts theater and videoChat', () => {
+      expect(parseRoomMode('theater')).toBe('theater');
+      expect(parseRoomMode('videoChat')).toBe('videoChat');
+    });
+    it('rejects invalid values', () => {
+      expect(parseRoomMode('cinema')).toBeNull();
+      expect(parseRoomMode('')).toBeNull();
+      expect(parseRoomMode(null)).toBeNull();
+      expect(parseRoomMode(undefined)).toBeNull();
     });
   });
 
