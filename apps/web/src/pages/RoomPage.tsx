@@ -71,6 +71,13 @@ import { createChatMessageId, parseInboundChatMessageId } from '../room/chatMess
 import { isContinuedChatLine } from '../room/chatMessageGrouping'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 import { ParticipantAvToggles } from '../room/ParticipantAvToggles'
+import { HostControlBar } from '../room/HostControlBar'
+import {
+  avDisabledAnnounceCopy,
+  formatHostRoomPatchError,
+  mergeRoomPatchResult,
+  roomModeAnnounceCopy,
+} from '../room/hostRoomControls'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
@@ -171,6 +178,8 @@ export function RoomPage() {
   const [chatReactions, setChatReactions] = useState<ReactionsByMessage>({})
   const [chatDraft, setChatDraft] = useState('')
   const [patchErr, setPatchErr] = useState<string | null>(null)
+  const [hostBarBusy, setHostBarBusy] = useState(false)
+  const [hostBarErr, setHostBarErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const [sfuRoomErr, setSfuRoomErr] = useState<string | null>(null)
@@ -200,6 +209,7 @@ export function RoomPage() {
   const [profileAvatarLoading, setProfileAvatarLoading] = useState(false)
   const [profileAvatarUploading, setProfileAvatarUploading] = useState(false)
   const a11yAnnouncerRef = useRef<HTMLDivElement | null>(null)
+  const hostPatchSuppressAnnounceUntilRef = useRef(0)
   const [profileAvatarErr, setProfileAvatarErr] = useState<string | null>(null)
   const profileTabLoadedRef = useRef(false)
   const profileAvatarInputRef = useRef<HTMLInputElement>(null)
@@ -260,6 +270,44 @@ export function RoomPage() {
   const canonicalRoomId = useMemo(() => room?.roomId ?? roomId, [room?.roomId, roomId])
   const sfuEnabled = isMediasoupSfuEnabled()
   const theaterMixEnabled = sfuEnabled && roomMode === 'theater'
+
+  const announceRoomA11y = useCallback((message: string) => {
+    const node = a11yAnnouncerRef.current
+    if (!node) return
+    node.textContent = ''
+    node.textContent = message
+  }, [])
+
+  const patchHostRoomFields = useCallback(
+    async (patch: { roomMode?: RoomMode; avDisabled?: boolean }) => {
+      if (!room || !fanToken || !isPublisher || hostBarBusy) return
+      const snapshot = room
+      setHostBarBusy(true)
+      setHostBarErr(null)
+      hostPatchSuppressAnnounceUntilRef.current = Date.now() + 3000
+      setRoom({
+        ...snapshot,
+        ...(patch.roomMode !== undefined ? { roomMode: patch.roomMode } : {}),
+        ...(patch.avDisabled !== undefined ? { avDisabled: patch.avDisabled } : {}),
+      })
+      try {
+        const res = await patchRoom(fanToken, roomId, patch)
+        setRoom((prev) => (prev ? mergeRoomPatchResult(prev, res) : prev))
+        if (patch.roomMode !== undefined) {
+          announceRoomA11y(roomModeAnnounceCopy(patch.roomMode))
+        }
+        if (patch.avDisabled !== undefined) {
+          announceRoomA11y(avDisabledAnnounceCopy(patch.avDisabled))
+        }
+      } catch (e) {
+        setRoom(snapshot)
+        setHostBarErr(formatHostRoomPatchError(e))
+      } finally {
+        setHostBarBusy(false)
+      }
+    },
+    [room, fanToken, isPublisher, hostBarBusy, roomId, announceRoomA11y],
+  )
   const meshUnsupportedProdBuild = import.meta.env.PROD && isMeshWatchPartyMediaEnabled()
 
   useEffect(() => {
@@ -660,10 +708,17 @@ export function RoomPage() {
             ...(nextMode === 'videoChat' ? { broadcastCaptureActive: false } : {}),
           }
         })
+        if (Date.now() > hostPatchSuppressAnnounceUntilRef.current) {
+          announceRoomA11y(roomModeAnnounceCopy(nextMode))
+        }
         return
       }
       if (t === 'av_disabled' && typeof data.avDisabled === 'boolean') {
-        setRoom((prev) => (prev ? { ...prev, avDisabled: data.avDisabled as boolean } : prev))
+        const nextAvDisabled = data.avDisabled as boolean
+        setRoom((prev) => (prev ? { ...prev, avDisabled: nextAvDisabled } : prev))
+        if (Date.now() > hostPatchSuppressAnnounceUntilRef.current) {
+          announceRoomA11y(avDisabledAnnounceCopy(nextAvDisabled))
+        }
         return
       }
       if (t !== 'signaling' || sfuEnabled) return
@@ -726,6 +781,7 @@ export function RoomPage() {
       canonicalRoomId,
       sessionId,
       sfuEnabled,
+      announceRoomA11y,
     ],
   )
 
@@ -1417,13 +1473,6 @@ export function RoomPage() {
     }
   }
 
-  const announceLocalAvToggle = useCallback((message: string) => {
-    const node = a11yAnnouncerRef.current
-    if (!node) return
-    node.textContent = ''
-    node.textContent = message
-  }, [])
-
   if (!roomId) {
     return (
       <div className="container">
@@ -1869,7 +1918,7 @@ export function RoomPage() {
                     controller={participantAvController}
                     avDisabled={avDisabled}
                     sfuRoomErr={sfuRoomErr}
-                    onLocalToggleAnnounce={announceLocalAvToggle}
+                    onLocalToggleAnnounce={announceRoomA11y}
                   />
                 ) : null}
                 {activeSidebarTab === 'chat' ? (
@@ -1942,6 +1991,16 @@ export function RoomPage() {
             </section>
           </aside>
         </div>
+        {isPublisher ? (
+          <HostControlBar
+            roomMode={roomMode}
+            avDisabled={avDisabled}
+            busy={hostBarBusy}
+            error={hostBarErr}
+            onSelectRoomMode={(mode) => void patchHostRoomFields({ roomMode: mode })}
+            onToggleAvDisabled={(next) => void patchHostRoomFields({ avDisabled: next })}
+          />
+        ) : null}
       </div>
 
       {renameModalOpen && isPublisher ? (
