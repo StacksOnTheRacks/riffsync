@@ -14,6 +14,7 @@ vi.mock('./ws-shared', () => ({
 }));
 
 import {
+  buildAvDisabledFanoutEnvelope,
   buildRoomModeFanoutEnvelope,
   fanOutRoomPatchEnvelope,
   readHostSessionIdFromHeaders,
@@ -30,6 +31,23 @@ describe('buildRoomModeFanoutEnvelope', () => {
     ).toEqual({
       type: 'room_mode',
       roomMode: 'videoChat',
+      ts: 1_717_700_000_000,
+      version: 42,
+    });
+  });
+});
+
+describe('buildAvDisabledFanoutEnvelope', () => {
+  it('builds contract-shaped av_disabled payload', () => {
+    expect(
+      buildAvDisabledFanoutEnvelope({
+        avDisabled: true,
+        ts: 1_717_700_000_000,
+        version: 42,
+      }),
+    ).toEqual({
+      type: 'av_disabled',
+      avDisabled: true,
       ts: 1_717_700_000_000,
       version: 42,
     });

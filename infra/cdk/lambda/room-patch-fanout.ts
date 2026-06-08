@@ -25,6 +25,13 @@ export type RoomModeFanoutEnvelope = {
   version: number;
 };
 
+export type AvDisabledFanoutEnvelope = {
+  type: 'av_disabled';
+  avDisabled: boolean;
+  ts: number;
+  version: number;
+};
+
 /** Build the outbound `room_mode` WebSocket payload after a successful roomMode PATCH. */
 export function buildRoomModeFanoutEnvelope(params: {
   roomMode: RoomMode;
@@ -34,6 +41,20 @@ export function buildRoomModeFanoutEnvelope(params: {
   return {
     type: 'room_mode',
     roomMode: params.roomMode,
+    ts: params.ts,
+    version: params.version,
+  };
+}
+
+/** Build the outbound `av_disabled` WebSocket payload after a successful avDisabled PATCH. */
+export function buildAvDisabledFanoutEnvelope(params: {
+  avDisabled: boolean;
+  ts: number;
+  version: number;
+}): AvDisabledFanoutEnvelope {
+  return {
+    type: 'av_disabled',
+    avDisabled: params.avDisabled,
     ts: params.ts,
     version: params.version,
   };

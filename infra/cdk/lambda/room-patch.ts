@@ -22,12 +22,14 @@ import {
 } from './room-shared';
 import { requestSfuProducerTeardown } from './sfu-admin-teardown';
 import {
+  buildAvDisabledFanoutEnvelope,
   buildRoomModeFanoutEnvelope,
   fanOutRoomPatchEnvelope,
   readHostSessionIdFromHeaders,
 } from './room-patch-fanout';
 
 export {
+  buildAvDisabledFanoutEnvelope,
   buildRoomModeFanoutEnvelope,
   fanOutRoomPatchEnvelope,
   readHostSessionIdFromHeaders,
@@ -168,8 +170,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     responseRoomMode = rm;
   }
 
+  const previousAvDisabled = readAvDisabled(room);
+
   let avDisabledPatch: boolean | undefined;
-  let responseAvDisabled = readAvDisabled(room);
+  let responseAvDisabled = previousAvDisabled;
   if (Object.prototype.hasOwnProperty.call(body, 'avDisabled')) {
     if (typeof body.avDisabled !== 'boolean') {
       return {
@@ -332,13 +336,28 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const nextVersion = version + 1;
+  const hostSessionId = readHostSessionIdFromHeaders(event.headers);
+
   if (roomModePatch !== undefined && roomModePatch !== previousRoomMode) {
     await fanOutRoomPatchEnvelope({
       doc: client,
       roomId,
-      hostSessionId: readHostSessionIdFromHeaders(event.headers),
+      hostSessionId,
       envelope: buildRoomModeFanoutEnvelope({
         roomMode: roomModePatch,
+        ts: now,
+        version: nextVersion,
+      }),
+    });
+  }
+
+  if (avDisabledPatch !== undefined && avDisabledPatch !== previousAvDisabled) {
+    await fanOutRoomPatchEnvelope({
+      doc: client,
+      roomId,
+      hostSessionId,
+      envelope: buildAvDisabledFanoutEnvelope({
+        avDisabled: avDisabledPatch,
         ts: now,
         version: nextVersion,
       }),
