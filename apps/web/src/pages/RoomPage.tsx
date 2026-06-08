@@ -48,6 +48,7 @@ import {
   type ParticipantAvController,
   type ParticipantAvPublishGate,
 } from '../room/sfu/participantAvSession'
+import { createTheaterAudioMix } from '../room/audio/theaterAudioMix'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
@@ -214,6 +215,7 @@ export function RoomPage() {
   const acceptedOfferShareGenerationRef = useRef(0)
   const lastDedupOfferGenerationRef = useRef(0)
   const sfuSessionRef = useRef<{ close: () => void } | null>(null)
+  const theaterAudioMixRef = useRef<ReturnType<typeof createTheaterAudioMix> | null>(null)
   const captureStreamRef = useRef<MediaStream | null>(null)
   const [sfuTokenIntentTick, setSfuTokenIntentTick] = useState(0)
   const isPublisherRef = useRef(false)
@@ -242,10 +244,12 @@ export function RoomPage() {
   } = useChatLogStickToBottom(chat.length, roomChatTabActive)
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
   const avDisabled = room?.avDisabled ?? true
+  const roomMode = room?.roomMode ?? 'theater'
 
   /** Prefer the room document id so WebSocket presence matches server fan-out even if the route param differed. */
   const canonicalRoomId = useMemo(() => room?.roomId ?? roomId, [room?.roomId, roomId])
   const sfuEnabled = isMediasoupSfuEnabled()
+  const theaterMixEnabled = sfuEnabled && roomMode === 'theater'
   const meshUnsupportedProdBuild = import.meta.env.PROD && isMeshWatchPartyMediaEnabled()
 
   useEffect(() => {
@@ -635,6 +639,10 @@ export function RoomPage() {
         setGuestRemote(null)
         return
       }
+      if (t === 'av_disabled' && typeof data.avDisabled === 'boolean') {
+        setRoom((prev) => (prev ? { ...prev, avDisabled: data.avDisabled as boolean } : prev))
+        return
+      }
       if (t !== 'signaling' || sfuEnabled) return
 
       const fromSessionId = typeof data.fromSessionId === 'string' ? data.fromSessionId : ''
@@ -883,6 +891,31 @@ export function RoomPage() {
   }, [captureStream, getIceServers, isPublisher, wsStatus, sfuEnabled])
 
   useEffect(() => {
+    if (!theaterMixEnabled) {
+      theaterAudioMixRef.current?.dispose()
+      theaterAudioMixRef.current = null
+      return
+    }
+    const mix = createTheaterAudioMix()
+    theaterAudioMixRef.current = mix
+    return () => {
+      mix.dispose()
+      theaterAudioMixRef.current = null
+    }
+  }, [theaterMixEnabled])
+
+  useEffect(() => {
+    theaterAudioMixRef.current?.setAvDisabled(avDisabled)
+  }, [avDisabled])
+
+  useEffect(() => {
+    if (!theaterMixEnabled) return
+    theaterAudioMixRef.current?.setHostVideoElement(
+      isPublisher ? hostCaptureVideoRef.current : videoRef.current,
+    )
+  }, [theaterMixEnabled, isPublisher, captureStream, guestRemote])
+
+  useEffect(() => {
     if (!sfuEnabled || wsStatus !== 'open' || !room) return
     const api = getPublicApiBaseUrl()
     if (!api || !canonicalRoomId) return
@@ -896,6 +929,10 @@ export function RoomPage() {
       getHostScreenStream: () => captureStreamRef.current,
       participantAv: participantAvController,
       onRemoteStream: setGuestRemote,
+      onConsumerTrack: (event) => {
+        theaterAudioMixRef.current?.onConsumerEvent(event)
+        void theaterAudioMixRef.current?.resumeIfSuspended()
+      },
       assignSession: (s) => {
         sfuSessionRef.current = s
       },
@@ -937,29 +974,39 @@ export function RoomPage() {
       v.srcObject = null
       return
     }
-    v.srcObject = guestRemote
+    const playbackStream = theaterMixEnabled
+      ? new MediaStream(guestRemote.getVideoTracks())
+      : guestRemote
+    v.srcObject = playbackStream
     let cancelled = false
     void (async () => {
-      v.muted = false
+      v.muted = theaterMixEnabled
       try {
         await v.play()
         if (!cancelled) setGuestPlayHint(false)
+        if (theaterMixEnabled) {
+          await theaterAudioMixRef.current?.resumeIfSuspended()
+        }
         return
       } catch {
         /* autoplay policy often blocks unmuted remote playback */
       }
-      try {
-        v.muted = true
-        await v.play()
-        if (!cancelled) setGuestPlayHint(false)
-      } catch {
-        if (!cancelled) setGuestPlayHint(true)
+      if (!theaterMixEnabled) {
+        try {
+          v.muted = true
+          await v.play()
+          if (!cancelled) setGuestPlayHint(false)
+        } catch {
+          if (!cancelled) setGuestPlayHint(true)
+        }
+      } else if (!cancelled) {
+        setGuestPlayHint(true)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [guestRemote, isPublisher])
+  }, [guestRemote, isPublisher, theaterMixEnabled])
 
   useEffect(() => {
     const v = hostCaptureVideoRef.current
@@ -969,8 +1016,20 @@ export function RoomPage() {
       return
     }
     v.srcObject = captureStream
-    void v.play().catch(() => setHostCapturePlayHint(true))
-  }, [captureStream, isPublisher])
+    v.muted = theaterMixEnabled
+    void (async () => {
+      try {
+        await v.play()
+        setHostCapturePlayHint(false)
+        if (theaterMixEnabled) {
+          theaterAudioMixRef.current?.setHostVideoElement(v)
+          await theaterAudioMixRef.current?.resumeIfSuspended()
+        }
+      } catch {
+        setHostCapturePlayHint(true)
+      }
+    })()
+  }, [captureStream, isPublisher, theaterMixEnabled])
 
   const stopCapture = () => {
     setHostCapturePlayHint(false)
@@ -1236,21 +1295,28 @@ export function RoomPage() {
   const playGuestVideo = async () => {
     const v = videoRef.current
     if (!v) return
-    v.muted = false
+    if (!theaterMixEnabled) {
+      v.muted = false
+    }
     try {
       await v.play()
       setGuestPlayHint(false)
+      await theaterAudioMixRef.current?.resumeIfSuspended()
       return
     } catch {
       /* continue */
     }
-    try {
-      v.muted = true
-      await v.play()
-      setGuestPlayHint(false)
-    } catch {
-      setGuestPlayHint(true)
+    if (!theaterMixEnabled) {
+      try {
+        v.muted = true
+        await v.play()
+        setGuestPlayHint(false)
+      } catch {
+        setGuestPlayHint(true)
+      }
+      return
     }
+    setGuestPlayHint(true)
   }
 
   const playHostCapturePreview = async () => {
@@ -1259,6 +1325,10 @@ export function RoomPage() {
     try {
       await v.play()
       setHostCapturePlayHint(false)
+      if (theaterMixEnabled) {
+        theaterAudioMixRef.current?.setHostVideoElement(v)
+        await theaterAudioMixRef.current?.resumeIfSuspended()
+      }
     } catch {
       setHostCapturePlayHint(true)
     }

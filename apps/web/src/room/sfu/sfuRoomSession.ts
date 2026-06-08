@@ -2,6 +2,7 @@ import { fetchSfuJoinToken } from '../../api/webrtcSfuApi'
 import {
   connectSfuUnifiedSession,
   resolveSfuWsBaseForToken,
+  type SfuConsumerTrackEvent,
   type SfuMediaErrorCode,
   type SfuProducerClass,
   type SfuUnifiedSessionHandle,
@@ -27,6 +28,7 @@ export type StartSfuRoomSessionOpts = SessionHooks & {
   accessToken: string | null
   getIceServers: () => Promise<RTCIceServer[]>
   onRemoteStream: (stream: MediaStream | null) => void
+  onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
   getHostScreenStream: () => MediaStream | null
   participantAv: ParticipantAvController
 }
@@ -180,6 +182,7 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
         tokenRole: tok.role,
         getIceServers: opts.getIceServers,
         onRemoteStream: opts.onRemoteStream,
+        onConsumerTrack: opts.onConsumerTrack,
         ownSessionId: opts.sessionId,
         onMediaError: opts.onMediaError,
       })

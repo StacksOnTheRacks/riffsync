@@ -236,6 +236,16 @@ type LiveProducer = {
   kind: 'audio' | 'video'
 }
 
+export type SfuConsumerTrackEvent =
+  | {
+      action: 'attach'
+      producerId: string
+      producerClass: SfuProducerClass | undefined
+      kind: 'audio' | 'video'
+      track: MediaStreamTrack
+    }
+  | { action: 'detach'; producerId: string }
+
 export type SfuUnifiedSessionHandle = {
   close: (reason?: SfuSessionEndReason) => void
   sessionEnded: Promise<SfuSessionEndReason>
@@ -257,11 +267,20 @@ export async function connectSfuUnifiedSession(options: {
   tokenRole: 'producer' | 'consumer'
   getIceServers: () => Promise<RTCIceServer[]>
   onRemoteStream: (stream: MediaStream | null) => void
+  onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
   ownSessionId?: string
   onMediaError?: (code: SfuMediaErrorCode, message: string) => void
 }): Promise<SfuUnifiedSessionHandle> {
-  const { wsBaseUrl, token, tokenRole, getIceServers, onRemoteStream, ownSessionId, onMediaError } =
-    options
+  const {
+    wsBaseUrl,
+    token,
+    tokenRole,
+    getIceServers,
+    onRemoteStream,
+    onConsumerTrack,
+    ownSessionId,
+    onMediaError,
+  } = options
   const signaling = new SfuSignaling(signalingWsUrl(wsBaseUrl, token))
   let userClosed = false
   let settled = false
@@ -491,6 +510,13 @@ export async function connectSfuUnifiedSession(options: {
       if (track && !remoteStream.getTracks().includes(track)) {
         remoteStream.addTrack(track)
       }
+      onConsumerTrack?.({
+        action: 'attach',
+        producerId,
+        producerClass: summary.producerClass,
+        kind,
+        track,
+      })
     }
 
     const syncFromList = async (list: ProducerSummary[]): Promise<void> => {
@@ -525,6 +551,7 @@ export async function connectSfuUnifiedSession(options: {
         mediasoupConsumers.length = 0
         for (const k of keep) mediasoupConsumers.push(k)
         attachedProducerIds.delete(producerId)
+        onConsumerTrack?.({ action: 'detach', producerId })
         emitRemote()
         return
       }
@@ -652,6 +679,7 @@ export async function connectSfuUnifiedSession(options: {
       unpublishProducerClass('host_screen')
       unpublishProducerClass('participant_av')
       for (const c of mediasoupConsumers) {
+        onConsumerTrack?.({ action: 'detach', producerId: c.producerId })
         try {
           c.close()
         } catch {
