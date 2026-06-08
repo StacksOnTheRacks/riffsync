@@ -809,6 +809,13 @@ export class ApiCatalogStack extends cdk.Stack {
     this.fanProfilesTable.grantReadData(wsRouteFn);
     this.webSocketApi.grantManageConnections(wsRouteFn);
 
+    roomPatchFn.addEnvironment('WS_MANAGEMENT_API_ENDPOINT', wsMgmtEndpoint);
+    roomPatchFn.addEnvironment('CONNECTIONS_TABLE_NAME', this.connectionsTable.tableName);
+    roomPatchFn.addEnvironment('ROOM_PRESENCE_TABLE_NAME', this.roomPresenceTable.tableName);
+    this.connectionsTable.grantReadData(roomPatchFn);
+    this.roomPresenceTable.grantReadData(roomPatchFn);
+    this.webSocketApi.grantManageConnections(roomPatchFn);
+
     // WebSocketLambdaIntegration can leave InvokeFunction scoped to only one route (IAM showed SourceArn ending in *ping).
     // chat/signaling/$default then fail invoke auth; API Gateway returns Internal server error on the WebSocket frame.
     wsRouteFn.addPermission('WsRouteFnAllowExecuteApiWebSocket', {

@@ -22,6 +22,8 @@ import {
 } from './room-shared';
 import { requestSfuProducerTeardown } from './sfu-admin-teardown';
 
+export { fanOutRoomPatchEnvelope, readHostSessionIdFromHeaders } from './room-patch-fanout';
+
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 interface JwtClaims {
