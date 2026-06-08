@@ -6,12 +6,19 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import {
+  readAvDisabled,
+  readBroadcastCaptureActive,
+  readRoomMode,
+} from './room-get';
+import {
   lobbySortKey,
   LOBBY_PARTITION,
   normalizeRoomDisplayTitle,
   parsePlaybackExpectation,
+  parseRoomMode,
   parseVisibility,
   ROOM_DISPLAY_TITLE_MAX_LEN,
+  type RoomMode,
 } from './room-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -133,6 +140,38 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }
   }
 
+  let roomModePatch: RoomMode | undefined;
+  let responseRoomMode = readRoomMode(room);
+  if (Object.prototype.hasOwnProperty.call(body, 'roomMode')) {
+    const rm = parseRoomMode(body.roomMode);
+    if (!rm) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'roomMode must be "theater" or "videoChat"' }),
+      };
+    }
+    roomModePatch = rm;
+    responseRoomMode = rm;
+  }
+
+  let avDisabledPatch: boolean | undefined;
+  let responseAvDisabled = readAvDisabled(room);
+  if (Object.prototype.hasOwnProperty.call(body, 'avDisabled')) {
+    if (typeof body.avDisabled !== 'boolean') {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'avDisabled must be boolean' }),
+      };
+    }
+    avDisabledPatch = body.avDisabled;
+    responseAvDisabled = body.avDisabled;
+  }
+
+  let responseBroadcastCaptureActive = readBroadcastCaptureActive(room);
+  if (broadcastCapturePatch !== undefined) {
+    responseBroadcastCaptureActive = broadcastCapturePatch === true;
+  }
+
   let storedDisplayTitle: string | undefined;
   if (Object.prototype.hasOwnProperty.call(body, 'displayTitle')) {
     const n = normalizeRoomDisplayTitle(body.displayTitle);
@@ -197,6 +236,18 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     setParts.push('#bc = :bc');
   }
 
+  if (roomModePatch !== undefined) {
+    names['#rm'] = 'roomMode';
+    values[':rm'] = roomModePatch;
+    setParts.push('#rm = :rm');
+  }
+
+  if (avDisabledPatch !== undefined) {
+    names['#ad'] = 'avDisabled';
+    values[':ad'] = avDisabledPatch;
+    setParts.push('#ad = :ad');
+  }
+
   if (storedDisplayTitle !== undefined) {
     names['#dt'] = 'displayTitle';
     values[':dt'] = storedDisplayTitle;
@@ -251,6 +302,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       visibility,
       lastActivityAt: now,
       ...(storedDisplayTitle !== undefined ? { displayTitle: storedDisplayTitle } : {}),
+      roomMode: responseRoomMode,
+      avDisabled: responseAvDisabled,
+      broadcastCaptureActive: responseBroadcastCaptureActive,
     }),
   };
 };

@@ -46,6 +46,8 @@ export async function fetchLobby(sessionId: string): Promise<LobbyResponse> {
   return (await res.json()) as LobbyResponse
 }
 
+export type RoomMode = 'theater' | 'videoChat'
+
 export interface RoomSnapshot {
   roomId: string
   hostSub: string
@@ -57,6 +59,9 @@ export interface RoomSnapshot {
   visibility: 'public' | 'private'
   lastActivityAt: number
   version: number
+  roomMode: RoomMode
+  avDisabled: boolean
+  broadcastCaptureActive: boolean
 }
 
 export async function fetchRoom(roomId: string): Promise<RoomSnapshot | null> {
@@ -107,6 +112,9 @@ export interface RoomPatchResult {
   visibility: 'public' | 'private'
   lastActivityAt: number
   displayTitle?: string
+  roomMode: RoomMode
+  avDisabled: boolean
+  broadcastCaptureActive: boolean
 }
 
 export async function patchRoom(
@@ -117,6 +125,9 @@ export async function patchRoom(
     visibility?: 'public' | 'private'
     playbackExpectation?: RoomPlaybackExpectation
     displayTitle?: string
+    roomMode?: RoomMode
+    avDisabled?: boolean
+    broadcastCaptureActive?: boolean | null
   },
 ): Promise<RoomPatchResult> {
   const base = getPublicApiBaseUrl()
