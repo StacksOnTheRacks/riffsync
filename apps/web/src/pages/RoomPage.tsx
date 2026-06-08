@@ -70,6 +70,7 @@ import {
 import { createChatMessageId, parseInboundChatMessageId } from '../room/chatMessageId'
 import { isContinuedChatLine } from '../room/chatMessageGrouping'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
+import { ParticipantAvToggles } from '../room/ParticipantAvToggles'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
@@ -198,6 +199,7 @@ export function RoomPage() {
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null)
   const [profileAvatarLoading, setProfileAvatarLoading] = useState(false)
   const [profileAvatarUploading, setProfileAvatarUploading] = useState(false)
+  const a11yAnnouncerRef = useRef<HTMLDivElement | null>(null)
   const [profileAvatarErr, setProfileAvatarErr] = useState<string | null>(null)
   const profileTabLoadedRef = useRef(false)
   const profileAvatarInputRef = useRef<HTMLInputElement>(null)
@@ -1415,6 +1417,13 @@ export function RoomPage() {
     }
   }
 
+  const announceLocalAvToggle = useCallback((message: string) => {
+    const node = a11yAnnouncerRef.current
+    if (!node) return
+    node.textContent = ''
+    node.textContent = message
+  }, [])
+
   if (!roomId) {
     return (
       <div className="container">
@@ -1460,6 +1469,7 @@ export function RoomPage() {
         backdropImageUrl ? 'riffsync-room-shell riffsync-room-shell--backdrop' : 'riffsync-room-shell'
       }
     >
+      <div id="riffsync-a11y-announcer" ref={a11yAnnouncerRef} aria-live="polite" className="sr-only" />
       {backdropImageUrl ? (
         <div
           className="riffsync-room-shell__backdrop"
@@ -1712,70 +1722,6 @@ export function RoomPage() {
                       )
                     })}
                   </ul>
-                  <div className="riffsync-room-chat-compose-holder">
-                    {showJumpToLatest ? (
-                      <button
-                        type="button"
-                        className="riffsync-room-chat-jump-latest gen-button"
-                        aria-label="Jump to latest messages"
-                        onClick={jumpToLatest}
-                      >
-                        {jumpToLatestLabel}
-                      </button>
-                    ) : null}
-                    <div
-                      className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
-                    >
-                      {fanToken ? (
-                        <ChatComposeMediaPicker
-                          draft={chatDraft}
-                          onDraftChange={setChatDraft}
-                          inputRef={chatInputRef}
-                          accessToken={fanToken}
-                          onGifSelect={sendChatGif}
-                        />
-                      ) : null}
-                      <input
-                        ref={chatInputRef}
-                        type="text"
-                        maxLength={2000}
-                        value={fanToken ? chatDraft : ''}
-                        placeholder="Say something…"
-                        disabled={!fanToken}
-                        onChange={(e) => {
-                          if (fanToken) setChatDraft(e.target.value)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && fanToken) sendChat()
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="riffsync-room-chat-compose-send gen-button"
-                        disabled={!fanToken}
-                        onClick={sendChat}
-                      >
-                        Send
-                      </button>
-                    </div>
-                    {!fanToken ? (
-                      <div
-                        className="riffsync-room-chat-signin-overlay"
-                        role="region"
-                        aria-label="Sign in to participate in chat"
-                      >
-                        <button
-                          type="button"
-                          className="gen-button"
-                          onClick={() =>
-                            void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
-                          }
-                        >
-                          Sign In to Chat
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
                 </div>
               ) : null}
               {activeSidebarTab === 'people' ? (
@@ -1917,6 +1863,82 @@ export function RoomPage() {
                   </button>
                 </div>
               ) : null}
+              <div className="riffsync-room-page__sidebar-footer">
+                {fanToken ? (
+                  <ParticipantAvToggles
+                    controller={participantAvController}
+                    avDisabled={avDisabled}
+                    sfuRoomErr={sfuRoomErr}
+                    onLocalToggleAnnounce={announceLocalAvToggle}
+                  />
+                ) : null}
+                {activeSidebarTab === 'chat' ? (
+                  <div className="riffsync-room-chat-compose-holder">
+                    {showJumpToLatest ? (
+                      <button
+                        type="button"
+                        className="riffsync-room-chat-jump-latest gen-button"
+                        aria-label="Jump to latest messages"
+                        onClick={jumpToLatest}
+                      >
+                        {jumpToLatestLabel}
+                      </button>
+                    ) : null}
+                    <div
+                      className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
+                    >
+                      {fanToken ? (
+                        <ChatComposeMediaPicker
+                          draft={chatDraft}
+                          onDraftChange={setChatDraft}
+                          inputRef={chatInputRef}
+                          accessToken={fanToken}
+                          onGifSelect={sendChatGif}
+                        />
+                      ) : null}
+                      <input
+                        ref={chatInputRef}
+                        type="text"
+                        maxLength={2000}
+                        value={fanToken ? chatDraft : ''}
+                        placeholder="Say something…"
+                        disabled={!fanToken}
+                        onChange={(e) => {
+                          if (fanToken) setChatDraft(e.target.value)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && fanToken) sendChat()
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="riffsync-room-chat-compose-send gen-button"
+                        disabled={!fanToken}
+                        onClick={sendChat}
+                      >
+                        Send
+                      </button>
+                    </div>
+                    {!fanToken ? (
+                      <div
+                        className="riffsync-room-chat-signin-overlay"
+                        role="region"
+                        aria-label="Sign in to participate in chat"
+                      >
+                        <button
+                          type="button"
+                          className="gen-button"
+                          onClick={() =>
+                            void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
+                          }
+                        >
+                          Sign In to Chat
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </section>
           </aside>
         </div>

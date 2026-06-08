@@ -1345,20 +1345,82 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   overflow: visible;
   min-height: 0;
   flex: 1 1 auto;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
 }
 
 .riffsync-room-page__tab-panel--chat .riffsync-room-chat-log {
-  grid-row: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
-.riffsync-room-page__tab-panel--chat .riffsync-room-chat-compose-holder {
-  grid-row: 2;
+.riffsync-room-page__sidebar-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(5 8 11 / 0.55);
+}
+
+.riffsync-room-av {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem 0.35rem;
+}
+
+.riffsync-room-av__kill-switch {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: rgb(255 255 255 / 0.72);
+}
+
+.riffsync-room-av__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.riffsync-room-av-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: 1 1 calc(50% - 0.2rem);
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.riffsync-room-av-toggle--on {
+  color: var(--primary-color);
+  border-color: rgb(255 255 255 / 0.28);
+  background: rgb(255 255 255 / 0.12);
+}
+
+.riffsync-room-av-toggle[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.riffsync-room-av-toggle__icon {
+  flex-shrink: 0;
+}
+
+.riffsync-room-av-toggle__label {
+  white-space: nowrap;
+}
+
+.riffsync-room-av__err {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #ffb4b4;
 }
 
 .riffsync-room-page__room-panel {
@@ -1416,8 +1478,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   align-items: stretch;
   gap: 0.35rem;
   padding: 0.5rem;
-  border-top: 1px solid rgb(255 255 255 / 0.08);
-  background: rgb(5 8 11 / 0.55);
+  border-top: none;
+  background: transparent;
 }
 
 .riffsync-room-chat-compose-holder {
