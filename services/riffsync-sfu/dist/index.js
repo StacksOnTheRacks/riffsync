@@ -335,12 +335,12 @@ async function onMessage(ws, p, raw) {
             case 'createWebRtcTransport': {
                 const asProducer = Boolean(data.producer);
                 const asConsumer = Boolean(data.consumer);
-                if (p.claims.role === 'producer' && !asProducer) {
-                    send(ws, errResponse(id, 'host transport must set producer: true'));
-                    return;
-                }
                 if (p.claims.role === 'consumer' && !asConsumer) {
                     send(ws, errResponse(id, 'guest transport must set consumer: true'));
+                    return;
+                }
+                if (p.claims.role === 'producer' && !asProducer && !asConsumer) {
+                    send(ws, errResponse(id, 'producer transport must set producer and/or consumer'));
                     return;
                 }
                 if (p.transports.size >= MAX_TRANSPORTS) {
@@ -461,7 +461,7 @@ async function onMessage(ws, p, raw) {
                 break;
             }
             case 'consume': {
-                if (p.claims.role !== 'consumer') {
+                if (p.claims.role !== 'consumer' && p.claims.role !== 'producer') {
                     send(ws, errResponse(id, 'forbidden'));
                     return;
                 }

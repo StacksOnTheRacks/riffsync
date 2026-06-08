@@ -136,20 +136,42 @@ describe('webrtc-sfu-token handler', () => {
     mocks.verifyAccessToken.mockResolvedValue(null);
   });
 
-  it('grants host_screen to the room host by default', async () => {
+  it('grants host_screen when the host requests producerClass host_screen', async () => {
     stubRoomAndPresence({
       myConn: { hostSub, fanSub: hostSub },
     });
     mocks.verifyAccessToken.mockResolvedValue({ sub: hostSub });
 
-    const res = await handler(tokenEvent({ authorization: 'Bearer host-jwt' }));
+    const res = await handler(
+      tokenEvent({
+        authorization: 'Bearer host-jwt',
+        body: { producerClass: 'host_screen' },
+      }),
+    );
     expect(res.statusCode).toBe(200);
     const body = parseBody(res);
     expect(body.role).toBe('producer');
     expect(body.producerClass).toBe('host_screen');
     const claims = verifySfuJoinToken(body.token as string, joinSecret);
-    expect(claims?.producerClass).toBe('host_screen');
+    expect(claims?.producerClass).toBeUndefined();
     expect(claims?.fanSub).toBeUndefined();
+  });
+
+  it('grants consumer to a signed-in fan before participant AV publish', async () => {
+    stubRoomAndPresence({
+      myConn: { fanSub },
+    });
+    mocks.verifyAccessToken.mockResolvedValue({ sub: fanSub });
+
+    const res = await handler(
+      tokenEvent({
+        authorization: 'Bearer fan-jwt',
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.role).toBe('consumer');
+    expect(body.producerClass).toBeUndefined();
   });
 
   it('grants participant_av to a signed-in fan when avDisabled is false', async () => {

@@ -43,6 +43,11 @@ import {
 } from '../room/webrtcDebug'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/mediasoupSfuFeature'
+import {
+  createBoundParticipantAvController,
+  type ParticipantAvController,
+  type ParticipantAvPublishGate,
+} from '../room/sfu/participantAvSession'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
@@ -209,6 +214,8 @@ export function RoomPage() {
   const acceptedOfferShareGenerationRef = useRef(0)
   const lastDedupOfferGenerationRef = useRef(0)
   const sfuSessionRef = useRef<{ close: () => void } | null>(null)
+  const captureStreamRef = useRef<MediaStream | null>(null)
+  const [sfuTokenIntentTick, setSfuTokenIntentTick] = useState(0)
   const isPublisherRef = useRef(false)
   const prevRoomSidebarTabRef = useRef<'chat' | 'people' | 'room' | 'profile'>('chat')
   const chatInputRef = useRef<HTMLInputElement>(null)
@@ -234,6 +241,7 @@ export function RoomPage() {
     jumpToLatest,
   } = useChatLogStickToBottom(chat.length, roomChatTabActive)
   const isPublisher = Boolean(room && fanToken && cognitoSub(fanToken) === room.hostSub)
+  const avDisabled = room?.avDisabled ?? true
 
   /** Prefer the room document id so WebSocket presence matches server fan-out even if the route param differed. */
   const canonicalRoomId = useMemo(() => room?.roomId ?? roomId, [room?.roomId, roomId])
@@ -700,6 +708,39 @@ export function RoomPage() {
     onMessage: onWsMessage,
   })
 
+  const participantAvGate = useMemo<ParticipantAvPublishGate>(
+    () => ({
+      wsOpen: false,
+      fanToken: null,
+      avDisabled: true,
+    }),
+    [],
+  )
+  const participantAvController = useMemo<ParticipantAvController>(
+    () => createBoundParticipantAvController(() => participantAvGate),
+    [participantAvGate],
+  )
+
+  useEffect(() => {
+    /* Mutable gate snapshot for stable participant AV controller (#117). */
+    Object.assign(participantAvGate, {
+      wsOpen: wsStatus === 'open',
+      fanToken,
+      avDisabled,
+      onNeedsProducerTokenChange: () => {
+        setSfuTokenIntentTick((n) => n + 1)
+      },
+    })
+    participantAvController.refreshPublishGate()
+    if (wsStatus !== 'open') {
+      participantAvController.resetOnReconnect()
+    }
+  }, [wsStatus, fanToken, avDisabled, participantAvController, participantAvGate])
+
+  useEffect(() => {
+    captureStreamRef.current = captureStream
+  }, [captureStream])
+
   /** Warm ICE early so negotiation is faster and /v1/webrtc/ice appears in Network as soon as the room is live. */
   useEffect(() => {
     if (!roomId || !room || wsStatus !== 'open') return
@@ -842,40 +883,18 @@ export function RoomPage() {
   }, [captureStream, getIceServers, isPublisher, wsStatus, sfuEnabled])
 
   useEffect(() => {
-    if (!sfuEnabled || !isPublisher || !captureStream || wsStatus !== 'open') return
+    if (!sfuEnabled || wsStatus !== 'open' || !room) return
     const api = getPublicApiBaseUrl()
     if (!api || !canonicalRoomId) return
 
     const { cancel } = startSfuRoomSession({
-      role: 'producer',
       apiBaseUrl: api,
       roomId: canonicalRoomId,
       sessionId,
       accessToken: fanToken,
-      captureStream,
       getIceServers,
-      assignSession: (s) => {
-        sfuSessionRef.current = s
-      },
-      onMissingWsUrl: () => setSfuRoomErr(SFU_RELAY_URL_MISSING_MSG),
-      onTokenError: (msg) => setSfuRoomErr(msg),
-      onMediaError: (_code, msg) => setSfuRoomErr(msg),
-      onConnecting: () => setSfuRoomErr(null),
-    })
-    return cancel
-  }, [sfuEnabled, isPublisher, captureStream, wsStatus, canonicalRoomId, sessionId, fanToken, getIceServers])
-
-  useEffect(() => {
-    if (!sfuEnabled || isPublisher || wsStatus !== 'open') return
-    const api = getPublicApiBaseUrl()
-    if (!api || !canonicalRoomId) return
-
-    const { cancel } = startSfuRoomSession({
-      role: 'consumer',
-      apiBaseUrl: api,
-      roomId: canonicalRoomId,
-      sessionId,
-      getIceServers,
+      getHostScreenStream: () => captureStreamRef.current,
+      participantAv: participantAvController,
       onRemoteStream: setGuestRemote,
       assignSession: (s) => {
         sfuSessionRef.current = s
@@ -886,7 +905,19 @@ export function RoomPage() {
       onConnecting: () => setSfuRoomErr(null),
     })
     return cancel
-  }, [sfuEnabled, isPublisher, wsStatus, canonicalRoomId, sessionId, getIceServers])
+  }, [
+    sfuEnabled,
+    wsStatus,
+    room,
+    avDisabled,
+    canonicalRoomId,
+    sessionId,
+    fanToken,
+    getIceServers,
+    captureStream,
+    sfuTokenIntentTick,
+    participantAvController,
+  ])
 
   useEffect(() => {
     if (isPublisher) return

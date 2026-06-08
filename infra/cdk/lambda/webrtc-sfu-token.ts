@@ -229,14 +229,6 @@ async function resolveGrant(
     return resolveParticipantAvGrant(room, presenceTable, roomId, jwtUser, connFanSub);
   }
 
-  if (isHostJwt && isHostConnection(myConn, roomHostSub)) {
-    return { role: 'producer', producerClass: 'host_screen' };
-  }
-
-  if (connFanSub && jwtUser && jwtUser.sub === connFanSub) {
-    return resolveParticipantAvGrant(room, presenceTable, roomId, jwtUser, connFanSub);
-  }
-
   return { role: 'consumer' };
 }
 
@@ -322,7 +314,7 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
       roomId,
       sessionId,
       role: grant.role,
-      ...(grant.role === 'producer'
+      ...(grant.role === 'producer' && grant.producerClass === 'participant_av'
         ? {
             producerClass: grant.producerClass,
             ...(grant.fanSub ? { fanSub: grant.fanSub } : {}),

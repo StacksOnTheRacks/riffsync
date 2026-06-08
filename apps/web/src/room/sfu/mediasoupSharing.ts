@@ -221,25 +221,136 @@ function watchTransportUntilUnhealthy(
   }
 }
 
-export async function connectSfuProducer(options: {
+export type SfuProducerClass = 'host_screen' | 'participant_av'
+
+type ProducerSummary = {
+  producerId: string
+  kind: string
+  sessionId?: string
+  producerClass?: SfuProducerClass
+}
+
+type LiveProducer = {
+  producer: mediasoupClient.types.Producer
+  producerClass: SfuProducerClass
+  kind: 'audio' | 'video'
+}
+
+export type SfuUnifiedSessionHandle = {
+  close: (reason?: SfuSessionEndReason) => void
+  sessionEnded: Promise<SfuSessionEndReason>
+  ready: Promise<void>
+  publishStream: (stream: MediaStream, producerClass: SfuProducerClass) => Promise<void>
+  unpublishProducerClass: (producerClass: SfuProducerClass) => void
+  pauseProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
+  resumeProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
+}
+
+function parseProducerClass(value: unknown): SfuProducerClass | null {
+  if (value === 'host_screen' || value === 'participant_av') return value
+  return null
+}
+
+export async function connectSfuUnifiedSession(options: {
   wsBaseUrl: string
   token: string
-  captureStream: MediaStream
+  tokenRole: 'producer' | 'consumer'
   getIceServers: () => Promise<RTCIceServer[]>
+  onRemoteStream: (stream: MediaStream | null) => void
+  ownSessionId?: string
   onMediaError?: (code: SfuMediaErrorCode, message: string) => void
-}): Promise<{ close: (reason?: SfuSessionEndReason) => void; sessionEnded: Promise<SfuSessionEndReason> }> {
-  const { wsBaseUrl, token, captureStream, getIceServers, onMediaError } = options
+}): Promise<SfuUnifiedSessionHandle> {
+  const { wsBaseUrl, token, tokenRole, getIceServers, onRemoteStream, ownSessionId, onMediaError } =
+    options
   const signaling = new SfuSignaling(signalingWsUrl(wsBaseUrl, token))
   let userClosed = false
   let settled = false
   let resolveEnd!: (r: SfuSessionEndReason) => void
+  let resolveReady!: () => void
+  let rejectReady!: (e: Error) => void
   const sessionEnded = new Promise<SfuSessionEndReason>((resolve) => {
     resolveEnd = resolve
+  })
+  const ready = new Promise<void>((resolve, reject) => {
+    resolveReady = resolve
+    rejectReady = reject
   })
   const finish = (r: SfuSessionEndReason) => {
     if (settled) return
     settled = true
     resolveEnd(userClosed ? 'user_close' : r)
+  }
+
+  let sendTransport: mediasoupClient.types.Transport | null = null
+  let recvTransport: mediasoupClient.types.Transport | null = null
+  let recvTransportId = ''
+  const liveProducers: LiveProducer[] = []
+  const mediasoupConsumers: mediasoupClient.types.Consumer[] = []
+  const attachedProducerIds = new Set<string>()
+  const remoteStream = new MediaStream()
+  const unwatchFns: Array<() => void> = []
+
+  const emitRemote = () => {
+    onRemoteStream(remoteStream.getTracks().length > 0 ? remoteStream : null)
+  }
+
+  const unpublishProducerClass = (producerClass: SfuProducerClass) => {
+    const keep: LiveProducer[] = []
+    for (const lp of liveProducers) {
+      if (lp.producerClass === producerClass) {
+        try {
+          lp.producer.close()
+        } catch {
+          /* ignore */
+        }
+      } else {
+        keep.push(lp)
+      }
+    }
+    liveProducers.length = 0
+    for (const lp of keep) liveProducers.push(lp)
+  }
+
+  const findLiveProducer = (
+    producerClass: SfuProducerClass,
+    kind: 'audio' | 'video',
+  ): LiveProducer | undefined =>
+    liveProducers.find((lp) => lp.producerClass === producerClass && lp.kind === kind)
+
+  const pauseProducerKind = (producerClass: SfuProducerClass, kind: 'audio' | 'video') => {
+    const lp = findLiveProducer(producerClass, kind)
+    if (!lp) return
+    try {
+      if (!lp.producer.paused) lp.producer.pause()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const resumeProducerKind = (producerClass: SfuProducerClass, kind: 'audio' | 'video') => {
+    const lp = findLiveProducer(producerClass, kind)
+    if (!lp) return
+    try {
+      if (lp.producer.paused) lp.producer.resume()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const publishStream = async (stream: MediaStream, producerClass: SfuProducerClass) => {
+    if (!sendTransport) {
+      throw new Error('SFU send transport not ready')
+    }
+    unpublishProducerClass(producerClass)
+    for (const track of stream.getTracks()) {
+      const kind = track.kind === 'audio' || track.kind === 'video' ? track.kind : null
+      if (!kind) continue
+      const producer = await sendTransport.produce({
+        track,
+        appData: { producerClass },
+      })
+      liveProducers.push({ producer, producerClass, kind })
+    }
   }
 
   void (async () => {
@@ -248,6 +359,7 @@ export async function connectSfuProducer(options: {
     } catch {
       onMediaError?.('signaling_failed', 'Could not connect to video relay (signaling).')
       finish('signaling_close')
+      rejectReady(new Error('signaling_failed'))
       return
     }
 
@@ -259,6 +371,7 @@ export async function connectSfuProducer(options: {
       if (!isRecord(capsRes.routerRtpCapabilities)) {
         onMediaError?.('bad_capabilities', 'Video relay misconfigured (router capabilities).')
         finish('signaling_close')
+        rejectReady(new Error('bad_capabilities'))
         return
       }
       routerRtpCapabilities = capsRes.routerRtpCapabilities as Record<string, unknown>
@@ -268,6 +381,7 @@ export async function connectSfuProducer(options: {
         e instanceof Error ? e.message : 'getRouterRtpCapabilities failed',
       )
       finish('signaling_close')
+      rejectReady(e instanceof Error ? e : new Error(String(e)))
       return
     }
 
@@ -279,85 +393,281 @@ export async function connectSfuProducer(options: {
     } catch {
       onMediaError?.('bad_capabilities', 'This browser cannot load the video relay codecs.')
       finish('signaling_close')
+      rejectReady(new Error('bad_capabilities'))
       return
     }
 
-    let created: Record<string, unknown>
-    try {
-      created = await signaling.request('createWebRtcTransport', { producer: true, consumer: false })
-    } catch (e) {
-      onMediaError?.(
-        'produce_failed',
-        e instanceof Error ? e.message : 'createWebRtcTransport failed',
+    const setupRecvTransport = async (): Promise<boolean> => {
+      let created: Record<string, unknown>
+      try {
+        created = await signaling.request('createWebRtcTransport', { producer: false, consumer: true })
+      } catch (e) {
+        onMediaError?.(
+          'consume_failed',
+          e instanceof Error ? e.message : 'createWebRtcTransport failed',
+        )
+        return false
+      }
+
+      recvTransportId = typeof created.transportId === 'string' ? created.transportId : ''
+      if (
+        !recvTransportId ||
+        !isRecord(created.iceParameters) ||
+        !Array.isArray(created.iceCandidates) ||
+        !isRecord(created.dtlsParameters)
+      ) {
+        onMediaError?.('consume_failed', 'Invalid transport response from video relay.')
+        return false
+      }
+
+      recvTransport = device.createRecvTransport({
+        id: recvTransportId,
+        iceParameters: created.iceParameters as IceParameters,
+        iceCandidates: created.iceCandidates as IceCandidate[],
+        dtlsParameters: created.dtlsParameters as DtlsParameters,
+        iceServers,
+      })
+
+      unwatchFns.push(
+        watchTransportUntilUnhealthy(recvTransport, signaling, (r) => {
+          finish(r)
+        }),
       )
-      finish('signaling_close')
-      return
+
+      recvTransport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
+        void signaling
+          .request('connectWebRtcTransport', { transportId: recvTransportId, dtlsParameters: dtls })
+          .then(() => callback())
+          .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
+      })
+      return true
     }
 
-    const transportId = typeof created.transportId === 'string' ? created.transportId : ''
-    if (
-      !transportId ||
-      !isRecord(created.iceParameters) ||
-      !Array.isArray(created.iceCandidates) ||
-      !isRecord(created.dtlsParameters)
-    ) {
-      onMediaError?.('produce_failed', 'Invalid transport response from video relay.')
-      finish('signaling_close')
-      return
-    }
+    const consumeProducer = async (summary: ProducerSummary): Promise<void> => {
+      const { producerId, kind: kindHint } = summary
+      if (!recvTransport || !producerId || attachedProducerIds.has(producerId)) return
+      if (ownSessionId && summary.sessionId === ownSessionId) return
 
-    const sendTransport = device.createSendTransport({
-      id: transportId,
-      iceParameters: created.iceParameters as IceParameters,
-      iceCandidates: created.iceCandidates as IceCandidate[],
-      dtlsParameters: created.dtlsParameters as DtlsParameters,
-      iceServers,
-    })
-
-    let unwatch: (() => void) | null = null
-    unwatch = watchTransportUntilUnhealthy(sendTransport, signaling, (r) => {
-      unwatch?.()
-      finish(r)
-    })
-
-    sendTransport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
-      void signaling
-        .request('connectWebRtcTransport', { transportId, dtlsParameters: dtls })
-        .then(() => callback())
-        .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
-    })
-
-    sendTransport.on('produce', ({ kind, rtpParameters, appData }, callback, errback) => {
-      void appData
-      void signaling
-        .request('produce', { transportId, kind, rtpParameters })
-        .then((r) => {
-          const pid = typeof r.producerId === 'string' ? r.producerId : ''
-          if (!pid) throw new Error('no producerId')
-          callback({ id: pid })
+      let r: Record<string, unknown>
+      try {
+        r = await signaling.request('consume', {
+          transportId: recvTransportId,
+          producerId,
+          rtpCapabilities: device.rtpCapabilities,
         })
-        .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
-    })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        onMediaError?.('consume_failed', msg.includes('gone') ? 'Host stream ended; waiting for share.' : msg)
+        return
+      }
+      const consumerId = typeof r.consumerId === 'string' ? r.consumerId : ''
+      const kind =
+        r.kind === 'audio' || r.kind === 'video'
+          ? r.kind
+          : kindHint === 'audio' || kindHint === 'video'
+            ? kindHint
+            : null
+      const rtpParameters = r.rtpParameters
+      if (!consumerId || !kind || !isRecord(rtpParameters)) return
+
+      let consumer: mediasoupClient.types.Consumer
+      try {
+        consumer = await recvTransport.consume({
+          id: consumerId,
+          producerId,
+          kind,
+          rtpParameters: rtpParameters as RtpParameters,
+        })
+      } catch (e) {
+        onMediaError?.(
+          'consume_failed',
+          e instanceof Error ? e.message : 'consume failed on device',
+        )
+        return
+      }
+      mediasoupConsumers.push(consumer)
+      attachedProducerIds.add(producerId)
+      const { track } = consumer
+      if (track && !remoteStream.getTracks().includes(track)) {
+        remoteStream.addTrack(track)
+      }
+    }
+
+    const syncFromList = async (list: ProducerSummary[]): Promise<void> => {
+      for (const row of list) {
+        await consumeProducer(row)
+      }
+      emitRemote()
+    }
+
+    signaling.onEvent = (name, data) => {
+      if (name === 'producerClosed') {
+        if (!isRecord(data)) return
+        const producerId = typeof data.producerId === 'string' ? data.producerId : ''
+        if (!producerId) return
+        const keep: typeof mediasoupConsumers = []
+        for (const c of mediasoupConsumers) {
+          if (c.producerId === producerId) {
+            try {
+              remoteStream.removeTrack(c.track)
+            } catch {
+              /* ignore */
+            }
+            try {
+              c.close()
+            } catch {
+              /* ignore */
+            }
+          } else {
+            keep.push(c)
+          }
+        }
+        mediasoupConsumers.length = 0
+        for (const k of keep) mediasoupConsumers.push(k)
+        attachedProducerIds.delete(producerId)
+        emitRemote()
+        return
+      }
+      if (name !== 'newProducer') return
+      if (!isRecord(data)) return
+      const producerId = typeof data.producerId === 'string' ? data.producerId : ''
+      const kind = typeof data.kind === 'string' ? data.kind : 'video'
+      const sessionId = typeof data.sessionId === 'string' ? data.sessionId : undefined
+      const producerClass = parseProducerClass(data.producerClass) ?? undefined
+      if (!producerId) return
+      void consumeProducer({ producerId, kind, sessionId, producerClass }).then(() => emitRemote())
+    }
+
+    if (!(await setupRecvTransport())) {
+      finish('signaling_close')
+      rejectReady(new Error('recv_transport_failed'))
+      return
+    }
+
+    if (tokenRole === 'producer') {
+      let created: Record<string, unknown>
+      try {
+        created = await signaling.request('createWebRtcTransport', { producer: true, consumer: false })
+      } catch (e) {
+        onMediaError?.(
+          'produce_failed',
+          e instanceof Error ? e.message : 'createWebRtcTransport failed',
+        )
+        finish('signaling_close')
+        rejectReady(e instanceof Error ? e : new Error(String(e)))
+        return
+      }
+
+      const transportId = typeof created.transportId === 'string' ? created.transportId : ''
+      if (
+        !transportId ||
+        !isRecord(created.iceParameters) ||
+        !Array.isArray(created.iceCandidates) ||
+        !isRecord(created.dtlsParameters)
+      ) {
+        onMediaError?.('produce_failed', 'Invalid transport response from video relay.')
+        finish('signaling_close')
+        rejectReady(new Error('send_transport_invalid'))
+        return
+      }
+
+      sendTransport = device.createSendTransport({
+        id: transportId,
+        iceParameters: created.iceParameters as IceParameters,
+        iceCandidates: created.iceCandidates as IceCandidate[],
+        dtlsParameters: created.dtlsParameters as DtlsParameters,
+        iceServers,
+      })
+
+      unwatchFns.push(
+        watchTransportUntilUnhealthy(sendTransport, signaling, (r) => {
+          finish(r)
+        }),
+      )
+
+      sendTransport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
+        void signaling
+          .request('connectWebRtcTransport', { transportId, dtlsParameters: dtls })
+          .then(() => callback())
+          .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
+      })
+
+      sendTransport.on('produce', ({ kind, rtpParameters, appData }, callback, errback) => {
+        const producerClass = isRecord(appData) ? parseProducerClass(appData.producerClass) : null
+        if (!producerClass) {
+          errback(new Error('producerClass required'))
+          return
+        }
+        void signaling
+          .request('produce', { transportId, kind, rtpParameters, producerClass })
+          .then((res) => {
+            const pid = typeof res.producerId === 'string' ? res.producerId : ''
+            if (!pid) throw new Error('no producerId')
+            callback({ id: pid })
+          })
+          .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
+      })
+    }
 
     try {
-      for (const track of captureStream.getTracks()) {
-        await sendTransport.produce({ track })
+      const listRes = await signaling.request('listProducers')
+      const producersRaw = listRes.producers
+      const initial: ProducerSummary[] = []
+      if (Array.isArray(producersRaw)) {
+        for (const row of producersRaw) {
+          if (!isRecord(row)) continue
+          const producerId = typeof row.producerId === 'string' ? row.producerId : ''
+          const kind = typeof row.kind === 'string' ? row.kind : ''
+          const sessionId = typeof row.sessionId === 'string' ? row.sessionId : undefined
+          const producerClass = parseProducerClass(row.producerClass) ?? undefined
+          if (producerId) initial.push({ producerId, kind, sessionId, producerClass })
+        }
+      }
+      if (initial.length > 0) {
+        await syncFromList(initial)
       }
     } catch (e) {
       onMediaError?.(
-        'produce_failed',
-        e instanceof Error ? e.message : 'Failed to publish track to relay.',
+        'consume_failed',
+        e instanceof Error ? e.message : 'listProducers failed',
       )
-      unwatch?.()
-      finish('transport_failed')
+      finish('signaling_close')
+      rejectReady(e instanceof Error ? e : new Error(String(e)))
       return
     }
+
+    resolveReady()
   })()
 
   return {
+    ready,
+    publishStream,
+    unpublishProducerClass,
+    pauseProducerKind,
+    resumeProducerKind,
     close: (reason: SfuSessionEndReason = 'user_close') => {
       userClosed = true
       void reason
+      for (const fn of unwatchFns) fn()
+      unpublishProducerClass('host_screen')
+      unpublishProducerClass('participant_av')
+      for (const c of mediasoupConsumers) {
+        try {
+          c.close()
+        } catch {
+          /* ignore */
+        }
+      }
+      mediasoupConsumers.length = 0
+      attachedProducerIds.clear()
+      remoteStream.getTracks().forEach((t) => {
+        try {
+          remoteStream.removeTrack(t)
+        } catch {
+          /* ignore */
+        }
+      })
+      onRemoteStream(null)
       try {
         signaling.close()
       } catch {
@@ -369,8 +679,28 @@ export async function connectSfuProducer(options: {
   }
 }
 
-type ProducerSummary = { producerId: string; kind: string }
+/** @deprecated Use connectSfuUnifiedSession */
+export async function connectSfuProducer(options: {
+  wsBaseUrl: string
+  token: string
+  captureStream: MediaStream
+  getIceServers: () => Promise<RTCIceServer[]>
+  onMediaError?: (code: SfuMediaErrorCode, message: string) => void
+}): Promise<{ close: (reason?: SfuSessionEndReason) => void; sessionEnded: Promise<SfuSessionEndReason> }> {
+  const session = await connectSfuUnifiedSession({
+    wsBaseUrl: options.wsBaseUrl,
+    token: options.token,
+    tokenRole: 'producer',
+    getIceServers: options.getIceServers,
+    onRemoteStream: () => undefined,
+    onMediaError: options.onMediaError,
+  })
+  await session.ready
+  await session.publishStream(options.captureStream, 'host_screen')
+  return { close: session.close, sessionEnded: session.sessionEnded }
+}
 
+/** @deprecated Use connectSfuUnifiedSession */
 export async function connectSfuConsumer(options: {
   wsBaseUrl: string
   token: string
@@ -378,239 +708,16 @@ export async function connectSfuConsumer(options: {
   onRemoteStream: (stream: MediaStream | null) => void
   onMediaError?: (code: SfuMediaErrorCode, message: string) => void
 }): Promise<{ close: (reason?: SfuSessionEndReason) => void; sessionEnded: Promise<SfuSessionEndReason> }> {
-  const { wsBaseUrl, token, getIceServers, onRemoteStream, onMediaError } = options
-  const signaling = new SfuSignaling(signalingWsUrl(wsBaseUrl, token))
-  let userClosed = false
-  let settled = false
-  let resolveEnd!: (r: SfuSessionEndReason) => void
-  const sessionEnded = new Promise<SfuSessionEndReason>((resolve) => {
-    resolveEnd = resolve
+  const session = await connectSfuUnifiedSession({
+    wsBaseUrl: options.wsBaseUrl,
+    token: options.token,
+    tokenRole: 'consumer',
+    getIceServers: options.getIceServers,
+    onRemoteStream: options.onRemoteStream,
+    onMediaError: options.onMediaError,
   })
-  const finish = (r: SfuSessionEndReason) => {
-    if (settled) return
-    settled = true
-    resolveEnd(userClosed ? 'user_close' : r)
-  }
-
-  void (async () => {
-      try {
-        await signaling.connect()
-      } catch {
-        onMediaError?.('signaling_failed', 'Could not connect to video relay (signaling).')
-        finish('signaling_close')
-        return
-      }
-
-      const iceServers = await getIceServers()
-
-      let routerRtpCapabilities: Record<string, unknown>
-      try {
-        const capsRes = await signaling.request('getRouterRtpCapabilities')
-        if (!isRecord(capsRes.routerRtpCapabilities)) {
-          onMediaError?.('bad_capabilities', 'Video relay misconfigured (router capabilities).')
-          finish('signaling_close')
-          return
-        }
-        routerRtpCapabilities = capsRes.routerRtpCapabilities as Record<string, unknown>
-      } catch (e) {
-        onMediaError?.(
-          'consume_failed',
-          e instanceof Error ? e.message : 'getRouterRtpCapabilities failed',
-        )
-        finish('signaling_close')
-        return
-      }
-
-      const device = new mediasoupClient.Device()
-      try {
-        await device.load({
-          routerRtpCapabilities: routerRtpCapabilities as unknown as mediasoupClient.types.RtpCapabilities,
-        })
-      } catch {
-        onMediaError?.('bad_capabilities', 'This browser cannot load the video relay codecs.')
-        finish('signaling_close')
-        return
-      }
-
-      let created: Record<string, unknown>
-      try {
-        created = await signaling.request('createWebRtcTransport', { producer: false, consumer: true })
-      } catch (e) {
-        onMediaError?.(
-          'consume_failed',
-          e instanceof Error ? e.message : 'createWebRtcTransport failed',
-        )
-        finish('signaling_close')
-        return
-      }
-
-      const transportId = typeof created.transportId === 'string' ? created.transportId : ''
-      if (
-        !transportId ||
-        !isRecord(created.iceParameters) ||
-        !Array.isArray(created.iceCandidates) ||
-        !isRecord(created.dtlsParameters)
-      ) {
-        onMediaError?.('consume_failed', 'Invalid transport response from video relay.')
-        finish('signaling_close')
-        return
-      }
-
-      const recvTransport = device.createRecvTransport({
-        id: transportId,
-        iceParameters: created.iceParameters as IceParameters,
-        iceCandidates: created.iceCandidates as IceCandidate[],
-        dtlsParameters: created.dtlsParameters as DtlsParameters,
-        iceServers,
-      })
-
-      let unwatch: (() => void) | null = null
-      unwatch = watchTransportUntilUnhealthy(recvTransport, signaling, (r) => {
-        unwatch?.()
-        finish(r)
-      })
-
-      recvTransport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
-        void signaling
-          .request('connectWebRtcTransport', { transportId, dtlsParameters: dtls })
-          .then(() => callback())
-          .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
-      })
-
-      const attachedProducerIds = new Set<string>()
-      const mediasoupConsumers: mediasoupClient.types.Consumer[] = []
-      const stream = new MediaStream()
-
-      const consumeProducer = async (producerId: string, kindHint: string): Promise<void> => {
-        if (attachedProducerIds.has(producerId)) return
-        let r: Record<string, unknown>
-        try {
-          r = await signaling.request('consume', {
-            transportId,
-            producerId,
-            rtpCapabilities: device.rtpCapabilities,
-          })
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
-          onMediaError?.('consume_failed', msg.includes('gone') ? 'Host stream ended; waiting for share.' : msg)
-          return
-        }
-        const consumerId = typeof r.consumerId === 'string' ? r.consumerId : ''
-        const kind =
-          r.kind === 'audio' || r.kind === 'video'
-            ? r.kind
-            : kindHint === 'audio' || kindHint === 'video'
-              ? kindHint
-              : null
-        const rtpParameters = r.rtpParameters
-        if (!consumerId || !kind || !isRecord(rtpParameters)) return
-
-        let consumer: mediasoupClient.types.Consumer
-        try {
-          consumer = await recvTransport.consume({
-            id: consumerId,
-            producerId,
-            kind,
-            rtpParameters: rtpParameters as RtpParameters,
-          })
-        } catch (e) {
-          onMediaError?.(
-            'consume_failed',
-            e instanceof Error ? e.message : 'consume failed on device',
-          )
-          return
-        }
-        mediasoupConsumers.push(consumer)
-        attachedProducerIds.add(producerId)
-        const { track } = consumer
-        if (track && !stream.getTracks().includes(track)) {
-          stream.addTrack(track)
-        }
-      }
-
-      const syncFromList = async (list: ProducerSummary[]): Promise<void> => {
-        for (const { producerId, kind } of list) {
-          await consumeProducer(producerId, kind)
-        }
-        onRemoteStream(stream.getTracks().length > 0 ? stream : null)
-      }
-
-      signaling.onEvent = (name, data) => {
-        if (name === 'producerClosed') {
-          if (!isRecord(data)) return
-          const producerId = typeof data.producerId === 'string' ? data.producerId : ''
-          if (!producerId) return
-          const keep: typeof mediasoupConsumers = []
-          for (const c of mediasoupConsumers) {
-            if (c.producerId === producerId) {
-              try {
-                stream.removeTrack(c.track)
-              } catch {
-                /* ignore */
-              }
-              try {
-                c.close()
-              } catch {
-                /* ignore */
-              }
-            } else {
-              keep.push(c)
-            }
-          }
-          mediasoupConsumers.length = 0
-          for (const k of keep) mediasoupConsumers.push(k)
-          attachedProducerIds.delete(producerId)
-          onRemoteStream(stream.getTracks().length > 0 ? stream : null)
-          return
-        }
-        if (name !== 'newProducer') return
-        if (!isRecord(data)) return
-        const producerId = typeof data.producerId === 'string' ? data.producerId : ''
-        const kind = typeof data.kind === 'string' ? data.kind : 'video'
-        if (!producerId) return
-        void consumeProducer(producerId, kind).then(() => {
-          onRemoteStream(stream.getTracks().length > 0 ? stream : null)
-        })
-      }
-
-      try {
-        const listRes = await signaling.request('listProducers')
-        const producersRaw = listRes.producers
-        const initial: ProducerSummary[] = []
-        if (Array.isArray(producersRaw)) {
-          for (const row of producersRaw) {
-            if (!isRecord(row)) continue
-            const producerId = typeof row.producerId === 'string' ? row.producerId : ''
-            const kind = typeof row.kind === 'string' ? row.kind : ''
-            if (producerId) initial.push({ producerId, kind })
-          }
-        }
-        if (initial.length > 0) {
-          await syncFromList(initial)
-        }
-      } catch (e) {
-        onMediaError?.(
-          'consume_failed',
-          e instanceof Error ? e.message : 'listProducers failed',
-        )
-        finish('signaling_close')
-      }
-  })()
-
-  return {
-    close: (reason: SfuSessionEndReason = 'user_close') => {
-      userClosed = true
-      void reason
-      try {
-        signaling.close()
-      } catch {
-        /* ignore */
-      }
-      onRemoteStream(null)
-      if (!settled) finish('user_close')
-    },
-    sessionEnded,
-  }
+  await session.ready
+  return { close: session.close, sessionEnded: session.sessionEnded }
 }
 
 /** Resolve WS base from token response and build-time env (shared helper for session runner). */
