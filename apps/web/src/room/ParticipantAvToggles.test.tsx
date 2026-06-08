@@ -89,6 +89,7 @@ describe('ParticipantAvToggles', () => {
         busy: false,
       }),
       subscribe: () => () => undefined,
+      getLocalPreviewStream: () => null,
       refreshPublishGate: vi.fn(),
       attachSession: vi.fn(),
       resetOnReconnect: vi.fn(),

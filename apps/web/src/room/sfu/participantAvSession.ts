@@ -29,6 +29,7 @@ export type ParticipantAvPublishState = {
 
 export type ParticipantAvController = {
   getState: () => ParticipantAvPublishState
+  getLocalPreviewStream: () => MediaStream | null
   subscribe: (listener: () => void) => () => void
   refreshPublishGate: () => void
   attachSession: (session: SfuUnifiedSessionHandle | null) => void
@@ -146,6 +147,11 @@ export function createParticipantAvController(options: {
 
   return {
     getState,
+    getLocalPreviewStream: () => {
+      if (!cameraEnabled || !localStream) return null
+      if (localStream.getVideoTracks().length === 0) return null
+      return localStream
+    },
     subscribe: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)

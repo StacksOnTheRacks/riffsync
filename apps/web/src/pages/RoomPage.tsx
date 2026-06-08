@@ -78,6 +78,15 @@ import {
   mergeRoomPatchResult,
   roomModeAnnounceCopy,
 } from '../room/hostRoomControls'
+import type { SfuConsumerTrackEvent } from '../room/sfu/mediasoupSharing'
+import {
+  applyParticipantAvConsumerEvent,
+  type ParticipantAvVideoConsumer,
+} from '../room/stage/participantAvConsumers'
+import { StageParticipantLayout } from '../room/stage/StageParticipantLayout'
+import { buildStageParticipantTiles } from '../room/stage/stageParticipantTiles'
+import { useStageLayoutTransition } from '../room/stage/useStageLayoutTransition'
+import { useViewportWide } from '../room/stage/useViewportWide'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
@@ -180,6 +189,10 @@ export function RoomPage() {
   const [patchErr, setPatchErr] = useState<string | null>(null)
   const [hostBarBusy, setHostBarBusy] = useState(false)
   const [hostBarErr, setHostBarErr] = useState<string | null>(null)
+  const [participantAvVideoConsumers, setParticipantAvVideoConsumers] = useState(
+    () => new Map<string, ParticipantAvVideoConsumer>(),
+  )
+  const [participantAvPublishTick, setParticipantAvPublishTick] = useState(0)
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const [sfuRoomErr, setSfuRoomErr] = useState<string | null>(null)
@@ -461,6 +474,9 @@ export function RoomPage() {
     })
     return list
   }, [presenceRoster.members, presenceRoster.roomId, canonicalRoomId, sessionId, displayName, isPublisher])
+
+  const viewportWide = useViewportWide()
+  const avSurfacesEnabled = sfuEnabled && !avDisabled
 
   const chatMemberLabels = useMemo(() => {
     const m = new Map<string, string>()
@@ -825,6 +841,28 @@ export function RoomPage() {
   }, [wsStatus, fanToken, avDisabled, participantAvController, participantAvGate])
 
   useEffect(() => {
+    return participantAvController.subscribe(() => {
+      setParticipantAvPublishTick((n) => n + 1)
+    })
+  }, [participantAvController])
+
+  void participantAvPublishTick
+  const participantAvPublishState = participantAvController.getState()
+  const stageParticipantTiles = buildStageParticipantTiles({
+    roster: peopleShown,
+    videoConsumers: participantAvVideoConsumers,
+    ownSessionId: sessionId,
+    localCameraOn: participantAvPublishState.cameraEnabled,
+    localPreviewStream: participantAvController.getLocalPreviewStream(),
+  })
+
+  const stageLayoutUpdating = useStageLayoutTransition(roomMode, stageParticipantTiles.length)
+
+  const onParticipantAvConsumerTrack = useCallback((event: SfuConsumerTrackEvent) => {
+    setParticipantAvVideoConsumers((prev) => applyParticipantAvConsumerEvent(prev, event))
+  }, [])
+
+  useEffect(() => {
     captureStreamRef.current = captureStream
   }, [captureStream])
 
@@ -1040,6 +1078,7 @@ export function RoomPage() {
 
     participantAvController.teardownPublishing()
     sfuSessionRef.current?.detachConsumerClass('participant_av')
+    setParticipantAvVideoConsumers(new Map())
   }, [avDisabled, participantAvController])
 
   useEffect(() => {
@@ -1064,6 +1103,7 @@ export function RoomPage() {
       participantAv: participantAvController,
       onRemoteStream: setGuestRemote,
       onConsumerTrack: (event) => {
+        onParticipantAvConsumerTrack(event)
         theaterAudioMixRef.current?.onConsumerEvent(event)
         void theaterAudioMixRef.current?.resumeIfSuspended()
       },
@@ -1094,6 +1134,7 @@ export function RoomPage() {
     captureStream,
     sfuTokenIntentTick,
     participantAvController,
+    onParticipantAvConsumerTrack,
   ])
 
   useEffect(() => {
@@ -1551,7 +1592,14 @@ export function RoomPage() {
         ) : null}
         <div className="riffsync-room-page__stage">
           <div className="riffsync-room-page__theater">
-            {isPublisher ? (
+            <StageParticipantLayout
+              roomMode={roomMode}
+              tiles={stageParticipantTiles}
+              layoutUpdating={stageLayoutUpdating}
+              viewportWide={viewportWide}
+              avSurfacesEnabled={avSurfacesEnabled}
+              playback={
+                isPublisher ? (
               <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
                 {captureStream && hostCapturePlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
@@ -1652,7 +1700,9 @@ export function RoomPage() {
                   </p>
                 )}
               </section>
-            )}
+            )
+              }
+            />
           </div>
 
           <aside className="riffsync-room-page__chat-column" aria-label="Room sidebar">
