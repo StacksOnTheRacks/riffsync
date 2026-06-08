@@ -240,6 +240,7 @@ export type SfuConsumerTrackEvent =
   | {
       action: 'attach'
       producerId: string
+      sessionId?: string
       producerClass: SfuProducerClass | undefined
       kind: 'audio' | 'video'
       track: MediaStreamTrack
@@ -553,6 +554,7 @@ export async function connectSfuUnifiedSession(options: {
       onConsumerTrack?.({
         action: 'attach',
         producerId,
+        sessionId: summary.sessionId,
         producerClass: summary.producerClass,
         kind,
         track,

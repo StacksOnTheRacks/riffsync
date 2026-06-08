@@ -70,6 +70,23 @@ import {
 import { createChatMessageId, parseInboundChatMessageId } from '../room/chatMessageId'
 import { isContinuedChatLine } from '../room/chatMessageGrouping'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
+import { ParticipantAvToggles } from '../room/ParticipantAvToggles'
+import { HostControlBar } from '../room/HostControlBar'
+import {
+  avDisabledAnnounceCopy,
+  formatHostRoomPatchError,
+  mergeRoomPatchResult,
+  roomModeAnnounceCopy,
+} from '../room/hostRoomControls'
+import type { SfuConsumerTrackEvent } from '../room/sfu/mediasoupSharing'
+import {
+  applyParticipantAvConsumerEvent,
+  type ParticipantAvVideoConsumer,
+} from '../room/stage/participantAvConsumers'
+import { StageParticipantLayout } from '../room/stage/StageParticipantLayout'
+import { buildStageParticipantTiles } from '../room/stage/stageParticipantTiles'
+import { useStageLayoutTransition } from '../room/stage/useStageLayoutTransition'
+import { useViewportWide } from '../room/stage/useViewportWide'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
@@ -170,6 +187,12 @@ export function RoomPage() {
   const [chatReactions, setChatReactions] = useState<ReactionsByMessage>({})
   const [chatDraft, setChatDraft] = useState('')
   const [patchErr, setPatchErr] = useState<string | null>(null)
+  const [hostBarBusy, setHostBarBusy] = useState(false)
+  const [hostBarErr, setHostBarErr] = useState<string | null>(null)
+  const [participantAvVideoConsumers, setParticipantAvVideoConsumers] = useState(
+    () => new Map<string, ParticipantAvVideoConsumer>(),
+  )
+  const [participantAvPublishTick, setParticipantAvPublishTick] = useState(0)
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const [sfuRoomErr, setSfuRoomErr] = useState<string | null>(null)
@@ -198,6 +221,8 @@ export function RoomPage() {
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null)
   const [profileAvatarLoading, setProfileAvatarLoading] = useState(false)
   const [profileAvatarUploading, setProfileAvatarUploading] = useState(false)
+  const a11yAnnouncerRef = useRef<HTMLDivElement | null>(null)
+  const hostPatchSuppressAnnounceUntilRef = useRef(0)
   const [profileAvatarErr, setProfileAvatarErr] = useState<string | null>(null)
   const profileTabLoadedRef = useRef(false)
   const profileAvatarInputRef = useRef<HTMLInputElement>(null)
@@ -258,6 +283,44 @@ export function RoomPage() {
   const canonicalRoomId = useMemo(() => room?.roomId ?? roomId, [room?.roomId, roomId])
   const sfuEnabled = isMediasoupSfuEnabled()
   const theaterMixEnabled = sfuEnabled && roomMode === 'theater'
+
+  const announceRoomA11y = useCallback((message: string) => {
+    const node = a11yAnnouncerRef.current
+    if (!node) return
+    node.textContent = ''
+    node.textContent = message
+  }, [])
+
+  const patchHostRoomFields = useCallback(
+    async (patch: { roomMode?: RoomMode; avDisabled?: boolean }) => {
+      if (!room || !fanToken || !isPublisher || hostBarBusy) return
+      const snapshot = room
+      setHostBarBusy(true)
+      setHostBarErr(null)
+      hostPatchSuppressAnnounceUntilRef.current = Date.now() + 3000
+      setRoom({
+        ...snapshot,
+        ...(patch.roomMode !== undefined ? { roomMode: patch.roomMode } : {}),
+        ...(patch.avDisabled !== undefined ? { avDisabled: patch.avDisabled } : {}),
+      })
+      try {
+        const res = await patchRoom(fanToken, roomId, patch)
+        setRoom((prev) => (prev ? mergeRoomPatchResult(prev, res) : prev))
+        if (patch.roomMode !== undefined) {
+          announceRoomA11y(roomModeAnnounceCopy(patch.roomMode))
+        }
+        if (patch.avDisabled !== undefined) {
+          announceRoomA11y(avDisabledAnnounceCopy(patch.avDisabled))
+        }
+      } catch (e) {
+        setRoom(snapshot)
+        setHostBarErr(formatHostRoomPatchError(e))
+      } finally {
+        setHostBarBusy(false)
+      }
+    },
+    [room, fanToken, isPublisher, hostBarBusy, roomId, announceRoomA11y],
+  )
   const meshUnsupportedProdBuild = import.meta.env.PROD && isMeshWatchPartyMediaEnabled()
 
   useEffect(() => {
@@ -411,6 +474,9 @@ export function RoomPage() {
     })
     return list
   }, [presenceRoster.members, presenceRoster.roomId, canonicalRoomId, sessionId, displayName, isPublisher])
+
+  const viewportWide = useViewportWide()
+  const avSurfacesEnabled = sfuEnabled && !avDisabled
 
   const chatMemberLabels = useMemo(() => {
     const m = new Map<string, string>()
@@ -658,10 +724,17 @@ export function RoomPage() {
             ...(nextMode === 'videoChat' ? { broadcastCaptureActive: false } : {}),
           }
         })
+        if (Date.now() > hostPatchSuppressAnnounceUntilRef.current) {
+          announceRoomA11y(roomModeAnnounceCopy(nextMode))
+        }
         return
       }
       if (t === 'av_disabled' && typeof data.avDisabled === 'boolean') {
-        setRoom((prev) => (prev ? { ...prev, avDisabled: data.avDisabled as boolean } : prev))
+        const nextAvDisabled = data.avDisabled as boolean
+        setRoom((prev) => (prev ? { ...prev, avDisabled: nextAvDisabled } : prev))
+        if (Date.now() > hostPatchSuppressAnnounceUntilRef.current) {
+          announceRoomA11y(avDisabledAnnounceCopy(nextAvDisabled))
+        }
         return
       }
       if (t !== 'signaling' || sfuEnabled) return
@@ -724,6 +797,7 @@ export function RoomPage() {
       canonicalRoomId,
       sessionId,
       sfuEnabled,
+      announceRoomA11y,
     ],
   )
 
@@ -765,6 +839,28 @@ export function RoomPage() {
       participantAvController.resetOnReconnect()
     }
   }, [wsStatus, fanToken, avDisabled, participantAvController, participantAvGate])
+
+  useEffect(() => {
+    return participantAvController.subscribe(() => {
+      setParticipantAvPublishTick((n) => n + 1)
+    })
+  }, [participantAvController])
+
+  void participantAvPublishTick
+  const participantAvPublishState = participantAvController.getState()
+  const stageParticipantTiles = buildStageParticipantTiles({
+    roster: peopleShown,
+    videoConsumers: participantAvVideoConsumers,
+    ownSessionId: sessionId,
+    localCameraOn: participantAvPublishState.cameraEnabled,
+    localPreviewStream: participantAvController.getLocalPreviewStream(),
+  })
+
+  const stageLayoutUpdating = useStageLayoutTransition(roomMode, stageParticipantTiles.length)
+
+  const onParticipantAvConsumerTrack = useCallback((event: SfuConsumerTrackEvent) => {
+    setParticipantAvVideoConsumers((prev) => applyParticipantAvConsumerEvent(prev, event))
+  }, [])
 
   useEffect(() => {
     captureStreamRef.current = captureStream
@@ -982,6 +1078,7 @@ export function RoomPage() {
 
     participantAvController.teardownPublishing()
     sfuSessionRef.current?.detachConsumerClass('participant_av')
+    setParticipantAvVideoConsumers(new Map())
   }, [avDisabled, participantAvController])
 
   useEffect(() => {
@@ -1006,6 +1103,7 @@ export function RoomPage() {
       participantAv: participantAvController,
       onRemoteStream: setGuestRemote,
       onConsumerTrack: (event) => {
+        onParticipantAvConsumerTrack(event)
         theaterAudioMixRef.current?.onConsumerEvent(event)
         void theaterAudioMixRef.current?.resumeIfSuspended()
       },
@@ -1036,6 +1134,7 @@ export function RoomPage() {
     captureStream,
     sfuTokenIntentTick,
     participantAvController,
+    onParticipantAvConsumerTrack,
   ])
 
   useEffect(() => {
@@ -1460,6 +1559,7 @@ export function RoomPage() {
         backdropImageUrl ? 'riffsync-room-shell riffsync-room-shell--backdrop' : 'riffsync-room-shell'
       }
     >
+      <div id="riffsync-a11y-announcer" ref={a11yAnnouncerRef} aria-live="polite" className="sr-only" />
       {backdropImageUrl ? (
         <div
           className="riffsync-room-shell__backdrop"
@@ -1492,7 +1592,14 @@ export function RoomPage() {
         ) : null}
         <div className="riffsync-room-page__stage">
           <div className="riffsync-room-page__theater">
-            {isPublisher ? (
+            <StageParticipantLayout
+              roomMode={roomMode}
+              tiles={stageParticipantTiles}
+              layoutUpdating={stageLayoutUpdating}
+              viewportWide={viewportWide}
+              avSurfacesEnabled={avSurfacesEnabled}
+              playback={
+                isPublisher ? (
               <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
                 {captureStream && hostCapturePlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
@@ -1593,7 +1700,9 @@ export function RoomPage() {
                   </p>
                 )}
               </section>
-            )}
+            )
+              }
+            />
           </div>
 
           <aside className="riffsync-room-page__chat-column" aria-label="Room sidebar">
@@ -1712,70 +1821,6 @@ export function RoomPage() {
                       )
                     })}
                   </ul>
-                  <div className="riffsync-room-chat-compose-holder">
-                    {showJumpToLatest ? (
-                      <button
-                        type="button"
-                        className="riffsync-room-chat-jump-latest gen-button"
-                        aria-label="Jump to latest messages"
-                        onClick={jumpToLatest}
-                      >
-                        {jumpToLatestLabel}
-                      </button>
-                    ) : null}
-                    <div
-                      className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
-                    >
-                      {fanToken ? (
-                        <ChatComposeMediaPicker
-                          draft={chatDraft}
-                          onDraftChange={setChatDraft}
-                          inputRef={chatInputRef}
-                          accessToken={fanToken}
-                          onGifSelect={sendChatGif}
-                        />
-                      ) : null}
-                      <input
-                        ref={chatInputRef}
-                        type="text"
-                        maxLength={2000}
-                        value={fanToken ? chatDraft : ''}
-                        placeholder="Say something…"
-                        disabled={!fanToken}
-                        onChange={(e) => {
-                          if (fanToken) setChatDraft(e.target.value)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && fanToken) sendChat()
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="riffsync-room-chat-compose-send gen-button"
-                        disabled={!fanToken}
-                        onClick={sendChat}
-                      >
-                        Send
-                      </button>
-                    </div>
-                    {!fanToken ? (
-                      <div
-                        className="riffsync-room-chat-signin-overlay"
-                        role="region"
-                        aria-label="Sign in to participate in chat"
-                      >
-                        <button
-                          type="button"
-                          className="gen-button"
-                          onClick={() =>
-                            void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
-                          }
-                        >
-                          Sign In to Chat
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
                 </div>
               ) : null}
               {activeSidebarTab === 'people' ? (
@@ -1917,9 +1962,95 @@ export function RoomPage() {
                   </button>
                 </div>
               ) : null}
+              <div className="riffsync-room-page__sidebar-footer">
+                {fanToken ? (
+                  <ParticipantAvToggles
+                    controller={participantAvController}
+                    avDisabled={avDisabled}
+                    sfuRoomErr={sfuRoomErr}
+                    onLocalToggleAnnounce={announceRoomA11y}
+                  />
+                ) : null}
+                {activeSidebarTab === 'chat' ? (
+                  <div className="riffsync-room-chat-compose-holder">
+                    {showJumpToLatest ? (
+                      <button
+                        type="button"
+                        className="riffsync-room-chat-jump-latest gen-button"
+                        aria-label="Jump to latest messages"
+                        onClick={jumpToLatest}
+                      >
+                        {jumpToLatestLabel}
+                      </button>
+                    ) : null}
+                    <div
+                      className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
+                    >
+                      {fanToken ? (
+                        <ChatComposeMediaPicker
+                          draft={chatDraft}
+                          onDraftChange={setChatDraft}
+                          inputRef={chatInputRef}
+                          accessToken={fanToken}
+                          onGifSelect={sendChatGif}
+                        />
+                      ) : null}
+                      <input
+                        ref={chatInputRef}
+                        type="text"
+                        maxLength={2000}
+                        value={fanToken ? chatDraft : ''}
+                        placeholder="Say something…"
+                        disabled={!fanToken}
+                        onChange={(e) => {
+                          if (fanToken) setChatDraft(e.target.value)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && fanToken) sendChat()
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="riffsync-room-chat-compose-send gen-button"
+                        disabled={!fanToken}
+                        onClick={sendChat}
+                      >
+                        Send
+                      </button>
+                    </div>
+                    {!fanToken ? (
+                      <div
+                        className="riffsync-room-chat-signin-overlay"
+                        role="region"
+                        aria-label="Sign in to participate in chat"
+                      >
+                        <button
+                          type="button"
+                          className="gen-button"
+                          onClick={() =>
+                            void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
+                          }
+                        >
+                          Sign In to Chat
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </section>
           </aside>
         </div>
+        {isPublisher ? (
+          <HostControlBar
+            roomMode={roomMode}
+            avDisabled={avDisabled}
+            busy={hostBarBusy}
+            error={hostBarErr}
+            onSelectRoomMode={(mode) => void patchHostRoomFields({ roomMode: mode })}
+            onToggleAvDisabled={(next) => void patchHostRoomFields({ avDisabled: next })}
+          />
+        ) : null}
       </div>
 
       {renameModalOpen && isPublisher ? (
