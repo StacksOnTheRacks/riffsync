@@ -12,23 +12,34 @@ import type {
 import {
   attachTransportHandlers,
   closeSessionTransports,
+  countProducersForSession,
+  countProducersInRoom,
   getOrCreateRoom,
   getMediasoupHealthSnapshot,
+  getProducerEntry,
+  hasProducerForTuple,
   listProducerSummaries,
   removeProducer,
+  removeProducersForSession,
   roomKeyFromClaims,
   shutdownMediasoup,
   transportListenIps,
   upsertProducer,
   verifySfuJoinToken,
+  type ProducerSummary,
   type RoomRuntime,
 } from './rooms.js';
-import type { SfuJoinClaims } from './jwt.js';
+import { isProducerClass, type ProducerClass, type SfuJoinClaims } from './jwt.js';
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const JWT_SECRET = process.env.SFU_JWT_SECRET?.trim() ?? '';
 const MAX_TRANSPORTS = Math.max(1, Number.parseInt(process.env.SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION ?? '8', 10));
 const MAX_CONSUMERS = Math.max(1, Number.parseInt(process.env.SFU_MAX_CONSUMERS_PER_SESSION ?? '64', 10));
+const MAX_PRODUCERS_PER_SESSION = Math.max(
+  1,
+  Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_SESSION ?? '3', 10),
+);
+const MAX_PRODUCERS_PER_ROOM = Math.max(1, Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_ROOM ?? '24', 10));
 
 function logJson(
   level: 'info' | 'warn' | 'error',
@@ -166,7 +177,13 @@ function run(): void {
   });
 
   server.listen(PORT, () => {
-    logJson('info', 'riffsync_sfu_listen', { port: PORT, maxTransports: MAX_TRANSPORTS, maxConsumers: MAX_CONSUMERS });
+    logJson('info', 'riffsync_sfu_listen', {
+      port: PORT,
+      maxTransports: MAX_TRANSPORTS,
+      maxConsumers: MAX_CONSUMERS,
+      maxProducersPerSession: MAX_PRODUCERS_PER_SESSION,
+      maxProducersPerRoom: MAX_PRODUCERS_PER_ROOM,
+    });
   });
 
   const shutdown = (sig: string) => {
@@ -235,11 +252,37 @@ async function tearDownSession(p: PendingSession): Promise<void> {
   });
 
   if (p.claims.role === 'producer') {
-    for (const [, prod] of [...p.room.producersByKind]) {
-      void prod.close();
+    const removed = removeProducersForSession(p.roomKey, p.claims.sessionId);
+    for (const summary of removed) {
+      broadcast(p.roomKey, p.claims.sessionId, producerClosedEvent(summary));
     }
-    p.room.producersByKind.clear();
   }
+}
+
+function producerClosedEvent(summary: Pick<ProducerSummary, 'producerId' | 'kind' | 'sessionId' | 'producerClass'>) {
+  return {
+    type: 'event' as const,
+    name: 'producerClosed',
+    data: {
+      producerId: summary.producerId,
+      kind: summary.kind,
+      sessionId: summary.sessionId,
+      producerClass: summary.producerClass,
+    },
+  };
+}
+
+function newProducerEvent(summary: Pick<ProducerSummary, 'producerId' | 'kind' | 'sessionId' | 'producerClass'>) {
+  return {
+    type: 'event' as const,
+    name: 'newProducer',
+    data: {
+      producerId: summary.producerId,
+      kind: summary.kind,
+      sessionId: summary.sessionId,
+      producerClass: summary.producerClass,
+    },
+  };
 }
 
 async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise<void> {
@@ -351,42 +394,60 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
         }
         const transportId = typeof data.transportId === 'string' ? data.transportId : '';
         const kind = data.kind === 'audio' || data.kind === 'video' ? data.kind : null;
+        const producerClassRaw = data.producerClass;
+        const producerClass: ProducerClass | null = isProducerClass(producerClassRaw) ? producerClassRaw : null;
         const rtpParameters = data.rtpParameters;
         const transport = p.transports.get(transportId);
-        if (!transport || !kind || typeof rtpParameters !== 'object' || rtpParameters === null) {
+        if (!transport || !kind || !producerClass || typeof rtpParameters !== 'object' || rtpParameters === null) {
           send(ws, errResponse(id, 'bad produce params'));
+          return;
+        }
+        if (p.claims.producerClass && p.claims.producerClass !== producerClass) {
+          send(ws, errResponse(id, 'producer_class_mismatch'));
+          return;
+        }
+        const replacing = hasProducerForTuple(p.roomKey, p.claims.sessionId, producerClass, kind);
+        if (!replacing && countProducersForSession(p.roomKey, p.claims.sessionId) >= MAX_PRODUCERS_PER_SESSION) {
+          send(ws, errResponse(id, 'session producer limit reached'));
+          return;
+        }
+        if (!replacing && countProducersInRoom(p.roomKey) >= MAX_PRODUCERS_PER_ROOM) {
+          send(ws, errResponse(id, 'room producer limit reached'));
           return;
         }
         const producer = await transport.produce({
           kind,
           rtpParameters: rtpParameters as RtpParameters,
-          appData: { sessionId: p.claims.sessionId },
+          appData: { sessionId: p.claims.sessionId, producerClass },
         });
-        upsertProducer(p.roomKey, kind, producer);
+        upsertProducer(p.roomKey, p.claims.sessionId, producerClass, kind, producer);
+        const summary: ProducerSummary = {
+          producerId: producer.id,
+          kind: producer.kind,
+          sessionId: p.claims.sessionId,
+          producerClass,
+        };
         producer.on('transportclose', () => {
           if (removeProducer(p.roomKey, producer.id)) {
-            broadcast(p.roomKey, p.claims.sessionId, {
-              type: 'event',
-              name: 'producerClosed',
-              data: { producerId: producer.id },
-            });
+            broadcast(p.roomKey, p.claims.sessionId, producerClosedEvent(summary));
           }
         });
         producer.on('@close', () => {
           if (removeProducer(p.roomKey, producer.id)) {
-            broadcast(p.roomKey, p.claims.sessionId, {
-              type: 'event',
-              name: 'producerClosed',
-              data: { producerId: producer.id },
-            });
+            broadcast(p.roomKey, p.claims.sessionId, producerClosedEvent(summary));
           }
         });
-        broadcast(p.roomKey, p.claims.sessionId, {
-          type: 'event',
-          name: 'newProducer',
-          data: { producerId: producer.id, kind: producer.kind },
+        broadcast(p.roomKey, p.claims.sessionId, newProducerEvent(summary));
+        send(ws, {
+          type: 'response',
+          id,
+          data: {
+            producerId: producer.id,
+            kind: producer.kind,
+            sessionId: p.claims.sessionId,
+            producerClass,
+          },
         });
-        send(ws, { type: 'response', id, data: { producerId: producer.id, kind: producer.kind } });
         break;
       }
 
@@ -404,7 +465,7 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
           return;
         }
         const caps = rtpCapabilities as RtpCapabilities;
-        const producerFound = [...p.room.producersByKind.values()].find((pr) => pr.id === producerId);
+        const producerFound = getProducerEntry(p.roomKey, producerId);
         if (!producerFound) {
           send(ws, errResponse(id, 'producer gone'));
           return;

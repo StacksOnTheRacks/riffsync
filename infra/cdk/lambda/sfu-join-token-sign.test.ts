@@ -23,3 +23,77 @@ describe('signSfuJoinToken', () => {
     expect(claims?.role).toBe('consumer');
   });
 });
+
+describe('verifySfuJoinToken producerClass', () => {
+  const secret = 'test-hmac-secret-at-least-32-chars-long';
+
+  it('accepts host_screen producer claims', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = signSfuJoinToken(
+      {
+        env: 'prod',
+        roomId: 'room-1',
+        sessionId: 'sess-host',
+        role: 'producer',
+        producerClass: 'host_screen',
+        iat: now,
+        exp: now + 60,
+      } as Parameters<typeof signSfuJoinToken>[0],
+      secret,
+    );
+    const claims = verifySfuJoinToken(token, secret);
+    expect(claims?.producerClass).toBe('host_screen');
+    expect(claims?.fanSub).toBeUndefined();
+  });
+
+  it('requires fanSub for participant_av producer claims', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const withoutFanSub = signSfuJoinToken(
+      {
+        env: 'prod',
+        roomId: 'room-1',
+        sessionId: 'sess-fan',
+        role: 'producer',
+        producerClass: 'participant_av',
+        iat: now,
+        exp: now + 60,
+      } as Parameters<typeof signSfuJoinToken>[0],
+      secret,
+    );
+    expect(verifySfuJoinToken(withoutFanSub, secret)).toBeNull();
+
+    const withFanSub = signSfuJoinToken(
+      {
+        env: 'prod',
+        roomId: 'room-1',
+        sessionId: 'sess-fan',
+        role: 'producer',
+        producerClass: 'participant_av',
+        fanSub: 'fan-sub-1',
+        iat: now,
+        exp: now + 60,
+      } as Parameters<typeof signSfuJoinToken>[0],
+      secret,
+    );
+    const claims = verifySfuJoinToken(withFanSub, secret);
+    expect(claims?.producerClass).toBe('participant_av');
+    expect(claims?.fanSub).toBe('fan-sub-1');
+  });
+
+  it('rejects producerClass on consumer tokens', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = signSfuJoinToken(
+      {
+        env: 'prod',
+        roomId: 'room-1',
+        sessionId: 'sess-guest',
+        role: 'consumer',
+        producerClass: 'participant_av',
+        iat: now,
+        exp: now + 60,
+      } as Parameters<typeof signSfuJoinToken>[0],
+      secret,
+    );
+    expect(verifySfuJoinToken(token, secret)).toBeNull();
+  });
+});

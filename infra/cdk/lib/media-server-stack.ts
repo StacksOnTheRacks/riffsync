@@ -307,7 +307,7 @@ export class MediaServerStack extends cdk.Stack {
       'SECRET=$(aws secretsmanager get-secret-value --secret-id "$SFU_JOIN_SECRET_ID" --region "$AWS_REGION" --query=SecretString --output text | tr -d \'\\n\\r\')',
       'TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")',
       'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
-      'printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" > /etc/riffsync-sfu.env',
+      'printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" "SFU_MAX_PRODUCERS_PER_SESSION=3" "SFU_MAX_PRODUCERS_PER_ROOM=24" > /etc/riffsync-sfu.env',
       'chmod 0600 /etc/riffsync-sfu.env',
       'aws s3 sync "s3://$S3_BUCKET/" /opt/riffsync-sfu --delete',
       'cd /opt/riffsync-sfu && npm ci && npm run build && npm prune --omit=dev',
