@@ -70,6 +70,7 @@ import {
 import { createChatMessageId, parseInboundChatMessageId } from '../room/chatMessageId'
 import { isContinuedChatLine } from '../room/chatMessageGrouping'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
+import { participantAvErrorFromSfuMediaCode } from '../room/av/participantAvErrors'
 import { ParticipantAvToggles } from '../room/ParticipantAvToggles'
 import { HostControlBar } from '../room/HostControlBar'
 import {
@@ -1112,8 +1113,17 @@ export function RoomPage() {
       },
       onMissingWsUrl: () => setSfuRoomErr(SFU_RELAY_URL_MISSING_MSG),
       onTokenError: (msg) => setSfuRoomErr(msg),
-      onMediaError: (_code, msg) => setSfuRoomErr(msg),
-      onConnecting: () => setSfuRoomErr(null),
+      onMediaError: (code, msg) => {
+        if (participantAvController.getState().needsProducerToken) {
+          participantAvController.failPublish(participantAvErrorFromSfuMediaCode(code))
+          return
+        }
+        setSfuRoomErr(msg)
+      },
+      onConnecting: () => {
+        setSfuRoomErr(null)
+        participantAvController.clearError()
+      },
     })
     return () => {
       participantAvController.teardownPublishing()
@@ -1967,7 +1977,6 @@ export function RoomPage() {
                   <ParticipantAvToggles
                     controller={participantAvController}
                     avDisabled={avDisabled}
-                    sfuRoomErr={sfuRoomErr}
                     onLocalToggleAnnounce={announceRoomA11y}
                   />
                 ) : null}

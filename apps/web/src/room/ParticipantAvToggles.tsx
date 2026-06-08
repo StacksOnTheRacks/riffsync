@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import type { ParticipantAvController } from './sfu/participantAvSession'
 import {
-  formatParticipantAvToggleError,
   PARTICIPANT_AV_DISABLED_COPY,
+  participantAvErrorMessage,
 } from './participantAvErrorCopy'
 
 export type ParticipantAvTogglesProps = {
   controller: ParticipantAvController
   avDisabled: boolean
-  /** Top-of-page SFU banner text; surfaced inline when publish is blocked. */
-  sfuRoomErr: string | null
   onLocalToggleAnnounce: (message: string) => void
 }
 
@@ -52,7 +50,6 @@ function MicrophoneIcon() {
 export function ParticipantAvToggles({
   controller,
   avDisabled,
-  sfuRoomErr,
   onLocalToggleAnnounce,
 }: ParticipantAvTogglesProps) {
   const killSwitchId = useId()
@@ -65,10 +62,9 @@ export function ParticipantAvToggles({
   const killSwitchActive = avDisabled
   const activationBlocked = killSwitchActive || !state.canPublish || state.busy
 
-  const relayErr =
-    state.needsProducerToken && sfuRoomErr ? formatParticipantAvToggleError(sfuRoomErr) : null
-  const cameraErr = formatParticipantAvToggleError(state.error)
-  const micErr = relayErr ?? cameraErr
+  const inlineErr = state.error ? participantAvErrorMessage(state.error) : null
+  const cameraErr = inlineErr
+  const micErr = inlineErr
 
   const cameraDescribedBy = [
     killSwitchActive ? killSwitchId : null,

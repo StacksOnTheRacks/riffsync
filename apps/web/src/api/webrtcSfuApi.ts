@@ -1,3 +1,7 @@
+import {
+  parseSfuTokenHttpErrorPayload,
+  SfuTokenHttpError,
+} from '../room/av/participantAvErrors'
 import type { SfuTokenResponse } from '../room/sfu/mediasoupSharing'
 
 function requireApiBase(apiBase: string | undefined): string {
@@ -33,19 +37,7 @@ export async function fetchSfuJoinToken(options: {
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    let detail = text || res.statusText
-    try {
-      const j = JSON.parse(text) as { error?: unknown; detail?: unknown }
-      if (typeof j.error === 'string') {
-        detail =
-          typeof j.detail === 'string' && j.detail.trim() !== ''
-            ? `${j.error} (${j.detail})`
-            : j.error
-      }
-    } catch {
-      /* keep raw body */
-    }
-    throw new Error(`sfu-token ${res.status}: ${detail}`)
+    throw new SfuTokenHttpError(res.status, parseSfuTokenHttpErrorPayload(text || res.statusText))
   }
   return (await res.json()) as SfuTokenResponse
 }
