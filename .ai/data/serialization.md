@@ -29,12 +29,19 @@ HMAC JWT payload today: **`env`**, **`roomId`**, **`sessionId`**, **`role`** (**
 | Protobuf for WS? | **No** MVP — JSON simplicity for browsers. |
 | Room mode on wire? | **`theater`** \| **`videoChat`** string enum in JSON (HTTP + WS). |
 
+## Decisions (answered — #101 HTTP PATCH)
+
+| Question | Decision |
+| --- | --- |
+| **`roomMode`** / **`avDisabled`** PATCH semantics? | **Omit-only** — absent keys leave the field unchanged. **`null`** is **not** accepted ( **`400`** ). Contrast **`broadcastCaptureActive`**, which allows **`null`** to clear the Dynamo attribute. |
+| **`roomMode`** validation? | **`theater`** \| **`videoChat`** string enum; invalid value → **`400`**. |
+| **`avDisabled`** validation? | Boolean only; invalid type → **`400`**. |
+| Shared TypeScript types (#109)? | Extend **`apps/web/src/api/roomsApi.ts`** **`RoomSnapshot`**, **`RoomPatchResult`**, and **`patchRoom()`** patch parameter inline with Lambda response shapes; no generated OpenAPI in MVP. |
+
 ## Open implementation decisions
 
-- WebSocket **`type`** string values and payload shapes for **`roomMode`** change, **`avDisabled`** kill switch, and optional participant toggle layout hints (include **`schemaVersion`** bump or not).
-- **`PATCH /v1/rooms/{roomId}`** partial body: whether **`roomMode`** and **`avDisabled`** accept **`null`** to clear vs omit-only semantics (contrast **`broadcastCaptureActive`** null-clear precedent).
-- SFU **`listProducerSummaries`** JSON field names for participant identity exposed to SPA layout code.
-- OpenAPI / shared TypeScript types location for new room fields (extend existing Lambda handlers vs generated schema).
+- WebSocket **`type`** string values and payload shapes for **`roomMode`** / **`avDisabled`** fan-out — **`integration/api_contracts.md`** (#103).
+- SFU **`listProducerSummaries`** JSON field names for participant identity — **#102** / layout runtime (#104/#105).
 
 ## Primary code pointers (optional)
 

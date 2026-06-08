@@ -13,9 +13,10 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | --- | --- | --- |
 | **`GET /v1/catalog`** | None required (public). | Canonical episode rows: curator fields + TMDB-derived + optional **`youtubeThumbnailUrl`** when implemented. **Caching:** **`Cache-Control`** with deployment-appropriate **max-age**; **`ETag`** weak validator derived from a **catalog generation** counter or **`max(updatedAt)`** in Dynamo so clients can **`If-None-Match`** (reduces egress cost when paired with CloudFront). |
 | **`GET /v1/lists`**, **`GET /v1/lists/{slug}`** | None (public) when shipped. | Curated collections; **`slug`** URL-safe. |
-| **`POST /v1/rooms` (create)** | **Fan Cognito JWT** — **`hostSub`** on new room **= JWT `sub`**. **`sessionId`** optional telemetry only—**not** host binding. | Mint **`roomId`**, seed **`catalogEpisodeId`** / visibility / **`playbackExpectation`** per payload. |
-| **`GET /v1/rooms/:id`**, **`GET /v1/lobby`**, lobby joins | **`sessionId`** via **`X-Session-Id`** (guest); optional JWT if viewer signs in. | Read snapshots for lobby/detail/join validation. |
-| **`PATCH` / `PUT` … room playback metadata** | **Fan JWT**; **`JWT.sub === room.hostSub`**. | **Mutable current episode**, advisory labels, visibility flags—conditional **`version`** writes. Same host-only gate for durable **`roomMode`** (**`theater`** \| **`videoChat`**, default **`theater`**) and **`avDisabled`** (room-wide participant A/V kill switch). |
+| **`POST /v1/rooms` (create)** | **Fan Cognito JWT** — **`hostSub`** on new room **= JWT `sub`**. **`sessionId`** optional telemetry only—**not** host binding. | Mint **`roomId`**, seed **`catalogEpisodeId`** / visibility / **`playbackExpectation`** per payload. Server sets **`roomMode: theater`** and **`avDisabled: false`** on the Dynamo item; **`201`** echoes both. |
+| **`GET /v1/rooms/{roomId}`** | **`sessionId`** via **`X-Session-Id`** optional; no JWT required for read. | Room snapshot including **`roomMode`**, **`avDisabled`**, **`broadcastCaptureActive`**, and **`version`**. Legacy rows missing AV attributes default **`theater`** / **`false`**. |
+| **`GET /v1/lobby`**, lobby joins | **`sessionId`** via **`X-Session-Id`** (guest); optional JWT if viewer signs in. | Lobby rows for discovery/join validation — **no** **`roomMode`** or **`avDisabled`** on listing payload (#101). |
+| **`PATCH /v1/rooms/{roomId}`** | **Fan JWT**; **`JWT.sub === room.hostSub`**. | **Mutable current episode**, advisory labels, visibility flags—conditional **`version`** writes (**`409`** on stale **`version`**). Same host-only gate for durable **`roomMode`** (**`theater`** \| **`videoChat`**) and **`avDisabled`** (boolean kill switch). Partial body: omit keys to leave fields unchanged; **`roomMode`** / **`avDisabled`** reject **`null`** (**`400`**). **`broadcastCaptureActive`** retains existing boolean or **`null`**-clear semantics. One request may atomically update **`roomMode`**, **`avDisabled`**, and **`broadcastCaptureActive`** (#109). **`200`** echoes **`roomMode`**, **`avDisabled`**, **`broadcastCaptureActive`**, and bumped **`version`**. |
 | **`POST /v1/webrtc/sfu-token`** | **`X-Session-Id`** required; active room WebSocket presence row; **`Authorization`** fan JWT for **producer** grants. | Mint short-lived mediasoup join JWT (**900s** TTL today). **Host screen** producer when **`JWT.sub === room.hostSub`**. **Participant A/V** producer when **`fanSub`** on connection, **`avDisabled`** false, signed-in (not anonymous). **Consumer** role for others. Returns **`wsUrl`**, **`role`**, **`expiresInSeconds`**. **403** when prerequisites missing or kill switch active. |
 | **`GET /v1/health`** | None. | **Normative** liveness path (matches **`/v1`** versioning). Smoke: process up + critical dependencies **best-effort** (Dynamo **DescribeTable** or shallow read—**IaC** chooses depth vs cold-start cost). |
 | **`GET /v1/fans/me`**, **`PATCH /v1/fans/me`** | **Fan Cognito JWT**. | Read/update **`displayName`** on **FanProfiles** row keyed by **`sub`**; **`GET`** also returns optional **`avatarUrl`** / **`avatarUpdatedAt`**. |
@@ -79,6 +80,16 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | AV kill switch enforcement? | **Server-enforced** — deny participant producer tokens, SFU tears down participant producers, broadcast **`avDisabled`**. |
 | Theater participant audio? | **Client-side mixing** — consumers attach multiple SFU audio consumers (host movie + participant mics); no server-side mixer in MVP. |
 | Video Chat vs host screen? | Clients **stop consuming** host screen producer in **`videoChat`** mode; host **fully stops** tab-capture on enter (resume requires **Share Source Tab** again). |
+
+## Decisions (answered — #101 HTTP room AV)
+
+| Question | Decision |
+| --- | --- |
+| Create seeds AV fields? | **`roomMode: theater`**, **`avDisabled: false`** on Dynamo write; echoed in **`201`**. |
+| Snapshot read path? | **`GET /v1/rooms/{roomId}`** returns **`roomMode`**, **`avDisabled`**, **`broadcastCaptureActive`**, **`version`**. |
+| Lobby listing? | **`GET /v1/lobby`** omits **`roomMode`** and **`avDisabled`**. |
+| Host PATCH partial body? | **`roomMode`** / **`avDisabled`** omit-only (no **`null`**); may combine with **`broadcastCaptureActive`** in one atomic write. |
+| SPA types? | **`apps/web/src/api/roomsApi.ts`** extended in #109. |
 
 ## `POST /v1/webrtc/sfu-token` response (#102)
 

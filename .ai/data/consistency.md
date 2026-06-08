@@ -31,12 +31,17 @@
 | Cross-region active-active? | **Out of scope** MVP — single primary region. |
 | Participant toggle state on reconnect? | **Default off** — no restore from **RoomPresence** or **Rooms**. |
 
+## Decisions (answered — #101 host PATCH)
+
+| Question | Decision |
+| --- | --- |
+| **`roomMode`** → **`videoChat`** with active tab capture? | **Single atomic host `PATCH`** with **`roomMode: videoChat`** and **`broadcastCaptureActive: false`** (#109). On **`409`**, client refreshes snapshot and retries with updated **`version`** — no server-side merge of partial field intent across conflicting writes. |
+
 ## Open implementation decisions
 
-- **Kill-switch ordering (resolved #102 / #103):** durable **`avDisabled`** write → SFU **`/admin/teardown-producers`** → WebSocket fan-out → token mint denial. In-flight **`produce`** after teardown may fail at SFU or close shortly; clients unpublish on **`av_disabled`** (#104).
-- **`roomMode`** change to **`videoChat`** while **`broadcastCaptureActive`** is true: single **`PATCH`** vs two-step client sequence and which field write wins on **`409`** retry.
-- Whether WebSocket **`room_mode`** / **`av_disabled`** (exact **`type`** TBD) messages are emitted only after Dynamo commit or optimistically before ack.
-- SFU producer list freshness vs **RoomPresence** roster for layout (stale tile when producer exists but presence row expired).
+- **Kill-switch ordering (#102 / #103):** durable **`avDisabled`** write → SFU **`/admin/teardown-producers`** (#112) → **`av_disabled`** WebSocket fan-out → token mint denial (#111/#112). In-flight **`produce`** after teardown may fail at SFU or close shortly; clients unpublish on **`av_disabled`** (#104).
+- Whether WebSocket **`room_mode`** / **`av_disabled`** messages are emitted only after Dynamo commit or optimistically before ack — **#103** (prefer **after commit only**).
+- SFU producer list freshness vs **RoomPresence** roster for layout — **#104** / **#105**.
 
 ## Primary code pointers (optional)
 

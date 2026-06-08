@@ -73,9 +73,14 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Reconnect participant A/V state? | **Default off** — manual re-enable after refresh/disconnect. |
 | Participant AV recording / per-participant host mute / participant screen-share? | **Out of scope** for this slice (room-wide kill switch only). |
 
+## Decisions (answered — #101)
+
+| Question | Decision |
+| --- | --- |
+| Room document field names? | **`roomMode`** and **`avDisabled`** on the **Rooms** Dynamo item and HTTP snapshot — camelCase, durable host-admin fields returned on **`GET /v1/rooms/{roomId}`** and host **`PATCH`**. |
+
 ## Open implementation decisions
 
-- **Room document field names:** exact attribute keys for **`roomMode`** and **`avDisabled`** on the room item (**#101** / data/integration own persistence shape; business rule is durable host-admin fields on snapshot/join).
 - **Mode transition empty-state UX:** copy and layout when switching to **Video Chat** with zero video-on participants, or **Theater** before host has started tab-capture (**#105** / **`interface/presentation.md`**).
 
 ## Decisions (participant AV runtime — #104)

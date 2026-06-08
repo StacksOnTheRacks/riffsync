@@ -84,13 +84,19 @@ Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-imag
 | Participant camera/mic toggle persistence? | **No** — not on **Rooms** or **RoomPresence**; reconnect defaults **off**; SFU runtime holds active producers. |
 | Room mode / AV kill switch durability? | **Yes** — **`roomMode`** and **`avDisabled`** on **Rooms** item; host **`PATCH`** with **`version`** optimistic lock. |
 
+## Decisions (answered — #101 HTTP / Rooms item)
+
+| Question | Decision |
+| --- | --- |
+| Dynamo attribute + JSON wire names? | **`roomMode`** and **`avDisabled`** — camelCase on Dynamo **Rooms** item and HTTP JSON, same precedent as **`broadcastCaptureActive`**. |
+| Create defaults? | **`room-create.ts`** writes **`roomMode: theater`** and **`avDisabled: false`** on every new item; create response echoes both. Clients cannot override on **`POST /v1/rooms`** in MVP. |
+| Legacy read defaults? | **`room-get.ts`** / **`room-patch.ts`** responses default missing attributes to **`theater`** / **`false`** without error. |
+| Lobby exposure? | **`GET /v1/lobby`** rows **omit** **`roomMode`** and **`avDisabled`** — only **`GET /v1/rooms/{roomId}`** (and host **`PATCH`** **`200`**) carry authoritative AV layout fields. |
+| Video Chat + active tab capture? | **Single atomic host `PATCH`** may set **`roomMode: videoChat`** and clear **`broadcastCaptureActive`** in one conditional write (#109); not two sequenced HTTP calls. |
+
 ## Open implementation decisions
 
-- Exact Dynamo attribute keys and JSON wire names for **`roomMode`** and **`avDisabled`** (align **`room-get.ts`** / **`room-patch.ts`** response and PATCH body with **`broadcastCaptureActive`** precedent).
-- Default/absent-item semantics on room create and backfill for legacy rows missing **`roomMode`** / **`avDisabled`** (expected default **`theater`** / **`false`**).
-- Whether **`GET /v1/lobby`** exposes **`roomMode`** / **`avDisabled`** or only full room snapshot does.
-- SFU **`listProducerSummaries`** (or successor) payload fields needed for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`**.
-- Whether host **`PATCH`** for **`roomMode`** and **`broadcastCaptureActive`** are one atomic write or sequenced client calls on Video Chat entry.
+- SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
 
 ## Primary code pointers (optional)
 
