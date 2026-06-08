@@ -57,12 +57,12 @@ export function resolveSfuTokenProducerClass(opts: {
   participantAv: ParticipantAvController
   getHostScreenStream: () => MediaStream | null
 }): SfuProducerClass | undefined {
-  if (opts.participantAv.getState().needsProducerToken) {
-    return 'participant_av'
-  }
   const hostStream = opts.getHostScreenStream()
   if (hostStream?.getTracks().some((track) => track.readyState === 'live')) {
     return 'host_screen'
+  }
+  if (opts.participantAv.getState().needsProducerToken) {
+    return 'participant_av'
   }
   return undefined
 }

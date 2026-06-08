@@ -51,4 +51,49 @@ describe('resolveSfuTokenProducerClass', () => {
       }),
     ).toBe('host_screen')
   })
+
+  it('prefers host_screen when tab capture and participant AV are both active', () => {
+    const participantAv = {
+      getState: () => ({
+        cameraEnabled: true,
+        micEnabled: false,
+        micMuted: false,
+        canPublish: true,
+        needsProducerToken: true,
+        error: null,
+        busy: false,
+      }),
+    } as ReturnType<typeof createParticipantAvController>
+    const hostStream = {
+      getTracks: () => [{ kind: 'video', readyState: 'live' }],
+    } as MediaStream
+
+    expect(
+      resolveSfuTokenProducerClass({
+        participantAv,
+        getHostScreenStream: () => hostStream,
+      }),
+    ).toBe('host_screen')
+  })
+
+  it('requests participant_av when only participant publish intent exists', () => {
+    const participantAv = {
+      getState: () => ({
+        cameraEnabled: false,
+        micEnabled: true,
+        micMuted: false,
+        canPublish: true,
+        needsProducerToken: true,
+        error: null,
+        busy: false,
+      }),
+    } as ReturnType<typeof createParticipantAvController>
+
+    expect(
+      resolveSfuTokenProducerClass({
+        participantAv,
+        getHostScreenStream: () => null,
+      }),
+    ).toBe('participant_av')
+  })
 })
