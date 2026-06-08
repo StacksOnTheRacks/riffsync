@@ -847,6 +847,12 @@ export function RoomPage() {
     })
   }, [participantAvController])
 
+  useEffect(() => {
+    return () => {
+      participantAvController.teardownPublishing()
+    }
+  }, [participantAvController])
+
   void participantAvPublishTick
   const participantAvPublishState = participantAvController.getState()
   const stageParticipantTiles = buildStageParticipantTiles({
@@ -1122,11 +1128,9 @@ export function RoomPage() {
       },
       onConnecting: () => {
         setSfuRoomErr(null)
-        participantAvController.clearError()
       },
     })
     return () => {
-      participantAvController.teardownPublishing()
       sfuSessionRef.current?.unpublishProducerClass('host_screen')
       cancel()
     }

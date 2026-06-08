@@ -251,6 +251,8 @@ export type SfuUnifiedSessionHandle = {
   close: (reason?: SfuSessionEndReason) => void
   sessionEnded: Promise<SfuSessionEndReason>
   ready: Promise<void>
+  /** False for consumer-only SFU tokens (no send transport until producer reconnect). */
+  supportsPublish: boolean
   publishStream: (stream: MediaStream, producerClass: SfuProducerClass) => Promise<void>
   unpublishProducerClass: (producerClass: SfuProducerClass) => void
   detachConsumerClass: (producerClass: SfuProducerClass) => void
@@ -695,6 +697,7 @@ export async function connectSfuUnifiedSession(options: {
 
   return {
     ready,
+    supportsPublish: tokenRole === 'producer',
     publishStream,
     unpublishProducerClass,
     detachConsumerClass,

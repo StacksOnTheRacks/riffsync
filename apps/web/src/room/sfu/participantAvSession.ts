@@ -90,6 +90,34 @@ export function createParticipantAvController(options: {
     localStream = null
   }
 
+  const localTracksLive = (): boolean =>
+    localStream?.getTracks().some((track) => track.readyState === 'live') ?? false
+
+  const ensureLocalMedia = async (): Promise<boolean> => {
+    if (!cameraEnabled && !micEnabled) return false
+    if (localStream && localTracksLive()) return true
+    try {
+      localStream = await ensureUserMedia(cameraEnabled, micEnabled)
+      const hasVideo = localStream.getVideoTracks().length > 0
+      const hasAudio = localStream.getAudioTracks().length > 0
+      cameraEnabled = hasVideo && cameraEnabled
+      micEnabled = hasAudio && micEnabled
+      if (!cameraEnabled && !micEnabled) {
+        stopLocalTracks()
+        throw new Error('Could not access camera or microphone.')
+      }
+      return true
+    } catch (e) {
+      cameraEnabled = false
+      micEnabled = false
+      micMuted = false
+      stopLocalTracks()
+      error = participantAvErrorFromDomException(e)
+      notify()
+      return false
+    }
+  }
+
   const syncPublish = async () => {
     if (!session) return
     if (!cameraEnabled && !micEnabled) {
@@ -97,6 +125,8 @@ export function createParticipantAvController(options: {
       stopLocalTracks()
       return
     }
+    if (!session.supportsPublish) return
+    if (!(await ensureLocalMedia())) return
     if (!localStream) return
     try {
       await session.ready
@@ -175,10 +205,7 @@ export function createParticipantAvController(options: {
     },
     attachSession: (next) => {
       session = next
-      if (!session) {
-        stopLocalTracks()
-        return
-      }
+      if (!session) return
       void syncPublish()
     },
     resetOnReconnect: () => {
