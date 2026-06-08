@@ -1,6 +1,8 @@
 import * as mediasoup from 'mediasoup';
 import type { Producer, Router, RouterRtpCodecCapability, TransportListenInfo, WebRtcTransport } from 'mediasoup/types';
-import { verifySfuJoinToken, type SfuJoinClaims } from './jwt.js';
+import { verifySfuJoinToken, type ProducerClass, type SfuJoinClaims } from './jwt.js';
+
+export type { ProducerClass };
 
 export const mediaCodecs: RouterRtpCodecCapability[] = [
   {
@@ -25,10 +27,23 @@ export const mediaCodecs: RouterRtpCodecCapability[] = [
   },
 ];
 
+export type ProducerEntry = {
+  producer: Producer;
+  sessionId: string;
+  producerClass: ProducerClass;
+  kind: string;
+};
+
+export type ProducerSummary = {
+  producerId: string;
+  kind: string;
+  sessionId: string;
+  producerClass: ProducerClass;
+};
+
 export type RoomRuntime = {
   router: Router;
-  /** producerId by kind for this broadcast */
-  producersByKind: Map<string, Producer>;
+  producers: Map<string, ProducerEntry>;
   closeTimer: ReturnType<typeof setTimeout> | null;
 };
 
@@ -63,7 +78,7 @@ function scheduleRoomClose(roomKey: string): void {
     const cur = roomMap.get(roomKey);
     if (!cur) return;
     cur.closeTimer = null;
-    if (cur.producersByKind.size === 0) {
+    if (cur.producers.size === 0) {
       cur.router.close();
       roomMap.delete(roomKey);
     }
@@ -85,7 +100,7 @@ export async function getOrCreateRoom(roomKey: string): Promise<RoomRuntime> {
   }
   const w = await getOrCreateWorker();
   const router = await w.createRouter({ mediaCodecs });
-  rt = { router, producersByKind: new Map(), closeTimer: null };
+  rt = { router, producers: new Map(), closeTimer: null };
   roomMap.set(roomKey, rt);
   return rt;
 }
@@ -103,32 +118,124 @@ export function roomKeyFromClaims(c: SfuJoinClaims): string {
   return `${c.env}:${c.roomId}`;
 }
 
-export function upsertProducer(roomKey: string, kind: string, producer: Producer): void {
+function findProducerIdForTuple(
+  rt: RoomRuntime,
+  sessionId: string,
+  producerClass: ProducerClass,
+  kind: string,
+): string | undefined {
+  for (const [producerId, entry] of rt.producers) {
+    if (entry.sessionId === sessionId && entry.producerClass === producerClass && entry.kind === kind) {
+      return producerId;
+    }
+  }
+  return undefined;
+}
+
+export function upsertProducer(
+  roomKey: string,
+  sessionId: string,
+  producerClass: ProducerClass,
+  kind: string,
+  producer: Producer,
+): void {
   const rt = roomMap.get(roomKey);
   if (!rt) return;
-  const prev = rt.producersByKind.get(kind);
-  if (prev && prev.id !== producer.id) {
-    prev.close();
+  const prevId = findProducerIdForTuple(rt, sessionId, producerClass, kind);
+  if (prevId) {
+    const prev = rt.producers.get(prevId);
+    if (prev && prev.producer.id !== producer.id) {
+      prev.producer.close();
+    }
+    rt.producers.delete(prevId);
   }
-  rt.producersByKind.set(kind, producer);
+  rt.producers.set(producer.id, { producer, sessionId, producerClass, kind });
 }
 
 /** @returns true if a producer row was removed (first removal wins if both transportclose and @close fire). */
 export function removeProducer(roomKey: string, producerId: string): boolean {
   const rt = roomMap.get(roomKey);
   if (!rt) return false;
-  let removed = false;
-  for (const [kind, p] of rt.producersByKind) {
-    if (p.id === producerId) {
-      rt.producersByKind.delete(kind);
-      removed = true;
-      break;
-    }
-  }
-  if (removed && rt.producersByKind.size === 0) {
+  const removed = rt.producers.delete(producerId);
+  if (removed && rt.producers.size === 0) {
     scheduleRoomClose(roomKey);
   }
   return removed;
+}
+
+export function removeProducersForSession(roomKey: string, sessionId: string): ProducerSummary[] {
+  const rt = roomMap.get(roomKey);
+  if (!rt) return [];
+  const removed: ProducerSummary[] = [];
+  for (const [producerId, entry] of rt.producers) {
+    if (entry.sessionId !== sessionId) continue;
+    void entry.producer.close();
+    rt.producers.delete(producerId);
+    removed.push({
+      producerId,
+      kind: entry.kind,
+      sessionId: entry.sessionId,
+      producerClass: entry.producerClass,
+    });
+  }
+  if (removed.length > 0 && rt.producers.size === 0) {
+    scheduleRoomClose(roomKey);
+  }
+  return removed;
+}
+
+/** Closes every producer in the room matching producerClass (idempotent when none exist). */
+export function removeProducersByProducerClass(
+  roomKey: string,
+  producerClass: ProducerClass,
+): ProducerSummary[] {
+  const rt = roomMap.get(roomKey);
+  if (!rt) return [];
+  const removed: ProducerSummary[] = [];
+  for (const [producerId, entry] of rt.producers) {
+    if (entry.producerClass !== producerClass) continue;
+    void entry.producer.close();
+    rt.producers.delete(producerId);
+    removed.push({
+      producerId,
+      kind: entry.kind,
+      sessionId: entry.sessionId,
+      producerClass: entry.producerClass,
+    });
+  }
+  if (removed.length > 0 && rt.producers.size === 0) {
+    scheduleRoomClose(roomKey);
+  }
+  return removed;
+}
+
+export function countProducersForSession(roomKey: string, sessionId: string): number {
+  const rt = roomMap.get(roomKey);
+  if (!rt) return 0;
+  let count = 0;
+  for (const entry of rt.producers.values()) {
+    if (entry.sessionId === sessionId) count += 1;
+  }
+  return count;
+}
+
+export function countProducersInRoom(roomKey: string): number {
+  return roomMap.get(roomKey)?.producers.size ?? 0;
+}
+
+export function hasProducerForTuple(
+  roomKey: string,
+  sessionId: string,
+  producerClass: ProducerClass,
+  kind: string,
+): boolean {
+  const rt = roomMap.get(roomKey);
+  if (!rt) return false;
+  return findProducerIdForTuple(rt, sessionId, producerClass, kind) !== undefined;
+}
+
+export function getProducerEntry(roomKey: string, producerId: string): ProducerEntry | undefined {
+  return roomMap.get(roomKey)?.producers.get(producerId);
 }
 
 export function getMediasoupHealthSnapshot(): { workerAlive: boolean; roomCount: number } {
@@ -154,12 +261,17 @@ export async function shutdownMediasoup(): Promise<void> {
   }
 }
 
-export function listProducerSummaries(roomKey: string): { producerId: string; kind: string }[] {
+export function listProducerSummaries(roomKey: string): ProducerSummary[] {
   const rt = roomMap.get(roomKey);
   if (!rt) return [];
-  const out: { producerId: string; kind: string }[] = [];
-  for (const [, p] of rt.producersByKind) {
-    out.push({ producerId: p.id, kind: p.kind });
+  const out: ProducerSummary[] = [];
+  for (const [producerId, entry] of rt.producers) {
+    out.push({
+      producerId,
+      kind: entry.kind,
+      sessionId: entry.sessionId,
+      producerClass: entry.producerClass,
+    });
   }
   return out;
 }

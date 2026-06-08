@@ -16,6 +16,9 @@ export const TURN_SHARED_SECRET_NAME = 'riffsync/turn-static-auth-secret';
 /** Join JWT HMAC secret name (Lambdas read by name; secret may be created on first SFU deploy). */
 export const SFU_JOIN_SECRET_NAME = 'riffsync/sfu-join-hmac-secret';
 
+/** Admin teardown shared secret (room PATCH Lambda + SFU EC2; create in Secrets Manager before kill switch). */
+export const SFU_ADMIN_SECRET_NAME = 'riffsync/sfu-admin-secret';
+
 export interface MediaServerStackProps extends cdk.StackProps {
   /**
    * **`realm`** / **`server-name`** in coturn (any stable string; browsers do not receive it in ICE).
@@ -213,6 +216,7 @@ export class MediaServerStack extends cdk.Stack {
 
     // --- SFU (mediasoup) ---
     this.sfuJoinTokenSecret = secretsmanager.Secret.fromSecretNameV2(this, 'SfuJoinHmacSecret', SFU_JOIN_SECRET_NAME);
+    secretsmanager.Secret.fromSecretNameV2(this, 'SfuAdminSecret', SFU_ADMIN_SECRET_NAME);
 
     const codeBucket = new s3.Bucket(this, 'SfuCodeBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -271,7 +275,7 @@ export class MediaServerStack extends cdk.Stack {
         resources: ['*'],
         conditions: {
           StringLike: {
-            'secretsmanager:SecretId': `*${SFU_JOIN_SECRET_NAME}*`,
+            'secretsmanager:SecretId': [`*${SFU_JOIN_SECRET_NAME}*`, `*${SFU_ADMIN_SECRET_NAME}*`],
           },
         },
       }),
@@ -299,15 +303,17 @@ export class MediaServerStack extends cdk.Stack {
       'curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -',
       'dnf install -y nodejs awscli',
       `SFU_JOIN_SECRET_ID='${SFU_JOIN_SECRET_NAME}'`,
+      `SFU_ADMIN_SECRET_ID='${SFU_ADMIN_SECRET_NAME}'`,
       `AWS_REGION='${region}'`,
       `S3_BUCKET='${bucketName}'`,
       `RTC_MIN='${rtcMin}'`,
       `RTC_MAX='${rtcMax}'`,
       'install -d -m 0755 /opt/riffsync-sfu',
       'SECRET=$(aws secretsmanager get-secret-value --secret-id "$SFU_JOIN_SECRET_ID" --region "$AWS_REGION" --query=SecretString --output text | tr -d \'\\n\\r\')',
+      'ADMIN_SECRET=$(aws secretsmanager get-secret-value --secret-id "$SFU_ADMIN_SECRET_ID" --region "$AWS_REGION" --query=SecretString --output text | tr -d \'\\n\\r\')',
       'TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")',
       'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
-      'printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" > /etc/riffsync-sfu.env',
+      'printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "SFU_ADMIN_SECRET=$ADMIN_SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" "SFU_MAX_PRODUCERS_PER_SESSION=3" "SFU_MAX_PRODUCERS_PER_ROOM=24" > /etc/riffsync-sfu.env',
       'chmod 0600 /etc/riffsync-sfu.env',
       'aws s3 sync "s3://$S3_BUCKET/" /opt/riffsync-sfu --delete',
       'cd /opt/riffsync-sfu && npm ci && npm run build && npm prune --omit=dev',

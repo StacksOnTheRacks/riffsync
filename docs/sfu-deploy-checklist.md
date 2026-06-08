@@ -37,7 +37,7 @@ Prerequisites: M14 sub-issues through #102–#105 landed; room has **`avDisabled
     Host switches **`roomMode: videoChat`**. Grid shows video-on fans; mic-only remain audible, not in grid. Empty grid shows contract copy when no cameras on.
 
 11. **Host AV kill switch**  
-    Host **`PATCH { "avDisabled": true }`**. All fans' participant producers tear down on SFU; toggles disabled with **"The host turned room A/V off."**; new participant token mint returns **`403`** **`av_disabled`**.
+    Host **`PATCH { "avDisabled": true }`**. Confirm SFU admin teardown: **`curl -sS -X POST "${SFU_HTTP}/admin/teardown-producers" -H "content-type: application/json" -H "x-sfu-admin-secret: ${SFU_ADMIN_SECRET}" -d '{"env":"prod","roomId":"<roomId>"}'`** returns **`closedCount`** (repeat is idempotent). All fans' participant producers tear down on SFU; **`host_screen`** remains if active; toggles disabled with **"The host turned room A/V off."**; new participant token mint returns **`403`** **`av_disabled`**.
 
 12. **Mid-party join with publishers**  
     With two fans already publishing, open a third signed-in fan window. New fan consumes existing **`participant_av`** producers without requiring incumbents to toggle off/on.

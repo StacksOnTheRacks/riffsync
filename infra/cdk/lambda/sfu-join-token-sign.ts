@@ -16,11 +16,15 @@ function base64UrlEncodeBytes(buf: Buffer): string {
     .replace(/=+$/, '');
 }
 
+export type SfuProducerClass = 'host_screen' | 'participant_av';
+
 export type SfuJoinPayload = {
   env: string;
   roomId: string;
   sessionId: string;
   role: 'producer' | 'consumer';
+  producerClass?: SfuProducerClass;
+  fanSub?: string;
   iat: number;
   exp: number;
 };

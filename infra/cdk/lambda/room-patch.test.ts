@@ -20,6 +20,14 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
   UpdateCommand: vi.fn((input: unknown) => ({ input, kind: 'Update' })),
 }));
 
+const teardownMocks = vi.hoisted(() => ({
+  requestSfuProducerTeardown: vi.fn(),
+}));
+
+vi.mock('./sfu-admin-teardown', () => ({
+  requestSfuProducerTeardown: teardownMocks.requestSfuProducerTeardown,
+}));
+
 import { handler } from './room-patch';
 
 const hostSub = 'host-sub-1';
@@ -80,6 +88,8 @@ describe('room-patch handler', () => {
     vi.clearAllMocks();
     process.env.ROOMS_TABLE_NAME = 'rooms-table';
     process.env.CATALOG_TABLE_NAME = 'catalog-table';
+    process.env.RIFFSYNC_API_ENV = 'prod';
+    teardownMocks.requestSfuProducerTeardown.mockResolvedValue({ ok: true, closedCount: 0 });
   });
 
   it('updates roomMode and avDisabled with version increment', async () => {
@@ -89,6 +99,11 @@ describe('room-patch handler', () => {
       patchEvent({ roomMode: 'videoChat', avDisabled: true }),
     );
 
+    expect(teardownMocks.requestSfuProducerTeardown).toHaveBeenCalledWith({
+      env: 'prod',
+      roomId: 'room-1',
+      producerClass: 'participant_av',
+    });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
     expect(body.ok).toBe(true);
@@ -175,6 +190,30 @@ describe('room-patch handler', () => {
       error: 'Conflict — stale version',
       version: 2,
     });
+  });
+
+  it('does not call SFU teardown when avDisabled is false', async () => {
+    mocks.docSend.mockResolvedValueOnce({ Item: baseRoom }).mockResolvedValueOnce({});
+
+    const res = await handler(patchEvent({ avDisabled: false }));
+
+    expect(res.statusCode).toBe(200);
+    expect(teardownMocks.requestSfuProducerTeardown).not.toHaveBeenCalled();
+  });
+
+  it('still returns 200 when SFU teardown fails after avDisabled write', async () => {
+    mocks.docSend.mockResolvedValueOnce({ Item: baseRoom }).mockResolvedValueOnce({});
+    teardownMocks.requestSfuProducerTeardown.mockResolvedValueOnce({
+      ok: false,
+      reason: 'http_error',
+      detail: 'timeout',
+    });
+
+    const res = await handler(patchEvent({ avDisabled: true }));
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
+    expect(body.avDisabled).toBe(true);
   });
 
   it('atomically patches roomMode and clears broadcastCaptureActive', async () => {

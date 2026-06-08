@@ -1,11 +1,17 @@
+import { timingSafeEqual } from 'node:crypto';
 import * as http from 'node:http';
 import process from 'node:process';
 import { WebSocketServer } from 'ws';
-import { attachTransportHandlers, closeSessionTransports, getOrCreateRoom, getMediasoupHealthSnapshot, listProducerSummaries, removeProducer, roomKeyFromClaims, shutdownMediasoup, transportListenIps, upsertProducer, verifySfuJoinToken, } from './rooms.js';
+import { attachTransportHandlers, closeSessionTransports, countProducersForSession, countProducersInRoom, getOrCreateRoom, getMediasoupHealthSnapshot, getProducerEntry, hasProducerForTuple, listProducerSummaries, removeProducer, removeProducersByProducerClass, removeProducersForSession, roomKeyFromClaims, shutdownMediasoup, transportListenIps, upsertProducer, verifySfuJoinToken, } from './rooms.js';
+import { isProducerClass } from './jwt.js';
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const JWT_SECRET = process.env.SFU_JWT_SECRET?.trim() ?? '';
+const SFU_ADMIN_SECRET = process.env.SFU_ADMIN_SECRET?.trim() ?? '';
+const SFU_ADMIN_SECRET_HEADER = 'x-sfu-admin-secret';
 const MAX_TRANSPORTS = Math.max(1, Number.parseInt(process.env.SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION ?? '8', 10));
 const MAX_CONSUMERS = Math.max(1, Number.parseInt(process.env.SFU_MAX_CONSUMERS_PER_SESSION ?? '64', 10));
+const MAX_PRODUCERS_PER_SESSION = Math.max(1, Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_SESSION ?? '3', 10));
+const MAX_PRODUCERS_PER_ROOM = Math.max(1, Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_ROOM ?? '24', 10));
 function logJson(level, msg, fields) {
     const row = { ts: new Date().toISOString(), level, msg, ...fields };
     if (level === 'error') {
@@ -64,6 +70,73 @@ function send(ws, o) {
         ws.send(JSON.stringify(o));
     }
 }
+function adminSecretMatches(req) {
+    if (!SFU_ADMIN_SECRET)
+        return false;
+    const raw = req.headers[SFU_ADMIN_SECRET_HEADER];
+    const provided = typeof raw === 'string' ? raw.trim() : '';
+    if (!provided)
+        return false;
+    const expected = Buffer.from(SFU_ADMIN_SECRET, 'utf8');
+    const got = Buffer.from(provided, 'utf8');
+    if (expected.length !== got.length)
+        return false;
+    return timingSafeEqual(expected, got);
+}
+async function readJsonBody(req) {
+    const chunks = [];
+    for await (const chunk of req) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const raw = Buffer.concat(chunks).toString('utf8').trim();
+    if (!raw)
+        return {};
+    return JSON.parse(raw);
+}
+async function handleAdminTeardownProducers(req, res) {
+    if (!adminSecretMatches(req)) {
+        res.writeHead(401, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'unauthorized' }));
+        return;
+    }
+    let body;
+    try {
+        body = (await readJsonBody(req));
+    }
+    catch {
+        res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'invalid_json' }));
+        return;
+    }
+    const env = typeof body.env === 'string' ? body.env.trim() : '';
+    const roomId = typeof body.roomId === 'string' ? body.roomId.trim() : '';
+    if (!env || !roomId) {
+        res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'env and roomId required' }));
+        return;
+    }
+    const producerClassRaw = body.producerClass;
+    if (producerClassRaw !== undefined &&
+        producerClassRaw !== null &&
+        producerClassRaw !== 'participant_av') {
+        res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'producerClass must be participant_av or omitted' }));
+        return;
+    }
+    const producerClass = 'participant_av';
+    const roomKey = `${env}:${roomId}`;
+    const removed = removeProducersByProducerClass(roomKey, producerClass);
+    for (const summary of removed) {
+        broadcast(roomKey, summary.sessionId, producerClosedEvent(summary));
+    }
+    logJson('info', 'sfu_admin_teardown_producers', {
+        roomKey,
+        producerClass,
+        closedCount: removed.length,
+    });
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: true, closedCount: removed.length, roomKey, producerClass }));
+}
 function errResponse(id, message) {
     return { type: 'error', id, error: message };
 }
@@ -73,8 +146,16 @@ function run() {
         process.exit(1);
     }
     const server = http.createServer((req, res) => {
-        if (req.url === '/health' || req.url === '/healthz') {
-            if (req.url === '/healthz') {
+        const urlPath = (() => {
+            try {
+                return new URL(req.url ?? '/', 'http://localhost').pathname;
+            }
+            catch {
+                return req.url ?? '/';
+            }
+        })();
+        if (urlPath === '/health' || urlPath === '/healthz') {
+            if (urlPath === '/healthz') {
                 const snap = getMediasoupHealthSnapshot();
                 res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
                 res.end(JSON.stringify({
@@ -87,6 +168,10 @@ function run() {
             }
             res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
             res.end('ok');
+            return;
+        }
+        if (req.method === 'POST' && urlPath === '/admin/teardown-producers') {
+            void handleAdminTeardownProducers(req, res);
             return;
         }
         res.writeHead(404);
@@ -117,7 +202,13 @@ function run() {
         });
     });
     server.listen(PORT, () => {
-        logJson('info', 'riffsync_sfu_listen', { port: PORT, maxTransports: MAX_TRANSPORTS, maxConsumers: MAX_CONSUMERS });
+        logJson('info', 'riffsync_sfu_listen', {
+            port: PORT,
+            maxTransports: MAX_TRANSPORTS,
+            maxConsumers: MAX_CONSUMERS,
+            maxProducersPerSession: MAX_PRODUCERS_PER_SESSION,
+            maxProducersPerRoom: MAX_PRODUCERS_PER_ROOM,
+        });
     });
     const shutdown = (sig) => {
         logJson('info', 'riffsync_sfu_shutdown_start', { signal: sig });
@@ -180,11 +271,35 @@ async function tearDownSession(p) {
         },
     });
     if (p.claims.role === 'producer') {
-        for (const [, prod] of [...p.room.producersByKind]) {
-            void prod.close();
+        const removed = removeProducersForSession(p.roomKey, p.claims.sessionId);
+        for (const summary of removed) {
+            broadcast(p.roomKey, p.claims.sessionId, producerClosedEvent(summary));
         }
-        p.room.producersByKind.clear();
     }
+}
+function producerClosedEvent(summary) {
+    return {
+        type: 'event',
+        name: 'producerClosed',
+        data: {
+            producerId: summary.producerId,
+            kind: summary.kind,
+            sessionId: summary.sessionId,
+            producerClass: summary.producerClass,
+        },
+    };
+}
+function newProducerEvent(summary) {
+    return {
+        type: 'event',
+        name: 'newProducer',
+        data: {
+            producerId: summary.producerId,
+            kind: summary.kind,
+            sessionId: summary.sessionId,
+            producerClass: summary.producerClass,
+        },
+    };
 }
 async function onMessage(ws, p, raw) {
     let msg;
@@ -289,42 +404,60 @@ async function onMessage(ws, p, raw) {
                 }
                 const transportId = typeof data.transportId === 'string' ? data.transportId : '';
                 const kind = data.kind === 'audio' || data.kind === 'video' ? data.kind : null;
+                const producerClassRaw = data.producerClass;
+                const producerClass = isProducerClass(producerClassRaw) ? producerClassRaw : null;
                 const rtpParameters = data.rtpParameters;
                 const transport = p.transports.get(transportId);
-                if (!transport || !kind || typeof rtpParameters !== 'object' || rtpParameters === null) {
+                if (!transport || !kind || !producerClass || typeof rtpParameters !== 'object' || rtpParameters === null) {
                     send(ws, errResponse(id, 'bad produce params'));
+                    return;
+                }
+                if (p.claims.producerClass && p.claims.producerClass !== producerClass) {
+                    send(ws, errResponse(id, 'producer_class_mismatch'));
+                    return;
+                }
+                const replacing = hasProducerForTuple(p.roomKey, p.claims.sessionId, producerClass, kind);
+                if (!replacing && countProducersForSession(p.roomKey, p.claims.sessionId) >= MAX_PRODUCERS_PER_SESSION) {
+                    send(ws, errResponse(id, 'session producer limit reached'));
+                    return;
+                }
+                if (!replacing && countProducersInRoom(p.roomKey) >= MAX_PRODUCERS_PER_ROOM) {
+                    send(ws, errResponse(id, 'room producer limit reached'));
                     return;
                 }
                 const producer = await transport.produce({
                     kind,
                     rtpParameters: rtpParameters,
-                    appData: { sessionId: p.claims.sessionId },
+                    appData: { sessionId: p.claims.sessionId, producerClass },
                 });
-                upsertProducer(p.roomKey, kind, producer);
+                upsertProducer(p.roomKey, p.claims.sessionId, producerClass, kind, producer);
+                const summary = {
+                    producerId: producer.id,
+                    kind: producer.kind,
+                    sessionId: p.claims.sessionId,
+                    producerClass,
+                };
                 producer.on('transportclose', () => {
                     if (removeProducer(p.roomKey, producer.id)) {
-                        broadcast(p.roomKey, p.claims.sessionId, {
-                            type: 'event',
-                            name: 'producerClosed',
-                            data: { producerId: producer.id },
-                        });
+                        broadcast(p.roomKey, p.claims.sessionId, producerClosedEvent(summary));
                     }
                 });
                 producer.on('@close', () => {
                     if (removeProducer(p.roomKey, producer.id)) {
-                        broadcast(p.roomKey, p.claims.sessionId, {
-                            type: 'event',
-                            name: 'producerClosed',
-                            data: { producerId: producer.id },
-                        });
+                        broadcast(p.roomKey, p.claims.sessionId, producerClosedEvent(summary));
                     }
                 });
-                broadcast(p.roomKey, p.claims.sessionId, {
-                    type: 'event',
-                    name: 'newProducer',
-                    data: { producerId: producer.id, kind: producer.kind },
+                broadcast(p.roomKey, p.claims.sessionId, newProducerEvent(summary));
+                send(ws, {
+                    type: 'response',
+                    id,
+                    data: {
+                        producerId: producer.id,
+                        kind: producer.kind,
+                        sessionId: p.claims.sessionId,
+                        producerClass,
+                    },
                 });
-                send(ws, { type: 'response', id, data: { producerId: producer.id, kind: producer.kind } });
                 break;
             }
             case 'consume': {
@@ -341,7 +474,7 @@ async function onMessage(ws, p, raw) {
                     return;
                 }
                 const caps = rtpCapabilities;
-                const producerFound = [...p.room.producersByKind.values()].find((pr) => pr.id === producerId);
+                const producerFound = getProducerEntry(p.roomKey, producerId);
                 if (!producerFound) {
                     send(ws, errResponse(id, 'producer gone'));
                     return;

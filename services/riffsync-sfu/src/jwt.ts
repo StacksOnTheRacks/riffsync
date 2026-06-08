@@ -15,14 +15,23 @@ function base64UrlToBuffer(s: string): Buffer {
   return Buffer.from(b64, 'base64');
 }
 
+export type ProducerClass = 'host_screen' | 'participant_av';
+
 export type SfuJoinClaims = {
   env: string;
   roomId: string;
   sessionId: string;
   role: 'producer' | 'consumer';
+  producerClass?: ProducerClass;
+  fanSub?: string;
   iat: number;
   exp: number;
 };
+
+function parseProducerClass(value: unknown): ProducerClass | null {
+  if (value === 'host_screen' || value === 'participant_av') return value;
+  return null;
+}
 
 export function verifySfuJoinToken(token: string, secret: string): SfuJoinClaims | null {
   const parts = token.split('.');
@@ -52,7 +61,28 @@ export function verifySfuJoinToken(token: string, secret: string): SfuJoinClaims
   if (typeof o.iat !== 'number' || typeof o.exp !== 'number') return null;
   const now = Math.floor(Date.now() / 1000);
   if (o.exp < now) return null;
-  return {
+
+  let producerClass: ProducerClass | undefined;
+  if (o.producerClass !== undefined && o.producerClass !== null) {
+    if (o.role !== 'producer') return null;
+    const parsed = parseProducerClass(o.producerClass);
+    if (!parsed) return null;
+    producerClass = parsed;
+  }
+
+  let fanSub: string | undefined;
+  if (o.fanSub !== undefined && o.fanSub !== null) {
+    if (typeof o.fanSub !== 'string' || o.fanSub.trim() === '') return null;
+    fanSub = o.fanSub.trim();
+  }
+
+  if (o.role === 'producer') {
+    if (producerClass === 'participant_av' && !fanSub) return null;
+  } else if (producerClass !== undefined || fanSub !== undefined) {
+    return null;
+  }
+
+  const claims: SfuJoinClaims = {
     env: o.env.trim(),
     roomId: o.roomId.trim(),
     sessionId: o.sessionId.trim(),
@@ -60,4 +90,11 @@ export function verifySfuJoinToken(token: string, secret: string): SfuJoinClaims
     iat: o.iat,
     exp: o.exp,
   };
+  if (producerClass) claims.producerClass = producerClass;
+  if (fanSub) claims.fanSub = fanSub;
+  return claims;
+}
+
+export function isProducerClass(value: unknown): value is ProducerClass {
+  return value === 'host_screen' || value === 'participant_av';
 }

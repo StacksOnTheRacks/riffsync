@@ -20,6 +20,7 @@ import {
   ROOM_DISPLAY_TITLE_MAX_LEN,
   type RoomMode,
 } from './room-shared';
+import { requestSfuProducerTeardown } from './sfu-admin-teardown';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -288,6 +289,33 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       };
     }
     throw err;
+  }
+
+  if (avDisabledPatch === true) {
+    const apiEnv = process.env.RIFFSYNC_API_ENV?.trim() || 'prod';
+    const teardown = await requestSfuProducerTeardown({
+      env: apiEnv,
+      roomId,
+      producerClass: 'participant_av',
+    });
+    if (teardown.ok) {
+      console.log(
+        JSON.stringify({
+          riffsyncDiag: 'room_patch_sfu_teardown',
+          roomId,
+          closedCount: teardown.closedCount,
+        }),
+      );
+    } else {
+      console.error(
+        JSON.stringify({
+          riffsyncDiag: 'room_patch_sfu_teardown_failed',
+          roomId,
+          reason: teardown.reason,
+          detail: teardown.detail,
+        }),
+      );
+    }
   }
 
   return {
