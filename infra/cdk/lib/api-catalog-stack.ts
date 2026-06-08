@@ -17,7 +17,7 @@ import * as path from 'node:path';
 import type { Construct } from 'constructs';
 
 import { fanWebAlternateDomainNamesFromContext } from './context-alternate-domains';
-import { SFU_JOIN_SECRET_NAME } from './media-server-stack';
+import { SFU_ADMIN_SECRET_NAME, SFU_JOIN_SECRET_NAME } from './media-server-stack';
 
 export interface ApiCatalogStackProps extends cdk.StackProps {
   /**
@@ -56,6 +56,20 @@ function resolveSfuPublicWsUrl(scope: Construct, defaultFromSfuStack: string): s
   const fromCtx = sfuPublicWsUrlFromContext(scope);
   if (fromCtx.length > 0) return fromCtx;
   return defaultFromSfuStack.trim();
+}
+
+function sfuAdminBaseUrlFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('sfuAdminBaseUrl');
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function resolveSfuAdminBaseUrl(scope: Construct, signalingWsUrl: string): string {
+  const fromCtx = sfuAdminBaseUrlFromContext(scope);
+  if (fromCtx.length > 0) return fromCtx;
+  const trimmed = signalingWsUrl.trim();
+  if (trimmed.startsWith('wss://')) return `https://${trimmed.slice(6)}`;
+  if (trimmed.startsWith('ws://')) return `http://${trimmed.slice(5)}`;
+  return trimmed;
 }
 
 function parseOriginsFromContext(scope: Construct): string[] {
@@ -384,6 +398,10 @@ export class ApiCatalogStack extends cdk.Stack {
         ...jwtEnvShared,
       },
     });
+    const smSmPrefix = `arn:${cdk.Aws.PARTITION}:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:`;
+    const sfuPublicWsUrl = resolveSfuPublicWsUrl(this, sfuDefaultSignalingWsUrl);
+    const sfuAdminBaseUrl = resolveSfuAdminBaseUrl(this, sfuPublicWsUrl);
+
     const roomPatchFn = new lambdaNodejs.NodejsFunction(this, 'RoomPatchFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(10),
@@ -394,9 +412,32 @@ export class ApiCatalogStack extends cdk.Stack {
       environment: {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        RIFFSYNC_API_ENV: environment,
+        SFU_ADMIN_SECRET_ID: SFU_ADMIN_SECRET_NAME,
+        SFU_ADMIN_BASE_URL: sfuAdminBaseUrl,
         ...jwtEnvShared,
       },
     });
+    const sfuAdminSecretResources = [
+      cdk.Fn.join('', [smSmPrefix, SFU_ADMIN_SECRET_NAME, '*']),
+      cdk.Fn.join('', [smSmPrefix, SFU_ADMIN_SECRET_NAME, '-*']),
+    ];
+    roomPatchFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+        resources: sfuAdminSecretResources,
+      }),
+    );
+    roomPatchFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['kms:Decrypt', 'kms:DescribeKey'],
+        resources: [
+          `arn:${cdk.Aws.PARTITION}:kms:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:alias/aws/secretsmanager`,
+        ],
+      }),
+    );
     const roomGetFn = new lambdaNodejs.NodejsFunction(this, 'RoomGetFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(10),
@@ -455,8 +496,6 @@ export class ApiCatalogStack extends cdk.Stack {
       }),
     );
 
-    const sfuPublicWsUrl = resolveSfuPublicWsUrl(this, sfuDefaultSignalingWsUrl);
-
     const webrtcIceConfigFn = new lambdaNodejs.NodejsFunction(this, 'WebrtcIceConfigFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(5),
@@ -498,7 +537,6 @@ export class ApiCatalogStack extends cdk.Stack {
       },
     });
     /** Do not rely on `grantRead` for `fromSecretNameV2` alone: CDK may emit `??????` suffix ARNs that IAM does not treat as wildcards. */
-    const smSmPrefix = `arn:${cdk.Aws.PARTITION}:secretsmanager:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:secret:`;
     const sfuJoinSecretResources = [
       cdk.Fn.join('', [smSmPrefix, SFU_JOIN_SECRET_NAME, '*']),
       cdk.Fn.join('', [smSmPrefix, SFU_JOIN_SECRET_NAME, '-*']),

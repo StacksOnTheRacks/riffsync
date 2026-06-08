@@ -144,6 +144,29 @@ export function removeProducersForSession(roomKey, sessionId) {
     }
     return removed;
 }
+/** Closes every producer in the room matching producerClass (idempotent when none exist). */
+export function removeProducersByProducerClass(roomKey, producerClass) {
+    const rt = roomMap.get(roomKey);
+    if (!rt)
+        return [];
+    const removed = [];
+    for (const [producerId, entry] of rt.producers) {
+        if (entry.producerClass !== producerClass)
+            continue;
+        void entry.producer.close();
+        rt.producers.delete(producerId);
+        removed.push({
+            producerId,
+            kind: entry.kind,
+            sessionId: entry.sessionId,
+            producerClass: entry.producerClass,
+        });
+    }
+    if (removed.length > 0 && rt.producers.size === 0) {
+        scheduleRoomClose(roomKey);
+    }
+    return removed;
+}
 export function countProducersForSession(roomKey, sessionId) {
     const rt = roomMap.get(roomKey);
     if (!rt)

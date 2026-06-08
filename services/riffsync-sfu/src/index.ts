@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import * as http from 'node:http';
 import process from 'node:process';
 import { WebSocketServer } from 'ws';
@@ -20,6 +21,7 @@ import {
   hasProducerForTuple,
   listProducerSummaries,
   removeProducer,
+  removeProducersByProducerClass,
   removeProducersForSession,
   roomKeyFromClaims,
   shutdownMediasoup,
@@ -33,6 +35,8 @@ import { isProducerClass, type ProducerClass, type SfuJoinClaims } from './jwt.j
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const JWT_SECRET = process.env.SFU_JWT_SECRET?.trim() ?? '';
+const SFU_ADMIN_SECRET = process.env.SFU_ADMIN_SECRET?.trim() ?? '';
+const SFU_ADMIN_SECRET_HEADER = 'x-sfu-admin-secret';
 const MAX_TRANSPORTS = Math.max(1, Number.parseInt(process.env.SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION ?? '8', 10));
 const MAX_CONSUMERS = Math.max(1, Number.parseInt(process.env.SFU_MAX_CONSUMERS_PER_SESSION ?? '64', 10));
 const MAX_PRODUCERS_PER_SESSION = Math.max(
@@ -109,6 +113,82 @@ function send(ws: WebSocket, o: Record<string, unknown>): void {
   }
 }
 
+function adminSecretMatches(req: http.IncomingMessage): boolean {
+  if (!SFU_ADMIN_SECRET) return false;
+  const raw = req.headers[SFU_ADMIN_SECRET_HEADER];
+  const provided = typeof raw === 'string' ? raw.trim() : '';
+  if (!provided) return false;
+  const expected = Buffer.from(SFU_ADMIN_SECRET, 'utf8');
+  const got = Buffer.from(provided, 'utf8');
+  if (expected.length !== got.length) return false;
+  return timingSafeEqual(expected, got);
+}
+
+async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString('utf8').trim();
+  if (!raw) return {};
+  return JSON.parse(raw) as unknown;
+}
+
+async function handleAdminTeardownProducers(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  if (!adminSecretMatches(req)) {
+    res.writeHead(401, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'unauthorized' }));
+    return;
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await readJsonBody(req)) as Record<string, unknown>;
+  } catch {
+    res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'invalid_json' }));
+    return;
+  }
+
+  const env = typeof body.env === 'string' ? body.env.trim() : '';
+  const roomId = typeof body.roomId === 'string' ? body.roomId.trim() : '';
+  if (!env || !roomId) {
+    res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'env and roomId required' }));
+    return;
+  }
+
+  const producerClassRaw = body.producerClass;
+  if (
+    producerClassRaw !== undefined &&
+    producerClassRaw !== null &&
+    producerClassRaw !== 'participant_av'
+  ) {
+    res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'producerClass must be participant_av or omitted' }));
+    return;
+  }
+  const producerClass: ProducerClass = 'participant_av';
+
+  const roomKey = `${env}:${roomId}`;
+  const removed = removeProducersByProducerClass(roomKey, producerClass);
+  for (const summary of removed) {
+    broadcast(roomKey, summary.sessionId, producerClosedEvent(summary));
+  }
+
+  logJson('info', 'sfu_admin_teardown_producers', {
+    roomKey,
+    producerClass,
+    closedCount: removed.length,
+  });
+
+  res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify({ ok: true, closedCount: removed.length, roomKey, producerClass }));
+}
+
 function errResponse(id: number | undefined, message: string): Record<string, unknown> {
   return { type: 'error', id, error: message };
 }
@@ -128,8 +208,16 @@ function run(): void {
   }
 
   const server = http.createServer((req, res) => {
-    if (req.url === '/health' || req.url === '/healthz') {
-      if (req.url === '/healthz') {
+    const urlPath = (() => {
+      try {
+        return new URL(req.url ?? '/', 'http://localhost').pathname;
+      } catch {
+        return req.url ?? '/';
+      }
+    })();
+
+    if (urlPath === '/health' || urlPath === '/healthz') {
+      if (urlPath === '/healthz') {
         const snap = getMediasoupHealthSnapshot();
         res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
         res.end(
@@ -146,6 +234,12 @@ function run(): void {
       res.end('ok');
       return;
     }
+
+    if (req.method === 'POST' && urlPath === '/admin/teardown-producers') {
+      void handleAdminTeardownProducers(req, res);
+      return;
+    }
+
     res.writeHead(404);
     res.end();
   });
