@@ -199,6 +199,17 @@ One account, **one CloudFormation stack** **`RiffSyncTurn`** ([`lib/media-server
 
 **Session Manager:** no inbound **SSH**; use **SSM** for troubleshooting (**`/var/log/cloud-init-output.log`** if UserData fails).
 
+**SFU producer / transport caps:** UserData writes **`/etc/riffsync-sfu.env`** with **`SFU_MAX_PRODUCERS_PER_SESSION=3`**, **`SFU_MAX_PRODUCERS_PER_ROOM=24`**, **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION=8`**, **`SFU_MAX_CONSUMERS_PER_SESSION=64`** (defaults in [`lib/sfu-env-lines.ts`](lib/sfu-env-lines.ts); **`riffsync-sfu`** reads them at startup). Optional CloudWatch alarm **`riffsync-sfu-high-cpu`** fires when SFU EC2 **CPUUtilization** exceeds **80%** for **5** minutes (no SNS in OSS default — attach a topic in IaC if desired).
+
+**Worker failure runbook (mediasoup `worker.on('died')`):**
+
+1. Confirm **`curl -sSf "${SFU_HTTP}/healthz"`** shows **`workerAlive: false`** or probe failure.
+2. **SSM** into the SFU instance; check **`journalctl -u riffsync-sfu`** for a **`worker died`** JSON line.
+3. **Restart** the SFU unit: **`sudo systemctl restart riffsync-sfu`**.
+4. Re-probe **`/healthz`** — expect **`workerAlive: true`**, **`routerRoomCount: 0`** until rooms reconnect.
+5. If restart fails twice, **reboot** the EC2 instance (**`aws ec2 reboot-instances --instance-ids <id>`** or console).
+6. Notify active parties via your community channel if outage persists.
+
 **Secret rotation / first-boot placeholder:** UserData runs **once**. After you set the real value for **`riffsync/turn-static-auth-secret`**, use **Session Manager** to re-fetch into **`/etc/coturn/turnserver.conf`** and **`sudo systemctl restart coturn`**, or replace the instance.
 
 **Migrating from older `RiffSyncTurn-staging` / `RiffSyncTurn-prod`:** delete those stacks after this change, copy secret material from **`riffsync/staging/turn-static-auth-secret`** (or prod) into **`riffsync/turn-static-auth-secret`**, then deploy **`RiffSyncTurn`**. Per-environment turn secrets are **removed** from **`RiffSyncApi-*`** templates (old AWS secrets may **RETAIN** — clean up manually if desired).

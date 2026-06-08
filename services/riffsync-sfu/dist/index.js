@@ -4,6 +4,7 @@ import process from 'node:process';
 import { WebSocketServer } from 'ws';
 import { attachTransportHandlers, closeSessionTransports, countProducersForSession, countProducersInRoom, getOrCreateRoom, getMediasoupHealthSnapshot, getProducerEntry, hasProducerForTuple, listProducerSummaries, removeProducer, removeProducersByProducerClass, removeProducersForSession, roomKeyFromClaims, shutdownMediasoup, transportListenIps, upsertProducer, verifySfuJoinToken, } from './rooms.js';
 import { isProducerClass } from './jwt.js';
+import { emitMediaLimitRejected } from './media-observability.js';
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const JWT_SECRET = process.env.SFU_JWT_SECRET?.trim() ?? '';
 const SFU_ADMIN_SECRET = process.env.SFU_ADMIN_SECRET?.trim() ?? '';
@@ -344,6 +345,8 @@ async function onMessage(ws, p, raw) {
                     return;
                 }
                 if (p.transports.size >= MAX_TRANSPORTS) {
+                    logJson('warn', 'transport limit reached', { signal: 'TransportLimitRejected' });
+                    emitMediaLimitRejected('TransportLimitRejected');
                     send(ws, errResponse(id, 'transport limit reached'));
                     return;
                 }
@@ -484,6 +487,8 @@ async function onMessage(ws, p, raw) {
                     return;
                 }
                 if (p.consumers.size >= MAX_CONSUMERS) {
+                    logJson('warn', 'consumer limit reached', { signal: 'ConsumerLimitRejected' });
+                    emitMediaLimitRejected('ConsumerLimitRejected');
                     send(ws, errResponse(id, 'consumer limit reached'));
                     return;
                 }

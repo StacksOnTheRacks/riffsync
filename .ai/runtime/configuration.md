@@ -76,6 +76,8 @@ SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU We
 | --- | --- | --- |
 | **`SFU_MAX_PRODUCERS_PER_SESSION`** | **3** | Max mediasoup producers one signaling session may create (host screen + participant video + participant audio on one tab). |
 | **`SFU_MAX_PRODUCERS_PER_ROOM`** | **24** | Max producers per **`env:roomId`** router (~8 fans × 2 tracks + host screen + headroom). |
+| **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`** | **8** | Max WebRTC transports per signaling session (producer + consumer paths). |
+| **`SFU_MAX_CONSUMERS_PER_SESSION`** | **64** | Max mediasoup consumers per session (theater grid + strip). |
 | **`SFU_ADMIN_SECRET`** | (required prod) | Shared secret for **`POST /admin/teardown-producers`**; also on room **`PATCH`** Lambda env. |
 
 - **SPA feature gate:** No new build flag for participant AV beyond existing **`VITE_WEBRTC_USE_MEDIASOU_SFU`** (#104 gates UI on snapshot + JWT).
