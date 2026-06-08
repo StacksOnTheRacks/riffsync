@@ -7,7 +7,9 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { verifyAccessToken } from './cognito-jwt';
-import { signSfuJoinToken } from './sfu-join-token-sign';
+import { readAvDisabled } from './room-get';
+import { signSfuJoinToken, type SfuProducerClass } from './sfu-join-token-sign';
+import { queryRoomPresenceItems } from './ws-shared';
 
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const sm = new SecretsManagerClient({});
@@ -15,7 +17,30 @@ const sm = new SecretsManagerClient({});
 /** Avoid `Record<string, unknown>` in value positions: esbuild JSX parse can mis-read `<`. */
 type JsonRecord = { [key: string]: unknown };
 
+type GrantResult =
+  | {
+      role: 'producer';
+      producerClass: SfuProducerClass;
+      fanSub?: string;
+    }
+  | { role: 'consumer' };
+
+type DenialResult = {
+  status: 403 | 429;
+  code:
+    | 'av_disabled'
+    | 'fan_auth_required'
+    | 'not_host'
+    | 'unknown_session'
+    | 'publisher_cap_exceeded'
+    | 'rate_limited';
+  error: string;
+};
+
 let cachedJoinSecret: string | null = null;
+
+const PARTICIPANT_MINTS_PER_MINUTE = 30;
+const rateBuckets = new Map<string, { count: number; windowStartMs: number }>();
 
 async function joinSecret(): Promise<string> {
   if (cachedJoinSecret) return cachedJoinSecret;
@@ -38,6 +63,86 @@ function json(statusCode: number, body: JsonRecord): APIGatewayProxyResultV2 {
   };
 }
 
+function riffsyncEnvironment(): string {
+  return process.env.RIFFSYNC_ENVIRONMENT?.trim() || 'unknown';
+}
+
+/** EMF counter via stdout (no PutMetricData IAM required). */
+function emitSfuTokenDenied(reason: DenialResult['code']): void {
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Media',
+            Dimensions: [['Environment', 'Reason']],
+            Metrics: [{ Name: 'SfuTokenDenied', Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: riffsyncEnvironment(),
+      Reason: reason,
+      SfuTokenDenied: 1,
+    }),
+  );
+}
+
+function deny(denial: DenialResult): APIGatewayProxyResultV2 {
+  emitSfuTokenDenied(denial.code);
+  return json(denial.status, { error: denial.error, code: denial.code });
+}
+
+function maxParticipantAvPublishers(): number {
+  const perRoom = Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_ROOM ?? '24', 10);
+  /** Business cap: ~8 concurrent fan publishers; derive from room producer ceiling. */
+  return Math.min(8, Math.max(1, Math.floor(perRoom / 3)));
+}
+
+function parseRequestedProducerClass(body: JsonRecord): SfuProducerClass | null | 'invalid' {
+  if (!Object.prototype.hasOwnProperty.call(body, 'producerClass')) {
+    return null;
+  }
+  const raw = body.producerClass;
+  if (raw === 'host_screen' || raw === 'participant_av') {
+    return raw;
+  }
+  return 'invalid';
+}
+
+function fanSubFromConn(conn: JsonRecord): string {
+  return typeof conn.fanSub === 'string' ? conn.fanSub.trim() : '';
+}
+
+function isHostConnection(conn: JsonRecord, roomHostSub: string): boolean {
+  return typeof conn.hostSub === 'string' && conn.hostSub === roomHostSub;
+}
+
+function checkParticipantMintRateLimit(fanSub: string): boolean {
+  const now = Date.now();
+  const windowMs = 60_000;
+  let bucket = rateBuckets.get(fanSub);
+  if (!bucket || now - bucket.windowStartMs >= windowMs) {
+    bucket = { count: 0, windowStartMs: now };
+    rateBuckets.set(fanSub, bucket);
+  }
+  if (bucket.count >= PARTICIPANT_MINTS_PER_MINUTE) {
+    return false;
+  }
+  bucket.count += 1;
+  return true;
+}
+
+async function distinctFanSubsInRoom(presenceTable: string, roomId: string): Promise<Set<string>> {
+  const items = await queryRoomPresenceItems(doc, presenceTable, roomId);
+  const subs = new Set<string>();
+  for (const it of items) {
+    const fanSub = fanSubFromConn(it);
+    if (fanSub) subs.add(fanSub);
+  }
+  return subs;
+}
+
 async function findMyConnectionRow(
   presenceTable: string,
   roomId: string,
@@ -55,6 +160,84 @@ async function findMyConnectionRow(
     }),
   );
   return (out.Items ?? [])[0] as JsonRecord | undefined;
+}
+
+async function resolveParticipantAvGrant(
+  room: JsonRecord,
+  presenceTable: string,
+  roomId: string,
+  jwtUser: { sub: string } | null,
+  connFanSub: string,
+): Promise<GrantResult | DenialResult> {
+  if (!jwtUser || !connFanSub || jwtUser.sub !== connFanSub) {
+    return {
+      status: 403,
+      code: 'fan_auth_required',
+      error: 'Sign in to publish camera or microphone in this room.',
+    };
+  }
+  if (readAvDisabled(room)) {
+    return {
+      status: 403,
+      code: 'av_disabled',
+      error: 'The host turned room A/V off.',
+    };
+  }
+  if (!checkParticipantMintRateLimit(connFanSub)) {
+    return {
+      status: 429,
+      code: 'rate_limited',
+      error: 'Too many participant A/V token requests. Try again shortly.',
+    };
+  }
+  const fanSubs = await distinctFanSubsInRoom(presenceTable, roomId);
+  const cap = maxParticipantAvPublishers();
+  if (!fanSubs.has(connFanSub) && fanSubs.size >= cap) {
+    return {
+      status: 403,
+      code: 'publisher_cap_exceeded',
+      error: 'This room has reached the maximum number of live cameras and microphones.',
+    };
+  }
+  return { role: 'producer', producerClass: 'participant_av', fanSub: connFanSub };
+}
+
+async function resolveGrant(
+  requested: SfuProducerClass | null,
+  room: JsonRecord,
+  presenceTable: string,
+  roomId: string,
+  jwtUser: { sub: string } | null,
+  myConn: JsonRecord,
+): Promise<GrantResult | DenialResult> {
+  const roomHostSub = room.hostSub as string;
+  const connFanSub = fanSubFromConn(myConn);
+  const isHostJwt = jwtUser?.sub === roomHostSub;
+
+  if (requested === 'host_screen') {
+    if (!isHostJwt || !isHostConnection(myConn, roomHostSub)) {
+      return {
+        status: 403,
+        code: 'not_host',
+        error: 'Only the room host may publish screen share.',
+      };
+    }
+    return { role: 'producer', producerClass: 'host_screen' };
+  }
+
+  if (requested === 'participant_av') {
+    return resolveParticipantAvGrant(room, presenceTable, roomId, jwtUser, connFanSub);
+  }
+
+  if (isHostJwt && isHostConnection(myConn, roomHostSub)) {
+    return { role: 'producer', producerClass: 'host_screen' };
+  }
+
+  if (connFanSub && jwtUser && jwtUser.sub === connFanSub) {
+    return resolveParticipantAvGrant(room, presenceTable, roomId, jwtUser, connFanSub);
+  }
+
+  return { role: 'consumer' };
 }
 
 async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
@@ -84,6 +267,11 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
     return json(400, { error: 'roomId required' });
   }
 
+  const requestedProducerClass = parseRequestedProducerClass(body);
+  if (requestedProducerClass === 'invalid') {
+    return json(400, { error: 'producerClass must be host_screen or participant_av' });
+  }
+
   const sessionHeader = headers['x-session-id'] ?? headers['X-Session-Id'];
   const sessionId = typeof sessionHeader === 'string' ? sessionHeader.trim() : '';
   if (!sessionId) {
@@ -103,16 +291,27 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
 
   const myConn = await findMyConnectionRow(presenceTable, roomId, sessionId);
   if (!myConn) {
-    return json(403, { error: 'Open the room WebSocket first (unknown session for this room).' });
+    return deny({
+      status: 403,
+      code: 'unknown_session',
+      error: 'Open the room WebSocket first (unknown session for this room).',
+    });
   }
 
   const authHdr = headers.authorization ?? headers.Authorization;
   const jwtUser = await verifyAccessToken(typeof authHdr === 'string' ? authHdr : undefined);
 
-  const isHostSlot =
-    typeof myConn.hostSub === 'string' && myConn.hostSub === room.hostSub && jwtUser?.sub === room.hostSub;
-
-  const role: 'producer' | 'consumer' = isHostSlot ? 'producer' : 'consumer';
+  const grant = await resolveGrant(
+    requestedProducerClass,
+    room,
+    presenceTable,
+    roomId,
+    jwtUser,
+    myConn,
+  );
+  if ('code' in grant) {
+    return deny(grant);
+  }
 
   const now = Math.floor(Date.now() / 1000);
   const ttlSec = 900;
@@ -122,19 +321,30 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
       env: apiEnv,
       roomId,
       sessionId,
-      role,
+      role: grant.role,
+      ...(grant.role === 'producer'
+        ? {
+            producerClass: grant.producerClass,
+            ...(grant.fanSub ? { fanSub: grant.fanSub } : {}),
+          }
+        : {}),
       iat: now,
       exp: now + ttlSec,
     },
     secret,
   );
 
-  return json(200, {
+  const response: JsonRecord = {
     token,
-    role,
+    role: grant.role,
     wsUrl: publicWsUrl || undefined,
     expiresInSeconds: ttlSec,
-  });
+  };
+  if (grant.role === 'producer') {
+    response.producerClass = grant.producerClass;
+  }
+
+  return json(200, response);
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
@@ -151,3 +361,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     });
   }
 };
+
+/** Test-only reset for in-memory rate limit state. */
+export function __resetParticipantMintRateLimitsForTests(): void {
+  rateBuckets.clear();
+}

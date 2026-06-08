@@ -38,7 +38,7 @@ describe('verifySfuJoinToken producerClass', () => {
         producerClass: 'host_screen',
         iat: now,
         exp: now + 60,
-      } as Parameters<typeof signSfuJoinToken>[0],
+      },
       secret,
     );
     const claims = verifySfuJoinToken(token, secret);
@@ -57,7 +57,7 @@ describe('verifySfuJoinToken producerClass', () => {
         producerClass: 'participant_av',
         iat: now,
         exp: now + 60,
-      } as Parameters<typeof signSfuJoinToken>[0],
+      },
       secret,
     );
     expect(verifySfuJoinToken(withoutFanSub, secret)).toBeNull();
@@ -72,7 +72,7 @@ describe('verifySfuJoinToken producerClass', () => {
         fanSub: 'fan-sub-1',
         iat: now,
         exp: now + 60,
-      } as Parameters<typeof signSfuJoinToken>[0],
+      },
       secret,
     );
     const claims = verifySfuJoinToken(withFanSub, secret);
@@ -91,7 +91,7 @@ describe('verifySfuJoinToken producerClass', () => {
         producerClass: 'participant_av',
         iat: now,
         exp: now + 60,
-      } as Parameters<typeof signSfuJoinToken>[0],
+      },
       secret,
     );
     expect(verifySfuJoinToken(token, secret)).toBeNull();
