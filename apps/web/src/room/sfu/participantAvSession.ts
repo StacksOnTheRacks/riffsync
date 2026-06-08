@@ -33,6 +33,8 @@ export type ParticipantAvController = {
   refreshPublishGate: () => void
   attachSession: (session: SfuUnifiedSessionHandle | null) => void
   resetOnReconnect: () => void
+  /** Stop local getUserMedia and close participant_av producers (kill switch / room leave). */
+  teardownPublishing: () => void
   enableCamera: () => Promise<void>
   disableCamera: () => void
   enableMic: () => Promise<void>
@@ -160,6 +162,16 @@ export function createParticipantAvController(options: {
       void syncPublish()
     },
     resetOnReconnect: () => {
+      cameraEnabled = false
+      micEnabled = false
+      micMuted = false
+      error = null
+      busy = false
+      stopLocalTracks()
+      session?.unpublishProducerClass('participant_av')
+      notify()
+    },
+    teardownPublishing: () => {
       cameraEnabled = false
       micEnabled = false
       micMuted = false

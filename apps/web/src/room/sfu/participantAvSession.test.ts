@@ -44,4 +44,19 @@ describe('createParticipantAvController', () => {
       busy: false,
     })
   })
+
+  it('teardownPublishing clears publish intent for kill switch', () => {
+    const controller = createParticipantAvController({
+      canPublish: () => true,
+    })
+    controller.teardownPublishing()
+    expect(controller.getState()).toMatchObject({
+      cameraEnabled: false,
+      micEnabled: false,
+      micMuted: false,
+      needsProducerToken: false,
+      error: null,
+      busy: false,
+    })
+  })
 })

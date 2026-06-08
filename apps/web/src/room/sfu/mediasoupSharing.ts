@@ -252,6 +252,7 @@ export type SfuUnifiedSessionHandle = {
   ready: Promise<void>
   publishStream: (stream: MediaStream, producerClass: SfuProducerClass) => Promise<void>
   unpublishProducerClass: (producerClass: SfuProducerClass) => void
+  detachConsumerClass: (producerClass: SfuProducerClass) => void
   pauseProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
   resumeProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
 }
@@ -306,6 +307,7 @@ export async function connectSfuUnifiedSession(options: {
   const liveProducers: LiveProducer[] = []
   const mediasoupConsumers: mediasoupClient.types.Consumer[] = []
   const attachedProducerIds = new Set<string>()
+  const consumerProducerClassById = new Map<string, SfuProducerClass>()
   const remoteStream = new MediaStream()
   const unwatchFns: Array<() => void> = []
 
@@ -328,6 +330,41 @@ export async function connectSfuUnifiedSession(options: {
     }
     liveProducers.length = 0
     for (const lp of keep) liveProducers.push(lp)
+  }
+
+  const detachConsumerByProducerId = (producerId: string) => {
+    const keep: typeof mediasoupConsumers = []
+    for (const c of mediasoupConsumers) {
+      if (c.producerId === producerId) {
+        try {
+          remoteStream.removeTrack(c.track)
+        } catch {
+          /* ignore */
+        }
+        try {
+          c.close()
+        } catch {
+          /* ignore */
+        }
+        consumerProducerClassById.delete(producerId)
+        onConsumerTrack?.({ action: 'detach', producerId })
+      } else {
+        keep.push(c)
+      }
+    }
+    mediasoupConsumers.length = 0
+    for (const k of keep) mediasoupConsumers.push(k)
+    attachedProducerIds.delete(producerId)
+  }
+
+  const detachConsumerClass = (producerClass: SfuProducerClass) => {
+    const toDetach = [...consumerProducerClassById.entries()]
+      .filter(([, pc]) => pc === producerClass)
+      .map(([producerId]) => producerId)
+    for (const producerId of toDetach) {
+      detachConsumerByProducerId(producerId)
+    }
+    emitRemote()
   }
 
   const findLiveProducer = (
@@ -506,6 +543,9 @@ export async function connectSfuUnifiedSession(options: {
       }
       mediasoupConsumers.push(consumer)
       attachedProducerIds.add(producerId)
+      if (summary.producerClass) {
+        consumerProducerClassById.set(producerId, summary.producerClass)
+      }
       const { track } = consumer
       if (track && !remoteStream.getTracks().includes(track)) {
         remoteStream.addTrack(track)
@@ -531,27 +571,7 @@ export async function connectSfuUnifiedSession(options: {
         if (!isRecord(data)) return
         const producerId = typeof data.producerId === 'string' ? data.producerId : ''
         if (!producerId) return
-        const keep: typeof mediasoupConsumers = []
-        for (const c of mediasoupConsumers) {
-          if (c.producerId === producerId) {
-            try {
-              remoteStream.removeTrack(c.track)
-            } catch {
-              /* ignore */
-            }
-            try {
-              c.close()
-            } catch {
-              /* ignore */
-            }
-          } else {
-            keep.push(c)
-          }
-        }
-        mediasoupConsumers.length = 0
-        for (const k of keep) mediasoupConsumers.push(k)
-        attachedProducerIds.delete(producerId)
-        onConsumerTrack?.({ action: 'detach', producerId })
+        detachConsumerByProducerId(producerId)
         emitRemote()
         return
       }
@@ -670,6 +690,7 @@ export async function connectSfuUnifiedSession(options: {
     ready,
     publishStream,
     unpublishProducerClass,
+    detachConsumerClass,
     pauseProducerKind,
     resumeProducerKind,
     close: (reason: SfuSessionEndReason = 'user_close') => {
@@ -688,6 +709,7 @@ export async function connectSfuUnifiedSession(options: {
       }
       mediasoupConsumers.length = 0
       attachedProducerIds.clear()
+      consumerProducerClassById.clear()
       remoteStream.getTracks().forEach((t) => {
         try {
           remoteStream.removeTrack(t)

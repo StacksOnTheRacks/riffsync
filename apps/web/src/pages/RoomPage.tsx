@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import type { RoomSnapshot } from '../api/roomsApi'
+import type { RoomMode, RoomSnapshot } from '../api/roomsApi'
 import {
   fetchFanProfile,
   patchFanProfileDisplayName,
@@ -49,6 +49,12 @@ import {
   type ParticipantAvPublishGate,
 } from '../room/sfu/participantAvSession'
 import { createTheaterAudioMix } from '../room/audio/theaterAudioMix'
+import {
+  enteredVideoChatMode,
+  parseInboundRoomMode,
+  stopMediaStreamTracks,
+} from '../room/roomMediaLifecycle'
+import type { SfuUnifiedSessionHandle } from '../room/sfu/mediasoupSharing'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
@@ -214,7 +220,9 @@ export function RoomPage() {
   const hostNegotiationMilestoneMsByGuestRef = useRef(new Map<string, number>())
   const acceptedOfferShareGenerationRef = useRef(0)
   const lastDedupOfferGenerationRef = useRef(0)
-  const sfuSessionRef = useRef<{ close: () => void } | null>(null)
+  const sfuSessionRef = useRef<SfuUnifiedSessionHandle | null>(null)
+  const prevRoomModeRef = useRef<RoomMode>('theater')
+  const prevAvDisabledRef = useRef<boolean | null>(null)
   const theaterAudioMixRef = useRef<ReturnType<typeof createTheaterAudioMix> | null>(null)
   const captureStreamRef = useRef<MediaStream | null>(null)
   const [sfuTokenIntentTick, setSfuTokenIntentTick] = useState(0)
@@ -639,6 +647,19 @@ export function RoomPage() {
         setGuestRemote(null)
         return
       }
+      if (t === 'room_mode') {
+        const nextMode = parseInboundRoomMode(data.roomMode)
+        if (!nextMode) return
+        setRoom((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            roomMode: nextMode,
+            ...(nextMode === 'videoChat' ? { broadcastCaptureActive: false } : {}),
+          }
+        })
+        return
+      }
       if (t === 'av_disabled' && typeof data.avDisabled === 'boolean') {
         setRoom((prev) => (prev ? { ...prev, avDisabled: data.avDisabled as boolean } : prev))
         return
@@ -908,6 +929,61 @@ export function RoomPage() {
     theaterAudioMixRef.current?.setAvDisabled(avDisabled)
   }, [avDisabled])
 
+  const stopHostCaptureForModeTransition = useCallback(() => {
+    setHostCapturePlayHint(false)
+    sfuSessionRef.current?.unpublishProducerClass('host_screen')
+    setCaptureStream((prev) => {
+      stopMediaStreamTracks(prev)
+      return null
+    })
+    for (const pc of peerByGuestRef.current.values()) {
+      pc.close()
+    }
+    peerByGuestRef.current.clear()
+    pendingReadyGuestsRef.current.clear()
+    hostPendingGuestIceRef.current.clear()
+    hostLastOfferGenByGuestRef.current.clear()
+    hostNegotiationMilestoneMsByGuestRef.current.clear()
+  }, [])
+
+  useEffect(() => {
+    const previousMode = prevRoomModeRef.current
+    prevRoomModeRef.current = roomMode
+    if (!enteredVideoChatMode(previousMode, roomMode)) return
+
+    if (!isPublisher) {
+      if (sfuEnabled) {
+        sfuSessionRef.current?.detachConsumerClass('host_screen')
+      } else {
+        queueMicrotask(() => {
+          guestPcRef.current?.close()
+          guestPcRef.current = null
+          guestPendingIceRef.current = []
+          acceptedOfferShareGenerationRef.current = 0
+          lastDedupOfferGenerationRef.current = 0
+          setGuestRemote(null)
+        })
+      }
+      return
+    }
+
+    if (captureStreamRef.current) {
+      stopHostCaptureForModeTransition()
+      queueMicrotask(() => {
+        setRoom((prev) => (prev ? { ...prev, broadcastCaptureActive: false } : prev))
+      })
+    }
+  }, [roomMode, isPublisher, sfuEnabled, stopHostCaptureForModeTransition])
+
+  useEffect(() => {
+    const previous = prevAvDisabledRef.current
+    prevAvDisabledRef.current = avDisabled
+    if (previous === null || !avDisabled || previous === avDisabled) return
+
+    participantAvController.teardownPublishing()
+    sfuSessionRef.current?.detachConsumerClass('participant_av')
+  }, [avDisabled, participantAvController])
+
   useEffect(() => {
     if (!theaterMixEnabled) return
     theaterAudioMixRef.current?.setHostVideoElement(
@@ -941,7 +1017,13 @@ export function RoomPage() {
       onMediaError: (_code, msg) => setSfuRoomErr(msg),
       onConnecting: () => setSfuRoomErr(null),
     })
-    return cancel
+    return () => {
+      participantAvController.teardownPublishing()
+      stopMediaStreamTracks(captureStreamRef.current)
+      captureStreamRef.current = null
+      sfuSessionRef.current?.unpublishProducerClass('host_screen')
+      cancel()
+    }
   }, [
     sfuEnabled,
     wsStatus,
@@ -1042,10 +1124,9 @@ export function RoomPage() {
     shareGenerationRef.current = 0
     hostLastOfferGenByGuestRef.current.clear()
     hostNegotiationMilestoneMsByGuestRef.current.clear()
-    sfuSessionRef.current?.close()
-    sfuSessionRef.current = null
+    sfuSessionRef.current?.unpublishProducerClass('host_screen')
     setCaptureStream((prev) => {
-      if (prev) prev.getTracks().forEach((t) => t.stop())
+      stopMediaStreamTracks(prev)
       return null
     })
     for (const pc of peerByGuestRef.current.values()) {
