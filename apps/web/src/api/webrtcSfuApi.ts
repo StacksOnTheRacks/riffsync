@@ -10,6 +10,7 @@ export async function fetchSfuJoinToken(options: {
   roomId: string
   sessionId: string
   accessToken: string | null
+  producerClass?: 'host_screen' | 'participant_av'
 }): Promise<SfuTokenResponse> {
   const base = requireApiBase(options.apiBaseUrl)
   const headers: Record<string, string> = {
@@ -19,10 +20,16 @@ export async function fetchSfuJoinToken(options: {
   if (options.accessToken) {
     headers.Authorization = `Bearer ${options.accessToken}`
   }
+  const body: { roomId: string; producerClass?: 'host_screen' | 'participant_av' } = {
+    roomId: options.roomId,
+  }
+  if (options.producerClass) {
+    body.producerClass = options.producerClass
+  }
   const res = await fetch(`${base.replace(/\/$/, '')}/v1/webrtc/sfu-token`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ roomId: options.roomId }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')

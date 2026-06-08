@@ -1,14 +1,16 @@
 import { fetchSfuJoinToken } from '../../api/webrtcSfuApi'
 import {
-  connectSfuConsumer,
-  connectSfuProducer,
+  connectSfuUnifiedSession,
   resolveSfuWsBaseForToken,
+  type SfuConsumerTrackEvent,
   type SfuMediaErrorCode,
-  type SfuSessionEndReason,
+  type SfuProducerClass,
+  type SfuUnifiedSessionHandle,
 } from './mediasoupSharing'
+import type { ParticipantAvController } from './participantAvSession'
 import { nextSfuReconnectDelayMs, sleepMs } from './sfuReconnectPolicy'
 
-export type SfuRoomSessionHandle = { close: (reason?: SfuSessionEndReason) => void }
+export type SfuRoomSessionHandle = SfuUnifiedSessionHandle
 
 type SessionHooks = {
   assignSession: (session: SfuRoomSessionHandle | null) => void
@@ -16,32 +18,22 @@ type SessionHooks = {
   onTokenError: (message: string) => void
   onMediaError: (code: SfuMediaErrorCode, message: string) => void
   onSessionClean?: () => void
-  /** Clears UI errors when a new SFU connection attempt is about to start. */
   onConnecting?: () => void
 }
 
-type ProducerSessionOpts = SessionHooks & {
-  role: 'producer'
+export type StartSfuRoomSessionOpts = SessionHooks & {
   apiBaseUrl: string | undefined
   roomId: string
   sessionId: string
   accessToken: string | null
-  captureStream: MediaStream
-  getIceServers: () => Promise<RTCIceServer[]>
-}
-
-type ConsumerSessionOpts = SessionHooks & {
-  role: 'consumer'
-  apiBaseUrl: string | undefined
-  roomId: string
-  sessionId: string
   getIceServers: () => Promise<RTCIceServer[]>
   onRemoteStream: (stream: MediaStream | null) => void
+  onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
+  getHostScreenStream: () => MediaStream | null
+  participantAv: ParticipantAvController
 }
 
-export type StartSfuRoomSessionOpts = ProducerSessionOpts | ConsumerSessionOpts
-
-function formatSfuTokenError(e: unknown): string {
+export function formatSfuTokenError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
   const m403 = /^sfu-token 403:\s*(.+)$/s.exec(msg)
   if (m403) {
@@ -53,12 +45,26 @@ function formatSfuTokenError(e: unknown): string {
 }
 
 /** Transient: WS is open but Dynamo roster GSI has not caught up yet (`webrtc-sfu-token` 403). */
-function isRosterConsistency403(e: unknown): boolean {
+export function isRosterConsistency403(e: unknown): boolean {
   const msg = e instanceof Error ? e.message : String(e)
   return (
     /sfu-token\s+403:/i.test(msg) &&
     /open the room websocket first|unknown session for this room/i.test(msg)
   )
+}
+
+export function resolveSfuTokenProducerClass(opts: {
+  participantAv: ParticipantAvController
+  getHostScreenStream: () => MediaStream | null
+}): SfuProducerClass | undefined {
+  const hostStream = opts.getHostScreenStream()
+  if (hostStream?.getTracks().some((track) => track.readyState === 'live')) {
+    return 'host_screen'
+  }
+  if (opts.participantAv.getState().needsProducerToken) {
+    return 'participant_av'
+  }
+  return undefined
 }
 
 async function sleepBackoffMs(ms: number, signal: AbortSignal): Promise<void> {
@@ -70,14 +76,35 @@ async function sleepBackoffMs(ms: number, signal: AbortSignal): Promise<void> {
   }
 }
 
+async function publishHostScreenIfNeeded(
+  session: SfuUnifiedSessionHandle,
+  getHostScreenStream: () => MediaStream | null,
+  onMediaError: (code: SfuMediaErrorCode, message: string) => void,
+): Promise<void> {
+  const stream = getHostScreenStream()
+  const live = stream?.getTracks().some((track) => track.readyState === 'live') ?? false
+  if (!live || !stream) {
+    session.unpublishProducerClass('host_screen')
+    return
+  }
+  try {
+    await session.ready
+    await session.publishStream(stream, 'host_screen')
+  } catch (e) {
+    onMediaError(
+      'produce_failed',
+      e instanceof Error ? e.message : 'Failed to publish host screen to relay.',
+    )
+  }
+}
+
 /**
- * Runs refetch-token + SFU connect in a loop until **`user_close`** or **`cancel()`**.
- * **`assignSession`** receives a handle whenever a new SFU connection is up (replace ref each reconnect).
+ * One SFU WebSocket per tab: shared consumers plus optional host_screen / participant_av producers.
  */
 export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: () => void } {
   const ac = new AbortController()
   const { signal } = ac
-  const { assignSession } = opts
+  const { assignSession, participantAv } = opts
   let attempt = 0
   let activeClose: (() => void) | null = null
 
@@ -85,6 +112,7 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
     ac.abort()
     activeClose?.()
     activeClose = null
+    participantAv.attachSession(null)
     assignSession(null)
     opts.onSessionClean?.()
   }
@@ -98,18 +126,23 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
         continue
       }
 
+      const producerClass = resolveSfuTokenProducerClass({
+        participantAv,
+        getHostScreenStream: opts.getHostScreenStream,
+      })
+
       let tok
       try {
         tok = await fetchSfuJoinToken({
           apiBaseUrl: api,
           roomId,
           sessionId: opts.sessionId,
-          accessToken: opts.role === 'producer' ? opts.accessToken : null,
+          accessToken: opts.accessToken,
+          ...(producerClass ? { producerClass } : {}),
         })
       } catch (e) {
         if (signal.aborted) break
         const rosterRace = isRosterConsistency403(e)
-        /** Avoid flashing a scary denial while the connections roster GSI catches up (or before deploy picks up longer server-side retries). */
         if (!rosterRace || attempt >= 4) {
           opts.onTokenError(formatSfuTokenError(e))
         }
@@ -122,11 +155,13 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
       }
 
       if (signal.aborted) break
-      if (opts.role === 'producer' && tok.role !== 'producer') {
+
+      const wantsProducer = producerClass !== undefined
+      if (wantsProducer && tok.role !== 'producer') {
         await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
         continue
       }
-      if (opts.role === 'consumer' && tok.role !== 'consumer') {
+      if (!wantsProducer && tok.role !== 'consumer') {
         await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
         continue
       }
@@ -139,50 +174,36 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
       }
 
       attempt = 0
-
       opts.onConnecting?.()
 
-      if (opts.role === 'producer') {
-        const { close, sessionEnded } = await connectSfuProducer({
-          wsBaseUrl: wsBase,
-          token: tok.token,
-          captureStream: opts.captureStream,
-          getIceServers: opts.getIceServers,
-          onMediaError: opts.onMediaError,
-        })
-        if (signal.aborted) {
-          close()
-          break
-        }
-        activeClose = () => close()
-        assignSession({ close })
-        const reason = await sessionEnded
-        activeClose = null
-        assignSession(null)
-        opts.onSessionClean?.()
-        if (reason === 'user_close' || signal.aborted) break
-        await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
-        continue
-      }
-
-      const { close, sessionEnded } = await connectSfuConsumer({
+      const session = await connectSfuUnifiedSession({
         wsBaseUrl: wsBase,
         token: tok.token,
+        tokenRole: tok.role,
         getIceServers: opts.getIceServers,
         onRemoteStream: opts.onRemoteStream,
+        onConsumerTrack: opts.onConsumerTrack,
+        ownSessionId: opts.sessionId,
         onMediaError: opts.onMediaError,
       })
+
       if (signal.aborted) {
-        close()
+        session.close()
         break
       }
-      activeClose = () => close()
-      assignSession({ close })
-      const reason = await sessionEnded
+
+      activeClose = () => session.close()
+      assignSession(session)
+      participantAv.attachSession(session)
+      await publishHostScreenIfNeeded(session, opts.getHostScreenStream, opts.onMediaError)
+
+      const reason = await session.sessionEnded
       activeClose = null
+      participantAv.attachSession(null)
       assignSession(null)
       opts.onSessionClean?.()
       if (reason === 'user_close' || signal.aborted) break
+      participantAv.resetOnReconnect()
       await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
     }
   })()
