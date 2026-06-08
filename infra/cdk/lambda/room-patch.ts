@@ -21,8 +21,17 @@ import {
   type RoomMode,
 } from './room-shared';
 import { requestSfuProducerTeardown } from './sfu-admin-teardown';
+import {
+  buildRoomModeFanoutEnvelope,
+  fanOutRoomPatchEnvelope,
+  readHostSessionIdFromHeaders,
+} from './room-patch-fanout';
 
-export { fanOutRoomPatchEnvelope, readHostSessionIdFromHeaders } from './room-patch-fanout';
+export {
+  buildRoomModeFanoutEnvelope,
+  fanOutRoomPatchEnvelope,
+  readHostSessionIdFromHeaders,
+} from './room-patch-fanout';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -143,8 +152,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }
   }
 
+  const previousRoomMode = readRoomMode(room);
+
   let roomModePatch: RoomMode | undefined;
-  let responseRoomMode = readRoomMode(room);
+  let responseRoomMode = previousRoomMode;
   if (Object.prototype.hasOwnProperty.call(body, 'roomMode')) {
     const rm = parseRoomMode(body.roomMode);
     if (!rm) {
@@ -320,13 +331,27 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }
   }
 
+  const nextVersion = version + 1;
+  if (roomModePatch !== undefined && roomModePatch !== previousRoomMode) {
+    await fanOutRoomPatchEnvelope({
+      doc: client,
+      roomId,
+      hostSessionId: readHostSessionIdFromHeaders(event.headers),
+      envelope: buildRoomModeFanoutEnvelope({
+        roomMode: roomModePatch,
+        ts: now,
+        version: nextVersion,
+      }),
+    });
+  }
+
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json; charset=utf-8' },
     body: JSON.stringify({
       ok: true,
       roomId,
-      version: version + 1,
+      version: nextVersion,
       catalogEpisodeId,
       youtubeVideoId,
       visibility,

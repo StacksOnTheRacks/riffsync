@@ -1,5 +1,6 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { TextEncoder } from 'node:util';
+import type { RoomMode } from './room-shared';
 import { postToConnections, queryConnectionsForRoom, wsManagementClient } from './ws-shared';
 
 const encoder = new TextEncoder();
@@ -16,6 +17,27 @@ export type RoomPatchFanoutEnvelope = Record<string, unknown> & {
   roomId: string;
   sessionId?: string;
 };
+
+export type RoomModeFanoutEnvelope = {
+  type: 'room_mode';
+  roomMode: RoomMode;
+  ts: number;
+  version: number;
+};
+
+/** Build the outbound `room_mode` WebSocket payload after a successful roomMode PATCH. */
+export function buildRoomModeFanoutEnvelope(params: {
+  roomMode: RoomMode;
+  ts: number;
+  version: number;
+}): RoomModeFanoutEnvelope {
+  return {
+    type: 'room_mode',
+    roomMode: params.roomMode,
+    ts: params.ts,
+    version: params.version,
+  };
+}
 
 /** Fan-out a room admin PATCH envelope to all WebSocket connections in the room. */
 export async function fanOutRoomPatchEnvelope(params: {

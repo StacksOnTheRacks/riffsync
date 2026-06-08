@@ -13,7 +13,28 @@ vi.mock('./ws-shared', () => ({
   wsManagementClient: wsMocks.wsManagementClient,
 }));
 
-import { fanOutRoomPatchEnvelope, readHostSessionIdFromHeaders } from './room-patch-fanout';
+import {
+  buildRoomModeFanoutEnvelope,
+  fanOutRoomPatchEnvelope,
+  readHostSessionIdFromHeaders,
+} from './room-patch-fanout';
+
+describe('buildRoomModeFanoutEnvelope', () => {
+  it('builds contract-shaped room_mode payload', () => {
+    expect(
+      buildRoomModeFanoutEnvelope({
+        roomMode: 'videoChat',
+        ts: 1_717_700_000_000,
+        version: 42,
+      }),
+    ).toEqual({
+      type: 'room_mode',
+      roomMode: 'videoChat',
+      ts: 1_717_700_000_000,
+      version: 42,
+    });
+  });
+});
 
 describe('readHostSessionIdFromHeaders', () => {
   it('reads x-session-id case-insensitively', () => {
