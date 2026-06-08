@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { SfuTokenHttpError } from '../av/participantAvErrors'
 import {
   formatSfuTokenError,
   isRosterConsistency403,
@@ -7,6 +8,17 @@ import {
 import { createParticipantAvController } from './participantAvSession'
 
 describe('formatSfuTokenError', () => {
+  it('expands structured SfuTokenHttpError copy', () => {
+    const msg = formatSfuTokenError(
+      new SfuTokenHttpError(403, {
+        code: 'publisher_cap_exceeded',
+        error: 'This room has reached the maximum number of live cameras and microphones.',
+      }),
+    )
+    expect(msg).toContain('Video relay denied access.')
+    expect(msg).toContain('maximum number of live')
+  })
+
   it('expands roster-related 403 copy', () => {
     const msg = formatSfuTokenError(
       new Error('sfu-token 403: Open the room WebSocket first (unknown session for this room).'),

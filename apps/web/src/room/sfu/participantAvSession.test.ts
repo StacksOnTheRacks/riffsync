@@ -45,6 +45,20 @@ describe('createParticipantAvController', () => {
     })
   })
 
+  it('failPublish turns toggles off and sets stable error code', () => {
+    const controller = createParticipantAvController({
+      canPublish: () => true,
+    })
+    controller.failPublish('publisher_cap_exceeded')
+    expect(controller.getState()).toMatchObject({
+      cameraEnabled: false,
+      micEnabled: false,
+      needsProducerToken: false,
+      error: 'publisher_cap_exceeded',
+      busy: false,
+    })
+  })
+
   it('teardownPublishing clears publish intent for kill switch', () => {
     const controller = createParticipantAvController({
       canPublish: () => true,

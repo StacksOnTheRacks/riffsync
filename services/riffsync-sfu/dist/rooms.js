@@ -35,6 +35,11 @@ export async function getOrCreateWorker() {
         rtcMaxPort: Number.isFinite(max) ? max : 40_199,
     });
     worker.on('died', () => {
+        console.error(JSON.stringify({
+            ts: new Date().toISOString(),
+            level: 'error',
+            msg: 'worker died',
+        }));
         worker = null;
         for (const [, r] of roomMap) {
             r.router.close();

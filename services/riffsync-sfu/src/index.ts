@@ -32,6 +32,7 @@ import {
   type RoomRuntime,
 } from './rooms.js';
 import { isProducerClass, type ProducerClass, type SfuJoinClaims } from './jwt.js';
+import { emitMediaLimitRejected } from './media-observability.js';
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const JWT_SECRET = process.env.SFU_JWT_SECRET?.trim() ?? '';
@@ -425,6 +426,8 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
           return;
         }
         if (p.transports.size >= MAX_TRANSPORTS) {
+          logJson('warn', 'transport limit reached', { signal: 'TransportLimitRejected' });
+          emitMediaLimitRejected('TransportLimitRejected');
           send(ws, errResponse(id, 'transport limit reached'));
           return;
         }
@@ -569,6 +572,8 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
           return;
         }
         if (p.consumers.size >= MAX_CONSUMERS) {
+          logJson('warn', 'consumer limit reached', { signal: 'ConsumerLimitRejected' });
+          emitMediaLimitRejected('ConsumerLimitRejected');
           send(ws, errResponse(id, 'consumer limit reached'));
           return;
         }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  avDisabledAnnounceCopy,
   buildAvDisabledPatch,
   buildRoomModePatch,
   formatHostRoomPatchError,
   mergeRoomPatchResult,
+  roomModeAnnounceCopy,
 } from './hostRoomControls'
 import type { RoomSnapshot } from '../api/roomsApi'
 
@@ -52,5 +54,15 @@ describe('hostRoomControls patch helpers', () => {
     expect(formatHostRoomPatchError(new Error('Update room failed (409): Conflict'))).toContain(
       'Refresh and try again',
     )
+  })
+
+  it('roomModeAnnounceCopy describes layout for live region announcements', () => {
+    expect(roomModeAnnounceCopy('theater')).toBe('Room layout Theater')
+    expect(roomModeAnnounceCopy('videoChat')).toBe('Room layout Video Chat')
+  })
+
+  it('avDisabledAnnounceCopy describes kill switch for live region announcements', () => {
+    expect(avDisabledAnnounceCopy(true)).toBe('Room camera and microphone disabled by host')
+    expect(avDisabledAnnounceCopy(false)).toBe('Room camera and microphone enabled by host')
   })
 })

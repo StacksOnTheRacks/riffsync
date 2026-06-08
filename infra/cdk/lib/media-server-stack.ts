@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as route53 from 'aws-cdk-lib/aws-route53';
@@ -9,6 +10,7 @@ import * as path from 'node:path';
 import type { Construct } from 'constructs';
 
 import { dnsRecordConstructSuffix } from './cloudfront-canonical-redirect';
+import { sfuCapEnvPrintfFragments } from './sfu-env-lines';
 
 /** One account-wide secret for ICE Lambdas + one coturn process. */
 export const TURN_SHARED_SECRET_NAME = 'riffsync/turn-static-auth-secret';
@@ -313,7 +315,7 @@ export class MediaServerStack extends cdk.Stack {
       'ADMIN_SECRET=$(aws secretsmanager get-secret-value --secret-id "$SFU_ADMIN_SECRET_ID" --region "$AWS_REGION" --query=SecretString --output text | tr -d \'\\n\\r\')',
       'TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")',
       'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
-      'printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "SFU_ADMIN_SECRET=$ADMIN_SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" "SFU_MAX_PRODUCERS_PER_SESSION=3" "SFU_MAX_PRODUCERS_PER_ROOM=24" > /etc/riffsync-sfu.env',
+      `printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "SFU_ADMIN_SECRET=$ADMIN_SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" ${sfuCapEnvPrintfFragments().join(' ')} > /etc/riffsync-sfu.env`,
       'chmod 0600 /etc/riffsync-sfu.env',
       'aws s3 sync "s3://$S3_BUCKET/" /opt/riffsync-sfu --delete',
       'cd /opt/riffsync-sfu && npm ci && npm run build && npm prune --omit=dev',
@@ -379,6 +381,25 @@ SVCEOF`,
       sourceDestCheck: true,
     });
     sfuInstance.node.addDependency(codeDeploy);
+
+    new cloudwatch.Alarm(this, 'SfuHighCpuAlarm', {
+      alarmName: 'riffsync-sfu-high-cpu',
+      alarmDescription:
+        'SFU EC2 CPU > 80% for 5 minutes — optional maintainer alert (no SNS in OSS default).',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/EC2',
+        metricName: 'CPUUtilization',
+        dimensionsMap: {
+          InstanceId: sfuInstance.instanceId,
+        },
+        statistic: 'Average',
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 80,
+      evaluationPeriods: 5,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
 
     const sfuEip = new ec2.CfnEIP(this, 'SfuEip', {
       domain: 'vpc',

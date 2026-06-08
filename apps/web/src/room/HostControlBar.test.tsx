@@ -76,4 +76,12 @@ describe('HostControlBar', () => {
     const kill = container.querySelector('.riffsync-room-page__host-bar-kill') as HTMLButtonElement
     expect(kill.getAttribute('aria-pressed')).toBe('true')
   })
+
+  it('exposes room mode radio selection to assistive tech', () => {
+    renderBar({ roomMode: 'videoChat' })
+    const modeButtons = container.querySelectorAll('button.riffsync-room-page__host-bar-mode')
+    expect(modeButtons[0]?.getAttribute('aria-checked')).toBe('false')
+    expect(modeButtons[1]?.getAttribute('aria-checked')).toBe('true')
+    expect(container.querySelector('[role="radiogroup"]')).not.toBeNull()
+  })
 })

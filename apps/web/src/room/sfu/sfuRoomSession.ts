@@ -1,5 +1,11 @@
 import { fetchSfuJoinToken } from '../../api/webrtcSfuApi'
 import {
+  isParticipantAvTokenHardFail,
+  participantAvErrorFromSfuSessionEnd,
+  participantAvErrorFromSfuTokenDenial,
+  SfuTokenHttpError,
+} from '../av/participantAvErrors'
+import {
   connectSfuUnifiedSession,
   resolveSfuWsBaseForToken,
   type SfuConsumerTrackEvent,
@@ -34,6 +40,12 @@ export type StartSfuRoomSessionOpts = SessionHooks & {
 }
 
 export function formatSfuTokenError(e: unknown): string {
+  if (e instanceof SfuTokenHttpError) {
+    const fromApi = e.apiError?.trim()
+    if (fromApi) {
+      return `Video relay denied access. ${fromApi} If this persists, wait until the room shows connected, refresh, or sign in again.`
+    }
+  }
   const msg = e instanceof Error ? e.message : String(e)
   const m403 = /^sfu-token 403:\s*(.+)$/s.exec(msg)
   if (m403) {
@@ -42,6 +54,19 @@ export function formatSfuTokenError(e: unknown): string {
       return `Video relay denied access. ${fromApi} If this persists, wait until the room shows connected, refresh, or sign in again.`
   }
   return msg
+}
+
+function routeParticipantAvTokenDenial(
+  participantAv: ParticipantAvController,
+  producerClass: SfuProducerClass | undefined,
+  e: unknown,
+): boolean {
+  if (producerClass !== 'participant_av') return false
+  if (!(e instanceof SfuTokenHttpError)) return false
+  const avCode = participantAvErrorFromSfuTokenDenial(e.status, e.code)
+  if (!avCode) return false
+  participantAv.failPublish(avCode)
+  return isParticipantAvTokenHardFail(e.code)
 }
 
 /** Transient: WS is open but Dynamo roster GSI has not caught up yet (`webrtc-sfu-token` 403). */
@@ -142,13 +167,16 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
         })
       } catch (e) {
         if (signal.aborted) break
+        const hardFail = routeParticipantAvTokenDenial(participantAv, producerClass, e)
         const rosterRace = isRosterConsistency403(e)
-        if (!rosterRace || attempt >= 4) {
+        if (!hardFail && (!rosterRace || attempt >= 4)) {
           opts.onTokenError(formatSfuTokenError(e))
         }
-        const delayMs = rosterRace
-          ? Math.min(2500, 200 + 350 * Math.max(0, attempt))
-          : nextSfuReconnectDelayMs(attempt)
+        const delayMs = hardFail
+          ? nextSfuReconnectDelayMs(attempt)
+          : rosterRace
+            ? Math.min(2500, 200 + 350 * Math.max(0, attempt))
+            : nextSfuReconnectDelayMs(attempt)
         await sleepBackoffMs(delayMs, signal)
         attempt++
         continue
@@ -203,7 +231,16 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
       assignSession(null)
       opts.onSessionClean?.()
       if (reason === 'user_close' || signal.aborted) break
-      participantAv.resetOnReconnect()
+      const hadPublishIntent = participantAv.getState().needsProducerToken
+      const sessionErr = participantAvErrorFromSfuSessionEnd(reason, {
+        hadPublishIntent,
+        reconnectAttempts: attempt,
+      })
+      if (sessionErr) {
+        participantAv.failPublish(sessionErr)
+      } else {
+        participantAv.resetOnReconnect()
+      }
       await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
     }
   })()

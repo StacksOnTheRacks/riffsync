@@ -50,3 +50,6 @@ Prerequisites: M14 sub-issues through #102–#105 landed; room has **`avDisabled
 
 15. **Post-deploy health**  
     After media deploy: **`curl -sSf "${SFU_HTTP}/healthz"`** → **`ok`**, **`workerAlive: true`**. Optional: check CloudWatch **`RiffSync/Media`** gauges if wired.
+
+16. **Worker failure drill (optional)**  
+    If **`/healthz`** reports **`workerAlive: false`**, use SSM + **`journalctl -u riffsync-sfu`** for the **`worker died`** JSON line, then **`sudo systemctl restart riffsync-sfu`** and re-probe. See **`infra/cdk/README.md`** SFU worker runbook for reboot escalation.

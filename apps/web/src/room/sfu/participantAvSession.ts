@@ -1,3 +1,8 @@
+import {
+  participantAvErrorFromDomException,
+  participantAvErrorFromSfuMediaCode,
+  type ParticipantAvErrorCode,
+} from '../av/participantAvErrors'
 import type { SfuUnifiedSessionHandle } from './mediasoupSharing'
 
 export const PARTICIPANT_AV_MEDIA_CONSTRAINTS: MediaStreamConstraints = {
@@ -23,7 +28,7 @@ export type ParticipantAvPublishState = {
   micMuted: boolean
   canPublish: boolean
   needsProducerToken: boolean
-  error: string | null
+  error: ParticipantAvErrorCode | null
   busy: boolean
 }
 
@@ -41,6 +46,9 @@ export type ParticipantAvController = {
   enableMic: () => Promise<void>
   disableMic: () => void
   toggleMicMute: () => void
+  /** Hard-fail publish: toggles off, clears tracks, sets stable error code. */
+  failPublish: (code: ParticipantAvErrorCode) => void
+  clearError: () => void
 }
 
 export function createParticipantAvController(options: {
@@ -50,7 +58,7 @@ export function createParticipantAvController(options: {
   let cameraEnabled = false
   let micEnabled = false
   let micMuted = false
-  let error: string | null = null
+  let error: ParticipantAvErrorCode | null = null
   let busy = false
   let localStream: MediaStream | null = null
   let session: SfuUnifiedSessionHandle | null = null
@@ -98,8 +106,14 @@ export function createParticipantAvController(options: {
       } else {
         session.resumeProducerKind('participant_av', 'audio')
       }
-    } catch (e) {
-      error = e instanceof Error ? e.message : 'Could not publish camera or microphone.'
+    } catch {
+      cameraEnabled = false
+      micEnabled = false
+      micMuted = false
+      stopLocalTracks()
+      session.unpublishProducerClass('participant_av')
+      options.onNeedsProducerTokenChange?.()
+      error = participantAvErrorFromSfuMediaCode('produce_failed')
       notify()
     }
   }
@@ -194,8 +208,11 @@ export function createParticipantAvController(options: {
       notify()
       try {
         await mergeStream(true, micEnabled)
+        error = null
       } catch (e) {
-        error = e instanceof Error ? e.message : 'Camera permission denied.'
+        cameraEnabled = false
+        if (!micEnabled) stopLocalTracks()
+        error = participantAvErrorFromDomException(e)
         notify()
       } finally {
         busy = false
@@ -230,8 +247,12 @@ export function createParticipantAvController(options: {
       try {
         await mergeStream(cameraEnabled, true)
         micMuted = false
+        error = null
       } catch (e) {
-        error = e instanceof Error ? e.message : 'Microphone permission denied.'
+        micEnabled = false
+        micMuted = false
+        if (!cameraEnabled) stopLocalTracks()
+        error = participantAvErrorFromDomException(e)
         notify()
       } finally {
         busy = false
@@ -267,6 +288,22 @@ export function createParticipantAvController(options: {
       } else {
         session.resumeProducerKind('participant_av', 'audio')
       }
+      notify()
+    },
+    failPublish: (code) => {
+      cameraEnabled = false
+      micEnabled = false
+      micMuted = false
+      busy = false
+      error = code
+      stopLocalTracks()
+      session?.unpublishProducerClass('participant_av')
+      options.onNeedsProducerTokenChange?.()
+      notify()
+    },
+    clearError: () => {
+      if (!error) return
+      error = null
       notify()
     },
   }
