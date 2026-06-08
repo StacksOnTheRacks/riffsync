@@ -28,6 +28,18 @@ vi.mock('./sfu-admin-teardown', () => ({
   requestSfuProducerTeardown: teardownMocks.requestSfuProducerTeardown,
 }));
 
+const fanoutMocks = vi.hoisted(() => ({
+  fanOutRoomPatchEnvelope: vi.fn(),
+}));
+
+vi.mock('./room-patch-fanout', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./room-patch-fanout')>();
+  return {
+    ...actual,
+    fanOutRoomPatchEnvelope: fanoutMocks.fanOutRoomPatchEnvelope,
+  };
+});
+
 import { handler } from './room-patch';
 
 const hostSub = 'host-sub-1';
@@ -50,6 +62,7 @@ function patchEvent(
   body: Record<string, unknown>,
   sub = hostSub,
   roomId = 'room-1',
+  headers: Record<string, string> = {},
 ): APIGatewayProxyEventV2 {
   const routeKey = 'PATCH /v1/rooms/{roomId}';
   return {
@@ -58,7 +71,7 @@ function patchEvent(
     rawPath: `/v1/rooms/${roomId}`,
     rawQueryString: '',
     pathParameters: { roomId },
-    headers: {},
+    headers,
     body: JSON.stringify(body),
     requestContext: {
       accountId: '123',
@@ -90,13 +103,44 @@ describe('room-patch handler', () => {
     process.env.CATALOG_TABLE_NAME = 'catalog-table';
     process.env.RIFFSYNC_API_ENV = 'prod';
     teardownMocks.requestSfuProducerTeardown.mockResolvedValue({ ok: true, closedCount: 0 });
+    fanoutMocks.fanOutRoomPatchEnvelope.mockResolvedValue(undefined);
   });
 
   it('updates roomMode and avDisabled with version increment', async () => {
     mocks.docSend.mockResolvedValueOnce({ Item: baseRoom }).mockResolvedValueOnce({});
 
     const res = await handler(
-      patchEvent({ roomMode: 'videoChat', avDisabled: true }),
+      patchEvent({ roomMode: 'videoChat', avDisabled: true }, hostSub, 'room-1', {
+        'x-session-id': 'host-sess-1',
+      }),
+    );
+
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).toHaveBeenCalledTimes(2);
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        roomId: 'room-1',
+        hostSessionId: 'host-sess-1',
+        envelope: {
+          type: 'room_mode',
+          roomMode: 'videoChat',
+          ts: expect.any(Number) as number,
+          version: 3,
+        },
+      }),
+    );
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        roomId: 'room-1',
+        hostSessionId: 'host-sess-1',
+        envelope: {
+          type: 'av_disabled',
+          avDisabled: true,
+          ts: expect.any(Number) as number,
+          version: 3,
+        },
+      }),
     );
 
     expect(teardownMocks.requestSfuProducerTeardown).toHaveBeenCalledWith({
@@ -190,15 +234,90 @@ describe('room-patch handler', () => {
       error: 'Conflict — stale version',
       version: 2,
     });
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).not.toHaveBeenCalled();
+    expect(teardownMocks.requestSfuProducerTeardown).not.toHaveBeenCalled();
+  });
+
+  it('does not fan out room_mode when roomMode is unchanged', async () => {
+    mocks.docSend.mockResolvedValueOnce({ Item: baseRoom }).mockResolvedValueOnce({});
+
+    const res = await handler(patchEvent({ roomMode: 'theater' }));
+
+    expect(res.statusCode).toBe(200);
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).not.toHaveBeenCalled();
+  });
+
+  it('does not fan out room_mode on 409 conflict', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: baseRoom })
+      .mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });
+
+    const res = await handler(patchEvent({ roomMode: 'videoChat' }));
+
+    expect(res.statusCode).toBe(409);
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).not.toHaveBeenCalled();
   });
 
   it('does not call SFU teardown when avDisabled is false', async () => {
+    const disabledRoom = { ...baseRoom, avDisabled: true };
+    mocks.docSend.mockResolvedValueOnce({ Item: disabledRoom }).mockResolvedValueOnce({});
+
+    const res = await handler(
+      patchEvent({ avDisabled: false }, hostSub, 'room-1', { 'x-session-id': 'host-sess-1' }),
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(teardownMocks.requestSfuProducerTeardown).not.toHaveBeenCalled();
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).toHaveBeenCalledOnce();
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roomId: 'room-1',
+        hostSessionId: 'host-sess-1',
+        envelope: {
+          type: 'av_disabled',
+          avDisabled: false,
+          ts: expect.any(Number) as number,
+          version: 3,
+        },
+      }),
+    );
+  });
+
+  it('does not fan out av_disabled when avDisabled is unchanged', async () => {
     mocks.docSend.mockResolvedValueOnce({ Item: baseRoom }).mockResolvedValueOnce({});
 
     const res = await handler(patchEvent({ avDisabled: false }));
 
     expect(res.statusCode).toBe(200);
-    expect(teardownMocks.requestSfuProducerTeardown).not.toHaveBeenCalled();
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).not.toHaveBeenCalled();
+  });
+
+  it('fans out av_disabled after Dynamo write and SFU teardown when disabling', async () => {
+    const callOrder: string[] = [];
+    mocks.docSend.mockImplementation(async (cmd: { kind?: string }) => {
+      if (cmd.kind === 'Get') return { Item: baseRoom };
+      if (cmd.kind === 'Update') {
+        callOrder.push('dynamo');
+        return {};
+      }
+      return {};
+    });
+    teardownMocks.requestSfuProducerTeardown.mockImplementation(async () => {
+      callOrder.push('teardown');
+      return { ok: true, closedCount: 2 };
+    });
+    fanoutMocks.fanOutRoomPatchEnvelope.mockImplementation(
+      async (params: { envelope: { type: string } }) => {
+        if (params.envelope.type === 'av_disabled') callOrder.push('fanout');
+      },
+    );
+
+    const res = await handler(
+      patchEvent({ avDisabled: true }, hostSub, 'room-1', { 'x-session-id': 'host-sess-1' }),
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(callOrder).toEqual(['dynamo', 'teardown', 'fanout']);
   });
 
   it('still returns 200 when SFU teardown fails after avDisabled write', async () => {
@@ -209,11 +328,19 @@ describe('room-patch handler', () => {
       detail: 'timeout',
     });
 
-    const res = await handler(patchEvent({ avDisabled: true }));
+    const res = await handler(
+      patchEvent({ avDisabled: true }, hostSub, 'room-1', { 'x-session-id': 'host-sess-1' }),
+    );
 
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
     expect(body.avDisabled).toBe(true);
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).toHaveBeenCalledOnce();
+    expect(fanoutMocks.fanOutRoomPatchEnvelope).toHaveBeenCalledWith(
+      expect.objectContaining({
+        envelope: expect.objectContaining({ type: 'av_disabled', avDisabled: true }),
+      }),
+    );
   });
 
   it('atomically patches roomMode and clears broadcastCaptureActive', async () => {

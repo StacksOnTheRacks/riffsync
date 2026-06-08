@@ -21,6 +21,19 @@ import {
   type RoomMode,
 } from './room-shared';
 import { requestSfuProducerTeardown } from './sfu-admin-teardown';
+import {
+  buildAvDisabledFanoutEnvelope,
+  buildRoomModeFanoutEnvelope,
+  fanOutRoomPatchEnvelope,
+  readHostSessionIdFromHeaders,
+} from './room-patch-fanout';
+
+export {
+  buildAvDisabledFanoutEnvelope,
+  buildRoomModeFanoutEnvelope,
+  fanOutRoomPatchEnvelope,
+  readHostSessionIdFromHeaders,
+} from './room-patch-fanout';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -141,8 +154,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }
   }
 
+  const previousRoomMode = readRoomMode(room);
+
   let roomModePatch: RoomMode | undefined;
-  let responseRoomMode = readRoomMode(room);
+  let responseRoomMode = previousRoomMode;
   if (Object.prototype.hasOwnProperty.call(body, 'roomMode')) {
     const rm = parseRoomMode(body.roomMode);
     if (!rm) {
@@ -155,8 +170,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     responseRoomMode = rm;
   }
 
+  const previousAvDisabled = readAvDisabled(room);
+
   let avDisabledPatch: boolean | undefined;
-  let responseAvDisabled = readAvDisabled(room);
+  let responseAvDisabled = previousAvDisabled;
   if (Object.prototype.hasOwnProperty.call(body, 'avDisabled')) {
     if (typeof body.avDisabled !== 'boolean') {
       return {
@@ -318,13 +335,42 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }
   }
 
+  const nextVersion = version + 1;
+  const hostSessionId = readHostSessionIdFromHeaders(event.headers);
+
+  if (roomModePatch !== undefined && roomModePatch !== previousRoomMode) {
+    await fanOutRoomPatchEnvelope({
+      doc: client,
+      roomId,
+      hostSessionId,
+      envelope: buildRoomModeFanoutEnvelope({
+        roomMode: roomModePatch,
+        ts: now,
+        version: nextVersion,
+      }),
+    });
+  }
+
+  if (avDisabledPatch !== undefined && avDisabledPatch !== previousAvDisabled) {
+    await fanOutRoomPatchEnvelope({
+      doc: client,
+      roomId,
+      hostSessionId,
+      envelope: buildAvDisabledFanoutEnvelope({
+        avDisabled: avDisabledPatch,
+        ts: now,
+        version: nextVersion,
+      }),
+    });
+  }
+
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json; charset=utf-8' },
     body: JSON.stringify({
       ok: true,
       roomId,
-      version: version + 1,
+      version: nextVersion,
       catalogEpisodeId,
       youtubeVideoId,
       visibility,
