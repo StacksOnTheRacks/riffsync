@@ -115,6 +115,96 @@ describe('ParticipantAvToggles', () => {
     expect(camera.getAttribute('aria-describedby')).toContain(err?.id ?? '')
   })
 
+  it('announces local camera toggle via callback', () => {
+    const onLocalToggleAnnounce = vi.fn()
+    const controller = {
+      getState: () => ({
+        cameraEnabled: true,
+        micEnabled: false,
+        micMuted: false,
+        canPublish: true,
+        needsProducerToken: false,
+        error: null,
+        busy: false,
+      }),
+      subscribe: () => () => undefined,
+      getLocalPreviewStream: () => null,
+      refreshPublishGate: vi.fn(),
+      attachSession: vi.fn(),
+      resetOnReconnect: vi.fn(),
+      teardownPublishing: vi.fn(),
+      enableCamera: vi.fn(),
+      disableCamera: vi.fn(),
+      enableMic: vi.fn(),
+      disableMic: vi.fn(),
+      toggleMicMute: vi.fn(),
+      failPublish: vi.fn(),
+      clearError: vi.fn(),
+    }
+    act(() => {
+      root.render(
+        <ParticipantAvToggles
+          controller={controller}
+          avDisabled={false}
+          onLocalToggleAnnounce={onLocalToggleAnnounce}
+        />,
+      )
+    })
+    const camera = container.querySelector('button.riffsync-room-av-toggle') as HTMLButtonElement
+    act(() => {
+      camera.click()
+    })
+    expect(onLocalToggleAnnounce).toHaveBeenCalledWith('Camera off')
+    expect(controller.disableCamera).toHaveBeenCalled()
+  })
+
+  it('announces local microphone toggle via callback', async () => {
+    const onLocalToggleAnnounce = vi.fn()
+    let micEnabled = false
+    const controller = {
+      getState: () => ({
+        cameraEnabled: false,
+        micEnabled,
+        micMuted: false,
+        canPublish: true,
+        needsProducerToken: false,
+        error: null,
+        busy: false,
+      }),
+      subscribe: () => () => undefined,
+      getLocalPreviewStream: () => null,
+      refreshPublishGate: vi.fn(),
+      attachSession: vi.fn(),
+      resetOnReconnect: vi.fn(),
+      teardownPublishing: vi.fn(),
+      enableCamera: vi.fn(),
+      disableCamera: vi.fn(),
+      enableMic: vi.fn(async () => {
+        micEnabled = true
+      }),
+      disableMic: vi.fn(),
+      toggleMicMute: vi.fn(),
+      failPublish: vi.fn(),
+      clearError: vi.fn(),
+    }
+    act(() => {
+      root.render(
+        <ParticipantAvToggles
+          controller={controller}
+          avDisabled={false}
+          onLocalToggleAnnounce={onLocalToggleAnnounce}
+        />,
+      )
+    })
+    const buttons = container.querySelectorAll('button.riffsync-room-av-toggle')
+    const mic = buttons[1] as HTMLButtonElement
+    await act(async () => {
+      mic.click()
+      await Promise.resolve()
+    })
+    expect(onLocalToggleAnnounce).toHaveBeenCalledWith('Microphone on')
+  })
+
   it('reflects aria-pressed for local camera and microphone state', () => {
     const controller = {
       getState: () => ({
