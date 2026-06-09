@@ -73,6 +73,38 @@ describe('stageParticipantTiles', () => {
     expect(tiles.map((t) => t.sessionId)).toEqual(['host-1', 'fan-b'])
   })
 
+  it('keeps a stable MediaStream identity per remote track across rebuilds', () => {
+    const videoConsumers = new Map([['p1', consumer('p1', 'fan-b')]])
+    const args = {
+      roster,
+      videoConsumers,
+      ownSessionId: 'fan-a',
+      localCameraOn: false,
+      localPreviewStream: null,
+    }
+    const first = buildStageParticipantTiles(args)
+    const second = buildStageParticipantTiles(args)
+    expect(first[0]?.stream).toBe(second[0]?.stream)
+  })
+
+  it('uses a different MediaStream when the remote track changes', () => {
+    const base = {
+      roster,
+      ownSessionId: 'fan-a',
+      localCameraOn: false,
+      localPreviewStream: null,
+    }
+    const firstTiles = buildStageParticipantTiles({
+      ...base,
+      videoConsumers: new Map([['p1', consumer('p1', 'fan-b')]]),
+    })
+    const secondTiles = buildStageParticipantTiles({
+      ...base,
+      videoConsumers: new Map([['p2', consumer('p2', 'fan-b')]]),
+    })
+    expect(firstTiles[0]?.stream).not.toBe(secondTiles[0]?.stream)
+  })
+
   it('exposes video chat empty copy constant', () => {
     expect(VIDEO_CHAT_EMPTY_COPY).toContain('No cameras on yet')
     expect(VIDEO_CHAT_EMPTY_COPY).toContain('Mic-only')

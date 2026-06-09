@@ -1188,6 +1188,20 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   object-fit: contain;
 }
 
+.riffsync-room-page__guest-video-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  text-align: center;
+  color: #c9d1d9;
+  background: #080808;
+}
+
 .riffsync-room-page__guest-audio-hint {
   margin: 0.5rem 0 0;
   font-size: 0.875rem;

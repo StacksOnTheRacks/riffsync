@@ -396,20 +396,45 @@ export async function connectSfuUnifiedSession(options: {
     }
   }
 
-  const publishStream = async (stream: MediaStream, producerClass: SfuProducerClass) => {
-    if (!sendTransport) {
-      throw new Error('SFU send transport not ready')
+  /** True when every track of `stream` already has a live producer for this class. */
+  const classAlreadyPublishing = (producerClass: SfuProducerClass, stream: MediaStream): boolean => {
+    const live = liveProducers.filter((lp) => lp.producerClass === producerClass)
+    if (live.length === 0) return false
+    const trackIds = new Set(stream.getTracks().map((t) => t.id))
+    return live.every(
+      (lp) => !lp.producer.closed && lp.producer.track != null && trackIds.has(lp.producer.track.id),
+    )
+  }
+
+  // Serialize all produce calls on the shared send transport. Two callers publish
+  // host_screen (session connect + capture-change effect); without this lock they
+  // can both unpublish-then-produce the same track concurrently, which throws in
+  // mediasoup-client and can trip the SFU per-session producer cap.
+  let publishChain: Promise<void> = Promise.resolve()
+
+  const publishStream = (stream: MediaStream, producerClass: SfuProducerClass): Promise<void> => {
+    const run = async (): Promise<void> => {
+      if (!sendTransport) {
+        throw new Error('SFU send transport not ready')
+      }
+      if (classAlreadyPublishing(producerClass, stream)) return
+      unpublishProducerClass(producerClass)
+      for (const track of stream.getTracks()) {
+        const kind = track.kind === 'audio' || track.kind === 'video' ? track.kind : null
+        if (!kind) continue
+        const producer = await sendTransport.produce({
+          track,
+          appData: { producerClass },
+        })
+        liveProducers.push({ producer, producerClass, kind })
+      }
     }
-    unpublishProducerClass(producerClass)
-    for (const track of stream.getTracks()) {
-      const kind = track.kind === 'audio' || track.kind === 'video' ? track.kind : null
-      if (!kind) continue
-      const producer = await sendTransport.produce({
-        track,
-        appData: { producerClass },
-      })
-      liveProducers.push({ producer, producerClass, kind })
-    }
+    const next = publishChain.then(run, run)
+    publishChain = next.then(
+      () => undefined,
+      () => undefined,
+    )
+    return next
   }
 
   void (async () => {
@@ -555,7 +580,13 @@ export async function connectSfuUnifiedSession(options: {
         consumerProducerClassById.set(producerId, summary.producerClass)
       }
       const { track } = consumer
-      if (track && !remoteStream.getTracks().includes(track)) {
+      // The theater "view screen" stream must carry host_screen media only.
+      // participant_av (camera/mic) reaches the UI exclusively via onConsumerTrack
+      // (stage tiles for video, theaterAudioMix for audio); adding it here would
+      // duplicate a participant over the main video. Untagged producers default to
+      // theater to preserve legacy single-share behavior.
+      const isTheaterTrack = summary.producerClass !== 'participant_av'
+      if (isTheaterTrack && track && !remoteStream.getTracks().includes(track)) {
         remoteStream.addTrack(track)
       }
       onConsumerTrack?.({

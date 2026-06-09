@@ -19,6 +19,24 @@ export const VIDEO_CHAT_EMPTY_COPY =
 
 export const LAYOUT_UPDATING_COPY = 'Updating room layout…'
 
+/**
+ * Stable `MediaStream` identity per remote track. `buildStageParticipantTiles`
+ * runs in render, so wrapping a track in a fresh `new MediaStream([track])` each
+ * call would change the tile's stream identity every render and make
+ * `ParticipantVideoTile` re-attach `srcObject` + call `play()` repeatedly
+ * (flicker, AbortError churn). Keyed by track so a new producer yields a new stream.
+ */
+const streamByTrack = new WeakMap<MediaStreamTrack, MediaStream>()
+
+function streamForTrack(track: MediaStreamTrack): MediaStream {
+  let stream = streamByTrack.get(track)
+  if (!stream) {
+    stream = new MediaStream([track])
+    streamByTrack.set(track, stream)
+  }
+  return stream
+}
+
 export function sortRosterForStage(members: RosterMember[]): RosterMember[] {
   return [...members].sort((a, b) => {
     if (a.isHost !== b.isHost) return a.isHost ? -1 : 1
@@ -80,7 +98,7 @@ export function buildStageParticipantTiles(opts: {
     } else {
       const remote = remoteBySession.get(member.sessionId)
       if (remote) {
-        stream = new MediaStream([remote.track])
+        stream = streamForTrack(remote.track)
       }
     }
     if (!stream || stream.getVideoTracks().length === 0) continue

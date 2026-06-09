@@ -832,6 +832,12 @@ export function RoomPage() {
       fanToken,
       avDisabled,
       onNeedsProducerTokenChange: () => {
+        // Only rebuild the whole SFU session to upgrade a consumer-only socket to a
+        // producer. When the current session can already publish, the controller's
+        // own syncPublish publishes on the existing send transport, so tearing down
+        // (and re-establishing) the session would needlessly drop host_screen and
+        // every consumer on each camera/mic toggle (guest blackouts, produce races).
+        if (sfuSessionRef.current?.supportsPublish) return
         setSfuTokenIntentTick((n) => n + 1)
       },
     })
@@ -1725,12 +1731,18 @@ export function RoomPage() {
                   </p>
                 ) : null}
                 <div className="riffsync-room-page__player-shell riffsync-room-page__player-shell--guest">
+                  {!guestRemote ? (
+                    <div className="riffsync-room-page__guest-video-placeholder" role="status">
+                      <p>The host is not sharing video right now.</p>
+                    </div>
+                  ) : null}
                   <video
                     ref={videoRef}
                     className="riffsync-room-page__guest-video"
                     playsInline
                     controls
                     muted={false}
+                    hidden={!guestRemote}
                   />
                 </div>
                 {fanToken ? (
