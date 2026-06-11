@@ -15,7 +15,7 @@ The CDK app **no longer defines** `RiffSyncFanAuth-staging`, `RiffSyncApi-stagin
 | --- | --- |
 | `bin/riffsync.ts` | App entry; **`--context environment=prod`** (default in `cdk.json`) |
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
-| `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping/chat/signaling), **TMDB reconcile** + schedules |
+| `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping, presence_request, chat, chat_gif, react, share_state, leave), **TMDB reconcile** + schedules |
 | `lib/media-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **one VPC**, **coturn** (**`t3.small`**) + **mediasoup SFU** (**`t3.medium`**), two EIPs, **`riffsync/turn-static-auth-secret`**, S3 bundle deploy for **`services/riffsync-sfu`**, **`riffsync/sfu-join-hmac-secret`** (reference by name) |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
 | `lib/staff-auth-stack.ts` | **Staff** Cognito **User Pool** (invite-only) + **Hosted UI** + SPA app client (**`/admin/*`** OAuth callbacks, **`admin`** / **`curator`** groups) |

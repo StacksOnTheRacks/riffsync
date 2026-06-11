@@ -17,18 +17,19 @@ On **`$connect`**, the server stores **`expiresAt`** on the connections row (**a
 
 ## Route selection (`$request.body.action`)
 
-Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, **`chat_gif`**, **`react`**, `signaling`, **`share_state`**, **`leave`**). **`$default`** maps **`body.action`** when the route selector misses.
+Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, **`chat_gif`**, **`react`**, **`share_state`**, **`leave`**). **`$default`** maps **`body.action`** when the route selector misses.
 
 | **`action`** | Purpose | Auth |
 | --- | --- | --- |
 | **`ping`** | Heartbeat — bumps **`lastActivityAt`** (and **`lobbySk`** when room is **`public`**); also refreshes this socket's connections-row **`lastSeenAt`** and **`expiresAt`** (**about 90 minutes**, sliding) so stale rows age out when **`$disconnect`** never runs. | **Guest OK** once connected. |
 | **`presence_request`** | Ask the server to fan out a fresh **`presence`** roster snapshot to **all** connections in this room (no body). Use after connect/reconnect or when the UI suspects a stale roster; idempotent. | **Guest OK** once connected. |
 | **`leave`** | Best-effort client goodbye — deletes this **`connectionId`** from the connections table and fan-outs **`presence`** (same pattern as **`$disconnect`**). Clients may send on **`pagehide`** when teardown is uncertain; safe if the row is already gone. | **Guest OK** once connected. |
-| **`share_state`** | Host announces screen-share lifecycle so guests can reset the guest **video** surface without inferring teardown only from WebRTC. Body: **`state`**: **`started`** \| **`stopped`**; optional **`shareGeneration`** (non-negative int, matches v1 signaling generations). | **Host (publisher JWT)** only. Fan-out shape below. |
+| **`share_state`** | Host announces screen-share lifecycle so guests can reset the guest **video** surface without inferring teardown only from SFU media. Body: **`state`**: **`started`** \| **`stopped`**; optional **`shareGeneration`** (non-negative int, monotonic host share session id). | **Host (publisher JWT)** only. Fan-out shape below. |
 | **`chat`** | Fan-out text to sockets in **`roomId`**. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`text`** (**required**, ≤ 2000 chars), **`messageId`** (**required**, UUID RFC 4122 string). |
 | **`chat_gif`** | Fan-out Giphy GIF post to sockets in **`roomId`**. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`messageId`** (**required**, UUID), **`giphyId`** (**required**, non-empty), **`renditionUrl`** (**required**, HTTPS URL on Giphy CDN, e.g. **`media*.giphy.com`**, **`i.giphy.com`**), optional **`title`** (≤ 200 chars), **`width`** / **`height`** (positive integers, ≤ 4096). Clients MUST NOT upload GIF bytes or supply arbitrary image URLs. |
 | **`react`** | Fan-out ephemeral emoji reaction toggle on a chat line. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`messageId`** (**required**, non-empty, ≤ 64 chars), **`emoji`** (**required**, trimmed non-empty, ≤ 32 chars), **`reactionAction`**: **`add`** \| **`remove`** (not the route **`action`** field). No Dynamo persistence. |
-| **`signaling`** | WebRTC relay to peers (`**envelope`** JSON). | **Host:** publisher **`JWT`** on **`$connect`**. **Guest:** only **`guestSignaling`** with **`kind`** **`ready`**, **`answer`**, or **`ice`** (see below). |
+
+**WebRTC media** (SDP / ICE, mediasoup produce/consume) uses the **SFU signaling WebSocket** on **`RiffSyncTurn`**, not this API Gateway room WebSocket. See **`.ai/integration/api_contracts.md`** and **`.ai/integration/external_systems.md`**.
 
 ## Server → client fan-out (`PostToConnection`)
 
@@ -127,48 +128,5 @@ Broadcast to **every** connection in **`roomId`** when the host sends **`share_s
 ```
 
 **`shareGeneration`** is omitted when the host did not include it (or it was not applicable). Guests should clear inbound share UI on **`state: stopped`** regardless of generation.
-
-### Signaling
-
-Outbound fan-out payloads share a common envelope (**`Publishers`** and **`guest`** relay):
-
-```json
-{
-  "type": "signaling",
-  "roomId": "<id>",
-  "fromSessionId": "<sender session opaque id>",
-  "role": "host" | "guest",
-  "envelope": {}
-}
-```
-
-### Guest → relay (**`guestSignaling`**)
-
-Guests may **`POST`** messages on the **`signaling`** route only when **`envelope`** is **`{ guestSignaling: true, kind: … }`**:
-
-| **`kind`** | Purpose |
-| --- | --- |
-| **`ready`** | Guest announces WebRTC handshake readiness (prompts host to **`createOffer`** for that **`fromSessionId`**). |
-| **`answer`** | WebRTC SDP answer (`**sdp`** object: **`type`** + **`sdp`** string). |
-| **`ice`** | ICE candidate (**`candidate`** ICE payload). |
-
-**`offer`** and arbitrary publisher envelopes **must not** arrive on the guest path (**`403`** otherwise).
-
-Hosts send **`signaling`** without **`guestSignaling`** (publisher path). Typical host **`envelope`** fields: **`kind`**: **`offer`** | **`ice`**, **`sdp`** / **`candidate`**, **`targetSessionId`** (which guest applies the payload).
-
-SDP and ICE blobs are forwarded without semantic validation (**SPA-owned** contract).
-
-#### Signaling protocol version 1 (optional)
-
-Clients MAY include on **`envelope`**:
-
-| Field | Type | Meaning |
-| ----- | ---- | ------- |
-| **`protocolVersion`** | `1` | Enables generation guards below. |
-| **`shareGeneration`** | positive integer | Monotonic **host capture session** id; host increments when a new share starts; guest echoes it on **`answer`** / **`ice`**. |
-
-**`ready`** MAY include these fields so the host can correlate (optional).
-
-When **`protocolVersion`** is absent or **`shareGeneration`** is missing / `0`, peers treat the message as **legacy** and apply only pre-v1 behavior.
 
 **`chat`** payloads include client-provided **`messageId`** plus server **`Date.now()`** timestamp.

@@ -17,7 +17,7 @@ Infrastructure-as-code: **deploy with AWS CDK** (`cdk synth` emits CloudFormatio
 | Resource | Role |
 | --- | --- |
 | **API Gateway HTTP API** (`ProtocolType: HTTP`) | BFF JSON: **`GET /v1/catalog`**, curated **`GET /v1/lists`** (when shipped), room create/read/**patch** (current episode / metadata), lobby list, **`GET /v1/health`**, **`GET /v1/webrtc/ice`**, **`POST /v1/webrtc/sfu-token`** (mediasoup join), **`/v1/admin/*`** **operator** APIs (JWT + staff pool / groups — **`architecture.admin.md`**). |
-| **API Gateway WebSocket API** (`ProtocolType: WEBSOCKET`) | Realtime paths: `$connect` / `$disconnect`, **WebRTC signaling** (SDP / ICE relay—shape TBD), chat, ping, **`execute-api:ManageConnections`** fan-out. |
+| **API Gateway WebSocket API** (`ProtocolType: WEBSOCKET`) | **Control plane** realtime: `$connect` / `$disconnect`, **ping**, **presence**, **chat** / **react**, **`share_state`**, **`leave`**, **`execute-api:ManageConnections`** fan-out. **No** SDP / ICE mesh relay — media signaling is on **`RiffSyncTurn`** SFU WebSocket (**`.ai/integration/external_systems.md`**, **`.ai/integration/api_contracts.md`**). |
 | **AWS Lambda** | All synchronous route handlers + **EventBridge** consumers (sweeper, TMDB catalog reconciliation). |
 | **Amazon DynamoDB** | **All durable application state:** **rooms**, **connections**, **catalog**, plus **optional** **`profiles`** (fan **`USER#sub`**), **`lists` + memberships** (**`LIST#slug`** editorial rows), append-only **events**/**rollups** for admin reporting (**`architecture.admin.md`**). |
 | **Amazon EventBridge** (`AWS::Events::Rule` or **`AWS::Scheduler::Schedule`**) | Schedules for **stale-room housekeeping** and **TMDB reconciliation** batch jobs. |
@@ -49,7 +49,7 @@ flowchart TB
   subgraph compute["Compute — Lambda"]
     HREST["HTTP handlers\n/catalog / rooms / lobby"]
     HWSC["WS $connect / $disconnect"]
-    HWSR["WS routes:\nsignaling / chat / ping"]
+    HWSR["WS routes:\nchat / presence / share_state / ping"]
     HSWP["Sweeper + TMDB reconcile\n(EventBridge schedules)"]
   end
 
@@ -94,7 +94,7 @@ flowchart TB
 | Area | Responsibility |
 | --- | --- |
 | **HTTP API** | **`GET /v1/catalog`**, **`GET /v1/lists`** (when curated lists ship); room create/read/**update current episode**; **live public** lobby; **`GET /v1/health`**; **`/v1/admin/*`** behind **JWT** for operators (**catalog writes**, **lists**, **reporting**, **user roster**) — **`architecture.admin.md`**. Optional ElastiCache on hot reads. |
-| **WebSocket API** | **`$connect` / `$disconnect`** write the **connection → room** mapping; message routes relay **signaling** for admin→guest WebRTC, plus **chat**, **ping**, and **room metadata** updates in DynamoDB where durable state is required—then **`PostToConnection`** fan-out as appropriate. |
+| **WebSocket API** | **`$connect` / `$disconnect`** write the **connection → room** mapping; message routes fan out **chat**, **presence**, **`share_state`**, **ping**, and **`leave`** — then **`PostToConnection`** as appropriate. **WebRTC media** (host screen share, participant A/V) uses the **SFU signaling WebSocket** on **`RiffSyncTurn`**, not API Gateway. Durable room fields (**`roomMode`**, **`avDisabled`**, episode selection) use **HTTP `PATCH`**, not inbound WebSocket application routes. |
 | **DynamoDB (rooms)** | Source of truth: **current** catalog episode / `videoId` (**admin-updatable**), **`hostSub`** (**Cognito `sub`** of creator), **`playbackExpectation`**, **`lastActivityAt`**, **`roomId`**, optional flags for **broadcast lifecycle / visibility**. Admin capability belongs only to principal **`JWT.sub === hostSub`**; **no guest promotion / reclaim token** in MVP. |
 | **DynamoDB (connections)** | **`connectionId → roomId`** (and optional **`sessionId`**) for targeting fan-out and teardown. |
 | **DynamoDB (catalog)** | Canonical **`youtubeVideoId`**, **`youtubeWatchUrl`**, **`title`**, **`era`**, **`id`**, optional curator hints; reconcile **writes** TMDB-aligned **`tagline`**, **`posterImageUrl`**, **`backdropImageUrl`**, **`tmdbMovieId`**, **`tmdbArtworkSyncedAt`** plus Dynamo-only copy/paths (**`tmdbOverview`**, **`tmdbPopularity`**, raw poster/backdrop paths) per **`architecture.catalog-images.md`**. TMDB **`original_title`** / **`title`** are **not** persisted — catalog **`title`** is source of truth for display. Bootstrap **seed** (**`data/catalog/episodes.json`**) conforms to **`catalog.schema.json`** — not every Dynamo attribute need appear in git. |
