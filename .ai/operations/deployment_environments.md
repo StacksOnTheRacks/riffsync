@@ -52,12 +52,14 @@ Local watch-party media **must** exercise the same SFU + coturn topology as **`R
 
 | Contract | Value |
 | --- | --- |
-| **SFU process** | **`services/riffsync-sfu`** (or published container image built from it) listening on **`localhost:3000`** (HTTP + WebSocket upgrade). |
-| **TURN** | Local coturn with static-auth credentials matching harness profile (see **`infra/coturn/turnserver.conf.example`**). |
-| **Announced IP** | Loopback or host LAN IP for **`MEDIASOUP_ANNOUNCED_IP`** — not production EIP. |
-| **Join secret** | Dev-only HMAC secret in **`.env.local`** / compose env — **not** prod Secrets Manager material. |
-| **SPA wiring** | **`VITE_PUBLIC_SFU_WS_URL`** → local SFU **`ws://`** endpoint; ICE config points at local TURN. |
-| **Control plane** | Room WebSocket and HTTP API may still target **prod** **`RiffSyncApi-prod`** (existing localhost OAuth pattern). |
+| **Profile path** | **`infra/local-media/`** — **`compose.yml`**, **`coturn/turnserver.conf.example`**, gitignored **`.env`** from **`.env.example`**. CI harness reuses this compose in a later milestone. |
+| **Bootstrap** | **`npm run media:local`** / **`npm run media:local:down`** at repo root (wraps **`docker compose -f infra/local-media/compose.yml`**). |
+| **SFU process** | Container built from **`services/riffsync-sfu`**; HTTP + WebSocket on host **`127.0.0.1:3000`**. |
+| **TURN** | Local **coturn** service in the same compose stack; static-auth secret from **`infra/local-media/.env`** (never commit). |
+| **Announced IP** | Default **`127.0.0.1`** for same-machine dev; LAN IP or **`host.docker.internal`** when testing across devices. |
+| **Join secret** | **`SFU_JWT_SECRET`** in **`infra/local-media/.env`**. When control plane targets **prod** API, paste prod **`riffsync/sfu-join-hmac-secret`** value (operator step — not in git). Harness-only runs may use a fixture secret with in-process token mint (harness milestone). |
+| **SPA wiring** | **`apps/web/.env.local`**: **`VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000`** overrides token **`wsUrl`**; **`VITE_WEBRTC_ICE_SERVERS_JSON`** points at local coturn when prod **`GET /v1/webrtc/ice`** TURN is unsuitable. |
+| **Control plane** | Room WebSocket and HTTP API may still target **prod** **`RiffSyncApi-prod`** (existing localhost OAuth pattern). **Do not** point disposable SPA media at prod **`RiffSyncTurn`** for routine dev. |
 
 **Mesh retirement:** Remove **`VITE_WEBRTC_USE_MEDIASOU_SFU`** mesh toggle. If disposable SFU is not running, room media surfaces a visible configuration error — not a silent mesh fallback.
 
@@ -114,15 +116,22 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 
 **Comfort zone:** tens of simultaneous AV-active rooms on singleton **`t3.medium`** before instance-type review. Upsize trigger: sustained CPU > 80% (optional alarm) or frequent **`TransportLimitRejected`** / **`ConsumerLimitRejected`** counters.
 
+## Decisions (local disposable profile — #136)
+
+| Question | Decision |
+| --- | --- |
+| Compose profile location? | **`infra/local-media/`** — shared contract for workstation dev; CI harness imports same compose later. |
+| Dev bootstrap script? | Root **`npm run media:local`** / **`media:local:down`**; README **Local watch-party media** section documents prerequisites (Docker, health probe). |
+| ICE in CI? | **Out of #136 scope** — harness milestone chooses host-network vs TURN-only on GitHub runners; local profile documents coturn for cross-tab workstation dev. |
+| Prod **`RiffSyncTurn`** debugging? | **No** for routine dev — disposable profile only. |
+
 ## Open implementation decisions
 
-- **Compose profile location** — Repo path for local + CI-shared disposable SFU + TURN compose (e.g. **`infra/local-media/`** vs **`tests/realtime-conformance/`**).
-- **Dev bootstrap script** — **`npm run media:local`** or documented **`docker compose up`** entry in **`README`** / **`infra/cdk/README.md`**.
-- **ICE in CI** — Whether harness uses host-network ICE, TURN-only relay, or both; flake implications for GitHub-hosted runners.
-- **Prod API coupling in local dev** — Whether local SFU may ever point at prod **`RiffSyncTurn`** for debugging (default: **no** — use disposable profile).
+- (none for #136 local disposable profile scope)
 
 ## Primary code pointers (optional)
 
 - [`infra/cdk/bin/riffsync.ts`](../../infra/cdk/bin/riffsync.ts) — stack graph and **`addDependency`**
 - [`infra/cdk/README.md`](../../infra/cdk/README.md) — operator runbooks, outputs, smoke checks
-- [`infra/coturn/turnserver.conf.example`](../../infra/coturn/turnserver.conf.example) — TURN baseline for local/harness profiles
+- [`infra/local-media/compose.yml`](../../infra/local-media/compose.yml) — disposable SFU + coturn (issue **#136**)
+- [`infra/local-media/coturn/turnserver.conf.example`](../../infra/local-media/coturn/turnserver.conf.example) — TURN baseline for local/harness profiles

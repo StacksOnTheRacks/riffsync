@@ -36,7 +36,7 @@
 | **Purpose** | Same code path as prod **`SfuMediaSession`**; eliminates **`VITE_WEBRTC_USE_MEDIASOU_SFU`** mesh branch. |
 | **Isolation** | CI harness runs against **ephemeral** containers/services — **no** prod SFU/TURN footprint. |
 | **Startup order** | Start disposable TURN → start disposable **`riffsync-sfu`** → health probe **`/healthz`** → SPA or headless client **`join()`** per harness scenario. |
-| **SPA env** | Local **`VITE_*`** points at disposable SFU **`wss://`** and local/API test HTTP base as documented in repo **`README`** / **`.env.example`** (TW: exact var names). |
+| **SPA env** | **`VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000`** (overrides token **`wsUrl`**); optional **`VITE_WEBRTC_ICE_SERVERS_JSON`** for local coturn; prod **`VITE_PUBLIC_API_BASE_URL`** / **`VITE_PUBLIC_WS_URL`** unchanged — see **`apps/web/.env.example`**. |
 | **Operations cross-ref** | Harness triggers, path filters, and flake policy — **`.ai/operations/deployment_environments.md`**, **`build_packaging.md`**. |
 
 Developers **cannot** exercise watch-party media without a running SFU (+ TURN when relay scenarios are in scope).
@@ -56,13 +56,19 @@ Developers **cannot** exercise watch-party media without a running SFU (+ TURN w
 | Mesh vs SFU local? | **SFU only.** Mesh removed. Local + CI use disposable SFU + TURN profile (above). |
 | Drawer reconnect? | **Independent** — bootstrap/reconnect loops are per module; see **`execution_model.md`**. |
 
+## Decisions (local media bootstrap — #136)
+
+| Question | Decision |
+| --- | --- |
+| Disposable stack packaging? | **`infra/local-media/compose.yml`** + root **`npm run media:local`**. |
+| Local SFU join secret? | **`SFU_JWT_SECRET`** in **`infra/local-media/.env`** must match prod join HMAC when using prod **`webrtc-sfu-token`**; operator copies from **`riffsync/sfu-join-hmac-secret`** (never commit). |
+| Workstation startup order? | **`npm run media:local`** → **`curl /healthz`** → **`cd apps/web && npm run dev`** with **`.env.local`** wired per **`configuration.md`**. |
+
 ## Open implementation decisions
 
 - **`webrtc-sfu-token`** branches for participant producer grant and **`avDisabled`** check at mint time (**#102** / **`integration/api_contracts.md`**).
 - Rate limits on participant producer token mint per **`sub`** (**#102** / **`operations/security.md`**).
-- **Disposable stack packaging:** docker-compose vs npm script profile for local SFU+TURN; CI service container image pins.
-- **Harness credential bootstrap:** test fan JWT mint strategy without prod Cognito secrets in CI — **`.ai/operations/build_packaging.md`**.
-- **Local SFU join secret:** dev-only HMAC secret alignment between disposable SFU and local token mint stub.
+- **Harness credential bootstrap:** test fan JWT mint strategy without prod Cognito secrets in CI — **`.ai/operations/build_packaging.md`** (harness milestone).
 - **Per-module reconnect backoff constants:** shared vs per-drawer config surface.
 
 ## Primary code pointers (optional)

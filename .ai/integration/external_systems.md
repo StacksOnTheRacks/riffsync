@@ -83,11 +83,17 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | Mesh dev fallback? | **No** — SFU + TURN in all environments; mesh removed. |
 | Server-side theater audio mix? | **Deferred** — client-side Web Audio remains default (**`api_contracts.md`**). |
 
+## Decisions (local disposable profile — #136)
+
+| Question | Decision |
+| --- | --- |
+| Local TURN credential source? | **coturn** in **`infra/local-media/`** compose with static-auth secret shared via **`.env`**; SPA may override ICE via **`VITE_WEBRTC_ICE_SERVERS_JSON`**. |
+| Staging AWS slice for harness? | **Out of scope** — isolated local/ephemeral only. |
+
 ## Open implementation decisions
 
-- Disposable harness **container image** pin and TURN credential fixture source (local coturn vs test double).
-- Whether harness mints real **`sfu-token`** via mocked Lambda or in-process JWT signer (must match **`SfuJoinClaims`** shape).
-- Staging AWS slice for harness: **out of scope** this milestone (isolated local/ephemeral only per tier-User decision).
+- Disposable harness **container image** pin (reuse **`infra/local-media/`** compose build context).
+- Whether harness mints real **`sfu-token`** via mocked Lambda or in-process JWT signer (must match **`SfuJoinClaims`** shape) — harness milestone, not #136.
 
 ## Primary code pointers (optional)
 

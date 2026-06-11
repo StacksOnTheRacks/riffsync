@@ -70,7 +70,7 @@ The **single** fan SPA artifact (**`RiffSyncStatic-prod`**, **`https://riffsync.
 | **Mesh removal checklist (#134)** | Delete **`apps/web/src/config/mediasoupSfuFeature.ts`**; delete **`apps/web/src/room/sharing/**`**; delete mesh-only helpers **`shareDiag.ts`**, **`hostRenegotiationPolicy.ts`**; remove **`RTCPeerConnection`** and room-WebSocket **`signaling`** handler branches from **`RoomPage.tsx`**; remove **`VITE_WEBRTC_USE_MEDIASOU_SFU`** from **`vite-env.d.ts`**; grep-clean **`VITE_WEBRTC_USE_MEDIASOU_SFU`**, **`isMeshWatchPartyMediaEnabled`**, **`isMediasoupSfuEnabled`**, **`shareSessionFsm`**, mesh copy in **`docs/architecture.frontend.md`** and **`docs/sfu-deploy-checklist.md`**. |
 | **Mesh removal checklist (#135)** | Remove **`signaling`** from **`api-catalog-stack.ts`** WebSocket route list and API description; delete **`routeKey === 'signaling'`** branch in **`infra/cdk/lambda/ws-route.ts`**; grep-clean API Gateway mesh signaling from **`docs/contracts.websocket.md`**, **`docs/architecture.server.md`**, and **`infra/cdk/README.md`**. **Safe to deploy after #134** — SPA no longer sends or handles mesh **`signaling`** envelopes. |
 | **Signaling URL** | **`SFU_PUBLIC_WS_URL`** (prod) or disposable SFU URL (local/CI). Participant and host share the same signaling endpoint. |
-| **Local / CI** | Disposable SFU + TURN env block documented in **`README`** / **`.env.example`** — startup profile in **`startup_bootstrap.md`**. |
+| **Local disposable profile (#136)** | **`infra/local-media/`** compose + **`apps/web/.env.example`** / **`.env.local`**: **`VITE_PUBLIC_SFU_WS_URL`**, **`VITE_WEBRTC_ICE_SERVERS_JSON`**, prod API/WS vars unchanged. Startup order in **`startup_bootstrap.md`**. |
 
 ## SFU (EC2) configuration surface
 
@@ -80,7 +80,14 @@ Non-secret env knobs on the **`riffsync-sfu`** process (exact names in IaC):
 - **Room lifecycle:** room idle timeout before SFU tears down empty signaling room state.
 - **Multi-publisher:** per-room or per-session producer caps enforced at SFU request handling (403 or error response), not client-only.
 
-SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU WebSocket URL (or token-embedded **`wsUrl`**). Participant AV uses the **same** SFU signaling host as host screen share; no separate media endpoint. **No mesh feature gate.**
+SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU WebSocket URL. Participant AV uses the **same** SFU signaling host as host screen share; no separate media endpoint. **No mesh feature gate.**
+
+**Local SFU URL precedence (#136):** When **`VITE_PUBLIC_SFU_WS_URL`** is set, SPA uses it for mediasoup signaling **instead of** token-embedded **`wsUrl`** from **`POST /v1/webrtc/sfu-token`**. Enables prod control plane + disposable local SFU without API changes.
+
+| Local env var | Purpose |
+| --- | --- |
+| **`VITE_PUBLIC_SFU_WS_URL`** | Disposable SFU signaling base (e.g. **`ws://127.0.0.1:3000`**). |
+| **`VITE_WEBRTC_ICE_SERVERS_JSON`** | Optional JSON array overriding **`GET /v1/webrtc/ice`** when local coturn credentials differ from prod TURN. |
 
 ## SFU producer cap env vars
 
@@ -92,12 +99,20 @@ SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU We
 | **`SFU_MAX_CONSUMERS_PER_SESSION`** | **64** | Max mediasoup consumers per session (theater grid + strip). |
 | **`SFU_ADMIN_SECRET`** | (required prod) | Shared secret for **`POST /admin/teardown-producers`**; also on room **`PATCH`** Lambda env. |
 
+## Decisions (local env — #136)
+
+| Question | Decision |
+| --- | --- |
+| Local SFU URL env name? | **`VITE_PUBLIC_SFU_WS_URL`** only — same name as prod SPA build; no **`VITE_SFU_WS_URL`** alias. |
+| CI harness env injection? | **Out of #136** — harness milestone documents per-run HMAC and GitHub Actions secrets. |
+
 ## Open implementation decisions
 
-- **Local disposable SFU env var names:** canonical **`VITE_SFU_WS_URL`** (or token-embedded only) vs reusing prod naming in **`.env.example`**.
-- **CI harness env injection:** which secrets live in GitHub Actions vs generated per-run HMAC for join JWT.
+- (none for #136 local disposable profile scope)
 
 ## Primary code pointers (optional)
 
-- `.env.example` (local only); **AWS CDK** app context (**`prod`** for hosted stacks; default in **`infra/cdk/cdk.json`**).
+- [`apps/web/.env.example`](../../apps/web/.env.example) — local disposable media + prod control plane vars
+- [`infra/local-media/.env.example`](../../infra/local-media/.env.example) — SFU + coturn secrets (gitignored **`.env`** at runtime)
+- **AWS CDK** app context (**`prod`** for hosted stacks; default in **`infra/cdk/cdk.json`**).
 - **`.github/workflows/`** — **manual** deploy **`main`** → **prod** (**`build_packaging.md`**).
