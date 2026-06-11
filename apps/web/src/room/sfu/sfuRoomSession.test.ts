@@ -1,11 +1,28 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fetchSfuJoinToken } from '../../api/webrtcSfuApi'
 import { SfuTokenHttpError } from '../av/participantAvErrors'
+import { connectSfuUnifiedSession } from './mediasoupSharing'
 import {
   formatSfuTokenError,
   isRosterConsistency403,
   resolveSfuTokenProducerClass,
+  startSfuRoomSession,
 } from './sfuRoomSession'
 import { createParticipantAvController } from './participantAvSession'
+import { LOCAL_SFU_UNREACHABLE_MSG } from './sfuConfigErrors'
+
+vi.mock('../../api/webrtcSfuApi', () => ({
+  fetchSfuJoinToken: vi.fn(),
+}))
+
+vi.mock('./mediasoupSharing', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./mediasoupSharing')>()
+  return {
+    ...actual,
+    connectSfuUnifiedSession: vi.fn(),
+    resolveSfuWsBaseForToken: vi.fn((tok: { wsUrl?: string }) => tok.wsUrl ?? null),
+  }
+})
 
 describe('formatSfuTokenError', () => {
   it('expands structured SfuTokenHttpError copy', () => {
@@ -107,5 +124,77 @@ describe('resolveSfuTokenProducerClass', () => {
         getHostScreenStream: () => null,
       }),
     ).toBe('participant_av')
+  })
+})
+
+describe('startSfuRoomSession config error banner persistence', () => {
+  beforeEach(() => {
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'consumer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+    )
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async (opts) => {
+      opts.onMediaError?.('signaling_failed', 'Could not connect to video relay (signaling).')
+      return {
+        ready: Promise.reject(new Error('signaling failed')),
+        sessionEnded: Promise.resolve('signaling_close'),
+        close: vi.fn(),
+        unpublishProducerClass: vi.fn(),
+        publishStream: vi.fn(),
+        supportsPublish: false,
+        detachConsumerClass: vi.fn(),
+        pauseProducerKind: vi.fn(),
+        resumeProducerKind: vi.fn(),
+      } as unknown as Awaited<ReturnType<typeof connectSfuUnifiedSession>>
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('skips onConnecting after a configuration-class error is active', async () => {
+    const onConnecting = vi.fn()
+    const onMediaError = vi.fn()
+    const participantAv = createParticipantAvController({ canPublish: () => false })
+
+    const { cancel } = startSfuRoomSession({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-1',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      participantAv,
+      onRemoteStream: () => {},
+      assignSession: () => {},
+      onMissingWsUrl: vi.fn(),
+      onTokenError: vi.fn(),
+      onMediaError,
+      onConnecting,
+    })
+
+    await vi.waitFor(() => {
+      expect(onMediaError).toHaveBeenCalledWith(
+        'local_sfu_unreachable',
+        LOCAL_SFU_UNREACHABLE_MSG,
+      )
+    })
+
+    await vi.waitFor(() => {
+      expect(onConnecting.mock.calls.length).toBeGreaterThanOrEqual(1)
+    })
+
+    const connectingCallsAfterConfigError = onConnecting.mock.calls.length
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    expect(onConnecting.mock.calls.length).toBe(connectingCallsAfterConfigError)
+
+    cancel()
   })
 })

@@ -17,6 +17,8 @@ export type SfuTokenResponse = {
 
 export type SfuMediaErrorCode =
   | 'missing_ws_url'
+  | 'local_sfu_unreachable'
+  | 'sfu_relay_unreachable'
   | 'signaling_failed'
   | 'signaling_closed'
   | 'transport_failed'
