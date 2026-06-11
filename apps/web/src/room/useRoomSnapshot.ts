@@ -46,7 +46,7 @@ export function useRoomSnapshot(roomId: string): {
       setRoom(null)
       setRoomErr(e instanceof Error ? e.message : 'Could not load room')
     }
-  }, [roomId])
+  }, [roomId, setRoom, setRoomErr])
 
   useEffect(() => {
     queueMicrotask(() => void loadRoom())

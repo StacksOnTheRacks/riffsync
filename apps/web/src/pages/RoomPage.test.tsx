@@ -93,7 +93,8 @@ class MockWebSocket {
   readyState = MockWebSocket.CONNECTING
   private listeners = new Map<string, Set<WsListener>>()
 
-  constructor(_url: string) {
+  constructor(url: string) {
+    void url
     MockWebSocket.instances.push(this)
     queueMicrotask(() => {
       this.readyState = MockWebSocket.OPEN
