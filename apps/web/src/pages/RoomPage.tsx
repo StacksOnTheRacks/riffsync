@@ -22,19 +22,6 @@ import { fetchRtcIceServers } from '../config/fetchRtcIceServers'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { useRoomWebSocket } from '../room/useRoomWebSocket'
 import { useRoomChrome } from '../room/useRoomChrome'
-import { flushHostPending, handleHostSignal } from '../room/sharing/hostSignaling'
-import { handleGuestSignal } from '../room/sharing/guestSignaling'
-import type { GuestSignalingRefs } from '../room/sharing/guestSignaling'
-import { guestNeedsHostNegotiation } from '../room/sharing/guestNegotiation'
-import {
-  GUEST_READY_BACKOFF_FACTOR,
-  GUEST_READY_BASE_MS,
-  GUEST_READY_MAX_MS,
-} from '../room/sharing/constants'
-import { collectInboundVideoHealth } from '../room/shareDiag'
-import { installShareDiagnostics } from '../room/sharing/installShareDiag'
-import { deriveShareFsm, summarizePcForFsm, type ShareSessionFsm } from '../room/sharing/shareSessionFsm'
-import { SHARE_SIGNAL_PROTOCOL_VERSION } from '../room/sharing/types'
 import {
   announceWebrtcDebugOnRoomMount,
   summarizeEnvelope,
@@ -42,7 +29,6 @@ import {
   webrtcLog,
 } from '../room/webrtcDebug'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
-import { isMediasoupSfuEnabled, isMeshWatchPartyMediaEnabled } from '../config/mediasoupSfuFeature'
 import {
   createBoundParticipantAvController,
   type ParticipantAvController,
@@ -149,21 +135,17 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-function guestShareStatusLine(fsm: ReturnType<typeof deriveShareFsm>, wsDisconnected: boolean): string | null {
+type GuestHostScreenFsm = 'idle' | 'verifying_media' | 'running'
+
+function guestShareStatusLine(fsm: GuestHostScreenFsm, wsDisconnected: boolean): string | null {
   if (wsDisconnected) return 'Reconnecting chat… Video may pause briefly.'
   switch (fsm) {
     case 'idle':
-      return 'Negotiating connection with host…'
-    case 'negotiating_ice':
-      return 'Establishing encrypted path…'
+      return 'Waiting for host to share…'
     case 'verifying_media':
-      return 'Verifying video feed…'
-    case 'recovering_ice':
-      return 'Recovering after network glitch…'
+      return 'Connecting to video relay…'
     case 'running':
       return null
-    case 'failed':
-      return 'Video link failed — try refreshing once the host is sharing.'
     default:
       return null
   }
@@ -230,41 +212,19 @@ export function RoomPage() {
 
   const [guestFsmPollTick, setGuestFsmPollTick] = useState(0)
   const guestInboundHealthRef = useRef(false)
-  const [guestShareFsmUi, setGuestShareFsmUi] = useState<ShareSessionFsm>('idle')
+  const [guestShareFsmUi, setGuestShareFsmUi] = useState<GuestHostScreenFsm>('idle')
   const videoRef = useRef<HTMLVideoElement>(null)
   const hostCaptureVideoRef = useRef<HTMLVideoElement>(null)
-  const peerByGuestRef = useRef(new Map<string, RTCPeerConnection>())
-  const pendingReadyGuestsRef = useRef(new Set<string>())
-  const hostPendingGuestIceRef = useRef(new Map<string, RTCIceCandidateInit[]>())
-  const hostSigQRef = useRef<Promise<void>>(Promise.resolve())
-  const guestPcRef = useRef<RTCPeerConnection | null>(null)
-  const guestPendingIceRef = useRef<RTCIceCandidateInit[]>([])
-  const guestSigQRef = useRef<Promise<void>>(Promise.resolve())
   const guestRemoteRef = useRef<MediaStream | null>(null)
   const shareGenerationRef = useRef(0)
-  const hostLastOfferGenByGuestRef = useRef(new Map<string, number>())
-  const hostNegotiationMilestoneMsByGuestRef = useRef(new Map<string, number>())
-  const acceptedOfferShareGenerationRef = useRef(0)
-  const lastDedupOfferGenerationRef = useRef(0)
   const sfuSessionRef = useRef<SfuUnifiedSessionHandle | null>(null)
   const prevRoomModeRef = useRef<RoomMode>('theater')
   const prevAvDisabledRef = useRef<boolean | null>(null)
   const theaterAudioMixRef = useRef<ReturnType<typeof createTheaterAudioMix> | null>(null)
   const captureStreamRef = useRef<MediaStream | null>(null)
   const [sfuTokenIntentTick, setSfuTokenIntentTick] = useState(0)
-  const isPublisherRef = useRef(false)
   const prevRoomSidebarTabRef = useRef<'chat' | 'people' | 'room' | 'profile'>('chat')
   const chatInputRef = useRef<HTMLInputElement>(null)
-
-  const guestSignalingRefs = useMemo<GuestSignalingRefs>(
-    () => ({
-      guestPcRef,
-      pendingIceRef: guestPendingIceRef,
-      acceptedOfferShareGenerationRef,
-      lastDedupOfferGenerationRef,
-    }),
-    [],
-  )
 
   const wsBase = getPublicWsUrl()
   const fanToken = getFanAccessToken()
@@ -282,8 +242,7 @@ export function RoomPage() {
 
   /** Prefer the room document id so WebSocket presence matches server fan-out even if the route param differed. */
   const canonicalRoomId = useMemo(() => room?.roomId ?? roomId, [room?.roomId, roomId])
-  const sfuEnabled = isMediasoupSfuEnabled()
-  const theaterMixEnabled = sfuEnabled && roomMode === 'theater'
+  const theaterMixEnabled = roomMode === 'theater'
 
   const announceRoomA11y = useCallback((message: string) => {
     const node = a11yAnnouncerRef.current
@@ -322,17 +281,11 @@ export function RoomPage() {
     },
     [room, fanToken, isPublisher, hostBarBusy, roomId, announceRoomA11y],
   )
-  const meshUnsupportedProdBuild = import.meta.env.PROD && isMeshWatchPartyMediaEnabled()
-
   useEffect(() => {
     guestRemoteRef.current = guestRemote
   }, [guestRemote])
 
-  useEffect(() => {
-    isPublisherRef.current = isPublisher
-  }, [isPublisher])
-
-  /** Guest inbound stats drive “verifying” vs “running” for **`deriveShareFsm`**. */
+  /** Guest inbound track liveness drives idle / verifying / running host-screen status. */
 
   useEffect(() => {
     if (isPublisher) {
@@ -340,63 +293,32 @@ export function RoomPage() {
       guestInboundHealthRef.current = false
       return undefined
     }
-    if (sfuEnabled) {
-      queueMicrotask(() => {
-        const liveVideos =
-          guestRemote?.getTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
-        if (!guestRemote) {
-          setGuestShareFsmUi('idle')
-          return
-        }
-        setGuestShareFsmUi(
-          liveVideos || guestInboundHealthRef.current ? 'running' : 'verifying_media',
-        )
-      })
-      return undefined
-    }
     queueMicrotask(() => {
       const liveVideos =
         guestRemote?.getTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
+      if (!guestRemote) {
+        setGuestShareFsmUi('idle')
+        return
+      }
       setGuestShareFsmUi(
-        deriveShareFsm(summarizePcForFsm(guestPcRef.current), {
-          recoveringIce: false,
-          hasLiveRemoteVideo: liveVideos,
-          mediaVerified: guestInboundHealthRef.current || liveVideos,
-        }),
+        liveVideos || guestInboundHealthRef.current ? 'running' : 'verifying_media',
       )
     })
-  }, [guestRemote, guestFsmPollTick, isPublisher, sfuEnabled])
+    return undefined
+  }, [guestRemote, guestFsmPollTick, isPublisher])
 
   useEffect(() => {
     if (isPublisher) {
       guestInboundHealthRef.current = false
       return undefined
     }
-    if (sfuEnabled) {
-      let cancelled = false
-      const tick = (): void => {
-        const s = guestRemoteRef.current
-        const live =
-          s?.getVideoTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
-        guestInboundHealthRef.current = live
-        if (!cancelled) setGuestFsmPollTick((n) => n + 1)
-      }
-      queueMicrotask(tick)
-      const interval = window.setInterval(() => tick(), 2300)
-      return () => {
-        cancelled = true
-        window.clearInterval(interval)
-      }
-    }
     let cancelled = false
     const tick = (): void => {
-      void collectInboundVideoHealth(guestPcRef.current).then((h) => {
-        guestInboundHealthRef.current =
-          Boolean(h.framesDecoded) ||
-          Boolean(h.framesReceived) ||
-          (typeof h.bytesReceived === 'number' && h.bytesReceived > 0)
-        if (!cancelled) setGuestFsmPollTick((n) => n + 1)
-      })
+      const s = guestRemoteRef.current
+      const live =
+        s?.getVideoTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
+      guestInboundHealthRef.current = live
+      if (!cancelled) setGuestFsmPollTick((n) => n + 1)
     }
     queueMicrotask(tick)
     const interval = window.setInterval(() => tick(), 2300)
@@ -404,60 +326,15 @@ export function RoomPage() {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [isPublisher, sfuEnabled])
+  }, [isPublisher])
 
   useEffect(() => {
     announceWebrtcDebugOnRoomMount()
   }, [])
 
   useEffect(() => {
-    return installShareDiagnostics({
-      isPublisherRef,
-      shareGenerationRef,
-      deriveShareFsm: () => {
-        if (isPublisherRef.current) {
-          const firstPc = [...peerByGuestRef.current.values()][0]
-          const snap = summarizePcForFsm(firstPc ?? null)
-          return deriveShareFsm(snap, {
-            recoveringIce: false,
-            hasLiveRemoteVideo: Boolean(firstPc && firstPc.connectionState === 'connected'),
-            mediaVerified: true,
-          })
-        }
-        const liveVideos =
-          guestRemoteRef.current?.getTracks().some(
-            (t) => t.kind === 'video' && t.readyState === 'live',
-          ) ?? false
-        const snap = summarizePcForFsm(guestPcRef.current)
-        return deriveShareFsm(snap, {
-          recoveringIce: false,
-          hasLiveRemoteVideo: liveVideos,
-          mediaVerified: guestInboundHealthRef.current || liveVideos,
-        })
-      },
-      guestPcRef,
-      peerByGuestRef,
-    })
-  }, [])
-
-  useEffect(() => {
-    guestPendingIceRef.current = []
-    guestSigQRef.current = Promise.resolve()
-    hostSigQRef.current = Promise.resolve()
-    hostPendingGuestIceRef.current.clear()
-    hostLastOfferGenByGuestRef.current.clear()
-    hostNegotiationMilestoneMsByGuestRef.current.clear()
     shareGenerationRef.current = 0
-    acceptedOfferShareGenerationRef.current = 0
-    lastDedupOfferGenerationRef.current = 0
-    guestPcRef.current?.close()
-    guestPcRef.current = null
     queueMicrotask(() => setGuestRemote(null))
-    for (const pc of peerByGuestRef.current.values()) {
-      pc.close()
-    }
-    peerByGuestRef.current.clear()
-    pendingReadyGuestsRef.current.clear()
   }, [roomId])
 
   const peopleShown = useMemo(() => {
@@ -477,7 +354,7 @@ export function RoomPage() {
   }, [presenceRoster.members, presenceRoster.roomId, canonicalRoomId, sessionId, displayName, isPublisher])
 
   const viewportWide = useViewportWide()
-  const avSurfacesEnabled = sfuEnabled && !avDisabled
+  const avSurfacesEnabled = !avDisabled
 
   const chatMemberLabels = useMemo(() => {
     const m = new Map<string, string>()
@@ -704,13 +581,7 @@ export function RoomPage() {
         if (isPublisher) return
         const state = data.state
         if (state !== 'stopped') return
-        sfuSessionRef.current?.close()
-        sfuSessionRef.current = null
-        guestPcRef.current?.close()
-        guestPcRef.current = null
-        guestPendingIceRef.current = []
-        acceptedOfferShareGenerationRef.current = 0
-        lastDedupOfferGenerationRef.current = 0
+        sfuSessionRef.current?.detachConsumerClass('host_screen')
         setGuestRemote(null)
         return
       }
@@ -738,66 +609,10 @@ export function RoomPage() {
         }
         return
       }
-      if (t !== 'signaling' || sfuEnabled) return
-
-      const fromSessionId = typeof data.fromSessionId === 'string' ? data.fromSessionId : ''
-      const role = data.role
-      const envelope = data.envelope
-      if (!fromSessionId || !isRecord(envelope)) return
-
-      if (webrtcDebugEnabled()) {
-        webrtcLog('ws in', {
-          role,
-          from: `${fromSessionId.slice(0, 8)}…`,
-          ...summarizeEnvelope(envelope),
-        })
-      }
-
-      if (!isPublisher) {
-        if (role !== 'host') return
-        guestSigQRef.current = guestSigQRef.current
-          .then(() =>
-            handleGuestSignal({
-              mySessionId: sessionId,
-              getIceServers,
-              sendJson: (payload) => sendJsonRef.current(payload),
-              refs: guestSignalingRefs,
-              setGuestRemote,
-              envelope,
-            }),
-          )
-          .catch(() => undefined)
-        return
-      }
-
-      if (role !== 'guest') return
-      hostSigQRef.current = hostSigQRef.current
-        .then(() =>
-          handleHostSignal({
-            fromSessionId,
-            envelope,
-            captureStream,
-            getIceServers,
-            sendJson: (payload) => sendJsonRef.current(payload),
-            peerByGuestRef,
-            pendingReadyGuestsRef,
-            pendingGuestIceRef: hostPendingGuestIceRef,
-            shareGenerationRef,
-            hostLastOfferGenByGuestRef,
-            hostNegotiationMilestoneMsByGuestRef,
-          }).catch(() => undefined),
-        )
-        .catch(() => undefined)
-      return
     },
     [
-      captureStream,
-      getIceServers,
-      guestSignalingRefs,
       isPublisher,
       canonicalRoomId,
-      sessionId,
-      sfuEnabled,
       announceRoomA11y,
     ],
   )
@@ -904,123 +719,6 @@ export function RoomPage() {
   }, [sendJson])
 
   useEffect(() => {
-    if (!isPublisher) return
-    const peerMap = peerByGuestRef.current
-    const pend = pendingReadyGuestsRef.current
-    const pendingIceByGuest = hostPendingGuestIceRef.current
-    const offerGenByGuest = hostLastOfferGenByGuestRef.current
-    const milestoneByGuest = hostNegotiationMilestoneMsByGuestRef.current
-    return () => {
-      for (const pc of peerMap.values()) {
-        pc.close()
-      }
-      peerMap.clear()
-      pend.clear()
-      pendingIceByGuest.clear()
-      offerGenByGuest.clear()
-      milestoneByGuest.clear()
-    }
-  }, [isPublisher])
-
-  /**
-   * Guest: prompt the host to (re)negotiate until we have a live remote share.
-   * Backoff reduces signaling load when ICE is slow; `guestRemote` in deps resets the chain when
-   * the stream is cleared or replaced (fast re-arm after loss).
-   */
-  useEffect(() => {
-    if (sfuEnabled || isPublisher || wsStatus !== 'open') return
-    let cancelled = false
-    let tid: number | null = null
-    let delayMs = GUEST_READY_BASE_MS
-
-    const clear = () => {
-      if (tid !== null) {
-        clearTimeout(tid)
-        tid = null
-      }
-    }
-
-    const sendReady = () => {
-      const gen = acceptedOfferShareGenerationRef.current
-      sendJsonRef.current({
-        action: 'signaling',
-        envelope: {
-          guestSignaling: true,
-          kind: 'ready',
-          ...(gen > 0
-            ? { protocolVersion: SHARE_SIGNAL_PROTOCOL_VERSION, shareGeneration: gen }
-            : {}),
-        },
-      })
-    }
-
-    function tick(): void {
-      if (cancelled) return
-      tid = null
-      if (!guestNeedsHostNegotiation(guestRemoteRef.current)) {
-        delayMs = GUEST_READY_BASE_MS
-        return
-      }
-      sendReady()
-      delayMs = Math.min(Math.round(delayMs * GUEST_READY_BACKOFF_FACTOR), GUEST_READY_MAX_MS)
-      tid = window.setTimeout(tick, delayMs)
-    }
-
-    if (guestNeedsHostNegotiation(guestRemoteRef.current)) {
-      sendReady()
-      delayMs = Math.min(Math.round(delayMs * GUEST_READY_BACKOFF_FACTOR), GUEST_READY_MAX_MS)
-      tid = window.setTimeout(tick, delayMs)
-    }
-
-    return () => {
-      cancelled = true
-      clear()
-    }
-  }, [isPublisher, wsStatus, guestRemote, sfuEnabled])
-
-  useEffect(() => {
-    if (!guestRemote || isPublisher) return
-
-    const clearIfAllEnded = () => {
-      const s = guestRemoteRef.current
-      if (!s || s.getTracks().some((t) => t.readyState === 'live')) return
-      guestPcRef.current?.close()
-      guestPcRef.current = null
-      guestPendingIceRef.current = []
-      acceptedOfferShareGenerationRef.current = 0
-      lastDedupOfferGenerationRef.current = 0
-      setGuestRemote(null)
-    }
-
-    const subs: Array<{ track: MediaStreamTrack; fn: () => void }> = []
-    for (const track of guestRemote.getTracks()) {
-      const fn = () => clearIfAllEnded()
-      track.addEventListener('ended', fn)
-      subs.push({ track, fn })
-    }
-    return () => {
-      for (const { track, fn } of subs) {
-        track.removeEventListener('ended', fn)
-      }
-    }
-  }, [guestRemote, isPublisher])
-
-  useEffect(() => {
-    if (sfuEnabled || !captureStream || !isPublisher || wsStatus !== 'open') return
-    void flushHostPending({
-      captureStream,
-      getIceServers,
-      sendJson: (payload) => sendJsonRef.current(payload),
-      peerByGuestRef,
-      pendingReadyGuestsRef,
-      pendingGuestIceRef: hostPendingGuestIceRef,
-      shareGenerationRef,
-      hostLastOfferGenByGuestRef,
-      hostNegotiationMilestoneMsByGuestRef,
-    }).catch(() => undefined)
-  }, [captureStream, getIceServers, isPublisher, wsStatus, sfuEnabled])
-
-  useEffect(() => {
     if (!theaterMixEnabled) {
       theaterAudioMixRef.current?.dispose()
       theaterAudioMixRef.current = null
@@ -1045,14 +743,6 @@ export function RoomPage() {
       stopMediaStreamTracks(prev)
       return null
     })
-    for (const pc of peerByGuestRef.current.values()) {
-      pc.close()
-    }
-    peerByGuestRef.current.clear()
-    pendingReadyGuestsRef.current.clear()
-    hostPendingGuestIceRef.current.clear()
-    hostLastOfferGenByGuestRef.current.clear()
-    hostNegotiationMilestoneMsByGuestRef.current.clear()
   }, [])
 
   useEffect(() => {
@@ -1061,18 +751,8 @@ export function RoomPage() {
     if (!enteredVideoChatMode(previousMode, roomMode)) return
 
     if (!isPublisher) {
-      if (sfuEnabled) {
-        sfuSessionRef.current?.detachConsumerClass('host_screen')
-      } else {
-        queueMicrotask(() => {
-          guestPcRef.current?.close()
-          guestPcRef.current = null
-          guestPendingIceRef.current = []
-          acceptedOfferShareGenerationRef.current = 0
-          lastDedupOfferGenerationRef.current = 0
-          setGuestRemote(null)
-        })
-      }
+      sfuSessionRef.current?.detachConsumerClass('host_screen')
+      queueMicrotask(() => setGuestRemote(null))
       return
     }
 
@@ -1082,7 +762,7 @@ export function RoomPage() {
         setRoom((prev) => (prev ? { ...prev, broadcastCaptureActive: false } : prev))
       })
     }
-  }, [roomMode, isPublisher, sfuEnabled, stopHostCaptureForModeTransition])
+  }, [roomMode, isPublisher, stopHostCaptureForModeTransition])
 
   useEffect(() => {
     const previous = prevAvDisabledRef.current
@@ -1102,7 +782,7 @@ export function RoomPage() {
   }, [theaterMixEnabled, isPublisher, captureStream, guestRemote])
 
   useEffect(() => {
-    if (!sfuEnabled || wsStatus !== 'open' || !canonicalRoomId) return
+    if (wsStatus !== 'open' || !canonicalRoomId) return
     const api = getPublicApiBaseUrl()
     if (!api) return
 
@@ -1141,7 +821,6 @@ export function RoomPage() {
       cancel()
     }
   }, [
-    sfuEnabled,
     wsStatus,
     avDisabled,
     canonicalRoomId,
@@ -1155,7 +834,7 @@ export function RoomPage() {
 
   /** Publish or unpublish host tab capture on the existing SFU session (no full reconnect). */
   useEffect(() => {
-    if (!sfuEnabled || wsStatus !== 'open' || !isPublisher) return
+    if (wsStatus !== 'open' || !isPublisher) return
     const session = sfuSessionRef.current
     if (!session) return
 
@@ -1184,17 +863,11 @@ export function RoomPage() {
     return () => {
       cancelled = true
     }
-  }, [captureStream, roomMode, sfuEnabled, wsStatus, isPublisher])
+  }, [captureStream, roomMode, wsStatus, isPublisher])
 
   useEffect(() => {
     if (isPublisher) return
-    queueMicrotask(() => {
-      guestPcRef.current?.close()
-      guestPcRef.current = null
-      acceptedOfferShareGenerationRef.current = 0
-      lastDedupOfferGenerationRef.current = 0
-      setGuestRemote(null)
-    })
+    queueMicrotask(() => setGuestRemote(null))
   }, [isPublisher])
 
   useEffect(() => {
@@ -1270,19 +943,11 @@ export function RoomPage() {
       ...(gen > 0 ? { shareGeneration: gen } : {}),
     })
     shareGenerationRef.current = 0
-    hostLastOfferGenByGuestRef.current.clear()
-    hostNegotiationMilestoneMsByGuestRef.current.clear()
     sfuSessionRef.current?.unpublishProducerClass('host_screen')
     setCaptureStream((prev) => {
       stopMediaStreamTracks(prev)
       return null
     })
-    for (const pc of peerByGuestRef.current.values()) {
-      pc.close()
-    }
-    peerByGuestRef.current.clear()
-    pendingReadyGuestsRef.current.clear()
-    hostPendingGuestIceRef.current.clear()
   }
 
   const startCapture = async () => {
@@ -1303,19 +968,6 @@ export function RoomPage() {
       })
       setCaptureStream(stream)
       webrtcLog('capture stream applied, tracks:', stream.getTracks().length)
-    }
-
-    try {
-      if (import.meta.env.DEV) {
-        const isE2e = new URLSearchParams(window.location.search).get('riffsyncE2e') === '1'
-        if (isE2e) {
-          const { createSyntheticDisplayStream } = await import('../room/sharing/e2eCapture')
-          applyStream(createSyntheticDisplayStream())
-          return
-        }
-      }
-    } catch {
-      /* fall through to real capture */
     }
 
     try {
@@ -1626,15 +1278,7 @@ export function RoomPage() {
       ) : null}
 
       <div className="container riffsync-room-page">
-        {meshUnsupportedProdBuild ? (
-          <p className="riffsync-room-page__ws-banner riffsync-muted" role="status">
-            This production build uses peer-to-peer mesh for watch-party video. That path is not supported for real
-            parties. Use the mediasoup SFU instead: leave <code>VITE_WEBRTC_USE_MEDIASOU_SFU</code> unset (defaults to
-            on in production) or set it to <code>true</code>, deploy <code>RiffSyncTurn</code> (media stack), and set{' '}
-            <code>VITE_PUBLIC_SFU_WS_URL</code> at build time.
-          </p>
-        ) : null}
-        {sfuEnabled && sfuRoomErr ? (
+        {sfuRoomErr ? (
           <p className="riffsync-room-page__host-feedback-alert" role="alert">
             {sfuRoomErr}
           </p>

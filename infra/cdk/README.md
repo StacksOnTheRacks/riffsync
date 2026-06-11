@@ -214,7 +214,7 @@ One account, **one CloudFormation stack** **`RiffSyncTurn`** ([`lib/media-server
 
 **Migrating from older `RiffSyncTurn-staging` / `RiffSyncTurn-prod`:** delete those stacks after this change, copy secret material from **`riffsync/staging/turn-static-auth-secret`** (or prod) into **`riffsync/turn-static-auth-secret`**, then deploy **`RiffSyncTurn`**. Per-environment turn secrets are **removed** from **`RiffSyncApi-*`** templates (old AWS secrets may **RETAIN** — clean up manually if desired).
 
-WebRTC mesh screen share uses **`GET /v1/webrtc/ice`** for **`iceServers`**.
+Watch-party WebRTC (SFU transports) uses **`GET /v1/webrtc/ice`** for **`iceServers`**.
 
 | Route | Auth | Behavior |
 | --- | --- | --- |
