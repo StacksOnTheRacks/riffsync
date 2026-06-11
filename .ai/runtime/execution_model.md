@@ -144,6 +144,20 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | **Local / CI** | Disposable **SFU + TURN** profile matching prod signaling and ICE shape — see **`startup_bootstrap.md`** and **`.ai/operations/deployment_environments.md`**. |
 | **Prod** | Unchanged: **`RiffSyncTurn`** EC2 hosts coturn + **`riffsync-sfu`**. |
 
+## Decisions (module extraction — #138)
+
+| Topic | Decision |
+| --- | --- |
+| **Module paths** | **`apps/web/src/room/sessions/ChatSession.ts`**, **`SfuMediaSession.ts`**, **`TheaterPlayback.ts`** — framework-agnostic classes with colocated **`*.test.ts`**. RoomPage uses thin hooks/factories that hold module instances; module files do **not** import React. |
+| **`ChatSession` absorbs** | **`useRoomWebSocket.ts`** connect/reconnect/ping/send; inbound demux for **`chat`**, **`chat_gif`**, **`react`**, **`presence`**, **`room_mode`**, **`av_disabled`**, **`share_state`** frames. Chat-owned state: message log helpers, reaction merge, presence roster updates for chat/People UI. |
+| **`SfuMediaSession` absorbs** | **`sfu/sfuRoomSession.ts`**, **`sfu/mediasoupSharing.ts`** connection lifecycle, **`sfu/participantAvSession.ts`** publish gate binding, ICE fetch, SFU token mint/reconnect policy, **`newProducer`** / **`producerClosed`** dispatch. |
+| **`TheaterPlayback` absorbs** | **`audio/theaterAudioMix.ts`**, YouTube iframe ref lifecycle, host **`host_screen`** audio consumer attach to mix graph. Subscribes to **`SfuMediaSession`** consumer events — does **not** own SFU signaling socket. |
+| **Media policy callbacks** | **`ChatSession`** forwards **`share_state`**, **`room_mode`**, **`av_disabled`** to registered **`SfuMediaSession`** / **`TheaterPlayback`** policy handlers — **no** implicit SFU teardown inside chat WS message handlers. |
+| **Mesh removal** | Delete **`apps/web/src/room/sharing/**`**, mesh prod warning UI, and **`isMeshWatchPartyMediaEnabled`** branches from **`RoomPage`** during extraction. **`realtimeDiagnostics.ts`** signaling counters may remain until #157 retags logs per drawer. |
+| **`RoomPage` shell** | Retains route/snapshot fetch, sidebar tabs, compose, stage layout, host bar, AV toggle chrome, a11y announcer. Target **≤ 900** lines after extraction (layout + wiring only). |
+| **Extraction vs SDK (#139)** | Modules expose class methods first; narrow **`join` / `publishAv` / `subscribe` / `getDiagnostics`** facade lands in #139 — extraction must not block on facade naming. |
+| **Extraction vs state machines (#140)** | Modules may use internal **`connected` / `closed`** flags during extraction; formal **`reconnecting` / `degraded` / `torn-down`** substates and drawer isolation enforcement land in #140. |
+
 ## Open implementation decisions
 
 - **`ChatSession` send queue:** drop vs short buffer when room WS flaps while compose is active.
@@ -154,4 +168,7 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 
 ## Primary code pointers (optional)
 
-- CDK **`lib/`** stacks; **`src/handlers/**/*.ts`** (or repo convention TBD).
+- **`apps/web/src/room/sessions/`** — **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`** (post-#138).
+- **`apps/web/src/pages/RoomPage.tsx`** — thin shell wiring session modules to room chrome.
+- **`apps/web/src/room/sfu/`** — low-level mediasoup helpers absorbed by **`SfuMediaSession`** during extraction; directory may shrink to shared types/utilities.
+- CDK **`lib/`** stacks; **`infra/cdk/lambda/`** WebSocket and SFU-token handlers (server-side; unchanged by client extraction).
