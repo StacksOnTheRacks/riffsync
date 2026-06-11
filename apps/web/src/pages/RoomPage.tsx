@@ -25,24 +25,12 @@ import type { ChatGifLine, ChatTextLine } from '../room/sessions/ChatSession'
 import { useRoomChrome } from '../room/useRoomChrome'
 import {
   announceWebrtcDebugOnRoomMount,
-  summarizeEnvelope,
-  webrtcDebugEnabled,
   webrtcLog,
 } from '../room/webrtcDebug'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
-import {
-  createBoundParticipantAvController,
-  type ParticipantAvController,
-  type ParticipantAvPublishGate,
-} from '../room/sfu/participantAvSession'
 import { createTheaterAudioMix } from '../room/audio/theaterAudioMix'
-import { enteredVideoChatMode, stopMediaStreamTracks } from '../room/roomMediaLifecycle'
-import type { SfuUnifiedSessionHandle } from '../room/sfu/mediasoupSharing'
-import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
-import {
-  messageForSfuRelayConfigError,
-  type SfuRelayConfigErrorCode,
-} from '../room/sfu/sfuConfigErrors'
+import { stopMediaStreamTracks, enteredVideoChatMode } from '../room/roomMediaLifecycle'
+import { useSfuMediaSession } from '../room/useSfuMediaSession'
 import {
   resolveGuestVideoRelayStatusLine,
   resolveHostVideoRelayStatusLine,
@@ -61,7 +49,6 @@ import {
 import { createChatMessageId } from '../room/chatMessageId'
 import { isContinuedChatLine } from '../room/chatMessageGrouping'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
-import { participantAvErrorFromSfuMediaCode } from '../room/av/participantAvErrors'
 import { ParticipantAvToggles } from '../room/ParticipantAvToggles'
 import { HostControlBar } from '../room/HostControlBar'
 import {
@@ -102,18 +89,6 @@ function resolveMemberAvatarUrl(
   return undefined
 }
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null
-}
-
-function isSfuRelayConfigErrorCode(code: string): code is SfuRelayConfigErrorCode {
-  return (
-    code === 'missing_ws_url' ||
-    code === 'local_sfu_unreachable' ||
-    code === 'sfu_relay_unreachable'
-  )
-}
-
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
   const roomId = roomIdParam ? decodeURIComponent(roomIdParam) : ''
@@ -138,12 +113,9 @@ export function RoomPage() {
   const [participantAvVideoConsumers, setParticipantAvVideoConsumers] = useState(
     () => new Map<string, ParticipantAvVideoConsumer>(),
   )
-  const [participantAvPublishTick, setParticipantAvPublishTick] = useState(0)
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [captureErr, setCaptureErr] = useState<string | null>(null)
-  const [sfuRoomErr, setSfuRoomErr] = useState<string | null>(null)
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
-  const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
   const [guestPlayHint, setGuestPlayHint] = useState(false)
   const [hostCapturePlayHint, setHostCapturePlayHint] = useState(false)
   const [presenceRoster, setPresenceRoster] = useState<{
@@ -180,12 +152,10 @@ export function RoomPage() {
   const hostCaptureVideoRef = useRef<HTMLVideoElement>(null)
   const guestRemoteRef = useRef<MediaStream | null>(null)
   const shareGenerationRef = useRef(0)
-  const sfuSessionRef = useRef<SfuUnifiedSessionHandle | null>(null)
   const prevRoomModeRef = useRef<RoomMode>('theater')
   const prevAvDisabledRef = useRef<boolean | null>(null)
   const theaterAudioMixRef = useRef<ReturnType<typeof createTheaterAudioMix> | null>(null)
   const captureStreamRef = useRef<MediaStream | null>(null)
-  const [sfuTokenIntentTick, setSfuTokenIntentTick] = useState(0)
   const prevRoomSidebarTabRef = useRef<'chat' | 'people' | 'room' | 'profile'>('chat')
   const chatInputRef = useRef<HTMLInputElement>(null)
 
@@ -244,31 +214,8 @@ export function RoomPage() {
     },
     [room, fanToken, isPublisher, hostBarBusy, roomId, announceRoomA11y],
   )
-  useEffect(() => {
-    guestRemoteRef.current = guestRemote
-  }, [guestRemote])
 
   /** Guest inbound track liveness drives idle / verifying / running host-screen status. */
-
-  useEffect(() => {
-    if (isPublisher) {
-      queueMicrotask(() => setGuestShareFsmUi('idle'))
-      guestInboundHealthRef.current = false
-      return undefined
-    }
-    queueMicrotask(() => {
-      const liveVideos =
-        guestRemote?.getTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
-      if (!guestRemote) {
-        setGuestShareFsmUi('idle')
-        return
-      }
-      setGuestShareFsmUi(
-        liveVideos || guestInboundHealthRef.current ? 'running' : 'verifying_media',
-      )
-    })
-    return undefined
-  }, [guestRemote, guestFsmPollTick, isPublisher])
 
   useEffect(() => {
     if (isPublisher) {
@@ -297,7 +244,6 @@ export function RoomPage() {
 
   useEffect(() => {
     shareGenerationRef.current = 0
-    queueMicrotask(() => setGuestRemote(null))
   }, [roomId])
 
   const peopleShown = useMemo(() => {
@@ -476,6 +422,64 @@ export function RoomPage() {
     enabled: Boolean(wsBase && canonicalRoomId && room),
   })
 
+  const onParticipantAvConsumerTrack = useCallback((event: SfuConsumerTrackEvent) => {
+    setParticipantAvVideoConsumers((prev) => applyParticipantAvConsumerEvent(prev, event))
+  }, [])
+
+  const {
+    sfuError: sfuRoomErr,
+    guestRemote,
+    participantAvController,
+    session: sfuMediaSession,
+    unpublishHostScreen,
+  } = useSfuMediaSession({
+    enabled: wsStatus === 'open' && Boolean(canonicalRoomId),
+    apiBaseUrl: getPublicApiBaseUrl(),
+    roomId: canonicalRoomId,
+    sessionId,
+    accessToken: fanToken,
+    fanToken,
+    avDisabled,
+    wsOpen: wsStatus === 'open',
+    getIceServers,
+    getHostScreenStream: () => captureStreamRef.current,
+    captureStream,
+    roomMode,
+    isPublisher,
+    onConsumerTrack: (event) => {
+      onParticipantAvConsumerTrack(event)
+      theaterAudioMixRef.current?.onConsumerEvent(event)
+      void theaterAudioMixRef.current?.resumeIfSuspended()
+    },
+    onParticipantAvConsumersClear: () => {
+      setParticipantAvVideoConsumers(new Map())
+    },
+  })
+
+  useEffect(() => {
+    guestRemoteRef.current = guestRemote
+  }, [guestRemote])
+
+  useEffect(() => {
+    if (isPublisher) {
+      queueMicrotask(() => setGuestShareFsmUi('idle'))
+      guestInboundHealthRef.current = false
+      return undefined
+    }
+    queueMicrotask(() => {
+      const liveVideos =
+        guestRemote?.getTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
+      if (!guestRemote) {
+        setGuestShareFsmUi('idle')
+        return
+      }
+      setGuestShareFsmUi(
+        liveVideos || guestInboundHealthRef.current ? 'running' : 'verifying_media',
+      )
+    })
+    return undefined
+  }, [guestRemote, guestFsmPollTick, isPublisher])
+
   useEffect(() => {
     const unsubs = [
       chatSession.onChatText((line) => {
@@ -500,10 +504,8 @@ export function RoomPage() {
         setPresenceRoster(event)
       }),
       chatSession.onShareState((event) => {
-        if (isPublisher) return
         if (event.state !== 'stopped') return
-        sfuSessionRef.current?.detachConsumerClass('host_screen')
-        setGuestRemote(null)
+        sfuMediaSession.handleShareStateStopped(isPublisher)
       }),
       chatSession.onRoomMode((event) => {
         setRoom((prev) => {
@@ -528,56 +530,8 @@ export function RoomPage() {
     return () => {
       for (const unsub of unsubs) unsub()
     }
-  }, [announceRoomA11y, chatSession, isPublisher, sessionId])
+  }, [announceRoomA11y, chatSession, isPublisher, sessionId, sfuMediaSession])
 
-  const participantAvGate = useMemo<ParticipantAvPublishGate>(
-    () => ({
-      wsOpen: false,
-      fanToken: null,
-      avDisabled: true,
-    }),
-    [],
-  )
-  const participantAvController = useMemo<ParticipantAvController>(
-    () => createBoundParticipantAvController(() => participantAvGate),
-    [participantAvGate],
-  )
-
-  useEffect(() => {
-    /* Mutable gate snapshot for stable participant AV controller (#117). */
-    Object.assign(participantAvGate, {
-      wsOpen: wsStatus === 'open',
-      fanToken,
-      avDisabled,
-      onNeedsProducerTokenChange: () => {
-        // Only rebuild the whole SFU session to upgrade a consumer-only socket to a
-        // producer. When the current session can already publish, the controller's
-        // own syncPublish publishes on the existing send transport, so tearing down
-        // (and re-establishing) the session would needlessly drop host_screen and
-        // every consumer on each camera/mic toggle (guest blackouts, produce races).
-        if (sfuSessionRef.current?.supportsPublish) return
-        setSfuTokenIntentTick((n) => n + 1)
-      },
-    })
-    participantAvController.refreshPublishGate()
-    if (wsStatus !== 'open') {
-      participantAvController.resetOnReconnect()
-    }
-  }, [wsStatus, fanToken, avDisabled, participantAvController, participantAvGate])
-
-  useEffect(() => {
-    return participantAvController.subscribe(() => {
-      setParticipantAvPublishTick((n) => n + 1)
-    })
-  }, [participantAvController])
-
-  useEffect(() => {
-    return () => {
-      participantAvController.teardownPublishing()
-    }
-  }, [participantAvController])
-
-  void participantAvPublishTick
   const participantAvPublishState = participantAvController.getState()
   const stageParticipantTiles = buildStageParticipantTiles({
     roster: peopleShown,
@@ -588,10 +542,6 @@ export function RoomPage() {
   })
 
   const stageLayoutUpdating = useStageLayoutTransition(roomMode, stageParticipantTiles.length)
-
-  const onParticipantAvConsumerTrack = useCallback((event: SfuConsumerTrackEvent) => {
-    setParticipantAvVideoConsumers((prev) => applyParticipantAvConsumerEvent(prev, event))
-  }, [])
 
   useEffect(() => {
     captureStreamRef.current = captureStream
@@ -605,13 +555,6 @@ export function RoomPage() {
 
   const sendJson = useCallback(
     (payload: Record<string, unknown>) => {
-      if (
-        webrtcDebugEnabled() &&
-        payload.action === 'signaling' &&
-        isRecord(payload.envelope)
-      ) {
-        webrtcLog('ws out', summarizeEnvelope(payload.envelope))
-      }
       wsSendJson(payload)
     },
     [wsSendJson],
@@ -641,21 +584,20 @@ export function RoomPage() {
 
   const stopHostCaptureForModeTransition = useCallback(() => {
     setHostCapturePlayHint(false)
-    sfuSessionRef.current?.unpublishProducerClass('host_screen')
+    unpublishHostScreen()
     setCaptureStream((prev) => {
       stopMediaStreamTracks(prev)
       return null
     })
-  }, [])
+  }, [unpublishHostScreen])
 
   useEffect(() => {
     const previousMode = prevRoomModeRef.current
     prevRoomModeRef.current = roomMode
+    sfuMediaSession.handleRoomModeTransition(previousMode, roomMode, isPublisher)
     if (!enteredVideoChatMode(previousMode, roomMode)) return
 
     if (!isPublisher) {
-      sfuSessionRef.current?.detachConsumerClass('host_screen')
-      queueMicrotask(() => setGuestRemote(null))
       return
     }
 
@@ -665,17 +607,15 @@ export function RoomPage() {
         setRoom((prev) => (prev ? { ...prev, broadcastCaptureActive: false } : prev))
       })
     }
-  }, [roomMode, isPublisher, stopHostCaptureForModeTransition])
+  }, [roomMode, isPublisher, stopHostCaptureForModeTransition, sfuMediaSession])
 
   useEffect(() => {
     const previous = prevAvDisabledRef.current
     prevAvDisabledRef.current = avDisabled
     if (previous === null || !avDisabled || previous === avDisabled) return
 
-    participantAvController.teardownPublishing()
-    sfuSessionRef.current?.detachConsumerClass('participant_av')
-    setParticipantAvVideoConsumers(new Map())
-  }, [avDisabled, participantAvController])
+    sfuMediaSession.handleAvDisabledKillSwitch()
+  }, [avDisabled, sfuMediaSession])
 
   useEffect(() => {
     if (!theaterMixEnabled) return
@@ -683,103 +623,6 @@ export function RoomPage() {
       isPublisher ? hostCaptureVideoRef.current : videoRef.current,
     )
   }, [theaterMixEnabled, isPublisher, captureStream, guestRemote])
-
-  useEffect(() => {
-    if (wsStatus !== 'open' || !canonicalRoomId) return
-    const api = getPublicApiBaseUrl()
-    if (!api) return
-
-    const { cancel } = startSfuRoomSession({
-      apiBaseUrl: api,
-      roomId: canonicalRoomId,
-      sessionId,
-      accessToken: fanToken,
-      getIceServers,
-      getHostScreenStream: () => captureStreamRef.current,
-      participantAv: participantAvController,
-      onRemoteStream: setGuestRemote,
-      onConsumerTrack: (event) => {
-        onParticipantAvConsumerTrack(event)
-        theaterAudioMixRef.current?.onConsumerEvent(event)
-        void theaterAudioMixRef.current?.resumeIfSuspended()
-      },
-      assignSession: (s) => {
-        sfuSessionRef.current = s
-      },
-      onMissingWsUrl: () =>
-        setSfuRoomErr(messageForSfuRelayConfigError('missing_ws_url')),
-      onTokenError: (msg) => setSfuRoomErr(msg),
-      onMediaError: (code, msg) => {
-        if (isSfuRelayConfigErrorCode(code)) {
-          setSfuRoomErr(messageForSfuRelayConfigError(code))
-          return
-        }
-        if (participantAvController.getState().needsProducerToken) {
-          participantAvController.failPublish(participantAvErrorFromSfuMediaCode(code))
-          return
-        }
-        setSfuRoomErr(msg)
-      },
-      onConnecting: () => {
-        setSfuRoomErr(null)
-      },
-      onSessionReady: () => {
-        setSfuRoomErr(null)
-      },
-    })
-    return () => {
-      sfuSessionRef.current?.unpublishProducerClass('host_screen')
-      cancel()
-    }
-  }, [
-    wsStatus,
-    avDisabled,
-    canonicalRoomId,
-    sessionId,
-    fanToken,
-    getIceServers,
-    sfuTokenIntentTick,
-    participantAvController,
-    onParticipantAvConsumerTrack,
-  ])
-
-  /** Publish or unpublish host tab capture on the existing SFU session (no full reconnect). */
-  useEffect(() => {
-    if (wsStatus !== 'open' || !isPublisher) return
-    const session = sfuSessionRef.current
-    if (!session) return
-
-    if (roomMode === 'videoChat') {
-      session.unpublishProducerClass('host_screen')
-      return
-    }
-
-    const stream = captureStream
-    const live = stream?.getTracks().some((track) => track.readyState === 'live') ?? false
-    if (!live || !stream) {
-      session.unpublishProducerClass('host_screen')
-      return
-    }
-
-    let cancelled = false
-    void (async () => {
-      try {
-        await session.ready
-        if (cancelled) return
-        await session.publishStream(stream, 'host_screen')
-      } catch {
-        /* session closed or reconnecting */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [captureStream, roomMode, wsStatus, isPublisher])
-
-  useEffect(() => {
-    if (isPublisher) return
-    queueMicrotask(() => setGuestRemote(null))
-  }, [isPublisher])
 
   useEffect(() => {
     const v = videoRef.current
@@ -854,7 +697,7 @@ export function RoomPage() {
       ...(gen > 0 ? { shareGeneration: gen } : {}),
     })
     shareGenerationRef.current = 0
-    sfuSessionRef.current?.unpublishProducerClass('host_screen')
+    unpublishHostScreen()
     setCaptureStream((prev) => {
       stopMediaStreamTracks(prev)
       return null
