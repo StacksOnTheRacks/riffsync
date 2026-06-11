@@ -13,6 +13,7 @@ import {
   type SfuProducerClass,
   type SfuUnifiedSessionHandle,
 } from './mediasoupSharing'
+import { classifySignalingOpenFailure, type SfuConfigMediaErrorCode } from './sfuConfigErrors'
 import type { ParticipantAvController } from './participantAvSession'
 import { nextSfuReconnectDelayMs, sleepMs } from './sfuReconnectPolicy'
 
@@ -24,7 +25,10 @@ type SessionHooks = {
   onTokenError: (message: string) => void
   onMediaError: (code: SfuMediaErrorCode, message: string) => void
   onSessionClean?: () => void
+  /** Clears transient SFU banners only; skipped while a configuration-class error is active. */
   onConnecting?: () => void
+  /** Clears SFU error banner after signaling `session.ready` succeeds. */
+  onSessionReady?: () => void
 }
 
 export type StartSfuRoomSessionOpts = SessionHooks & {
@@ -136,6 +140,9 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
   const { assignSession, participantAv } = opts
   let attempt = 0
   let activeClose: (() => void) | null = null
+  let consecutiveWsOpenFailures = 0
+  let activeConfigError: SfuConfigMediaErrorCode | null = null
+  let signalingClassificationGen = 0
 
   const cancel = () => {
     ac.abort()
@@ -206,7 +213,9 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
       }
 
       attempt = 0
-      opts.onConnecting?.()
+      if (!activeConfigError) {
+        opts.onConnecting?.()
+      }
 
       const session = await connectSfuUnifiedSession({
         wsBaseUrl: wsBase,
@@ -216,13 +225,48 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
         onRemoteStream: opts.onRemoteStream,
         onConsumerTrack: opts.onConsumerTrack,
         ownSessionId: opts.sessionId,
-        onMediaError: opts.onMediaError,
+        onMediaError: (code, message) => {
+          if (code !== 'signaling_failed') {
+            opts.onMediaError(code, message)
+            return
+          }
+          consecutiveWsOpenFailures++
+          const classificationGen = ++signalingClassificationGen
+          void (async () => {
+            const classified = await classifySignalingOpenFailure(
+              wsBase,
+              consecutiveWsOpenFailures,
+              signal,
+            )
+            if (signal.aborted || classificationGen !== signalingClassificationGen) return
+            if (classified.code && classified.message) {
+              activeConfigError = classified.code
+              opts.onMediaError(classified.code, classified.message)
+              return
+            }
+            if (!activeConfigError) {
+              opts.onMediaError(code, message)
+            }
+          })()
+        },
       })
 
       if (signal.aborted) {
         session.close()
         break
       }
+
+      try {
+        await session.ready
+      } catch {
+        await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
+        continue
+      }
+
+      consecutiveWsOpenFailures = 0
+      activeConfigError = null
+      signalingClassificationGen++
+      opts.onSessionReady?.()
 
       activeClose = () => session.close()
       assignSession(session)

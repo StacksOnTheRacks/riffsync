@@ -806,6 +806,14 @@ export function RoomPage() {
       onMissingWsUrl: () => setSfuRoomErr(SFU_RELAY_URL_MISSING_MSG),
       onTokenError: (msg) => setSfuRoomErr(msg),
       onMediaError: (code, msg) => {
+        if (
+          code === 'missing_ws_url' ||
+          code === 'local_sfu_unreachable' ||
+          code === 'sfu_relay_unreachable'
+        ) {
+          setSfuRoomErr(msg)
+          return
+        }
         if (participantAvController.getState().needsProducerToken) {
           participantAvController.failPublish(participantAvErrorFromSfuMediaCode(code))
           return
@@ -813,6 +821,9 @@ export function RoomPage() {
         setSfuRoomErr(msg)
       },
       onConnecting: () => {
+        setSfuRoomErr(null)
+      },
+      onSessionReady: () => {
         setSfuRoomErr(null)
       },
     })

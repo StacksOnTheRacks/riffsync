@@ -105,6 +105,13 @@ export function isParticipantAvTokenHardFail(code: string | undefined): boolean 
 }
 
 export function participantAvErrorFromSfuMediaCode(code: SfuMediaErrorCode): ParticipantAvErrorCode {
+  if (
+    code === 'local_sfu_unreachable' ||
+    code === 'sfu_relay_unreachable' ||
+    code === 'missing_ws_url'
+  ) {
+    return 'sfu_signaling_failed'
+  }
   if (code === 'signaling_failed' || code === 'signaling_closed') {
     return 'sfu_signaling_failed'
   }
