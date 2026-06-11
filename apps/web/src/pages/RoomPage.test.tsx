@@ -67,6 +67,7 @@ vi.mock('../room/sfu/mediasoupSharing', async (importOriginal) => {
     connectSfuUnifiedSession: vi.fn().mockResolvedValue({
       close: vi.fn(),
       replaceHostScreenProducer: vi.fn(),
+      unpublishProducerClass: vi.fn(),
     }),
     resolveSfuWsBaseForToken: vi.fn(() => 'wss://sfu.test.example'),
   }
