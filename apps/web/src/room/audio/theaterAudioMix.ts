@@ -23,6 +23,7 @@ export type TheaterAudioMix = {
   setHostVideoElement: (element: HTMLVideoElement | null) => void
   onConsumerEvent: (event: TheaterAudioConsumerEvent) => void
   resumeIfSuspended: () => Promise<void>
+  getAudioContextState: () => AudioContextState | undefined
 }
 
 export type CreateTheaterAudioMixOptions = {
@@ -222,5 +223,6 @@ export function createTheaterAudioMix(options: CreateTheaterAudioMixOptions = {}
         /* ignore autoplay policy */
       }
     },
+    getAudioContextState: () => ctx?.state,
   }
 }

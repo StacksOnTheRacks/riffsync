@@ -8,10 +8,6 @@ import { getPublicWsUrl } from '../config/wsUrl'
 import { getPublicOrigin } from '../config/publicOrigin'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { announceWebrtcDebugOnRoomMount } from '../room/webrtcDebug'
-import {
-  resolveGuestVideoRelayStatusLine,
-  resolveHostVideoRelayStatusLine,
-} from '../room/sfu/sfuRelayStatusCopy'
 import { useViewportWide } from '../room/stage/useViewportWide'
 import { HostControlBar } from '../room/HostControlBar'
 import {
@@ -23,7 +19,7 @@ import {
 import { StageParticipantLayout } from '../room/stage/StageParticipantLayout'
 import { enteredVideoChatMode } from '../room/roomMediaLifecycle'
 import { useRoomSnapshot } from '../room/useRoomSnapshot'
-import { useRoomSessionWiring } from '../room/useRoomSessionWiring'
+import { useRoomRealtimeSdk } from '../room/useRoomRealtimeSdk'
 import { useHostScreenCapture } from '../room/useHostScreenCapture'
 import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { RoomPlaybackPanel } from '../room/RoomPlaybackPanel'
@@ -108,7 +104,6 @@ export function RoomPage() {
   )
 
   const {
-    wsStatus,
     sendJson,
     chat,
     chatReactions,
@@ -130,7 +125,9 @@ export function RoomPage() {
     bindHostCaptureVideo,
     stageParticipantTiles,
     stageLayoutUpdating,
-  } = useRoomSessionWiring({
+    guestVideoStatusSentence,
+    hostVideoRelayStatusSentence,
+  } = useRoomRealtimeSdk({
     wsBase,
     canonicalRoomId,
     roomId,
@@ -138,7 +135,6 @@ export function RoomPage() {
     displayName,
     fanToken,
     room,
-    avDisabled,
     roomMode,
     isPublisher,
     captureStream,
@@ -310,16 +306,6 @@ export function RoomPage() {
   const viewerCount = peopleShown.length
   const activeSidebarTab =
     !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
-
-  const guestVideoStatusSentence = !isPublisher
-    ? resolveGuestVideoRelayStatusLine({
-        sfuRelayError: sfuRoomErr,
-        guestShareFsm: theaterPlaybackSnapshot.guestShareFsm,
-        chatWsDisconnected: Boolean(wsBase) && wsStatus !== 'open',
-      })
-    : null
-
-  const hostVideoRelayStatusSentence = isPublisher ? resolveHostVideoRelayStatusLine(sfuRoomErr) : null
 
   return (
     <div

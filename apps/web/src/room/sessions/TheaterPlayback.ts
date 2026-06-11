@@ -98,8 +98,17 @@ export class TheaterPlayback {
   attachSfuSession(session: SfuMediaSession): void {
     this.sfuConsumerUnsub?.()
     this.sfuConsumerUnsub = session.onConsumerTrack((event) => {
-      this.onSfuConsumerEvent(event)
+      this.routeSfuConsumerEvent(event)
     })
+  }
+
+  /** Route SFU consumer attach/detach into the theater audio mix graph. */
+  routeSfuConsumerEvent(event: SfuConsumerTrackEvent): void {
+    this.onSfuConsumerEvent(event)
+  }
+
+  getAudioContextState(): AudioContextState | undefined {
+    return this.mix?.getAudioContextState()
   }
 
   detachSfuSession(): void {

@@ -372,6 +372,20 @@ export class SfuMediaSession {
     return this.sessionHandle
   }
 
+  getSignalingDiagnostics(): {
+    role?: 'producer' | 'consumer'
+    producerCount?: number
+    consumerCount?: number
+  } {
+    const handle = this.sessionHandle
+    if (!handle || this.status !== 'open') return {}
+    return {
+      role: handle.tokenRole,
+      producerCount: handle.getProducerCount(),
+      consumerCount: handle.getConsumerCount(),
+    }
+  }
+
   onRemoteStream(listener: Listener<MediaStream | null>): () => void {
     this.remoteStreamListeners.add(listener)
     return () => this.remoteStreamListeners.delete(listener)

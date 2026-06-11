@@ -21,6 +21,7 @@ function makeMixMock() {
     setHostVideoElement: vi.fn(),
     onConsumerEvent: vi.fn(),
     resumeIfSuspended: vi.fn().mockResolvedValue(undefined),
+    getAudioContextState: vi.fn().mockReturnValue(undefined),
   }
 }
 
