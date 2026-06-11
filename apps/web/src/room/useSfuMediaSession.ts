@@ -85,14 +85,6 @@ export function useSfuMediaSession(options: {
   }, [session, onParticipantAvConsumersClear])
 
   useEffect(() => {
-    if (isPublisher) setGuestRemote(null)
-  }, [isPublisher])
-
-  useEffect(() => {
-    setGuestRemote(null)
-  }, [roomId])
-
-  useEffect(() => {
     return session.participantAv.subscribe(() => {
       setParticipantAvPublishTick((n) => n + 1)
     })
@@ -149,7 +141,7 @@ export function useSfuMediaSession(options: {
   return {
     status,
     sfuError,
-    guestRemote,
+    guestRemote: isPublisher ? null : guestRemote,
     participantAvController,
     session,
     unpublishHostScreen,

@@ -424,6 +424,7 @@ export class SfuMediaSession {
     this.enabled = false
     this.stopReconnectLoop()
     this.sessionHandle?.unpublishProducerClass('host_screen')
+    this.emitRemoteStream(null)
     this.setStatus('idle')
     this.emitError(null)
   }
