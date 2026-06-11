@@ -115,9 +115,21 @@ When the host stops screen-share and guests receive authoritative **`share_state
 | Mic-only stage chrome? | **Unchanged** — off strip/grid; no avatar chips/badges this milestone. |
 | Media path (all envs)? | **SFU mandatory**; mesh WebRTC UI removed. |
 
+## Guest host-screen status (SFU-only, #134)
+
+Guests watching host tab-capture in **Theater** mode see status copy in the **playback region** (not AV toggles). Derived from remote **`MediaStream`** track liveness on the SFU **`host_screen`** consumer — not **`RTCPeerConnection`** FSM.
+
+| State | Guest-visible copy |
+| --- | --- |
+| **`idle`** | Waiting for host to share… |
+| **`verifying_media`** | Connecting to video relay… |
+| **`running`** | No status line |
+| Chat WS disconnected | Reconnecting chat… Video may pause briefly. |
+
+Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing encrypted path…`**, **`Verifying video feed…`**) retire with **`room/sharing/shareSessionFsm.ts`**.
+
 ## Open implementation decisions
 
-- **Guest host-screen negotiation status** after mesh removal: SFU-specific copy for idle/negotiating/recovering states in stage playback region (replaces mesh FSM strings).
 - **Chat send while chat plane `reconnecting`:** inline compose feedback vs sidebar banner only — align with **`runtime/execution_model.md`** **`ChatSession`** send policy.
 
 ## Primary code pointers (optional)

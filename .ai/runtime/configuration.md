@@ -66,7 +66,8 @@ The **single** fan SPA artifact (**`RiffSyncStatic-prod`**, **`https://riffsync.
 | Topic | Contract |
 | --- | --- |
 | **Path** | **SFU mandatory** in local, CI, and prod. **Mesh WebRTC removed** — no peer-to-peer fallback branch in SPA. |
-| **Removed flag** | **`VITE_WEBRTC_USE_MEDIASOU_SFU`** and any mesh toggle **retired** this milestone; SPA always uses mediasoup-client against configured SFU **`wss://`**. |
+| **Removed flag** | **`VITE_WEBRTC_USE_MEDIASOU_SFU`** and any mesh toggle **retired** in issue **#134**; SPA always uses mediasoup-client against configured SFU **`wss://`**. |
+| **Mesh removal checklist (#134)** | Delete **`apps/web/src/config/mediasoupSfuFeature.ts`**; delete **`apps/web/src/room/sharing/**`**; delete mesh-only helpers **`shareDiag.ts`**, **`hostRenegotiationPolicy.ts`**; remove **`RTCPeerConnection`** and room-WebSocket **`signaling`** handler branches from **`RoomPage.tsx`**; remove **`VITE_WEBRTC_USE_MEDIASOU_SFU`** from **`vite-env.d.ts`**; grep-clean **`VITE_WEBRTC_USE_MEDIASOU_SFU`**, **`isMeshWatchPartyMediaEnabled`**, **`isMediasoupSfuEnabled`**, **`shareSessionFsm`**, mesh copy in **`docs/architecture.frontend.md`** and **`docs/sfu-deploy-checklist.md`**. |
 | **Signaling URL** | **`SFU_PUBLIC_WS_URL`** (prod) or disposable SFU URL (local/CI). Participant and host share the same signaling endpoint. |
 | **Local / CI** | Disposable SFU + TURN env block documented in **`README`** / **`.env.example`** — startup profile in **`startup_bootstrap.md`**. |
 
@@ -94,7 +95,6 @@ SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU We
 
 - **Local disposable SFU env var names:** canonical **`VITE_SFU_WS_URL`** (or token-embedded only) vs reusing prod naming in **`.env.example`**.
 - **CI harness env injection:** which secrets live in GitHub Actions vs generated per-run HMAC for join JWT.
-- **Removal checklist for mesh code:** grep targets and dead env documentation in **`README`** — TW issue backlog.
 
 ## Primary code pointers (optional)
 

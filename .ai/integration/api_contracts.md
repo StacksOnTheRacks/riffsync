@@ -80,6 +80,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | AV kill switch enforcement? | **Server-enforced** — deny participant producer tokens, SFU tears down participant producers, broadcast **`avDisabled`**. |
 | Theater participant audio? | **Client-side mixing** — consumers attach multiple SFU audio consumers (host movie + participant mics); no server-side mixer in MVP. |
 | Video Chat vs host screen? | Clients **stop consuming** host screen producer in **`videoChat`** mode; host **fully stops** tab-capture on enter (resume requires **Share Source Tab** again). |
+| Client vs CDK mesh retirement order? | **#134** removes SPA mesh handlers and modules first; **#135** removes API Gateway **`signaling`** route. After **#134** the SPA ignores inbound **`signaling`** envelopes; orphaned route is harmless until **#135**. |
 
 ## Decisions (answered — #101 HTTP room AV)
 
@@ -186,7 +187,6 @@ Internal modules **must not** cross-call destructive teardown across drawers wit
 - SFU signaling **request-ack timeout** (seconds) for **`SIGNALING_TIMEOUT`**.
 - ICE **`failed`** vs **`disconnected`** timing before surfacing **`ICE_FAILED`**.
 - Whether **`PRODUCER_CLOSED`** is surfaced to UI chrome or handled only inside **`subscribe`** handlers.
-- CDK **`signaling`** route removal order vs client mesh branch deletion (same milestone, sequencing TW).
 
 ## Open implementation details
 

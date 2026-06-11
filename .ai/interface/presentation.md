@@ -129,7 +129,7 @@ Chat (room WebSocket) and video relay (SFU signaling + consumers) expose **indep
 ## Open implementation decisions
 
 - **Tile removal animation** on **`producerClosed`:** instant DOM detach vs short fade-out; whether **`prefers-reduced-motion: reduce`** forces instant removal for remote tiles.
-- **Drawer status final strings:** exact copy for chat vs video-relay **`reconnecting`**, **`degraded`**, and post-recovery clear; whether video-relay status duplicates host-share FSM lines or replaces them after mesh removal.
+- **Drawer status final strings:** exact copy for chat vs video-relay **`reconnecting`**, **`degraded`**, and post-recovery clear. Guest **host-screen** playback-region copy is normative in **`interaction_flow.md`** (SFU three-state model); video-relay drawer status covers SFU signaling health separately from that playback strip.
 - **Theater audio resume control:** implicit resume on first user gesture vs persistent **Enable party audio** (or equivalent) in stage chrome when **`THEATER_AUDIO_SUSPENDED`** — label, placement, dismiss behavior.
 - **Mode-transition copy variants:** whether **"Updating room layout…"** varies by Theater ↔ Video Chat direction or sparse-state follow-up when **3s** elapses without consumers attached.
 - **Frozen-frame regression AC wording** for **`/refine-issue`** (e.g. max visible stale frame duration, mic-only tile absence checks) — harness-visible assertions.
