@@ -28,13 +28,12 @@ import {
   webrtcLog,
 } from '../room/webrtcDebug'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
-import { createTheaterAudioMix } from '../room/audio/theaterAudioMix'
 import { stopMediaStreamTracks, enteredVideoChatMode } from '../room/roomMediaLifecycle'
 import { useSfuMediaSession } from '../room/useSfuMediaSession'
+import { useTheaterPlayback } from '../room/useTheaterPlayback'
 import {
   resolveGuestVideoRelayStatusLine,
   resolveHostVideoRelayStatusLine,
-  type GuestHostScreenFsm,
 } from '../room/sfu/sfuRelayStatusCopy'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
@@ -116,8 +115,6 @@ export function RoomPage() {
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const [captureStream, setCaptureStream] = useState<MediaStream | null>(null)
-  const [guestPlayHint, setGuestPlayHint] = useState(false)
-  const [hostCapturePlayHint, setHostCapturePlayHint] = useState(false)
   const [presenceRoster, setPresenceRoster] = useState<{
     roomId: string
     members: PresenceMember[]
@@ -145,16 +142,9 @@ export function RoomPage() {
   const profileTabLoadedRef = useRef(false)
   const profileAvatarInputRef = useRef<HTMLInputElement>(null)
 
-  const [guestFsmPollTick, setGuestFsmPollTick] = useState(0)
-  const guestInboundHealthRef = useRef(false)
-  const [guestShareFsmUi, setGuestShareFsmUi] = useState<GuestHostScreenFsm>('idle')
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const hostCaptureVideoRef = useRef<HTMLVideoElement>(null)
-  const guestRemoteRef = useRef<MediaStream | null>(null)
   const shareGenerationRef = useRef(0)
   const prevRoomModeRef = useRef<RoomMode>('theater')
   const prevAvDisabledRef = useRef<boolean | null>(null)
-  const theaterAudioMixRef = useRef<ReturnType<typeof createTheaterAudioMix> | null>(null)
   const captureStreamRef = useRef<MediaStream | null>(null)
   const prevRoomSidebarTabRef = useRef<'chat' | 'people' | 'room' | 'profile'>('chat')
   const chatInputRef = useRef<HTMLInputElement>(null)
@@ -214,29 +204,6 @@ export function RoomPage() {
     },
     [room, fanToken, isPublisher, hostBarBusy, roomId, announceRoomA11y],
   )
-
-  /** Guest inbound track liveness drives idle / verifying / running host-screen status. */
-
-  useEffect(() => {
-    if (isPublisher) {
-      guestInboundHealthRef.current = false
-      return undefined
-    }
-    let cancelled = false
-    const tick = (): void => {
-      const s = guestRemoteRef.current
-      const live =
-        s?.getVideoTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
-      guestInboundHealthRef.current = live
-      if (!cancelled) setGuestFsmPollTick((n) => n + 1)
-    }
-    queueMicrotask(tick)
-    const interval = window.setInterval(() => tick(), 2300)
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
-    }
-  }, [isPublisher])
 
   useEffect(() => {
     announceWebrtcDebugOnRoomMount()
@@ -446,39 +413,27 @@ export function RoomPage() {
     captureStream,
     roomMode,
     isPublisher,
-    onConsumerTrack: (event) => {
-      onParticipantAvConsumerTrack(event)
-      theaterAudioMixRef.current?.onConsumerEvent(event)
-      void theaterAudioMixRef.current?.resumeIfSuspended()
-    },
+    onConsumerTrack: onParticipantAvConsumerTrack,
     onParticipantAvConsumersClear: () => {
       setParticipantAvVideoConsumers(new Map())
     },
   })
 
-  useEffect(() => {
-    guestRemoteRef.current = guestRemote
-  }, [guestRemote])
-
-  useEffect(() => {
-    if (isPublisher) {
-      queueMicrotask(() => setGuestShareFsmUi('idle'))
-      guestInboundHealthRef.current = false
-      return undefined
-    }
-    queueMicrotask(() => {
-      const liveVideos =
-        guestRemote?.getTracks().some((t) => t.kind === 'video' && t.readyState === 'live') ?? false
-      if (!guestRemote) {
-        setGuestShareFsmUi('idle')
-        return
-      }
-      setGuestShareFsmUi(
-        liveVideos || guestInboundHealthRef.current ? 'running' : 'verifying_media',
-      )
-    })
-    return undefined
-  }, [guestRemote, guestFsmPollTick, isPublisher])
+  const {
+    snapshot: theaterPlaybackSnapshot,
+    playGuestVideo,
+    playHostCapturePreview,
+    bindGuestVideo,
+    bindHostCaptureVideo,
+  } = useTheaterPlayback({
+    enabled: theaterMixEnabled,
+    isPublisher,
+    avDisabled,
+    guestRemote,
+    captureStream,
+    sfuSession: sfuMediaSession,
+    youtubeVideoId: room?.youtubeVideoId ?? catalogEp?.youtubeVideoId ?? null,
+  })
 
   useEffect(() => {
     const unsubs = [
@@ -564,26 +519,7 @@ export function RoomPage() {
     sendJsonRef.current = sendJson
   }, [sendJson])
 
-  useEffect(() => {
-    if (!theaterMixEnabled) {
-      theaterAudioMixRef.current?.dispose()
-      theaterAudioMixRef.current = null
-      return
-    }
-    const mix = createTheaterAudioMix()
-    theaterAudioMixRef.current = mix
-    return () => {
-      mix.dispose()
-      theaterAudioMixRef.current = null
-    }
-  }, [theaterMixEnabled])
-
-  useEffect(() => {
-    theaterAudioMixRef.current?.setAvDisabled(avDisabled)
-  }, [avDisabled])
-
   const stopHostCaptureForModeTransition = useCallback(() => {
-    setHostCapturePlayHint(false)
     unpublishHostScreen()
     setCaptureStream((prev) => {
       stopMediaStreamTracks(prev)
@@ -617,79 +553,7 @@ export function RoomPage() {
     sfuMediaSession.handleAvDisabledKillSwitch()
   }, [avDisabled, sfuMediaSession])
 
-  useEffect(() => {
-    if (!theaterMixEnabled) return
-    theaterAudioMixRef.current?.setHostVideoElement(
-      isPublisher ? hostCaptureVideoRef.current : videoRef.current,
-    )
-  }, [theaterMixEnabled, isPublisher, captureStream, guestRemote])
-
-  useEffect(() => {
-    const v = videoRef.current
-    if (!v || isPublisher) return
-    if (!guestRemote) {
-      v.srcObject = null
-      return
-    }
-    const playbackStream = theaterMixEnabled
-      ? new MediaStream(guestRemote.getVideoTracks())
-      : guestRemote
-    v.srcObject = playbackStream
-    let cancelled = false
-    void (async () => {
-      v.muted = theaterMixEnabled
-      try {
-        await v.play()
-        if (!cancelled) setGuestPlayHint(false)
-        if (theaterMixEnabled) {
-          await theaterAudioMixRef.current?.resumeIfSuspended()
-        }
-        return
-      } catch {
-        /* autoplay policy often blocks unmuted remote playback */
-      }
-      if (!theaterMixEnabled) {
-        try {
-          v.muted = true
-          await v.play()
-          if (!cancelled) setGuestPlayHint(false)
-        } catch {
-          if (!cancelled) setGuestPlayHint(true)
-        }
-      } else if (!cancelled) {
-        setGuestPlayHint(true)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [guestRemote, isPublisher, theaterMixEnabled])
-
-  useEffect(() => {
-    const v = hostCaptureVideoRef.current
-    if (!v || !isPublisher) return
-    if (!captureStream) {
-      v.srcObject = null
-      return
-    }
-    v.srcObject = captureStream
-    v.muted = theaterMixEnabled
-    void (async () => {
-      try {
-        await v.play()
-        setHostCapturePlayHint(false)
-        if (theaterMixEnabled) {
-          theaterAudioMixRef.current?.setHostVideoElement(v)
-          await theaterAudioMixRef.current?.resumeIfSuspended()
-        }
-      } catch {
-        setHostCapturePlayHint(true)
-      }
-    })()
-  }, [captureStream, isPublisher, theaterMixEnabled])
-
   const stopCapture = () => {
-    setHostCapturePlayHint(false)
     const gen = shareGenerationRef.current
     sendJsonRef.current({
       action: 'share_state',
@@ -709,7 +573,6 @@ export function RoomPage() {
 
     const applyStream = (stream: MediaStream) => {
       shareGenerationRef.current += 1
-      setHostCapturePlayHint(false)
       sendJsonRef.current({
         action: 'share_state',
         state: 'started',
@@ -927,48 +790,6 @@ export function RoomPage() {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
-  const playGuestVideo = async () => {
-    const v = videoRef.current
-    if (!v) return
-    if (!theaterMixEnabled) {
-      v.muted = false
-    }
-    try {
-      await v.play()
-      setGuestPlayHint(false)
-      await theaterAudioMixRef.current?.resumeIfSuspended()
-      return
-    } catch {
-      /* continue */
-    }
-    if (!theaterMixEnabled) {
-      try {
-        v.muted = true
-        await v.play()
-        setGuestPlayHint(false)
-      } catch {
-        setGuestPlayHint(true)
-      }
-      return
-    }
-    setGuestPlayHint(true)
-  }
-
-  const playHostCapturePreview = async () => {
-    const v = hostCaptureVideoRef.current
-    if (!v) return
-    try {
-      await v.play()
-      setHostCapturePlayHint(false)
-      if (theaterMixEnabled) {
-        theaterAudioMixRef.current?.setHostVideoElement(v)
-        await theaterAudioMixRef.current?.resumeIfSuspended()
-      }
-    } catch {
-      setHostCapturePlayHint(true)
-    }
-  }
-
   if (!roomId) {
     return (
       <div className="container">
@@ -1007,7 +828,7 @@ export function RoomPage() {
     !isPublisher ?
       resolveGuestVideoRelayStatusLine({
         sfuRelayError: sfuRoomErr,
-        guestShareFsm: guestShareFsmUi,
+        guestShareFsm: theaterPlaybackSnapshot.guestShareFsm,
         chatWsDisconnected: Boolean(wsBase) && wsStatus !== 'open',
       })
     : null
@@ -1055,7 +876,7 @@ export function RoomPage() {
               playback={
                 isPublisher ? (
               <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
-                {captureStream && hostCapturePlayHint ? (
+                {captureStream && theaterPlaybackSnapshot.hostCapturePlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
                     <button type="button" className="gen-button" onClick={() => void playHostCapturePreview()}>
                       Play preview
@@ -1065,7 +886,7 @@ export function RoomPage() {
                 <div className="riffsync-room-page__player-shell riffsync-room-page__player-shell--guest">
                   {captureStream ? (
                     <video
-                      ref={hostCaptureVideoRef}
+                      ref={bindHostCaptureVideo}
                       className="riffsync-room-page__guest-video"
                       playsInline
                       controls
@@ -1134,7 +955,7 @@ export function RoomPage() {
                     {guestVideoStatusSentence}
                   </p>
                 : null}
-                {guestPlayHint ? (
+                {theaterPlaybackSnapshot.guestPlayHint ? (
                   <p className="riffsync-room-page__guest-actions">
                     <button type="button" className="gen-button" onClick={() => void playGuestVideo()}>
                       Play video
@@ -1148,7 +969,7 @@ export function RoomPage() {
                     </div>
                   ) : null}
                   <video
-                    ref={videoRef}
+                    ref={bindGuestVideo}
                     className="riffsync-room-page__guest-video"
                     playsInline
                     controls
