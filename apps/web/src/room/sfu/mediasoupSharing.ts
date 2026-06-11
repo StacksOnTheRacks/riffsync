@@ -159,9 +159,11 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 function resolveWsBase(tok: SfuTokenResponse): string | undefined {
+  const fromEnv = getPublicSfuWsUrl()
+  if (fromEnv) return fromEnv
   const fromTok = tok.wsUrl?.trim()
   if (fromTok) return fromTok.replace(/\/$/, '')
-  return getPublicSfuWsUrl()
+  return undefined
 }
 
 export type SfuSessionEndReason =

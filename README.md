@@ -106,7 +106,41 @@ Fan support might fund clearer distribution paths (sales, bundles, partnerships)
 | AWS (baseline) | **IaC:** **`AWS CDK`** (TypeScript). **Compute:** **Lambda** in **TypeScript** (Node.js bundle) **serverless-first** — **API Gateway v2** (`HTTP` + `WEBSOCKET`), **DynamoDB**, **EventBridge / Scheduler**, **Secrets Manager**. **ElastiCache** (Redis/Valkey-compatible) **optional** for **`GET /v1/catalog`** or lobby caches (VPC-attached Lambdas). **S3** for SPA static hosting or exports if needed — **no ECS/EC2** in the default stack. Details: **`docs/architecture.server.md`**. |
 | Deploy / CI | **GitHub Actions**: **pull-request CI** runs **`cdk synth`** (+ **`cfn-lint`**) against **`infra/cdk`** ([**`.github/workflows/ci.yml`**](.github/workflows/ci.yml)). **Manual** **`Deploy CDK (production)`** deploys **`main`** on demand — see **`infra/cdk/README.md`**. See **`.ai/operations/build_packaging.md`** and **`docs/architecture.server.md`** (Delivery pipeline §). |
 
-**MVP cut:** catalog browse + **anonymous join/watch/chat**, **signed-in-only hosting** (**JWT** / **`hostSub`** via Cognito Hosted UI accounts), **room page** + **guest WebRTC viewing**, **canonical share URLs** + lobby discovery + join path, embedded YouTube on admin surface, **anonymous guest display names**, **self-reported “Premium” vs “free, ad-supported”** labels. Defer heavy moderation and polished private-room policy if you want speed. **Managed SFU / TURN** is optional when mesh/admin uplink is insufficient—see **`docs/architecture.frontend.md`**.
+**MVP cut:** catalog browse + **anonymous join/watch/chat**, **signed-in-only hosting** (**JWT** / **`hostSub`** via Cognito Hosted UI accounts), **room page** + **guest WebRTC viewing**, **canonical share URLs** + lobby discovery + join path, embedded YouTube on admin surface, **anonymous guest display names**, **self-reported “Premium” vs “free, ad-supported”** labels. Defer heavy moderation and polished private-room policy if you want speed. Watch-party media uses the **mediasoup SFU + coturn** path in all environments — see **`docs/architecture.frontend.md`**.
+
+## Local watch-party media
+
+Local dev uses the **prod control plane** (room WebSocket, HTTP API, Cognito) plus a **disposable SFU + coturn** stack on your workstation. There is no mesh fallback.
+
+**Prerequisites:** Docker Desktop or Docker Engine with Compose v2.
+
+```bash
+# One-time: infra/local-media/.env and coturn/turnserver.conf (see infra/local-media/README.md)
+cp infra/local-media/.env.example infra/local-media/.env
+cp infra/local-media/coturn/turnserver.conf.example infra/local-media/coturn/turnserver.conf
+
+# Start disposable media
+npm run media:local
+curl -sSf http://127.0.0.1:3000/healthz
+
+# SPA env (prod API + local SFU override)
+cd apps/web
+cp .env.example .env.local
+# Edit .env.local: set prod VITE_PUBLIC_API_BASE_URL, VITE_PUBLIC_WS_URL, Cognito vars, and:
+#   VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000
+
+npm ci
+npm test
+npm run dev
+```
+
+**Operator step:** When using prod **`POST /v1/webrtc/sfu-token`**, copy the real **`riffsync/sfu-join-hmac-secret`** from AWS Secrets Manager into **`SFU_JWT_SECRET`** in **`infra/local-media/.env`**. Tokens must verify against the disposable SFU.
+
+**Manual check:** Host shares a tab — browser Network shows WebSocket to **`ws://127.0.0.1:3000`**, not the prod signal host. Guest tab receives host screen via SFU consumers.
+
+**Teardown:** **`npm run media:local:down`** from the repo root.
+
+Full port map, cross-device LAN notes, and ICE overrides: **[`infra/local-media/README.md`](infra/local-media/README.md)**.
 
 ## Documentation
 
@@ -120,6 +154,7 @@ Fan support might fund clearer distribution paths (sales, bundles, partnerships)
 - [Server architecture (draft)](docs/architecture.server.md)
 - [Operator admin — users, reporting, catalog & lists (draft)](docs/architecture.admin.md)
 - [Frontend architecture (draft)](docs/architecture.frontend.md)
+- [Local watch-party media — disposable SFU + coturn (`infra/local-media/`)](infra/local-media/README.md)
 
 ## Naming
 
