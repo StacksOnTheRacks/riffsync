@@ -195,4 +195,5 @@ Internal modules **must not** cross-call destructive teardown across drawers wit
 
 ## Primary code pointers (optional)
 
-- When added: `openapi.yaml` or CDK route definitions; WebSocket route keys.
+- When added: `openapi.yaml` or CDK route definitions.
+- **WebSocket route keys (post-#135):** **`$connect`**, **`$disconnect`**, **`ping`**, **`presence_request`**, **`chat`**, **`chat_gif`**, **`react`**, **`share_state`**, **`leave`**, **`$default`** — defined in **`infra/cdk/lib/api-catalog-stack.ts`**; handlers in **`infra/cdk/lambda/ws-route.ts`** (no **`signaling`** route).
