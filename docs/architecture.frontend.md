@@ -55,9 +55,9 @@ flowchart LR
   end
 
   subgraph guest_path["Guests"]
-    ROOM --> WS[WebSocket signaling chat ping]
-    WS --> SRV[Backend]
-    RTC_OUT -.->|SDP ICE via WS or HTTP| GUEST[Guest WebRTC subscribe]
+    ROOM --> WS[WebSocket chat presence ping]
+    WS --> SRV[API Gateway control plane]
+    RTC_OUT -.->|RTP via SFU wss| GUEST[Guest WebRTC subscribe]
     GUEST --> VID[Inbound media element]
   end
 ```

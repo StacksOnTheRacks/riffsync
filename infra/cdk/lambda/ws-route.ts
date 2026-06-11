@@ -392,53 +392,6 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     return { statusCode: 200, body: 'OK' };
   }
 
-  if (routeKey === 'signaling') {
-    const envelope = body.envelope;
-    if (envelope === undefined) {
-      return { statusCode: 400, body: 'envelope required' };
-    }
-
-    const hostSubConn = typeof conn.hostSub === 'string' ? conn.hostSub : undefined;
-    const isPublisher = Boolean(hostSubConn && hostSubConn === room.hostSub);
-
-    let allowGuestRelay = false;
-    if (
-      envelope !== null &&
-      typeof envelope === 'object' &&
-      (envelope as { guestSignaling?: unknown }).guestSignaling === true
-    ) {
-      const kind = (envelope as { kind?: unknown }).kind;
-      allowGuestRelay = kind === 'ready' || kind === 'answer' || kind === 'ice';
-    }
-
-    if (!isPublisher && !allowGuestRelay) {
-      console.warn(
-        JSON.stringify({
-          riffsyncDiag: 'ws_signaling',
-          outcome: 'forbidden_non_publisher',
-          connectionIdTail: connectionId.slice(-12),
-          sessionHead: sessionId.slice(0, 8),
-          roomIdHead: roomId.slice(0, 8),
-          dynamoStoresPublisherRole: Boolean(hostSubConn),
-        }),
-      );
-      return { statusCode: 403, body: 'Publisher JWT required (or guest ready/answer/ice only)' };
-    }
-
-    const mgmt = wsManagementClient();
-    const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
-    const out = {
-      type: 'signaling',
-      roomId,
-      fromSessionId: sessionId,
-      role: isPublisher ? 'host' : 'guest',
-      envelope,
-    };
-    const buf = encoder.encode(JSON.stringify(out));
-    await postToConnections(mgmt, doc, connTable, ids, buf, connectionId, presenceTable);
-    return { statusCode: 200, body: 'OK' };
-  }
-
   return { statusCode: 400, body: `Unknown route ${routeKey}` };
 }
 
