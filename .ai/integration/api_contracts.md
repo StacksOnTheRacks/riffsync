@@ -170,23 +170,42 @@ Beyond participant A/V publish errors (**`error_state.md`**, **`authorization.md
 
 ### Application SDK boundary (integration surface)
 
-Hardening extracts **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** from monolithic room orchestration. **Normative public integration surface** for realtime drawers:
+Hardening extracts **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** from monolithic room orchestration. **Normative public integration surface** for code outside **`apps/web/src/room/sessions/`**:
 
 | Method | Responsibility |
 | --- | --- |
-| **`join(roomId)`** | Room snapshot, room WS, ICE fetch, SFU connect (consumer baseline) |
-| **`publishAv(options)`** | Participant A/V produce path |
-| **`subscribe(handlers)`** | Consumer attach for **`host_screen`** / **`participant_av`** |
-| **`getDiagnostics()`** | Per-drawer status + last error **`code`** |
+| **`join(roomId, options)`** | Bootstrap per **`startup_bootstrap.md`**: construct session modules, open room WS, warm ICE, connect SFU consumer baseline, init **`TheaterPlayback`** when Theater layout. **`options`** include pre-fetched **`RoomSnapshot`**, **`sessionId`**, display name, optional fan JWT, API/WS URLs, host role hint. Returns **`RoomRealtimeSdk`** — no raw sockets. |
+| **`publishAv({ camera, mic })`** | Participant A/V produce path on **`SfuMediaSession`**; idempotent partial unpublish. |
+| **`subscribe(handlers)`** | Register **`hostScreen`** / **`participantAv`** handler groups; SFU consumer attach + theater mix wiring. |
+| **`getDiagnostics()`** | **`RoomRealtimeDiagnostics`** snapshot (see below). |
+| **`teardown()`** | Intentional room leave: torn-down all drawers, release media handles. |
 
-Internal modules **must not** cross-call destructive teardown across drawers without explicit media policy.
+Implementation: **`apps/web/src/room/sessions/RoomRealtimeSdk.ts`**. Internal session modules **must not** cross-call destructive teardown across drawers without explicit media policy.
+
+#### `RoomRealtimeDiagnostics` shape (#139)
+
+Stable JSON field names for PR harness assertions and fan-visible status mapping (**`execution_model.md`**):
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| **`roomId`** | string | Canonical room id |
+| **`sessionId`** | string | Guest **`sessionId`** for this tab |
+| **`asOf`** | string | ISO-8601 snapshot time |
+| **`drawers.chat`** | object | **`{ state, lastErrorCode? }`** — maps to chat sidebar status |
+| **`drawers.sfuSignaling`** | object | **`{ state, lastErrorCode?, role?, producerCount?, consumerCount? }`** — maps to video-relay status |
+| **`drawers.theaterPlayback`** | object | **`{ state, lastErrorCode?, audioContextState? }`** — theater mix / iframe drawer |
+| **`activeErrorCodes`** | string[] | All drawer-tagged codes currently asserted (e.g. **`CHAT_SEND_DROPPED`**, **`SIGNALING_TIMEOUT`**) |
+
+**`state`** on each drawer: **`connected` \| `reconnecting` \| `degraded` \| `torn-down`**. UI reads chat and SFU drawers **independently** — never collapse to one generic connection banner when only one plane fails.
+
+**Dev-only:** **`realtimeDiagnostics.ts`** timeline (`?diag=1`) is **not** **`getDiagnostics()`** — maintainers use it for WS counters and role probes.
 
 ## Open implementation decisions
 
 - Exact chat outbound **retry count** and queue depth before **`CHAT_SEND_DROPPED`**.
 - SFU signaling **request-ack timeout** (seconds) for **`SIGNALING_TIMEOUT`**.
 - ICE **`failed`** vs **`disconnected`** timing before surfacing **`ICE_FAILED`**.
-- Whether **`PRODUCER_CLOSED`** is surfaced to UI chrome or handled only inside **`subscribe`** handlers.
+- Whether **`PRODUCER_CLOSED`** gets standalone status chrome vs tile-only UX — **`activeErrorCodes`** may include it transiently; fan copy in #141.
 
 ## Open implementation details
 

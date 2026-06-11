@@ -158,16 +158,29 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | **Extraction vs SDK (#139)** | Modules expose class methods first; narrow **`join` / `publishAv` / `subscribe` / `getDiagnostics`** facade lands in #139 — extraction must not block on facade naming. |
 | **Extraction vs state machines (#140)** | Modules may use internal **`connected` / `closed`** flags during extraction; formal **`reconnecting` / `degraded` / `torn-down`** substates and drawer isolation enforcement land in #140. |
 
+## Decisions (narrow SDK — #139)
+
+| Topic | Decision |
+| --- | --- |
+| **Facade module** | **`apps/web/src/room/sessions/RoomRealtimeSdk.ts`** — framework-agnostic class with colocated **`RoomRealtimeSdk.test.ts`**. Only **`join`**, **`publishAv`**, **`subscribe`**, **`getDiagnostics`**, and **`teardown`** are public on the facade. Session module classes remain importable **only** from the SDK file and sibling session modules — not from **`RoomPage`**, stage, or chat UI. |
+| **`join(roomId, options)`** | Accepts pre-fetched **`RoomSnapshot`**, guest **`sessionId`**, display name, optional fan JWT, API/WS base URLs, and host/guest role hints. Runs bootstrap order from **`startup_bootstrap.md`**: construct **`ChatSession`** → ICE warm → **`SfuMediaSession`** → **`TheaterPlayback`** when layout is Theater. Returns the SDK instance; **no** raw **`WebSocket`** or mediasoup handles escape the sessions package. |
+| **`publishAv({ camera, mic })`** | Idempotent delegate to **`SfuMediaSession`** participant publish gate. Partial unpublish (camera off, mic on) without full session rebuild when publish is already supported. |
+| **`subscribe(handlers)`** | Register **`hostScreen`** and/or **`participantAv`** consumer handler groups. Re-registering replaces prior handlers. **`SfuMediaSession`** attaches remote producers; **`TheaterPlayback`** wires audio mix nodes when Theater layout is active. |
+| **`getDiagnostics()`** | Returns **`RoomRealtimeDiagnostics`** snapshot (stable field names for harness + UI mapping): **`roomId`**, **`sessionId`**, **`asOf`** (ISO-8601), **`drawers.chat`**, **`drawers.sfuSignaling`**, **`drawers.theaterPlayback`**, **`activeErrorCodes`**. Each drawer object: **`{ state, lastErrorCode? }`** where **`state`** is **`connected` \| `reconnecting` \| `degraded` \| `torn-down`**. Optional **`sfuSignaling`**: **`role`**, **`producerCount`**, **`consumerCount`**. Optional **`theaterPlayback.audioContextState`**. Top-level **`activeErrorCodes`** lists all drawer-tagged codes currently asserted (multi-code allowed). |
+| **Dev-only diagnostics** | **`realtimeDiagnostics.ts`** (`?diag=1`, **`window.riffsyncRealtimeDiag`**) remains separate from **`getDiagnostics()`** — timeline counters and JWT probes are maintainer tooling, not the fan status contract. |
+| **SDK vs state machines (#140)** | #139 may map module-internal coarse flags to the four lifecycle states; formal transition tables and drawer isolation enforcement land in #140. |
+| **SDK vs typed errors (#141)** | #139 exposes **`lastErrorCode`** / **`activeErrorCodes`** strings from module boundaries; canonical UX copy and toggle **`aria-describedby`** mapping land in #141. |
+
 ## Open implementation decisions
 
 - **`ChatSession` send queue:** drop vs short buffer when room WS flaps while compose is active.
 - **Per-drawer backoff:** max attempts, jitter, and user-visible **`reconnecting`** threshold before **`degraded`** — align with **`.ai/interface/`** status copy.
-- **`getDiagnostics()` shape:** stable JSON fields for harness assertions and fan-visible status mapping.
 - **`TheaterPlayback` resume:** implicit gesture resume vs optional explicit control — **`.ai/interface/presentation.md`**.
 - **SFU JWT timer vs connected socket:** re-mint at ~60s before **`exp`** while signaling socket stays **`open`** — exact timer ownership between **`SfuMediaSession`** and token fetch helper.
 
 ## Primary code pointers (optional)
 
+- **`apps/web/src/room/sessions/RoomRealtimeSdk.ts`** — narrow public realtime API (**#139**).
 - **`apps/web/src/room/sessions/`** — **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`** (post-#138).
 - **`apps/web/src/pages/RoomPage.tsx`** — thin shell wiring session modules to room chrome.
 - **`apps/web/src/room/sfu/`** — low-level mediasoup helpers absorbed by **`SfuMediaSession`** during extraction; directory may shrink to shared types/utilities.

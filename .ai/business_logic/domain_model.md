@@ -23,7 +23,7 @@ Three orthogonal client compartments own distinct realtime concerns. Each has it
 | **SfuMediaSession** | SFU signaling WebSocket; mediasoup join; publish/unpublish for **`host_screen`** and **`participant_av`**; consumer attach/detach per producer class; SFU token refresh and reconnect. | Chat message delivery, scrollback, compose validation. |
 | **TheaterPlayback** | Host movie presentation (embed or tab-capture-derived stream); **Theater** strip and **Video Chat** grid of **video-on** participants; equal-gain client-side Web Audio mix of movie audio and participant microphones. | Chat transport; SFU token mint; durable room document writes. |
 
-**Narrow public SDK (behavioral):** Outward room realtime operations are **`join`**, **`publishAv`**, **`subscribe`**, and **`getDiagnostics`**. The room shell delegates to compartments; cross-compartment side effects follow **Decoupled lifecycles** below, not implicit handler coupling.
+**Narrow public SDK (behavioral):** Outward room realtime operations are **`RoomRealtimeSdk.join`**, **`publishAv`**, **`subscribe`**, **`getDiagnostics`**, and **`teardown`** (**`apps/web/src/room/sessions/RoomRealtimeSdk.ts`**). The room shell delegates to compartments via the SDK only; cross-compartment side effects follow **Decoupled lifecycles** below, not implicit handler coupling.
 
 ## Decoupled lifecycles
 
