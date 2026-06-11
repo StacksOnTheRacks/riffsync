@@ -7,7 +7,7 @@ Watch-party failures classify to **drawers** aligned with session jurisdictions 
 | Drawer | Typical sources | Recovery posture |
 | --- | --- | --- |
 | **Chat (room WebSocket)** | Send reject, socket close, backoff exhausted | Reconnect chat plane alone; do not close SFU session on chat failure. |
-| **SFU signaling** | Signaling WebSocket close, JWT expiry, **`produce`** reject | Reconnect SFU plane alone; adopt refreshed token without preemptive unrelated producer teardown unless revoked. |
+| **SFU signaling** | Signaling WebSocket close, JWT expiry, **`produce`** reject | Reconnect SFU plane alone; adopt refreshed token without preemptive unrelated producer teardown unless revoked. **Configuration-class** unreachable hosts (**#137**) enter persistent visible error; do not clear banner on reconnect attempt until **`session.ready`**. |
 | **Connectivity (ICE/TURN)** | ICE failed, relay required, DTLS timeout | Retry ICE/TURN path; surface connectivity drawer codes; SFU signaling may stay open while ICE recovers. |
 | **Produce / consume** | **`producerClosed`**, consumer attach failure, partial unpublish | Detach or update consumers and tiles per producer class; no full session rebuild when partial teardown suffices. |
 | **Theater playback** | **AudioContext** suspend, autoplay block, mix graph error | Local playback recovery; does not tear down chat or SFU unless user leaves room. |
@@ -69,10 +69,11 @@ After durable **`avDisabled`** write on room document, room **`PATCH`** Lambda f
 | `share_state: stopped` handler scope? | Detach **`host_screen`** only; **no** guest full SFU session close from chat handler. |
 | Drawer-independent reconnect? | Each drawer recovers alone; cross-drawer destructive hooks forbidden except leave / **`avDisabled`**. |
 | Typed failure domains? | Extend taxonomy with drawer codes; failures name drawer in logs/metrics contracts (**`operations/observability.md`** peer). |
+| SFU config vs transient failure? | Classify **`LOCAL_SFU_UNREACHABLE`** / **`SFU_RELAY_UNREACHABLE`** per **`configuration.md`** thresholds; **no** mesh fallback. |
 
 ## Open implementation decisions
 
-- **Drawer error code table:** exhaustive mapping from drawer codes to toggle behavior, inline copy templates, recoverable vs refresh-required outcomes, and association with chat vs video-relay status surfaces (**`error_state.md`** extension).
+- **Drawer error code table:** exhaustive mapping from drawer codes to toggle behavior, inline copy templates, recoverable vs refresh-required outcomes, and association with chat vs video-relay status surfaces (**`error_state.md`** extension). **`SFU_RELAY_*`** rows resolved for **#137**; remaining rows cover reconnecting/degraded copy (**presentation.md**).
 
 ## Primary code pointers (optional)
 

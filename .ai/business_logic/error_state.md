@@ -81,6 +81,9 @@ Extends participant A/V codes with **drawer-typed** failures. Each maps to **inl
 | **`PRODUCER_CLOSED`** | Produce/consume | Stage tiles (implicit) | Yes | Remote video tile removes when producer closes; no user toast unless publish/consume also failed. |
 | **`sfu_publish_rejected`** | Produce/consume | AV toggles | Yes | (see participant A/V table above) |
 | **`PLAYBACK_AUDIO_BLOCKED`** | Theater playback | Theater / mix region | Yes | Party audio is blocked. Tap to enable sound or check browser autoplay settings. |
+| **`SFU_RELAY_URL_MISSING`** | SFU signaling | Page alert + video-relay status | No (config) | Video relay URL is missing. Set **`VITE_PUBLIC_SFU_WS_URL`** at build time or redeploy API so **`POST /v1/webrtc/sfu-token`** returns **`wsUrl`**. |
+| **`LOCAL_SFU_UNREACHABLE`** | SFU signaling | Page alert + video-relay status | No (config) | Local video relay is not running. Run **`npm run media:local`**, then confirm **`curl -sSf http://127.0.0.1:3000/healthz`**. |
+| **`SFU_RELAY_UNREACHABLE`** | SFU signaling | Page alert + video-relay status | No (config) | Video relay is unreachable. Check **`docs/sfu-deploy-checklist.md`** and **`/healthz`** on the signaling host. |
 
 - Drawer codes must **not** collapse into a single generic "connection lost" when planes are independent.
 - **`PRODUCER_CLOSED`** is the normative outcome for camera-off partial teardown; frozen tiles indicate client non-compliance.

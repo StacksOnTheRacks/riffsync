@@ -89,6 +89,9 @@ Client runtime failures crossing module boundaries use **drawer-tagged codes** (
 | **`TRANSPORT_LIMIT_REACHED`** | SFU media | Session transport cap (**`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`**). |
 | **`CONSUMER_LIMIT_REACHED`** | SFU media | Session consumer cap. |
 | **`THEATER_AUDIO_SUSPENDED`** | theater playback | **`AudioContext`** suspended; mix inaudible until resume policy runs. |
+| **`SFU_RELAY_URL_MISSING`** | SFU signaling | No WS base resolved (missing token **`wsUrl`** and build-time override). |
+| **`LOCAL_SFU_UNREACHABLE`** | SFU signaling | Local disposable signaling host not accepting connections (**#137**). |
+| **`SFU_RELAY_UNREACHABLE`** | SFU signaling | Prod (non-local) signaling host unreachable after classified retry threshold (**#137**). |
 
 Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/business_logic/error_state.md`**; modules map internal failures to these codes at the boundary. **`getDiagnostics()`** exposes active codes per drawer for separate status UI (**`.ai/interface/`**).
 

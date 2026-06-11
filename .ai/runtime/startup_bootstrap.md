@@ -64,6 +64,14 @@ Developers **cannot** exercise watch-party media without a running SFU (+ TURN w
 | Local SFU join secret? | **`SFU_JWT_SECRET`** in **`infra/local-media/.env`** must match prod join HMAC when using prod **`webrtc-sfu-token`**; operator copies from **`riffsync/sfu-join-hmac-secret`** (never commit). |
 | Workstation startup order? | **`npm run media:local`** → **`curl /healthz`** → **`cd apps/web && npm run dev`** with **`.env.local`** wired per **`configuration.md`**. |
 
+## Decisions (visible SFU config error — #137)
+
+| Question | Decision |
+| --- | --- |
+| SFU down during room join? | **`SfuMediaSession`** enters **`degraded`** / failed config state with persistent visible error; **no** mesh fallback. |
+| Chat bootstrap when SFU unreachable? | **`ChatSession`** may reach **`connected`** independently; compose/send follows chat drawer policy. |
+| Local dev misconfiguration signal? | When **`VITE_PUBLIC_SFU_WS_URL`** targets local disposable host and SFU is not listening, show **`LOCAL_SFU_UNREACHABLE`** copy (see **`configuration.md`**) — not generic infinite "Connecting…" with cleared banners. |
+
 ## Open implementation decisions
 
 - **`webrtc-sfu-token`** branches for participant producer grant and **`avDisabled`** check at mint time (**#102** / **`integration/api_contracts.md`**).

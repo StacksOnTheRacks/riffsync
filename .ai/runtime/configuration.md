@@ -89,6 +89,18 @@ SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU We
 | **`VITE_PUBLIC_SFU_WS_URL`** | Disposable SFU signaling base (e.g. **`ws://127.0.0.1:3000`**). |
 | **`VITE_WEBRTC_ICE_SERVERS_JSON`** | Optional JSON array overriding **`GET /v1/webrtc/ice`** when local coturn credentials differ from prod TURN. |
 
+## Visible SFU configuration errors (#137)
+
+When mediasoup signaling cannot be reached, the SPA surfaces an **honest configuration or deployment error** — **never** a silent mesh fallback.
+
+| Failure class | Detection (client) | UX surface |
+| --- | --- | --- |
+| **`SFU_RELAY_URL_MISSING`** | Resolved WS base is empty (no token **`wsUrl`** and no **`VITE_PUBLIC_SFU_WS_URL`**) | Page **`role="alert"`** + video-relay status; copy references CDK **`sfuPublicWsUrl`** / build-time **`VITE_PUBLIC_SFU_WS_URL`**. |
+| **`LOCAL_SFU_UNREACHABLE`** | Signaling host is local disposable (**`127.0.0.1`**, **`localhost`**, **`host.docker.internal`**) and **2** consecutive WebSocket open failures **or** first open failure when optional **`GET {httpBase}/healthz`** fails with connection error | Page alert + video-relay status; copy references **`npm run media:local`** and **`curl -sSf http://127.0.0.1:3000/healthz`**. |
+| **`SFU_RELAY_UNREACHABLE`** | Prod (non-local) signaling host and **4** consecutive WebSocket open failures | Page alert + video-relay status; copy references **`docs/sfu-deploy-checklist.md`** (**`/healthz`**). |
+
+**Reconnect policy:** Classified configuration errors stay visible through backoff retries; clear only after **`session.ready`**. Chat (room WebSocket) continues independently.
+
 ## SFU producer cap env vars
 
 | Variable | Default | Contract |
@@ -106,9 +118,18 @@ SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU We
 | Local SFU URL env name? | **`VITE_PUBLIC_SFU_WS_URL`** only — same name as prod SPA build; no **`VITE_SFU_WS_URL`** alias. |
 | CI harness env injection? | **Out of #136** — harness milestone documents per-run HMAC and GitHub Actions secrets. |
 
+## Decisions (visible SFU config error — #137)
+
+| Question | Decision |
+| --- | --- |
+| Mesh fallback when SFU down? | **Never** — SFU-only error surfaces; mesh branches removed in **#134**. |
+| Clear error on reconnect attempt? | **No** — clear on successful **`session.ready`** only. |
+| Local vs prod copy? | **Branch on signaling hostname** — local disposable hosts get compose/bootstrap remediation; prod hosts get deploy checklist remediation. |
+| Optional health probe? | **`GET /healthz`** derived from WS base (http/https swap) may classify local config failure before second WS attempt. |
+
 ## Open implementation decisions
 
-- (none for #136 local disposable profile scope)
+- (none for #136 / #137 watch-party media configuration scope)
 
 ## Primary code pointers (optional)
 

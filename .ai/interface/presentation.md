@@ -35,7 +35,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 ### Media path (SFU-only)
 
 - **All environments** (local dev, CI, prod) use the **mediasoup SFU** path for host screen-share and participant A/V. **No mesh WebRTC UI** — remove production mesh warnings, mesh negotiation status strings, and mesh-only guest playback affordances.
-- Missing SFU/TURN configuration surfaces an **honest deployment/configuration error** (not a fallback path selector).
+- Missing SFU/TURN configuration surfaces an **honest deployment/configuration error** (not a fallback path selector). Stable codes **`SFU_RELAY_URL_MISSING`**, **`LOCAL_SFU_UNREACHABLE`**, **`SFU_RELAY_UNREACHABLE`** map to page **`role="alert"`** and video-relay status (**#137**, **`error_state.md`**). Errors persist through reconnect backoff until signaling **`session.ready`** succeeds.
 
 ### Realtime drawer status (separate surfaces)
 

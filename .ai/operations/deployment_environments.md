@@ -61,7 +61,7 @@ Local watch-party media **must** exercise the same SFU + coturn topology as **`R
 | **SPA wiring** | **`apps/web/.env.local`**: **`VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000`** overrides token **`wsUrl`**; **`VITE_WEBRTC_ICE_SERVERS_JSON`** points at local coturn when prod **`GET /v1/webrtc/ice`** TURN is unsuitable. |
 | **Control plane** | Room WebSocket and HTTP API may still target **prod** **`RiffSyncApi-prod`** (existing localhost OAuth pattern). **Do not** point disposable SPA media at prod **`RiffSyncTurn`** for routine dev. |
 
-**Mesh retirement:** Remove **`VITE_WEBRTC_USE_MEDIASOU_SFU`** mesh toggle. If disposable SFU is not running, room media surfaces a visible configuration error — not a silent mesh fallback.
+**Mesh retirement:** Remove **`VITE_WEBRTC_USE_MEDIASOU_SFU`** mesh toggle. If disposable SFU is not running, room media surfaces **`LOCAL_SFU_UNREACHABLE`** (page alert + video-relay status) with **`npm run media:local`** / **`/healthz`** remediation — **not** a silent mesh fallback or cleared reconnect banner (**#137**, **`configuration.md`**).
 
 ## Participant AV — media capacity and promotion
 
@@ -125,9 +125,16 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 | ICE in CI? | **Out of #136 scope** — harness milestone chooses host-network vs TURN-only on GitHub runners; local profile documents coturn for cross-tab workstation dev. |
 | Prod **`RiffSyncTurn`** debugging? | **No** for routine dev — disposable profile only. |
 
+## Decisions (visible SFU config error — #137)
+
+| Question | Decision |
+| --- | --- |
+| Operator smoke when local stack down? | With **`VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000`** and compose stopped, room page shows **`LOCAL_SFU_UNREACHABLE`** within two signaling open attempts; chat may still connect. |
+| Checklist step? | Add **`docs/sfu-deploy-checklist.md`** step for local disposable down + prod missing **`wsUrl`** regression. |
+
 ## Open implementation decisions
 
-- (none for #136 local disposable profile scope)
+- (none for #136 / #137 local disposable + config-error scope)
 
 ## Primary code pointers (optional)
 
