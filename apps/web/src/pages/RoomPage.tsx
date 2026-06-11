@@ -20,7 +20,8 @@ import { getPublicWsUrl } from '../config/wsUrl'
 import { getPublicOrigin } from '../config/publicOrigin'
 import { fetchRtcIceServers } from '../config/fetchRtcIceServers'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
-import { useRoomWebSocket } from '../room/useRoomWebSocket'
+import { useChatSession } from '../room/useChatSession'
+import type { ChatGifLine, ChatTextLine } from '../room/sessions/ChatSession'
 import { useRoomChrome } from '../room/useRoomChrome'
 import {
   announceWebrtcDebugOnRoomMount,
@@ -35,11 +36,7 @@ import {
   type ParticipantAvPublishGate,
 } from '../room/sfu/participantAvSession'
 import { createTheaterAudioMix } from '../room/audio/theaterAudioMix'
-import {
-  enteredVideoChatMode,
-  parseInboundRoomMode,
-  stopMediaStreamTracks,
-} from '../room/roomMediaLifecycle'
+import { enteredVideoChatMode, stopMediaStreamTracks } from '../room/roomMediaLifecycle'
 import type { SfuUnifiedSessionHandle } from '../room/sfu/mediasoupSharing'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
 import {
@@ -55,14 +52,13 @@ import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
 import { isEmojiOnlyChatMessage } from '../room/chatEmojiDisplay'
 import type { GiphySearchResult } from '../api/giphySearchApi'
-import { parseInboundChatGifMessage } from '../room/chatGifMessage'
 import { ChatReactionsStrip } from '../room/ChatReactionsStrip'
 import {
   applyChatReactionEvent,
   canAcceptReactionAdd,
   type ReactionsByMessage,
 } from '../room/chatReactions'
-import { createChatMessageId, parseInboundChatMessageId } from '../room/chatMessageId'
+import { createChatMessageId } from '../room/chatMessageId'
 import { isContinuedChatLine } from '../room/chatMessageGrouping'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 import { participantAvErrorFromSfuMediaCode } from '../room/av/participantAvErrors'
@@ -86,30 +82,6 @@ import { useViewportWide } from '../room/stage/useViewportWide'
 
 const DISPLAY_TITLE_MAX_LEN = 120
 
-type ChatTextLine = {
-  kind: 'text'
-  messageId: string
-  sessionId: string
-  text: string
-  ts: number
-  displayName?: string
-  avatarUrl?: string
-}
-
-type ChatGifLine = {
-  kind: 'gif'
-  messageId: string
-  sessionId: string
-  giphyId: string
-  renditionUrl: string
-  title?: string
-  width?: number
-  height?: number
-  ts: number
-  displayName?: string
-  avatarUrl?: string
-}
-
 type ChatLine = ChatTextLine | ChatGifLine
 
 type PresenceMember = {
@@ -117,12 +89,6 @@ type PresenceMember = {
   displayName: string
   isHost: boolean
   avatarUrl?: string
-}
-
-function parseInboundAvatarUrl(raw: unknown): string | undefined {
-  if (typeof raw !== 'string') return undefined
-  const trimmed = raw.trim()
-  return trimmed !== '' ? trimmed : undefined
 }
 
 function resolveMemberAvatarUrl(
@@ -501,128 +467,68 @@ export function RoomPage() {
 
   const sendJsonRef = useRef<(o: Record<string, unknown>) => void>(() => {})
 
-  const onWsMessage = useCallback(
-    (data: Record<string, unknown>) => {
-      const t = data.type
-      if (t === 'chat' && typeof data.sessionId === 'string' && typeof data.text === 'string') {
-        const messageId = parseInboundChatMessageId(data.messageId)
-        if (messageId === null) return
-        const ts = typeof data.ts === 'number' ? data.ts : Date.now()
-        const dn = typeof data.displayName === 'string' ? data.displayName : undefined
-        const avatarUrl = parseInboundAvatarUrl(data.avatarUrl)
-        setChat((prev) => [
-          ...prev,
-          {
-            kind: 'text',
-            sessionId: data.sessionId as string,
-            text: String(data.text),
-            ts,
-            messageId,
-            ...(dn !== undefined && dn !== '' ? { displayName: dn } : {}),
-            ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-          },
-        ])
-        return
-      }
-      if (t === 'chat_gif') {
-        const gifLine = parseInboundChatGifMessage(data)
-        if (gifLine === null) return
-        setChat((prev) => [...prev, { kind: 'gif', ...gifLine }])
-        return
-      }
-      if (
-        t === 'chat_reaction' &&
-        typeof data.messageId === 'string' &&
-        typeof data.emoji === 'string' &&
-        (data.action === 'add' || data.action === 'remove') &&
-        typeof data.sessionId === 'string'
-      ) {
-        const messageId = data.messageId.trim()
-        const emoji = data.emoji.trim()
-        if (messageId === '' || emoji === '') return
-        setChatReactions((prev) =>
-          applyChatReactionEvent(
-            prev,
-            messageId,
-            emoji,
-            data.action as 'add' | 'remove',
-            data.sessionId as string,
-            sessionId,
-          ),
-        )
-        return
-      }
-      if (t === 'presence' && typeof data.roomId === 'string') {
-        if (data.roomId !== canonicalRoomId) return
-        const raw = data.members
-        if (!Array.isArray(raw)) return
-        const members: PresenceMember[] = []
-        for (const m of raw) {
-          if (!isRecord(m)) continue
-          const sid = m.sessionId
-          const dn = m.displayName
-          if (typeof sid !== 'string' || typeof dn !== 'string') continue
-          const avatarUrl = parseInboundAvatarUrl(m.avatarUrl)
-          members.push({
-            sessionId: sid,
-            displayName: dn,
-            isHost: Boolean(m.isHost),
-            ...(avatarUrl !== undefined ? { avatarUrl } : {}),
-          })
-        }
-        setPresenceRoster({ roomId: data.roomId as string, members })
-        return
-      }
-      if (t === 'share_state' && typeof data.roomId === 'string') {
-        if (data.roomId !== canonicalRoomId) return
-        if (isPublisher) return
-        const state = data.state
-        if (state !== 'stopped') return
-        sfuSessionRef.current?.detachConsumerClass('host_screen')
-        setGuestRemote(null)
-        return
-      }
-      if (t === 'room_mode') {
-        const nextMode = parseInboundRoomMode(data.roomMode)
-        if (!nextMode) return
-        setRoom((prev) => {
-          if (!prev) return prev
-          return {
-            ...prev,
-            roomMode: nextMode,
-            ...(nextMode === 'videoChat' ? { broadcastCaptureActive: false } : {}),
-          }
-        })
-        if (Date.now() > hostPatchSuppressAnnounceUntilRef.current) {
-          announceRoomA11y(roomModeAnnounceCopy(nextMode))
-        }
-        return
-      }
-      if (t === 'av_disabled' && typeof data.avDisabled === 'boolean') {
-        const nextAvDisabled = data.avDisabled as boolean
-        setRoom((prev) => (prev ? { ...prev, avDisabled: nextAvDisabled } : prev))
-        if (Date.now() > hostPatchSuppressAnnounceUntilRef.current) {
-          announceRoomA11y(avDisabledAnnounceCopy(nextAvDisabled))
-        }
-        return
-      }
-    },
-    [
-      isPublisher,
-      canonicalRoomId,
-      announceRoomA11y,
-    ],
-  )
-
-  const { status: wsStatus, sendJson: wsSendJson } = useRoomWebSocket({
+  const { status: wsStatus, sendJson: wsSendJson, session: chatSession } = useChatSession({
     url: wsBase,
     roomId: canonicalRoomId,
     sessionId,
     displayName,
     accessToken: fanToken,
     enabled: Boolean(wsBase && canonicalRoomId && room),
-    onMessage: onWsMessage,
   })
+
+  useEffect(() => {
+    const unsubs = [
+      chatSession.onChatText((line) => {
+        setChat((prev) => [...prev, line])
+      }),
+      chatSession.onChatGif((line) => {
+        setChat((prev) => [...prev, line])
+      }),
+      chatSession.onChatReaction((event) => {
+        setChatReactions((prev) =>
+          applyChatReactionEvent(
+            prev,
+            event.messageId,
+            event.emoji,
+            event.action,
+            event.sessionId,
+            sessionId,
+          ),
+        )
+      }),
+      chatSession.onPresence((event) => {
+        setPresenceRoster(event)
+      }),
+      chatSession.onShareState((event) => {
+        if (isPublisher) return
+        if (event.state !== 'stopped') return
+        sfuSessionRef.current?.detachConsumerClass('host_screen')
+        setGuestRemote(null)
+      }),
+      chatSession.onRoomMode((event) => {
+        setRoom((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            roomMode: event.roomMode,
+            ...(event.roomMode === 'videoChat' ? { broadcastCaptureActive: false } : {}),
+          }
+        })
+        if (Date.now() > hostPatchSuppressAnnounceUntilRef.current) {
+          announceRoomA11y(roomModeAnnounceCopy(event.roomMode))
+        }
+      }),
+      chatSession.onAvDisabled((event) => {
+        setRoom((prev) => (prev ? { ...prev, avDisabled: event.avDisabled } : prev))
+        if (Date.now() > hostPatchSuppressAnnounceUntilRef.current) {
+          announceRoomA11y(avDisabledAnnounceCopy(event.avDisabled))
+        }
+      }),
+    ]
+    return () => {
+      for (const unsub of unsubs) unsub()
+    }
+  }, [announceRoomA11y, chatSession, isPublisher, sessionId])
 
   const participantAvGate = useMemo<ParticipantAvPublishGate>(
     () => ({
