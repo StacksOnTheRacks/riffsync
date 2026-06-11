@@ -125,9 +125,11 @@ export function useRoomRealtimeSdk(options: {
   const icePromiseByRoomRef = useRef<{ roomId: string; promise: Promise<RTCIceServer[]> } | null>(
     null,
   )
-  const hostPatchSuppressAnnounceUntilRefStable = hostPatchSuppressAnnounceUntilRef
   const announceRoomA11yRef = useRef(announceRoomA11y)
-  announceRoomA11yRef.current = announceRoomA11y
+
+  useEffect(() => {
+    announceRoomA11yRef.current = announceRoomA11y
+  }, [announceRoomA11y])
 
   const getIceServers = useCallback((): Promise<RTCIceServer[]> => {
     let entry = icePromiseByRoomRef.current
@@ -186,20 +188,22 @@ export function useRoomRealtimeSdk(options: {
               ...(event.roomMode === 'videoChat' ? { broadcastCaptureActive: false } : {}),
             }
           })
-          if (Date.now() > (hostPatchSuppressAnnounceUntilRefStable.current ?? 0)) {
+          if (Date.now() > (hostPatchSuppressAnnounceUntilRef.current ?? 0)) {
             announceRoomA11yRef.current(roomModeAnnounceCopy(event.roomMode))
           }
         },
         onAvDisabledUi: (event) => {
           setRoom((prev) => (prev ? { ...prev, avDisabled: event.avDisabled } : prev))
-          if (Date.now() > (hostPatchSuppressAnnounceUntilRefStable.current ?? 0)) {
+          if (Date.now() > (hostPatchSuppressAnnounceUntilRef.current ?? 0)) {
             announceRoomA11yRef.current(avDisabledAnnounceCopy(event.avDisabled))
           }
         },
       },
       onDiagnosticsChange: () => {
-        setWsStatus(sdk.getChatStatus())
-        setSfuRoomErr(sdk.getSfuRelayError())
+        queueMicrotask(() => {
+          setWsStatus(sdk.getChatStatus())
+          setSfuRoomErr(sdk.getSfuRelayError())
+        })
       },
     })
 
@@ -219,11 +223,10 @@ export function useRoomRealtimeSdk(options: {
       },
     })
 
-    setWsStatus(sdk.getChatStatus())
-    setSfuRoomErr(sdk.getSfuRelayError())
-    setTheaterPlaybackSnapshot(sdk.getTheaterSnapshot())
-
     const theaterUnsub = sdk.onTheaterSnapshotChange(setTheaterPlaybackSnapshot)
+    queueMicrotask(() => {
+      setTheaterPlaybackSnapshot(sdk.getTheaterSnapshot())
+    })
     const chatPoll = window.setInterval(() => {
       setWsStatus(sdk.getChatStatus())
     }, 500)
@@ -248,6 +251,7 @@ export function useRoomRealtimeSdk(options: {
     sessionId,
     wsBase,
     youtubeVideoId,
+    hostPatchSuppressAnnounceUntilRef,
     setRoom,
   ])
 
