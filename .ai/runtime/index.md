@@ -1,6 +1,6 @@
 # Index — runtime
 
-Scopes **Lambda/API execution**, **EC2 mediasoup SFU**, **browser SPA** bootstrap, **configuration**, and **shutdown** across control plane (API Gateway WebSocket) and media plane (direct SFU WebSocket).
+Scopes **Lambda/API execution**, **EC2 mediasoup SFU**, **browser SPA** bootstrap, **configuration**, and **shutdown** across control plane (API Gateway WebSocket) and media plane (direct SFU WebSocket). Client room runtime uses jurisdictional modules **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`** with drawer-independent lifecycles (**`execution_model.md`**).
 
 - Child contracts: **`execution_model.md`** (includes **AWS CDK** + TypeScript Lambda standard and **EC2 SFU** process), **`configuration.md`**, **`startup_bootstrap.md`**, **`lifecycle_shutdown.md`**.
 - See **`docs/architecture.server.md`** and **`docs/architecture.frontend.md`** for component diagrams.

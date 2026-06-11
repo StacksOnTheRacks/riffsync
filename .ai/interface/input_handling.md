@@ -10,6 +10,13 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 
 ## Watch party room (`/room/:roomId`)
 
+### Realtime drawer status (non-interactive)
+
+- **Chat** and **video relay** status banners are **informational only** — not in the primary action tab order as buttons; use **`role="status"`** (or **`role="alert"`** for blocking hard failures per drawer).
+- **Placement:** chat drawer status precedes sidebar tabs in DOM order; video-relay status lives in the stage playback region (**`presentation.md`**). Banners **do not** trap focus or intercept keyboard activation.
+- When both drawers show **`reconnecting`**, focus order is unchanged: toggles → compose → tabs remain reachable; status text is discoverable via reading order without requiring a dismiss action.
+- **No keyboard shortcut** to force drawer reconnect in MVP.
+
 ### Participant camera/microphone toggles
 
 - **Placement:** above chat compose when fan JWT present; **omitted entirely** for anonymous guests (not in tab order, no overlay).
@@ -41,6 +48,10 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - Fullscreen enter/exit control remains keyboard-accessible.
 - When participant AV is in fullscreen scope, strip/grid tiles do not steal focus from fullscreen exit on open.
 
+## Open implementation decisions
+
+- Whether chat-plane **`reconnecting`** disables compose **keyboard** submit only or also shows inline compose **`role="status"`** in addition to the sidebar banner.
+
 ## Primary code pointers (optional)
 
-- **`apps/web/src/pages/RoomPage.tsx`** — room input surfaces; AV toggles and host bar extend existing chat-column and stage handlers.
+- **`apps/web/src/pages/RoomPage.tsx`** — thin shell; AV toggles and host bar extend existing chat-column and stage handlers.

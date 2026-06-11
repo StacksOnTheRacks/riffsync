@@ -1,5 +1,23 @@
 # Error handling
 
+## Realtime failure drawers
+
+Watch-party failures classify to **drawers** aligned with session jurisdictions (**`domain_model.md`**). Each drawer has distinct recovery policy; a failure in one drawer does **not** imply wholesale teardown of another unless policy below requires it.
+
+| Drawer | Typical sources | Recovery posture |
+| --- | --- | --- |
+| **Chat (room WebSocket)** | Send reject, socket close, backoff exhausted | Reconnect chat plane alone; do not close SFU session on chat failure. |
+| **SFU signaling** | Signaling WebSocket close, JWT expiry, **`produce`** reject | Reconnect SFU plane alone; adopt refreshed token without preemptive unrelated producer teardown unless revoked. |
+| **Connectivity (ICE/TURN)** | ICE failed, relay required, DTLS timeout | Retry ICE/TURN path; surface connectivity drawer codes; SFU signaling may stay open while ICE recovers. |
+| **Produce / consume** | **`producerClosed`**, consumer attach failure, partial unpublish | Detach or update consumers and tiles per producer class; no full session rebuild when partial teardown suffices. |
+| **Theater playback** | **AudioContext** suspend, autoplay block, mix graph error | Local playback recovery; does not tear down chat or SFU unless user leaves room. |
+
+**Orthogonal reconnect:** Restoring one drawer must not rebuild another except on room leave, **`avDisabled`**, or explicit cross-drawer policy.
+
+**`share_state: stopped`:** Room WebSocket handler detaches **`host_screen`** consumers only. It must **not** invoke full SFU session teardown for guests.
+
+Stable drawer codes extend the participant A/V taxonomy in **`error_state.md`** (e.g. **`CHAT_SEND_DROPPED`**, **`SIGNALING_TIMEOUT`**, **`ICE_FAILED`**, **`TURN_RELAY_REQUIRED`**, **`PRODUCER_CLOSED`**).
+
 ## HTTP API
 
 | Class | Behavior |
@@ -12,8 +30,10 @@
 
 | Class | Behavior |
 | --- | --- |
-| **Protocol errors** | **Close** with sensible code + log; reconnect guidance in client (**`architecture.frontend.md`**). |
+| **Protocol errors** | **Close** with sensible code + log; reconnect guidance in client (**`architecture.frontend.md`**). Chat protocol close triggers **chat drawer** reconnect only. |
 | **Business reject** | **Error** message envelope with **`type: "error"`** + **`code`**; do not tear down socket for transient host rejections unless policy requires. |
+| **Chat send dropped** | Structured **`code`** (e.g. **`CHAT_SEND_DROPPED`**) when outbound chat cannot be delivered; **no** SFU teardown; user may retry send after chat plane recovers. |
+| **`share_state` events** | **`stopped`** detaches **`host_screen`** consumers per role/mode; **does not** close SFU signaling session for guests. **`started`** re-attaches **`host_screen`** per **`roomMode`**. |
 | **AV kill switch fan-out** | Authoritative **`avDisabled`** (or equivalent) broadcast forces client unpublish/unsubscribe of participant A/V; participant toggles reflect disabled state without requiring socket teardown. |
 | **Participant A/V reject** | Return structured **`code`** for token denial, capacity block, or kill-switch block; client resets toggle to off and shows inline recoverable message. |
 
@@ -41,6 +61,18 @@ After durable **`avDisabled`** write on room document, room **`PATCH`** Lambda f
 - **`avDisabled: false`** on re-enable uses the same envelope with boolean **false**; no SFU teardown call on re-enable.
 - **Business outcome:** all connected clients unpublish / unsubscribe participant A/V immediately; toggles reflect disabled state (**`error_state.md`**).
 - Ordering: Dynamo commit → SFU **`/admin/teardown-producers`** (when disabling) → **`PostToConnection`** fan-out (**`data/consistency.md`**).
+
+## Decisions (answered — realtime hardening)
+
+| Question | Decision |
+| --- | --- |
+| `share_state: stopped` handler scope? | Detach **`host_screen`** only; **no** guest full SFU session close from chat handler. |
+| Drawer-independent reconnect? | Each drawer recovers alone; cross-drawer destructive hooks forbidden except leave / **`avDisabled`**. |
+| Typed failure domains? | Extend taxonomy with drawer codes; failures name drawer in logs/metrics contracts (**`operations/observability.md`** peer). |
+
+## Open implementation decisions
+
+- **Drawer error code table:** exhaustive mapping from drawer codes to toggle behavior, inline copy templates, recoverable vs refresh-required outcomes, and association with chat vs video-relay status surfaces (**`error_state.md`** extension).
 
 ## Primary code pointers (optional)
 

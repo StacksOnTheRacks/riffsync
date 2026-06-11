@@ -38,7 +38,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 ## WebSocket (API Gateway WebSocket API)
 
-- **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **WebRTC signaling** (SDP / ICE relay — schemas TBD), **`chat`** (text/emoji and **Giphy GIF** posts), **`react`** (emoji reaction add/remove on a **`messageId`**), **`ping`** (liveness for **`lastActivityAt`**), **`share_state`** (host screen-share lifecycle). **Durable** **`roomMode`** and **`avDisabled`** changes use **HTTP `PATCH` only** — no inbound **`room_mode`** / **`av_disabled`** WebSocket application routes; **`room-patch` Lambda** fans out outbound **`room_mode`** / **`av_disabled`** broadcasts after Dynamo commit (#103).
+- **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **`chat`** (text/emoji and **Giphy GIF** posts), **`react`** (emoji reaction add/remove on a **`messageId`**), **`ping`** (liveness for **`lastActivityAt`**), **`share_state`** (host screen-share lifecycle). **Mesh WebRTC `signaling` route (SDP / ICE relay over API Gateway) is removed** — media uses **SFU signaling WebSocket only** (see **Realtime hardening** below). **Durable** **`roomMode`** and **`avDisabled`** changes use **HTTP `PATCH` only** — no inbound **`room_mode`** / **`av_disabled`** WebSocket application routes; **`room-patch` Lambda** fans out outbound **`room_mode`** / **`av_disabled`** broadcasts after Dynamo commit (#103).
 - **Chat payloads (broadcast):** discriminated by **`type`** — e.g. **`chat`** (text/unicode emoji), **`chat_gif`** (**`giphyId`**, rendition URL, optional title/dimensions), **`chat_reaction`** (**`messageId`**, emoji, **`action`**: add | remove, **`sessionId`** / sender identity). Each chat line carries client-generated **`messageId`** (UUID) within scrollback. Server enriches with **`displayName`** and optional **`avatarUrl`** for signed-in senders.
 - **Room control fan-out (broadcast):** discriminated by **`type`** — **`share_state`** (**`state`**: **`started`** \| **`stopped`**, optional **`shareGeneration`**); **`room_mode`** (**`roomMode`**: **`theater`** \| **`videoChat`**, **`roomId`**, **`sessionId`**, **`ts`**, optional **`version`**); **`av_disabled`** (**`avDisabled`**: boolean, **`roomId`**, **`sessionId`**, **`ts`**, optional **`version`**). **`share_state`** is host-inbound over WebSocket; **`room_mode`** / **`av_disabled`** are **outbound-only** from **`room-patch`** after host **`PATCH`** succeeds (**`JWT.sub === hostSub`** on HTTP caller).
 - **Send auth:** **`chat`**, **`chat_gif`**, and **`react`** require **fan JWT** on the connection (or per-action validation); anonymous **`sessionId`** connections are **receive-only** for chat fanout.
@@ -75,7 +75,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Staff auth end-to-end check? | **`GET /v1/admin/session`** under **`/v1/admin/*`** with staff JWT; validates authorizer + **`cognito:groups`** before catalog admin routes ship. |
 | GIF provider? | **Giphy** only for this product slice; server-side search + Giphy CDN renditions in messages (**`external_systems.md`**). |
 | Guest chat send / react? | **Fan JWT required** to send text/emoji/GIF and to add/remove reactions; guests **view only**. |
-| Participant AV publish? | **Signed-in fans only**; SFU path in production; mesh dev-only (**`VITE_WEBRTC_USE_MEDIASOU_SFU`** off). |
+| Participant AV publish? | **Signed-in fans only**; **SFU path in all environments** (local dev, CI, production). **Mesh WebRTC removed** this milestone. |
 | Room mode + AV kill switch durability? | **Durable** on room document; host **`PATCH`**; returned on snapshot/join; fan-out over WebSocket after write. |
 | AV kill switch enforcement? | **Server-enforced** — deny participant producer tokens, SFU tears down participant producers, broadcast **`avDisabled`**. |
 | Theater participant audio? | **Client-side mixing** — consumers attach multiple SFU audio consumers (host movie + participant mics); no server-side mixer in MVP. |
@@ -114,6 +114,79 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | **`room_mode`** payload? | **Minimal** — **`roomMode`**, **`roomId`**, **`sessionId`**, **`ts`** (epoch ms), optional **`version`**; not a full room snapshot. |
 | **`av_disabled`** payload? | **Minimal** — boolean **`avDisabled`**, **`roomId`**, **`sessionId`**, **`ts`**, optional **`version`**. |
 | **`sessionId` on fan-out?** | From host **`X-Session-Id`** on **`PATCH`** when present; clients treat field values as authoritative regardless. |
+
+## Realtime hardening — media plane contracts
+
+### SFU-only media path
+
+- **All environments** (local dev, CI, production) use **mediasoup SFU** + **coturn**. **Mesh WebRTC** signaling over API Gateway WebSocket is **deprecated and removed** this milestone (client mesh branches and **`signaling`** WS route).
+- Local dev and CI spin up **disposable SFU + TURN** profiles matching production topology. **Integration conformance harness** requirements live in **`operations/build_packaging.md`**; integration contract summary in **`external_systems.md`**.
+
+### `share_state: stopped` — host vs guest
+
+| Actor | On **`share_state: stopped`** (broadcast or local stop) |
+| --- | --- |
+| **Host (publisher)** | Unpublish **`host_screen`** producers locally; may emit **`share_state: stopped`** after capture ends. **Does not** close the SFU signaling session or tear down **`participant_av`**. |
+| **Guest / non-host consumer** | **Detach `host_screen` consumers only** (e.g. **`detachConsumerClass('host_screen')`**). **Preserve** SFU signaling WebSocket, **`participant_av`** tiles/consumers, and theater mic mix. **Must not** call full SFU session **`close()`** solely because of this chat-plane event. |
+| **Both** | **`share_state`** remains ephemeral chat/control-plane fan-out; no Dynamo mutation. Distinct from durable **`room_mode`** / **`broadcastCaptureActive`** HTTP **`PATCH`**. |
+
+Entering **`videoChat`** still fully stops host tab-capture and **`host_screen`** per existing product contract. **`share_state: stopped`** is the realtime hint for guests when the host stops share in **theater** mode.
+
+### Partial producer teardown (`participant_av`)
+
+| Action | Contract |
+| --- | --- |
+| **Mic mute, camera on** | **`producer.pause()`** / **`resume()`** on the audio producer only; video producer and remote tile remain. |
+| **Camera off, mic on** | Close the **video** producer only (**per-kind** teardown); SFU broadcasts **`producerClosed`** with **`kind: video`**. Remote clients remove strip/grid **video** tile promptly (no frozen frame). **Audio** producer continues; theater mix retains mic. **Must not** use class-wide **`unpublishProducerClass('participant_av')`** for camera-off when mic remains on. |
+| **Both off** | Close all **`participant_av`** producers for the session; full **`producerClosed`** sequence. |
+| **Re-publish after partial close** | May **`produce`** new tracks on the existing send transport without full SFU session rebuild when **`supportsPublish`** is true. |
+
+**SFU service:** **`upsertProducer`** replaces the prior producer for the same **`(sessionId, producerClass, kind)`** tuple. When replace occurs, consumers observe **`producerClosed`** for the old **`producerId`** before **`newProducer`** for the replacement.
+
+### Typed error catalog (by drawer)
+
+Beyond participant A/V publish errors (**`error_state.md`**, **`authorization.md`**), clients **must** map failures to stable **`code`** values per drawer:
+
+| Drawer | **`code`** | Typical source | Client surface |
+| --- | --- | --- | --- |
+| **Connectivity** | **`TURN_RELAY_REQUIRED`** | Relay mandatory for the deployment profile but no relay candidate available | Video relay status |
+| **Connectivity** | **`ICE_FAILED`** | ICE connection state **`failed`** after TURN exhausted | Video relay status |
+| **Signaling (SFU WS)** | **`SIGNALING_TIMEOUT`** | SFU WebSocket connect or request-ack timeout | Video relay status; maps to **`sfu_signaling_failed`** at publish toggles when blocking |
+| **Media lifecycle** | **`PRODUCER_CLOSED`** | Inbound SFU **`producerClosed`** event | Stage tile detach, theater audio mix (informational at consumer boundary) |
+| **Chat (room WS)** | **`CHAT_SEND_DROPPED`** | Outbound chat/react failed after client retry budget; room WS unavailable | Chat compose / chat status |
+
+- **Separate status surfaces** for chat vs video relay (**`interface/presentation.md`**); integration assigns **`code`** values to planes, not consolidated chrome.
+- Observability: **`RiffSync/Realtime`** and **`RiffSync/Media`** metrics with **`drawer`** and **`code`** dimensions (**`operations/observability.md`**).
+
+### Chat reconnect vs SFU lifecycle (decoupling)
+
+| Rule | Contract |
+| --- | --- |
+| **Orthogonal lifecycles** | Room WebSocket (chat, presence, **`share_state`**) and SFU signaling WebSocket **recover independently**. A healthy plane **keeps running** while the other reconnects. |
+| **Prohibited coupling** | Room WS handlers (**including **`share_state`**) **must not** invoke SFU session **`close()`** without an explicit **media policy** (user leave, AV kill switch, intentional unpublish). Chat disconnect **must not** reset participant AV publish state when the SFU WS remains connected. |
+| **Publish gate** | **`POST /v1/webrtc/sfu-token`** still requires an active room WS **presence row** + **`X-Session-Id`**. After room WS reconnect, the client re-establishes presence before re-mint when needed. |
+| **Chat send while SFU degraded** | Chat may queue/retry per client policy. SFU outage **does not** block chat send when room WS is healthy. Emit **`CHAT_SEND_DROPPED`** only when the chat plane fails. |
+
+### Application SDK boundary (integration surface)
+
+Hardening extracts **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** from monolithic room orchestration. **Normative public integration surface** for realtime drawers:
+
+| Method | Responsibility |
+| --- | --- |
+| **`join(roomId)`** | Room snapshot, room WS, ICE fetch, SFU connect (consumer baseline) |
+| **`publishAv(options)`** | Participant A/V produce path |
+| **`subscribe(handlers)`** | Consumer attach for **`host_screen`** / **`participant_av`** |
+| **`getDiagnostics()`** | Per-drawer status + last error **`code`** |
+
+Internal modules **must not** cross-call destructive teardown across drawers without explicit media policy.
+
+## Open implementation decisions
+
+- Exact chat outbound **retry count** and queue depth before **`CHAT_SEND_DROPPED`**.
+- SFU signaling **request-ack timeout** (seconds) for **`SIGNALING_TIMEOUT`**.
+- ICE **`failed`** vs **`disconnected`** timing before surfacing **`ICE_FAILED`**.
+- Whether **`PRODUCER_CLOSED`** is surfaced to UI chrome or handled only inside **`subscribe`** handlers.
+- CDK **`signaling`** route removal order vs client mesh branch deletion (same milestone, sequencing TW).
 
 ## Open implementation details
 

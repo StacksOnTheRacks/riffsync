@@ -42,7 +42,29 @@ Fan token keys (**`riffsync.fan*`**) and fan PKCE session keys remain **untouche
 
 ## Watch party participant AV (`/room/:roomId`)
 
-No new routes; AV extends the existing room shell.
+No new routes; AV extends the existing room shell. **Realtime hardening** keeps the same user-visible flows below while splitting orchestration into jurisdictional session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**) behind a thin **`RoomPage`** shell (**`runtime/execution_model.md`**). **SFU is mandatory** in all environments; mesh WebRTC UI paths are removed.
+
+### Drawer-independent reconnect (all roles)
+
+1. **Chat plane** (room WebSocket) and **video relay plane** (SFU signaling) reconnect **independently**. A failure on one plane does **not** tear down the other unless explicit media policy requires it (kill switch, room leave, navigate away).
+2. While **chat** is **`reconnecting`**, chat send may fail with recoverable feedback; **participant AV tiles**, host screen-share attachment, and theater mic mix **continue** when the SFU plane is healthy.
+3. While **video relay** is **`reconnecting`**, chat send/receive **continues** when the room WebSocket is healthy; stage may show video-relay status and briefly lack new remote media until consumers reattach.
+4. After full page refresh, participant camera/microphone still **default off**; user re-enables manually (privacy-first). Drawer reconnect policy does **not** auto-republish local AV.
+
+### `share_state: stopped` (guest host-screen detach)
+
+When the host stops screen-share and guests receive authoritative **`share_state: stopped`**:
+
+1. **Detach `host_screen` consumers only** — clear host movie / tab-capture attachment and show honest **not sharing** placeholder in the guest playback region.
+2. **Preserve** SFU signaling session, **`participant_av`** producers/consumers, strip/grid tiles, and theater participant mic mix.
+3. **Do not** close the full SFU session or reset participant AV toggles for this event alone.
+
+### Participant video tile lifecycle (`producerClosed`)
+
+1. **Camera off (local or remote):** On video **`producerClosed`** for **`participant_av`**, remove the strip/grid tile **promptly** for that **`sessionId`**. A **frozen last frame** after camera-off is a **contract violation**.
+2. **Mic-only after camera-off:** Participant remains **audible**; tile stays **absent** from strip/grid (identity via **People** tab and chat). **No** avatar chips, audible-only badges, or speaking borders this milestone.
+3. **Local self-preview:** **You** tile removed when local camera off; toggling camera on again may create a new tile when video producer resumes.
+4. **Host tab-capture** is separate from participant AV tiles; **`share_state: stopped`** follows the guest detach flow above, not participant tile rules.
 
 ### Host flows
 
@@ -87,9 +109,19 @@ No new routes; AV extends the existing room shell.
 | Kill switch toggle UX? | **Visible but disabled** with explanation when host disabled room AV. |
 | Video Chat tab-capture? | **Fully stop** on enter; **Share Source Tab** again on return to **Theater**. |
 | Reconnect AV state? | Camera/mic **default off**; manual re-enable. |
+| Chat vs video relay reconnect? | **Independent** — healthy drawer keeps running; each plane shows its own status surface (**`presentation.md`**). |
+| `share_state: stopped` guest scope? | **`host_screen` detach only** — participant AV and SFU session persist. |
+| Frozen frame on camera-off? | **Contract violation** — tile must leave strip/grid on video **`producerClosed`**. |
+| Mic-only stage chrome? | **Unchanged** — off strip/grid; no avatar chips/badges this milestone. |
+| Media path (all envs)? | **SFU mandatory**; mesh WebRTC UI removed. |
+
+## Open implementation decisions
+
+- **Guest host-screen negotiation status** after mesh removal: SFU-specific copy for idle/negotiating/recovering states in stage playback region (replaces mesh FSM strings).
+- **Chat send while chat plane `reconnecting`:** inline compose feedback vs sidebar banner only — align with **`runtime/execution_model.md`** **`ChatSession`** send policy.
 
 ## Primary code pointers (optional)
 
 - Router config when SPA exists.
 - **`apps/web/src/auth/fanHostedUiPkce.ts`**, **`fanTokens.ts`** — fan OAuth/PKCE and **`riffsync.fan*`** storage pattern to mirror for staff (**`/admin/auth/callback`**, **`riffsync.staff*`**).
-- **`apps/web/src/pages/RoomPage.tsx`** — room shell; AV toggles, host bar, strip/grid extend existing stage + sidebar flow.
+- **`apps/web/src/pages/RoomPage.tsx`** — thin room shell composing **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**; AV toggles, host bar, strip/grid remain in existing stage + sidebar layout.

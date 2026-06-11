@@ -7,7 +7,7 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | Use | Mechanism | Contract |
 | --- | --- | --- |
 | **Playback (admin)** | **IFrame / IFrame API** on **room admin** client; `videoId` from catalog / room snapshot. | No download/rehost by RiffSync; embed eligibility may change per video—UI handles failures. |
-| **Guest viewing** | **WebRTC** **`MediaStream`** from host tab-capture and, when enabled, **participant A/V** over **self-hosted mediasoup SFU** on **`RiffSyncTurn`** — **`POST /v1/webrtc/sfu-token`** + **coturn**. | **Production** uses SFU; mesh **dev-only**. Multi-producer registry (host screen + N participant cameras/mics). Theater audio mixing is **client-side**. Honor browser permission and autoplay policies. |
+| **Guest viewing** | **WebRTC** **`MediaStream`** from host tab-capture and, when enabled, **participant A/V** over **self-hosted mediasoup SFU** on **`RiffSyncTurn`** — **`POST /v1/webrtc/sfu-token`** + **coturn**. | **SFU mandatory in all environments** (dev, CI, production). **Mesh WebRTC removed.** Multi-producer registry (host screen + N participant cameras/mics). Theater audio mixing is **client-side** (server-side mix **deferred**). Honor browser permission and autoplay policies. |
 | **Thumbnails (optional)** | **`https://img.youtube.com/vi/{id}/{hqdefault|maxresdefault|…}.jpg`** | Reconcile job **`HEAD`** fallback chain; persist resolved URL on catalog row (**`docs/architecture.catalog-images.md`**). No YouTube Data API required for thumbs. |
 
 ## TMDB (The Movie Database)
@@ -45,7 +45,24 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | **Cognito (fan pool)** | **Fan user pool** + public SPA app client: optional **fan JWT** for hosting, **`/v1/fans/*`**, Giphy proxy; **self-sign-up enabled**; **COGNITO-only** IdP in current CDK (Facebook IdP remains **optional** per product—see Meta row). Hosted UI + PKCE; OAuth callback **`/auth/callback`**. Room **host** authority remains **`JWT.sub === room.hostSub`** on **fan** tokens only. |
 | **Cognito (staff pool)** | **Separate invite-only staff user pool** + staff SPA app client for **`/v1/admin/*`**: **`selfSignUpEnabled: false`**, **COGNITO-only** (no Facebook IdP), predefined groups **`admin`** / **`curator`**, **second HTTP JWT authorizer** (staff issuer + staff client audience) on the **same HTTP API** as fan routes. Hosted UI + PKCE; OAuth callback **`/admin/auth/callback`** on **same SPA origins** as fan. Staff verification/invite email reuses fan **SES From** (**`noreply@riffsync.tv`**) and shared configuration set. Operator onboarding MVP: **manual console invite** acceptable. |
 | **ElastiCache** | Optional read-through cache for catalog/lobby. |
-| **EC2 (`RiffSyncTurn`)** | **mediasoup SFU** + **coturn** on shared VPC instances; **`POST /v1/webrtc/sfu-token`** mints HMAC join JWTs; browsers connect **`wss://`** for RTP. Multi-producer rooms replace single **`producersByKind`** slot model. |
+| **EC2 (`RiffSyncTurn`)** | **mediasoup SFU** + **coturn** on shared VPC instances; **`POST /v1/webrtc/sfu-token`** mints HMAC join JWTs; browsers connect **`wss://`** for RTP. Multi-producer rooms replace single **`producersByKind`** slot model. **Local dev and CI** use disposable SFU + TURN containers or profiles with the same signaling contract — not mesh fallback. |
+
+## Mesh WebRTC deprecation
+
+| Topic | Contract |
+| --- | --- |
+| **Stance** | **Removed** this milestone. No API Gateway **`signaling`** WebSocket route for SDP/ICE relay; no client **`RTCPeerConnection`** mesh path for watch-party media. |
+| **Rationale** | Dual mesh/SFU paths diverged behavior between dev and prod; hardening mandates one topology. |
+| **Migration** | Delete mesh client branches, CDK **`signaling`** route, and env flags (**`VITE_WEBRTC_USE_MEDIASOU_SFU`**). All media conformance runs against SFU + TURN. |
+
+## Integration conformance harness (pointer)
+
+| Topic | Contract |
+| --- | --- |
+| **Scope** | **PR-blocking** when **`apps/web/**`** or **`services/riffsync-sfu/**`** change. Runs against **fully isolated** ephemeral SFU + TURN — **no prod footprint**. |
+| **Integration surfaces exercised** | Room WS **`$connect`**, **`chat`**, **`POST /v1/webrtc/sfu-token`**, SFU WS produce/consume/unpublish, TURN credential fetch (**`GET /v1/webrtc/ice`** or equivalent), reconnect of each drawer independently. |
+| **Pass/fail signals** | Per-drawer: chat delivery, **`producerClosed`** tile detach, partial unpublish (camera off / mic on), **`share_state: stopped`** guest behavior (host_screen detach only). |
+| **Detail owner** | **`operations/build_packaging.md`** (job wiring, container profile, secrets handling). |
 
 ## SFU admin teardown (kill switch)
 
@@ -63,6 +80,14 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | --- | --- |
 | Client calls TMDB? | **No**; only reconcile + **`GET /v1/catalog`**. |
 | Record sessions to S3? | **No** MVP — **no** server-side recording of WebRTC as default product posture; future lawful backends remain pluggable. |
+| Mesh dev fallback? | **No** — SFU + TURN in all environments; mesh removed. |
+| Server-side theater audio mix? | **Deferred** — client-side Web Audio remains default (**`api_contracts.md`**). |
+
+## Open implementation decisions
+
+- Disposable harness **container image** pin and TURN credential fixture source (local coturn vs test double).
+- Whether harness mints real **`sfu-token`** via mocked Lambda or in-process JWT signer (must match **`SfuJoinClaims`** shape).
+- Staging AWS slice for harness: **out of scope** this milestone (isolated local/ephemeral only per tier-User decision).
 
 ## Primary code pointers (optional)
 

@@ -10,6 +10,7 @@ Scopes **inputs**, **presentation** states, **navigation/flow**, and **accessibi
 - Record durable constraints and boundaries for this domain.
 - Keep this file aligned with mapped child contracts.
 - **`/room/:roomId`** participant AV (camera/microphone), host **room mode** (**Theater** | **Video Chat**), and host **AV kill switch** are in scope; child docs define layout, flow, input, and accessibility boundaries.
+- **Realtime hardening:** **SFU-only** media path (no mesh UI), **drawer-independent** chat vs video-relay status surfaces, **`producerClosed`** tile lifecycle (no frozen last frames), and thin **`RoomPage`** shell over **`ChatSession`** / **`SfuMediaSession`** / **`TheaterPlayback`** (**`runtime/execution_model.md`**).
 
 ## Primary code pointers (optional)
 

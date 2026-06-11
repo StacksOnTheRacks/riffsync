@@ -1,5 +1,17 @@
 # Lifecycle & shutdown
 
+## Drawer-independent teardown
+
+Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**) shut down **independently** unless a **global room leave** or explicit **media policy** requires coordinated teardown. See **`execution_model.md`** decouple table.
+
+| Trigger | ChatSession | SfuMediaSession | TheaterPlayback |
+| --- | --- | --- | --- |
+| Room navigate away / leave | **`torn-down`** | **`torn-down`** (ordered: stop tracks → close producers → close signaling) | **`torn-down`** |
+| Room WS drop alone | Reconnect; **no** SFU close | **unchanged** if healthy | **unchanged** if healthy |
+| SFU signaling drop alone | **unchanged** if healthy | Reconnect; **no** room WS close | May **`degrade`** until consumers reattach |
+| **`share_state: stopped`** (guest) | **unchanged** | **Partial:** detach **`host_screen`** consumers only; **keep** session + **`participant_av`** | Remove host-screen audio node from mix; **keep** participant mic nodes |
+| **`avDisabled`** | **unchanged** (chat may continue) | Stop participant AV per kill-switch | Remove participant audio from mix |
+
 ## API Gateway WebSocket **`$disconnect`**
 
 - Must **eventually** remove **connectionId → room** mappings and adjust presence counts if tracked.
@@ -21,9 +33,11 @@
 
 ## SPA participant AV
 
-- **Toggle off:** Stop local **`getUserMedia`** tracks and close participant SFU producers; do not leave muted ghost producers.
+- **Camera off, mic on:** **Close video producer**; propagate **`producerClosed`** for video; **detach remote tile immediately** (frozen last frame is a contract violation). Keep audio producer (or **`pause()`** / **`resume()`** when mic muted with camera on). **No** full SFU session rebuild when publish already supported.
+- **Toggle off (both):** Stop local **`getUserMedia`** tracks and close participant SFU producers; do not leave muted ghost producers.
 - **Mic mute with camera on:** Prefer **`producer.pause()`** / **`resume()`** on the audio producer; keep the camera track and video producer running.
-- **Room leave / navigate:** Teardown order: (1) stop participant **`getUserMedia`** and close **`participant_av`** producers, (2) stop host tab-capture and close **`host_screen`** producer if active, (3) close SFU session, (4) room WebSocket teardown per existing navigation.
+- **`share_state: stopped` (guest):** Detach **`host_screen`** mediasoup consumers and clear host-screen UI attachment only. **Do not** close SFU WebSocket or tear down **`participant_av`** producers/consumers.
+- **Room leave / navigate:** Teardown order: (1) stop participant **`getUserMedia`** and close **`participant_av`** producers, (2) stop host tab-capture and close **`host_screen`** producer if active, (3) close **`SfuMediaSession`**, (4) **`ChatSession`** teardown, (5) **`TheaterPlayback`** teardown.
 - **Video Chat mode:** Entering **Video Chat** fully stops host tab-capture tracks and **`host_screen`** SFU producer when sharing was active; clear local **`broadcastCaptureActive`**; do **not** warm-resume capture or emit optimistic **`share_state`**. Returning to **Theater** is explicit **Share Source Tab**.
 - **Theater audio:** Multiple SFU audio consumers (host movie + participant mics) mixed **client-side** via **Web Audio API** at **equal gain (1.0)** — no automatic ducking in MVP. Kill switch on stops subscribing to participant audio and tears down participant consumers.
 - **Kill switch mid-publish:** On authoritative **`avDisabled`** room WebSocket event, immediately **`track.stop()`** on local **`getUserMedia`**, close participant producers, and tear down participant AV consumers locally — do **not** wait for SFU token expiry.
@@ -40,6 +54,9 @@
 ## Open implementation decisions
 
 - Page Visibility battery policy for participant producers while tab backgrounded (**MVP:** leave running per **`execution_model.md`**).
+- **`SfuMediaSession` reconnect mid-publish:** whether to **`pause()`** all producers during signaling reconnect or rely on transport recovery without pause.
+- **Theater mode transition:** ordered warmup when returning from Video Chat (consumer reattach vs explicit **`subscribe()`** re-call).
+- **Harness-visible teardown assertions:** which module states CI must observe after forced WS drop vs unpublish — **`.ai/operations/build_packaging.md`**.
 
 ## Primary code pointers (optional)
 

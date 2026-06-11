@@ -8,7 +8,8 @@ There is **no hosted `dev`** stack and **no hosted staging** stack—**local dev
 
 | Tier | Where it runs | Purpose |
 | --- | --- | --- |
-| **Local** | Developer's machine (or CI without deploy) | `sam local`, unit tests, static catalog from **`data/catalog/episodes.json`**, optional mocks. **$0 AWS** for environment itself; only what's used ad hoc (API calls during dev). |
+| **Local** | Developer's machine | Unit tests, static catalog from **`data/catalog/episodes.json`**, **disposable SFU + TURN** for watch-party media (mandatory for A/V dev). **$0 AWS** for environment itself; prod API pools may still be used for HTTP/WS control plane per existing pattern. |
+| **CI** | GitHub Actions (ephemeral) | **`infra-cdk`** synth/lint/tests, SPA build/unit/lint, **PR-blocking realtime conformance harness** against isolated disposable SFU+TURN when **`apps/web/**`** or **`services/riffsync-sfu/**`** change — **`.ai/operations/build_packaging.md`**. |
 | **`prod`** | AWS | Live traffic; strict IAM, alarms, backups as policy dictates. |
 
 **Decision:** Prefer **prod only** hosted in AWS; local covers pre-release work.
@@ -60,6 +61,15 @@ The **single** fan SPA artifact (**`RiffSyncStatic-prod`**, **`https://riffsync.
 | --- | --- |
 | Feature flags? | **Optional** (SSM, AppConfig, LaunchDarkly); **not** contractually required for MVP. |
 
+## Watch-party media (SFU-only)
+
+| Topic | Contract |
+| --- | --- |
+| **Path** | **SFU mandatory** in local, CI, and prod. **Mesh WebRTC removed** — no peer-to-peer fallback branch in SPA. |
+| **Removed flag** | **`VITE_WEBRTC_USE_MEDIASOU_SFU`** and any mesh toggle **retired** this milestone; SPA always uses mediasoup-client against configured SFU **`wss://`**. |
+| **Signaling URL** | **`SFU_PUBLIC_WS_URL`** (prod) or disposable SFU URL (local/CI). Participant and host share the same signaling endpoint. |
+| **Local / CI** | Disposable SFU + TURN env block documented in **`README`** / **`.env.example`** — startup profile in **`startup_bootstrap.md`**. |
+
 ## SFU (EC2) configuration surface
 
 Non-secret env knobs on the **`riffsync-sfu`** process (exact names in IaC):
@@ -68,7 +78,7 @@ Non-secret env knobs on the **`riffsync-sfu`** process (exact names in IaC):
 - **Room lifecycle:** room idle timeout before SFU tears down empty signaling room state.
 - **Multi-publisher:** per-room or per-session producer caps enforced at SFU request handling (403 or error response), not client-only.
 
-SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU WebSocket URL (or token-embedded **`wsUrl`**). Participant AV uses the **same** SFU signaling host as host screen share; no separate media endpoint.
+SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU WebSocket URL (or token-embedded **`wsUrl`**). Participant AV uses the **same** SFU signaling host as host screen share; no separate media endpoint. **No mesh feature gate.**
 
 ## SFU producer cap env vars
 
@@ -80,8 +90,11 @@ SPA build-time: **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_API_BASE_URL`**, SFU We
 | **`SFU_MAX_CONSUMERS_PER_SESSION`** | **64** | Max mediasoup consumers per session (theater grid + strip). |
 | **`SFU_ADMIN_SECRET`** | (required prod) | Shared secret for **`POST /admin/teardown-producers`**; also on room **`PATCH`** Lambda env. |
 
-- **SPA feature gate:** No new build flag for participant AV beyond existing **`VITE_WEBRTC_USE_MEDIASOU_SFU`** (#104 gates UI on snapshot + JWT).
-- **`SFU_PUBLIC_WS_URL`:** Unchanged; participant and host share the same signaling **`wss://`** endpoint.
+## Open implementation decisions
+
+- **Local disposable SFU env var names:** canonical **`VITE_SFU_WS_URL`** (or token-embedded only) vs reusing prod naming in **`.env.example`**.
+- **CI harness env injection:** which secrets live in GitHub Actions vs generated per-run HMAC for join JWT.
+- **Removal checklist for mesh code:** grep targets and dead env documentation in **`README`** — TW issue backlog.
 
 ## Primary code pointers (optional)
 

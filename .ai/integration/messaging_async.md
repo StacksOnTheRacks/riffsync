@@ -13,8 +13,10 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 
 ## Realtime fan-out (WebSocket)
 
-- Not “async messaging” in the Kafka sense: **Lambda** completes **`PostToConnection`** after **Dynamo** write on **signaling relay / chat / durability-required paths** as implemented.
+- Not "async messaging" in the Kafka sense: **Lambda** completes **`PostToConnection`** after **Dynamo** write on **chat / durability-required paths** as implemented. **Mesh WebRTC signaling relay is removed** — SFU signaling is direct to **`RiffSyncTurn`** EC2.
 - **Room layout and AV control:** **`roomMode`** and **`avDisabled`** are **durable on the room item** via host **`PATCH`**, then **`room-patch` Lambda** **`PostToConnection`** to all connections in **`roomId`** (#103). **No inbound WebSocket routes** for these fields (contrast **`share_state`**, which is ephemeral fan-out over WS). Late joiners read authoritative values from room snapshot/join; realtime events cover connected clients.
+- **`share_state: stopped` side effects:** ephemeral fan-out only. **Guests detach `host_screen` consumers**; **must not** trigger full SFU session teardown or participant A/V consumer removal. Host unpublishes **`host_screen`** locally. See **`api_contracts.md`** (Realtime hardening).
+- **Chat vs SFU lifecycle decoupling:** room WS reconnect, disconnect, and **`share_state`** handlers **must not** call SFU session **`close()`** without explicit media policy. Chat send failures (**`CHAT_SEND_DROPPED`**) are independent of SFU health when room WS is up. Each drawer reconnects independently (**`api_contracts.md`**).
 - **AV kill switch side effects:** when **`avDisabled`** becomes true, control plane broadcasts disabled state; SFU integration must **tear down participant producers** (participant class only — not host screen share). Token mint denial prevents re-publish until re-enabled.
 - **Failure handling:** log + metric; optional dead-letter pattern for repeated **`PostToConnection`** failures (implementation detail).
 
@@ -30,6 +32,14 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | SQS between API and fan-out? | **Not** baseline; API Gateway WebSocket + Lambda direct pattern first. |
 | Reconcile on every catalog read? | **No**; scheduled/batch only. |
 | Room mode / AV kill switch ordering? | **Durable room write before fan-out** when persisted; best-effort delivery order across connections (same as playback **`PATCH`** + chat). |
+| Chat reconnect tears down SFU? | **No** — orthogonal drawer lifecycles; room WS recovery must not close SFU session without media policy. |
+| `share_state: stopped` tears down SFU for guests? | **No** — **`host_screen` consumer detach only**; preserve SFU session and **`participant_av`**. |
+
+## Open implementation decisions
+
+- Chat outbound **retry/backoff** policy before **`CHAT_SEND_DROPPED`** (counts, max queue age).
+- Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
+- Presence re-hydration message shape after room WS reconnect (reuse existing **`presence`** broadcast vs incremental delta).
 
 ## Kill-switch side-effect ordering (#102 / #103 split)
 

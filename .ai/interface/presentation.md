@@ -27,9 +27,28 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 
 ### Shell boundaries
 
-- **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (strip or grid), and host tab-capture chrome.
-- **`riffsync-room-page__chat-column`** holds sidebar tabs (**Chat**, **People**, **Room**, **Profile**), participant AV toggles, message log, and compose.
+- **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (strip or grid), host tab-capture chrome, and **video-relay** drawer status.
+- **`riffsync-room-page__chat-column`** holds sidebar tabs (**Chat**, **People**, **Room**, **Profile**), participant AV toggles, message log, compose, and **chat** drawer status.
 - **Theater room mode** (host layout policy) is distinct from **theater fullscreen** (wrapper **`requestFullscreen`**). UI copy must not conflate the two.
+- **`RoomPage`** is a **thin shell**; realtime drawers are owned by **`ChatSession`**, **`SfuMediaSession`**, and **`TheaterPlayback`** (**`runtime/execution_model.md`**). Presentation contracts describe what users see regardless of module wiring.
+
+### Media path (SFU-only)
+
+- **All environments** (local dev, CI, prod) use the **mediasoup SFU** path for host screen-share and participant A/V. **No mesh WebRTC UI** — remove production mesh warnings, mesh negotiation status strings, and mesh-only guest playback affordances.
+- Missing SFU/TURN configuration surfaces an **honest deployment/configuration error** (not a fallback path selector).
+
+### Realtime drawer status (separate surfaces)
+
+Chat (room WebSocket) and video relay (SFU signaling + consumers) expose **independent, simultaneous** status when lifecycles diverge. **Do not** consolidate into one banner that implies both planes failed (e.g. avoid combined copy like "Reconnecting chat… Video may pause briefly." when only chat is down).
+
+| Drawer | Placement | When shown | Copy pattern (template) |
+| --- | --- | --- | --- |
+| **Chat** | Top of **`riffsync-room-page__chat-column`**, above tabs/toolbar (reuse **`riffsync-room-page__ws-banner`** styling) | **`ChatSession`** is **`reconnecting`** or chat send is blocked by chat-plane outage | **"Chat reconnecting…"** (final string tier TW) |
+| **Video relay** | Stage playback region — guest **`riffsync-muted`** status line and/or host **`riffsync-room-page__share-status`** / host feedback area | **`SfuMediaSession`** is **`reconnecting`**, ICE/TURN recovery in progress, or host-screen consumer attach pending after **`share_state`** | **"Video relay reconnecting…"** (final string tier TW) |
+
+- **Both banners may appear at once** when each drawer is independently unhealthy; each clears when **that** drawer returns to **`connected`** (or equivalent healthy state per **`getDiagnostics()`**).
+- **Hard failures** stay drawer-scoped: chat-plane errors near chat/compose; SFU/toggle failures at AV toggles or stage **`role="alert"`** per **`error_state.md`** — not merged into a single realtime toast.
+- **Host screen-share idle/negotiating** states (guest waiting for host share) use the **video-relay** surface, not the chat banner.
 
 ### Host control bar (below stage)
 
@@ -50,7 +69,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 - Shared movie player (host tab-capture / guest inbound screen-share stream) stays **primary**.
 - On viewports **≥ 992px**, a **vertical participant strip** sits **immediately right of the video** within the stage region (not in the chat column).
 - Strip lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab); **no speaking/active border hints** in MVP.
-- **Mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat).
+- **Mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat). **No** avatar chips, audible-only badges, or speaking-border chrome this milestone.
 - The **local publisher** appears in the strip when their camera is on, labeled **You** (live preview tile).
 - The **host** appears in the strip when their camera is on, same as other signed-in fans.
 - When zero video-on participants, the strip container is **not rendered** (no empty chrome).
@@ -59,7 +78,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 ### Video Chat room mode
 
 - The movie player region is **replaced** by a **grid** of **video-on** participants on viewports **≥ 992px** (`auto-fill` tiles, **16:9**, scroll when overflow).
-- **Mic-only** participants are **excluded** from the grid; audio is still heard; identity via **People** tab and chat.
+- **Mic-only** participants are **excluded** from the grid; audio is still heard; identity via **People** tab and chat. **No** supplementary stage chrome for mic-only this milestone.
 - The **local publisher** appears in the grid when their camera is on, labeled **You**.
 - The **host** appears in the grid when their camera is on.
 - When zero video-on participants, show centered copy: **"No cameras on yet. Mic-only participants are still audible."**
@@ -70,6 +89,18 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 - Only the host may change **room mode** or **AV kill switch**; changes are **host-authoritative** and reflected immediately for all participants (no guest confirm step).
 - Non-host participants see the active layout but cannot change mode; they **infer mode from layout** — no read-only mode badge or pill in stage chrome in MVP.
 - During Theater ↔ Video Chat swap, show brief inline status **"Updating room layout…"** in the stage until consumer attachment reflects the new mode or **3s** elapses (then show empty/sparse state). Cross-fade **200ms** opacity on swap unless **`prefers-reduced-motion: reduce`**, then **instant cut**.
+
+### Participant video tile lifecycle
+
+- Strip/grid tiles exist **only** while a **live video** consumer is attached for **`participant_av`** at that **`sessionId`**.
+- On **`producerClosed`** for video (camera off, leave, kill switch, session teardown): **remove the tile promptly** — detach **`<video>`**, clear tile state, do **not** leave a **frozen last frame**. Frozen frames are a **contract violation**.
+- **Mic-only** after camera-off: no tile; audio continues per mode (theater client mix or Video Chat audio path). Visibility rules **unchanged** from pre-hardening contracts.
+- **`share_state: stopped`:** guests lose **host-screen** attachment only; participant tiles and mic audio **persist** when SFU plane is healthy (**`interaction_flow.md`**).
+
+### Theater audio (client-side default)
+
+- **Theater** participant microphones and host movie audio are mixed **client-side** via **Web Audio API** at equal gain (**1.0**) — server-side mix is **deferred**.
+- **`AudioContext`** suspend / autoplay fragility is a known runtime risk (**`runtime/execution_model.md`** **`THEATER_AUDIO_SUSPENDED`**). Recovery affordance (implicit gesture vs explicit control) is tier TW below.
 
 ### Errors and limits
 
@@ -95,7 +126,17 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 
 - **Charts / health:** direct maintainers to **AWS CloudWatch** dashboards—**no in-app uptime SLA** promises for the OSS deployment.
 
+## Open implementation decisions
+
+- **Tile removal animation** on **`producerClosed`:** instant DOM detach vs short fade-out; whether **`prefers-reduced-motion: reduce`** forces instant removal for remote tiles.
+- **Drawer status final strings:** exact copy for chat vs video-relay **`reconnecting`**, **`degraded`**, and post-recovery clear; whether video-relay status duplicates host-share FSM lines or replaces them after mesh removal.
+- **Theater audio resume control:** implicit resume on first user gesture vs persistent **Enable party audio** (or equivalent) in stage chrome when **`THEATER_AUDIO_SUSPENDED`** — label, placement, dismiss behavior.
+- **Mode-transition copy variants:** whether **"Updating room layout…"** varies by Theater ↔ Video Chat direction or sparse-state follow-up when **3s** elapses without consumers attached.
+- **Frozen-frame regression AC wording** for **`/refine-issue`** (e.g. max visible stale frame duration, mic-only tile absence checks) — harness-visible assertions.
+- **Telemetry / UX story event names** for layout transition timeout, tile lifecycle failures, and per-drawer reconnect.
+
 ## Primary code pointers (optional)
 
 - SPA layout, design system, and route-level **loading/error** boundaries once scaffolded.
-- **`apps/web/src/pages/RoomPage.tsx`** — stage + chat-column shell; participant AV and host bar extend this layout.
+- **`apps/web/src/pages/RoomPage.tsx`** — thin shell composing session modules; stage + chat-column layout unchanged.
+- **`apps/web/src/room/stage/participantAvConsumers.ts`**, **`stageParticipantTiles.ts`** — tile attach/detach on **`newProducer`** / **`producerClosed`**.

@@ -26,6 +26,12 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P0-10c | room admin | disable room A/V from the host control bar | the room reverts to movie + text chat only until I re-enable |
 | US-P0-10d | anyone in room | see **Theater** movie primary with a vertical strip of video-on participants | I watch the shared movie and see who has cameras on |
 | US-P0-10e | anyone in room | see **Video Chat** grid of video-on participants instead of the movie region | we can focus on face-to-face conversation during breaks |
+| US-P0-11 | anyone in room | remote participant tiles to disappear when someone turns camera off | I do not see frozen last-frame video while their mic may still be audible |
+| US-P0-11a | guest in room | host movie share stop to end only the shared screen for me | participant face cams and mic audio continue unless the host disabled room A/V |
+| US-P0-11b | signed-in fan in room | chat reconnect without losing my SFU session when video relay is healthy | transient chat issues do not force full media rebuild |
+| US-P0-11c | signed-in fan in room | SFU reconnect without chat teardown when chat is healthy | video relay recovery does not silence the conversation panel unnecessarily |
+| US-P0-11d | anyone in room | separate chat vs video-relay connection status | I know which realtime plane is degraded |
+| US-P0-11e | engineer | PR-blocking conformance tests on web + SFU paths | join → publish → consume → unpublish → reconnect runs against isolated ephemeral SFU + TURN before merge |
 
 | ID | As a… | I want… | So that… |
 | --- | --- | --- | --- |
@@ -47,11 +53,23 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 - Server-side or client-side **recording/storage** of participant camera/mic or mixed room audio
 - **Per-participant** host mute/remove (distinct from the room-wide **AV kill switch**)
 - **Participant screen-share** as a separate publish type from host tab-capture
+- **Mesh WebRTC** dev fallback paths (SFU mandatory in all environments)
+- **Server-side theater audio mixing** (client-side Web Audio mix remains default)
+- **Supplementary mic-only stage chrome** (avatar chips, audible-only badges)
+
+## Decisions (answered — realtime hardening)
+
+| Question | Decision |
+| --- | --- |
+| Module split in scope? | **ChatSession**, **SfuMediaSession**, **TheaterPlayback** extraction with thin room shell and narrow SDK. |
+| SFU everywhere? | **Yes** — remove mesh; dev/CI use disposable SFU + TURN. |
+| CI conformance harness? | **PR-blocking** on web/SFU path changes; isolated ephemeral stack; no prod touch. |
 
 ## Open implementation decisions
 
 - **Video Chat empty grid:** copy and layout when **no participant has camera on** (placeholder vs audio-only affordance).
 - **Kill switch control affordance:** participant camera/mic toggles **visible but disabled** with short explanation vs hidden when **`avDisabled`** is true (accessibility vs minimal chrome).
+- **Conformance harness scenarios:** story-level acceptance criteria for partial teardown permutations, drawer-independent reconnect, and **`share_state`** started/stopped matrix (**`operations`** peer owns runner wiring).
 
 ## Primary code pointers (optional)
 

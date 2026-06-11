@@ -2,7 +2,7 @@
 
 Scopes **build/deploy** (**AWS CDK**, TypeScript Lambdas, serverless-first packaging), **`GitHub Actions`** delivery (**manual** `main` → **prod**), **environments**, **observability** (CloudWatch-first), **security** posture.
 
-Participant camera/microphone in watch-party rooms extends the existing **`RiffSyncTurn`** mediasoup SFU + coturn footprint; **no** new deployment tier or hosted staging stack.
+Participant camera/microphone in watch-party rooms extends the existing **`RiffSyncTurn`** mediasoup SFU + coturn footprint; **no** new deployment tier or hosted staging stack. **Realtime hardening:** SFU-only media path (mesh retired), PR-blocking **`realtime-conformance`** harness on isolated disposable SFU + TURN, drawer-labeled observability.
 
 - Child contracts: **`build_packaging.md`**, **`deployment_environments.md`**, **`observability.md`**, **`security.md`**.
 

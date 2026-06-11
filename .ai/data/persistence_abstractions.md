@@ -40,7 +40,7 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | **Catalog read (hot)** | Prefer O(1) **GetItem**/GSI patterns for single episode; **`GET /v1/catalog`** may **Scan**/export job with cache for full list. |
 | **Room write** | Single **authoritative item** per **`roomId`**; conditional writes for host checks when needed. |
 | **Connection map** | Fast **Put/Delete** on connect/disconnect; **`GetItem`** by **`connectionId`** on **`$disconnect`**. |
-| **RoomPresence roster** | **Query** all rows for **`roomId`** (strongly consistent read for token mint); **TransactWrite** with **Connections** on connect; delete matching **`presenceKey`** on disconnect; **TTL** cleanup for stale rows. |
+| **RoomPresence roster** | **Query** all rows for **`roomId`** (strongly consistent read for token mint); **TransactWrite** with **Connections** on connect; delete matching **`presenceKey`** on disconnect; **TTL** cleanup for stale rows. **`broadcastRoomPresence`** collapses multiple rows sharing **`sessionId`** (multi-tab): host flag dominates; outbound **`presence`** roster is sorted **host first**, then **`displayName`** case-insensitive **`localeCompare`** — stable on connect/disconnect churn. |
 | **SFU producer registry** | In-memory per **`env:roomId`**; migrate from **`producersByKind`** (one slot per **`kind`**) to **multi-producer** registry keyed by producer id with participant identity metadata. |
 
 ## Decisions (answered)
@@ -51,9 +51,16 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | Event sourcing for rooms? | **No** MVP — snapshot document + optional streams for analytics only. |
 | Participant A/V bytes in Dynamo? | **No** — SFU runtime only; toggle intent not on **RoomPresence**. |
 
+## Decisions (answered — realtime hardening)
+
+| Question | Decision |
+| --- | --- |
+| **`broadcastRoomPresence`** roster sort on churn? | **Host first**, then **`displayName`** case-insensitive **`localeCompare`**; collapse duplicate **`sessionId`** rows with host flag dominance before sort. |
+
 ## Open implementation decisions
 
-- **RoomPresence** vs **Connections** disconnect path: confirm both rows are removed atomically and **`broadcastRoomPresence`** ordering on churn at party scale.
+- **RoomPresence** vs **Connections** disconnect path: confirm both rows are removed atomically on **`$disconnect`** at party scale.
+- SFU **`listProducerSummaries`** (or successor) wire shape for layout hardening: **`sessionId`** and **`producerClass`** are in runtime today; confirm whether **`fanSub`** belongs on the summary JSON for Theater/Video Chat without a roster round-trip — see **`data_model.md`** / **`serialization.md`** (tier-TW; no Dynamo field).
 - SFU multi-producer registry structure (map key, **`tearDownSession`** per-session vs room-wide wipe) and idle room close when only consumers remain.
 - Kill-switch enforcement storage touchpoints: read **`avDisabled`** on **`POST /v1/webrtc/sfu-token`**, SFU **`produce`**, and whether Lambda triggers SFU admin tear-down vs client-only close.
 - IaC env wiring already passes **`ROOM_PRESENCE_TABLE_NAME`** to WS and SFU-token Lambdas — document any additional consumers (e.g. layout fan-out Lambda).

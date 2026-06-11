@@ -18,11 +18,26 @@
 RiffSync as an OSS project does **not** publish **uptime SLAs** or incident **SLO** figures—**cost and volunteer bandwidth** come first. Deployers set their own alarm **severity** and **PagerDuty** (if any).
 
 
+## Realtime drawers (hardening)
+
+Watch-party reliability spans **orthogonal drawers**. Telemetry and structured logs must label the drawer — not collapse chat and media into one "realtime" bucket.
+
+| Drawer | Plane | Primary signal home | Fan-visible status (separate surfaces) |
+| --- | --- | --- | --- |
+| **Chat** | API Gateway room WebSocket | **`RiffSync/Realtime`** (`Route`: **`chat`**, **`chat_gif`**, **`react`**) | "Chat reconnecting" copy |
+| **Signaling** | SFU WebSocket (join, produce, consume events) | **`RiffSync/Media`** + SFU JSON logs | "Video relay reconnecting" copy |
+| **Connectivity** | ICE / TURN candidate gathering | Client diagnostic logs; optional aggregate counters | Inline toggle / relay errors (`ICE_FAILED`, `TURN_RELAY_REQUIRED`) |
+| **Produce / consume** | mediasoup producer/consumer lifecycle | **`RiffSync/Media`** limit rejections + client logs | Inline AV toggle errors (`PRODUCER_CLOSED`, cap errors) |
+
+**Drawer-independent reconnect:** A failure in one drawer must not imply teardown telemetry for the other. Log lines and client diagnostics include **`drawer`** (`chat` | `signaling` | `connectivity` | `produce_consume`) at **INFO** — **no** **`roomId`**, **`sessionId`**, or **`sub`** in metric dimensions.
+
+**Posture:** Drawer labels are **maintainer-facing contract** (logs, runbooks, harness CI output) **and** drive **separate fan-visible status surfaces** per **`interface/presentation.md`** — not a security-boundary change (no new PII in metrics).
+
 ## Fan-facing realtime and API (M10)
 
 | Namespace | Routes (dimension **`Route`**) | Notes |
 | --- | --- | --- |
-| **`RiffSync/Realtime`** | **`chat`**, **`chat_gif`**, **`react`** | EMF via Lambda **stdout**; dimensions **`Environment`**, **`Route`**, **`Outcome`** only. |
+| **`RiffSync/Realtime`** | **`chat`**, **`chat_gif`**, **`react`** | EMF via Lambda **stdout**; dimensions **`Environment`**, **`Route`**, **`Outcome`** only. Chat drawer only — **not** SFU signaling. |
 | **`RiffSync/Api`** | **`GiphySearch`**, **`FanAvatarUpload`** | Same dimension set; no raw chat text or upload bytes in **INFO** logs (**`security.md`**). |
 
 ## Media plane (SFU + TURN)
@@ -32,7 +47,7 @@ Participant AV increases silent degradation risk on the **singleton** mediasoup 
 | Signal class | Source | Contract |
 | --- | --- | --- |
 | **SFU health** | EC2 **`/healthz`** | **`workerAlive`**, **`routerRoomCount`**, **`signalingConnections`** — probe success/failure only; no per-room breakdown in metrics. |
-| **SFU process logs** | Local stdout/journal on SFU EC2 | Structured JSON; **no** **`roomId`**, **`sessionId`**, or **`sub`** at **INFO** volume. |
+| **SFU process logs** | Local stdout/journal on SFU EC2 | Structured JSON with **`drawer: "signaling"`** or **`drawer: "produce_consume"`** on lifecycle events; **no** **`roomId`**, **`sessionId`**, or **`sub`** at **INFO** volume. |
 | **TURN relay load** | EC2 network metrics (optional) | Aggregate CPU/network on TURN instance; more publishers increase relay traffic on the shared **`t3.small`**. |
 | **Limit rejections** | SFU counters (when wired) | Transport/consumer cap rejections as low-cardinality counters — **no** room id dimension. |
 
@@ -61,6 +76,15 @@ Aggregate namespace for participant AV and SFU health. Dimensions **`Environment
 
 Emit via SFU stdout EMF or **`PutMetricData`** from a lightweight scrape Lambda later; MVP may start with **`/healthz`** manual checks plus SFU JSON logs.
 
+**Drawer → signal mapping (normative):**
+
+| Drawer | Existing **`RiffSync/Media`** **`Signal`** | Client / Lambda extensions (low-cardinality) |
+| --- | --- | --- |
+| Signaling | **`SignalingConnections`**, **`HealthProbeSuccess`**, **`WorkerAlive`** | Typed codes: **`SIGNALING_TIMEOUT`**, **`sfu_signaling_failed`** in logs only until counters wired |
+| Connectivity | (none today) | Log-only **`ICE_FAILED`**, **`TURN_RELAY_REQUIRED`** at client; optional future aggregate **`IceGatheringFailed`** counter |
+| Produce / consume | **`TransportLimitRejected`**, **`ConsumerLimitRejected`**, **`SfuTokenDenied`** | Log-only **`PRODUCER_CLOSED`** at client; optional **`ProducerLifecycleEvent`** counter without room dimension |
+| Chat | **`RiffSync/Realtime`** route outcomes | **`CHAT_SEND_DROPPED`** in client logs; Lambda **`Outcome`** dimension on failed fan-out |
+
 ## EC2 alarms (optional, OSS posture)
 
 | Alarm | Metric | Threshold | Action |
@@ -87,6 +111,26 @@ When mediasoup **`worker.on('died')`** fires (all room routers on the instance a
 6. Notify active parties via community channel if sustained outage; no in-app SLA copy.
 
 Document these steps in **`infra/cdk/README.md`** SFU section and **`docs/sfu-deploy-checklist.md`**.
+
+## Client diagnostic logs (hardening)
+
+Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**) emit structured JSON at **WARN**/**ERROR** with:
+
+| Field | Contract |
+| --- | --- |
+| **`drawer`** | `chat` \| `signaling` \| `connectivity` \| `produce_consume` |
+| **`code`** | Typed failure from **`business_logic/error_handling.md`** (`PRODUCER_CLOSED`, `CHAT_SEND_DROPPED`, `SIGNALING_TIMEOUT`, `ICE_FAILED`, `TURN_RELAY_REQUIRED`, …) |
+| **`outcome`** | `retry` \| `failed` \| `recovered` |
+
+**No** **`roomId`**, **`sessionId`**, or fan **`sub`** in browser console at default log level shipped to production builds.
+
+## Open implementation decisions
+
+- **Exact metric names** — Whether hardening adds **`ProducerLifecycleEvent`**, **`IceGatheringFailed`**, or **`ChatSendDropped`** counters under **`RiffSync/Media`** / **`RiffSync/Realtime`** vs log-only MVP; dimension sets frozen at ship time.
+- **EC2 alarms** — Wire **`AWS/EC2` CPUUtilization** (> 80%, 5 min) and **`StatusCheckFailed`** (≥ 1, 2 min) in **`media-server-stack.ts`** this milestone vs defer optional SNS email.
+- **Health probe canary** — Lambda periodic scrape of prod **`/healthz`** emitting **`HealthProbeSuccess`** vs operator-only **`curl`**; schedule, IAM, and cost guardrails.
+- **SFU EMF wiring** — Whether **`TransportLimitRejected`** / **`ConsumerLimitRejected`** emit from SFU stdout in hardening PR or remain checklist-only until scrape Lambda lands.
+- **Harness telemetry** — CI artifact format for drawer-tagged failure lines (JUnit, markdown summary) for PR annotations.
 
 ## Primary code pointers (optional)
 

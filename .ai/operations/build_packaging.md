@@ -23,7 +23,9 @@ Read from **`RiffSyncFanAuth-prod`** CloudFormation outputs in **[`deploy-prod.y
 | **`FanHostedUiBaseUrl`** (host only) | **`VITE_COGNITO_HOSTED_UI_DOMAIN`** |
 | **`FanUserPoolClientId`** | **`VITE_COGNITO_CLIENT_ID`** |
 
-Also from **`RiffSyncStatic-prod`** / **`RiffSyncApi-prod`**: **`VITE_PUBLIC_ORIGIN`**, **`VITE_PUBLIC_API_BASE_URL`**, **`VITE_PUBLIC_WS_URL`**, optional **`VITE_PUBLIC_SFU_WS_URL`**.
+Also from **`RiffSyncStatic-prod`** / **`RiffSyncApi-prod`**: **`VITE_PUBLIC_ORIGIN`**, **`VITE_PUBLIC_API_BASE_URL`**, **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_SFU_WS_URL`** (required for watch-party media in all environments).
+
+**SFU-only media path:** **No** mesh WebRTC fallback. Retire **`VITE_WEBRTC_USE_MEDIASOU_SFU`** and mesh branches from **`apps/web`** this milestone. Local dev and CI use disposable SFU + TURN profiles per **[`deployment_environments.md`](deployment_environments.md)** — same mediasoup + coturn topology as production **`RiffSyncTurn`**, not a second code path.
 
 ### Staff auth (same build)
 
@@ -51,33 +53,81 @@ See **[`deployment_environments.md`](deployment_environments.md)** for the full 
 
 ## CI expectations
 
-| Job | Scope |
-| --- | --- |
-| **`infra-cdk`** | **`cdk synth`**, **`cfn-lint`** on **`cdk.out`** |
-| **`web-app`** | **`apps/web`** **`npm run build`** + lint (may use placeholder env in CI; production deploy reads live Cfn outputs) |
+| Job | Scope | Blocking |
+| --- | --- | --- |
+| **`infra-cdk`** | **`cdk synth`**, **`cfn-lint`** on **`cdk.out`** | PR |
+| **`web-app`** | **`apps/web`** **`npm run build`** + unit tests + lint (may use placeholder env in CI; production deploy reads live Cfn outputs) | PR |
+| **`realtime-conformance`** | Disposable SFU + TURN integration harness (see below) | **PR** when path filters match |
 
-PR CI **does not deploy** to AWS.
+PR CI **does not deploy** to AWS and **must not** touch the production **`RiffSyncTurn`** footprint.
+
+### Realtime conformance harness (PR-blocking)
+
+Normative automated substitute for manual checklist steps that exercise client + SFU orchestration. Complements — does not replace — operator **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)** post-deploy verification against **production** media.
+
+| Contract | Value |
+| --- | --- |
+| **Trigger** | **`pull_request`** to **`main`** when paths change under **`apps/web/**`** or **`services/riffsync-sfu/**`** (extend **`ci.yml`** path filters accordingly). |
+| **Isolation** | Ephemeral SFU + coturn started inside the job (container or compose profile). **No** prod API deploy, **no** **`RiffSyncTurn`** EC2 mutation, **no** prod Cognito fan JWT material in CI logs. |
+| **Credential class** | Harness-local HMAC join secret and static-auth TURN credentials only — not Secrets Manager prod classes. |
+| **Topology** | Same planes as prod: room control stub or mock where needed, direct SFU signaling WebSocket, ICE against disposable TURN. |
+
+**Ordered scenario steps** (pass/fail assertions at each gate):
+
+1. **Join** — bootstrap room WebSocket (or harness stub) and SFU signaling session with valid join JWT.
+2. **Publish** — produce **`participant_av`** video + audio (or **`host_screen`** where scenario requires).
+3. **Consume** — remote harness peer receives media; remote tile / consumer attach succeeds.
+4. **Partial unpublish** — camera off while mic on: video **`producerClosed`** propagates; remote video tile detaches promptly (**no** frozen last frame); audio continues without full SFU session rebuild.
+5. **Reconnect — chat WS** — force room WebSocket drop while SFU signaling stays open; chat plane recovers independently; media session persists per drawer-independent contract.
+6. **Reconnect — SFU WS** — force SFU signaling drop while room WebSocket stays open; token refetch + SFU reconnect recovers media; chat plane unaffected.
+
+Harness failures must name the **drawer** (chat, signaling, connectivity, produce/consume) in CI output. See **[`observability.md`](observability.md)** drawer mapping.
+
+## Open implementation decisions
+
+- **Harness workflow** — Exact job name (**`realtime-conformance`** vs alias), workflow file location, and whether **`services/riffsync-sfu/**`** also adds a lightweight unit-test step to **`infra-cdk`** or a dedicated **`sfu-unit`** job before integration.
+- **Harness driver** — Playwright (browser **`getUserMedia`** fidelity) vs Node **`mediasoup-client`** script (faster, less UI coverage); may combine both with Playwright as gate and Node as fast pre-check.
+- **Harness package layout** — Directory for compose profile, bootstrap scripts, and scenario runner (e.g. **`tests/realtime-conformance/`**).
+- **Timeouts and flake policy** — Per-step wall clocks, retry budget, and CI artifact capture (HAR, SFU journal snippet) for **`/refine-issue`** backlog.
+- **Room WS stub** — Minimal in-process mock vs testcontainers vs skipped when scenario targets SFU-only paths.
 
 ## Release and delivery
 
 - **Production:** manual **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** on **`main`** only.
 - **Deploy identity:** GitHub OIDC → IAM role (**`AWS_DEPLOY_ROLE_ARN_PROD`**) — prefer over long-lived access keys ([`docs/architecture.server.md`](../../docs/architecture.server.md) Delivery pipeline §).
 
-## Participant AV (watch-party rooms)
+## Participant AV (watch-party rooms) — SFU-only artifact graph
 
-Participant camera/microphone ships through the **same** artifact graph as host screen-share:
+All watch-party media (host screen + participant camera/microphone) ships through **one** mediasoup SFU path. **No** mesh WebRTC artifact or build flag.
 
 | Change surface | Artifact / workflow |
 | --- | --- |
-| Room UI, toggles, layouts | **`apps/web`** SPA rebuild → **`RiffSyncStatic-prod`** |
-| SFU token mint, WebSocket fan-out | **`RiffSyncApi-prod`** Lambdas |
+| Room client modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**) | **`apps/web`** SPA rebuild → **`RiffSyncStatic-prod`** |
+| SFU token mint, room WebSocket fan-out | **`RiffSyncApi-prod`** Lambdas |
 | mediasoup multi-producer SFU | **`services/riffsync-sfu`** → **`RiffSyncTurn`** S3 bundle via **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** or phase 1 of **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** |
 
-Media-only SFU hotfixes may use **`deploy-turn.yml`** without a full platform/API/SPA sequence. Post-deploy verification extends **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)** (including multi-publisher participant AV section).
+Media-only SFU hotfixes may use **`deploy-turn.yml`** without a full platform/API/SPA sequence.
 
-## SFU deploy checklist (#106)
+**CI vs prod verification:**
 
-Post-deploy verification for participant AV extends **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)** with multi-publisher cases (section **Multi-publisher participant AV**). Run after **`deploy-turn.yml`** or full **`deploy-prod.yml`** when SFU, token mint, or SPA AV error surfaces change.
+| Band | When | Harness |
+| --- | --- | --- |
+| **PR** | **`apps/web/**`** or **`services/riffsync-sfu/**`** changes | **`realtime-conformance`** (isolated disposable SFU + TURN) |
+| **Post-deploy (prod)** | **`deploy-turn.yml`** or **`deploy-prod.yml`** media/API/SPA phases | Manual **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)** |
+
+## SFU deploy checklist — hardening deltas
+
+Post-deploy verification extends **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)**. After realtime hardening lands, operators add or re-run these rows (map to harness scenarios to avoid duplicate toil):
+
+| Checklist theme | Operator step (manual) | Harness scenario |
+| --- | --- | --- |
+| **Partial unpublish** | Fan disables camera with mic on; remote video tile clears promptly | Harness step 4 |
+| **Drawer-independent reconnect** | Chat WS drop with SFU up; then SFU WS drop with chat up | Harness steps 5–6; extends existing steps 3–4 |
+| **`share_state: stopped`** | Host stops share; guests detach **`host_screen`** only; participant A/V persists | Manual only (prod room WS); assert no full SFU session teardown |
+| **Theater ↔ Video Chat** | Mode transition without silent black screen | Manual smoke; not in MVP harness unless Playwright gate expands |
+| **Mic-only lifecycle** | Mic-only fan audible, off strip/grid; no frozen frame on camera-off peers | Harness step 4 + checklist step 9 |
+
+Run full checklist (steps 1–16 + multi-publisher section) after **`deploy-turn.yml`** or **`deploy-prod.yml`** when SFU, token mint, or SPA AV error surfaces change.
 
 ## Primary code pointers (optional)
 
