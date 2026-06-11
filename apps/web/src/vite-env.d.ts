@@ -16,10 +16,6 @@ interface ImportMetaEnv {
    */
   readonly VITE_WEBRTC_ICE_SERVERS_JSON?: string
   /**
-   * When **`true`**, `/room` sharing uses shared-account mediasoup SFU (**`POST /v1/webrtc/sfu-token`** + **`VITE_PUBLIC_SFU_WS_URL`**).
-   */
-  readonly VITE_WEBRTC_USE_MEDIASOU_SFU?: string
-  /**
    * Mediasoup signaling **`ws://`** / **`wss://`** base (no path, no query). Baked in at **`npm run build`** only.
    * After API deploy, **`POST /v1/webrtc/sfu-token`** also returns **`wsUrl`** from **`SFU_PUBLIC_WS_URL`** (from CDK context / hostname, not from a cross-stack EIP token).
    */
