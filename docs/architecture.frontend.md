@@ -101,10 +101,10 @@ flowchart LR
 
 - Assign **random display name** + opaque **`sessionId`** (UUID) in **`localStorage`**; send **`X-Session-Id`** on lobby/join HTTP and on WebSocket **`$connect`**.
 
-**Room admin (signed-in only)** — Creating **`POST /v1/rooms`** and **publisher** actions (**PATCH** playback metadata, WebRTC signaling envelopes as implemented) require a valid **Cognito JWT**; API Gateway authorizer supplies **`sub`**. The room document stores **`hostSub`** = creator’s **`sub`** at create time.
+**Room admin (signed-in only)** — Creating **`POST /v1/rooms`** and **publisher** actions (**PATCH** playback metadata, **`share_state`**, SFU producer grants) require a valid **Cognito JWT**; API Gateway authorizer supplies **`sub`**. The room document stores **`hostSub`** = creator’s **`sub`** at create time.
 
-- Send **`Authorization: Bearer <access_or_id_token>`** on **host** HTTP mutations and on WebSocket **`$connect`** (or on signaling messages—pick one pattern and document in OpenAPI) whenever the client will **publish** media or change authoritative room fields.
-- Server validates **`JWT.sub === room.hostSub`** before relaying publisher signaling or applying admin writes—**not** `sessionId` equality.
+- Send **`Authorization: Bearer <access_or_id_token>`** on **host** HTTP mutations, WebSocket **`$connect`**, and **`POST /v1/webrtc/sfu-token`** whenever the client will **publish** media or change authoritative room fields.
+- Server validates **`JWT.sub === room.hostSub`** before minting producer SFU tokens or applying admin writes—**not** `sessionId` equality.
 
 **Optional:** Signed-in users may also **join as guests** for continuity; guest **`sessionId`** can coexist with JWT if product maps display name to **`sub`**—MVP can keep guests anonymous-only.
 
@@ -118,7 +118,7 @@ When shipping **Facebook → Cognito** (or another IdP):
 
 1. **UX** — **Sign in to host** on catalog **Start watch party** / room create; guests see **Continue anonymously** vs **Sign in** only if you want optional continuity for viewers.
 2. **Display name** — Host display may come from **Cognito attributes** or **`GET /v1/me`**; guests remain random adjective+noun until product adds optional viewer login.
-3. **WebSocket** — **Bearer JWT required** for connections that will **publish** WebRTC or issue admin mutations; guest connects may stay **`sessionId`**-only if signaling stays separate—prefer **one connect policy** once scaffold exists.
+3. **WebSocket** — **Bearer JWT required** for connections that will **publish** SFU media or issue admin mutations; guest connects stay **`sessionId`**-only on the room WebSocket. SFU signaling uses a **separate** WebSocket to the mediasoup host.
 4. **Meta / legal** — Same as before (Privacy Policy, Data deletion, Meta **[Data Use Checkup](https://developers.facebook.com/docs/development/release/data-use-checkup)**).
 
 ---
@@ -129,8 +129,8 @@ Responsibilities on `/room/:roomId`:
 
 1. **Connection lifecycle** — connect with `roomId` + **`sessionId`** for anonymous envelope + **`Authorization: Bearer`** when the client acts as **room admin** (publisher); backoff/reconnect UX; unsubscribe on navigate away.
 2. **Periodic ping** — lightweight message on interval so **`lastActivityAt`** stays fresh while idle (coordinate interval with backend).
-3. **Inbound events** — **chat**, **presence**, **room metadata** updates (episode selection, visibility, broadcast lifecycle flags as implemented), and **WebRTC signaling envelopes** (SDP / ICE candidates—shape TBD with OpenAPI/contract tables).
-4. **Outbound** — **Room-admin only:** episode/load intent if modeled over WS, signaling messages; **not** “broadcast canonical `currentTime` to drive three separate iframes.” Anyone in MVP: **chat**; optional presence typing later.
+3. **Inbound events** — **chat**, **presence**, **room metadata** updates (episode selection, visibility, **`share_state`** lifecycle flags as implemented).
+4. **Outbound** — **Room-admin only:** episode/load intent if modeled over WS, **`share_state`** announcements; **not** “broadcast canonical `currentTime` to drive three separate iframes.” Anyone in MVP: **chat**; optional presence typing later. **WebRTC media** (SDP / ICE) uses the **SFU signaling WebSocket**, not the room control WebSocket.
 
 Treat **WebRTC peer connection state** separately from **YouTube iframe events** so reconnect and ICE restarts do not thrash the embed.
 
@@ -147,10 +147,10 @@ Treat **WebRTC peer connection state** separately from **YouTube iframe events**
 
 **Peers**
 
-- **Production default:** **`mediasoup` SFU** is the supported watch-party media path. **Production Vite builds** default **`VITE_WEBRTC_USE_MEDIASOU_SFU`** to **on** unless explicitly set to **`false`** (see **`apps/web/src/config/mediasoupSfuFeature.ts`**). **Peer mesh** remains an explicit escape hatch for local development when SFU is off; **mesh is unsupported** for production parties beyond quick experiments.
-- **Configuration:** set **`VITE_PUBLIC_SFU_WS_URL`** (**`wss://…`**) at build time when the HTTP API does not already return **`wsUrl`** on **`POST /v1/webrtc/sfu-token`**. CI deploy workflows set **`VITE_WEBRTC_USE_MEDIASOU_SFU=true`** and pass optional repo variables **`STAGING_SFU_PUBLIC_WS_URL`** / **`PROD_SFU_PUBLIC_WS_URL`**. Mediasoup runs on the SFU EC2 in **`RiffSyncTurn`**; token TTL and fan WebSocket ordering are documented in **`architecture.server.md`**.
+- **SFU-only:** **`mediasoup` SFU** is the **only** watch-party media path in **all** environments (local dev, CI, production). There is **no** peer-mesh fallback or build flag.
+- **Configuration:** set **`VITE_PUBLIC_SFU_WS_URL`** (**`wss://…`**) at build time when the HTTP API does not already return **`wsUrl`** on **`POST /v1/webrtc/sfu-token`**. CI deploy workflows pass optional repo variables **`PROD_SFU_PUBLIC_WS_URL`** / **`PROD_SFU_SIGNALING_HOSTNAME`**. Mediasoup runs on the SFU EC2 in **`RiffSyncTurn`**; token TTL and fan WebSocket ordering are documented in **`architecture.server.md`**. Local dev uses the disposable SFU + TURN profile (**`.ai/operations/deployment_environments.md`**, **`npm run media:local`**).
 - **Reliability (client):** the room page runs **`startSfuRoomSession`** (**`apps/web/src/room/sfu/sfuRoomSession.ts`**) so SFU token refetch, signaling reconnect with backoff, and transport failure handling stay in one place. Missing relay URL surfaces as a **visible** room error.
-- **Signaling:** for mesh, reuse WebSocket routes to exchange SDP and ICE candidates **after** authz confirms **`JWT.sub === room.hostSub`** for publisher role. For SFU, signaling is a **second WebSocket** to the SFU host (TLS often required for HTTPS SPAs).
+- **Signaling:** SFU media uses a **dedicated WebSocket** to the SFU host (TLS often required for HTTPS SPAs). Room control WebSocket carries chat, presence, and **`share_state`** only.
 
 **Guests**
 
@@ -242,7 +242,7 @@ Document **chosen** stack here after bootstrap (e.g. React Query + Zustand, or R
 
 - Visual design system — **started from purchased HTML template** (see **Purchased HTML template (visual design)** above); component library selection **TBD** once scaffold exists.
 - i18n, a11y audit checklist (add once components exist).
-- Concrete **vendor choice** for SFU/TURN vs mesh-only prototypes.
+- **`realtime-conformance`** harness layout and CI gate wiring (see **`.ai/operations/build_packaging.md`**).
 - **Tests** layout — mirror `CONTRIBUTING.md` or `README` Testing section once CI exists.
 
 Update this file when routes, event schemas, or storage keys stabilize.

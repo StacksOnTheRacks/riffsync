@@ -1,6 +1,8 @@
 # Playwright E2E (optional)
 
-Default CI / local runs **skip** the mesh share test unless these env vars are set:
+Default CI / local runs **skip** the legacy host share smoke spec. Watch-party media is **SFU-only**; automated SFU conformance is deferred to the **`realtime-conformance`** harness described in **`.ai/operations/build_packaging.md`**.
+
+The optional **`sharing-smoke.spec.ts`** flow remains for manual operator checks when these env vars are set:
 
 | Variable | Purpose |
 | -------- | ------- |

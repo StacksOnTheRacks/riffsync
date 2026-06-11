@@ -1,6 +1,6 @@
 # Mediasoup SFU deploy checklist
 
-Manual verification after deploys that touch **`RiffSyncTurn`** (mediasoup SFU + coturn), **`RiffSyncApi-prod`** (`sfu-token`), or fan SPA env (**`VITE_PUBLIC_SFU_WS_URL`**, **`VITE_WEBRTC_USE_MEDIASOU_SFU`**).
+Manual verification after deploys that touch **`RiffSyncTurn`** (mediasoup SFU + coturn), **`RiffSyncApi-prod`** (`sfu-token`), or fan SPA env (**`VITE_PUBLIC_SFU_WS_URL`**).
 
 1. **Happy path**  
    Host opens `/room/:id`, starts tab share. Two guests join and see video within a few seconds. Chat and presence update.
@@ -15,7 +15,7 @@ Manual verification after deploys that touch **`RiffSyncTurn`** (mediasoup SFU +
    With host sharing, on a guest open devtools → Network → WS and close only the **SFU** socket (not the fan API WebSocket). Guest should recover via token refetch + reconnect policy.
 
 5. **Host stop share**  
-   Host stops capture; guests’ theater clears (and mesh/SFU share_state path stays consistent).
+   Host stops capture; guests’ theater clears via **`share_state: stopped`** fan-out.
 
 6. **Server health**  
    `curl -sSf "${SFU_HTTP}/healthz"` returns JSON with **`ok`**, **`workerAlive`**, **`routerRoomCount`**, **`signalingConnections`** (`riffsync-sfu` listens on port **3000** by default; use the same host as **`wss://`** without TLS for local probes only).
