@@ -1,0 +1,33 @@
+# Disposable local watch-party media: mediasoup SFU + coturn (same semantics as RiffSyncTurn).
+# Bootstrap: copy .env.example -> .env and coturn/turnserver.conf.example -> coturn/turnserver.conf
+# See README.md for port map, health probe, and prod join-secret coupling.
+
+services:
+  sfu:
+    build:
+      context: ../../services/riffsync-sfu
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      PORT: "3000"
+    ports:
+      # HTTP + WebSocket signaling (localhost only)
+      - "127.0.0.1:3000:3000"
+      # mediasoup RTC (match MEDIASOUP_RTC_MIN_PORT / MEDIASOUP_RTC_MAX_PORT in .env)
+      - "40000-40199:40000-40199/udp"
+      - "40000-40199:40000-40199/tcp"
+    restart: unless-stopped
+
+  turn:
+    image: coturn/coturn:4.6.2-r9
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    ports:
+      # STUN/TURN (3478 UDP + TCP)
+      - "3478:3478"
+      - "3478:3478/udp"
+      # TURN relay range (must match min-port/max-port in turnserver.conf and prod SG 49152-65535)
+      - "49152-65535:49152-65535/udp"
+      - "49152-65535:49152-65535/tcp"
+    restart: unless-stopped
