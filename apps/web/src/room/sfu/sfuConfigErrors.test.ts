@@ -4,8 +4,10 @@ import {
   isConfigClassSfuMediaError,
   isLocalDisposableSfuHost,
   LOCAL_SFU_UNREACHABLE_MSG,
+  messageForSfuRelayConfigError,
   probeSfuHealthz,
   SFU_RELAY_UNREACHABLE_MSG,
+  SFU_RELAY_URL_MISSING_MSG,
   wsBaseToHealthzUrl,
 } from './sfuConfigErrors'
 
@@ -35,6 +37,14 @@ describe('isConfigClassSfuMediaError', () => {
     expect(isConfigClassSfuMediaError('sfu_relay_unreachable')).toBe(true)
     expect(isConfigClassSfuMediaError('missing_ws_url')).toBe(true)
     expect(isConfigClassSfuMediaError('signaling_failed')).toBe(false)
+  })
+})
+
+describe('messageForSfuRelayConfigError', () => {
+  it('returns contract copy for every SFU_RELAY_* code', () => {
+    expect(messageForSfuRelayConfigError('missing_ws_url')).toContain(SFU_RELAY_URL_MISSING_MSG)
+    expect(messageForSfuRelayConfigError('local_sfu_unreachable')).toBe(LOCAL_SFU_UNREACHABLE_MSG)
+    expect(messageForSfuRelayConfigError('sfu_relay_unreachable')).toBe(SFU_RELAY_UNREACHABLE_MSG)
   })
 })
 

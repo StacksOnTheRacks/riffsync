@@ -42,6 +42,15 @@ import {
 } from '../room/roomMediaLifecycle'
 import type { SfuUnifiedSessionHandle } from '../room/sfu/mediasoupSharing'
 import { startSfuRoomSession } from '../room/sfu/sfuRoomSession'
+import {
+  messageForSfuRelayConfigError,
+  type SfuRelayConfigErrorCode,
+} from '../room/sfu/sfuConfigErrors'
+import {
+  resolveGuestVideoRelayStatusLine,
+  resolveHostVideoRelayStatusLine,
+  type GuestHostScreenFsm,
+} from '../room/sfu/sfuRelayStatusCopy'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
 import { isEmojiOnlyChatMessage } from '../room/chatEmojiDisplay'
@@ -76,10 +85,6 @@ import { useStageLayoutTransition } from '../room/stage/useStageLayoutTransition
 import { useViewportWide } from '../room/stage/useViewportWide'
 
 const DISPLAY_TITLE_MAX_LEN = 120
-
-/** Shown when neither token **`wsUrl`** nor **`import.meta.env.VITE_PUBLIC_SFU_WS_URL`** resolves. */
-const SFU_RELAY_URL_MISSING_MSG =
-  'Video relay URL is missing. Fix: (1) Redeploy RiffSyncApi-prod so POST /v1/webrtc/sfu-token returns wsUrl (from CDK context / signaling hostname). (2) Or set VITE_PUBLIC_SFU_WS_URL in the environment when you run npm run build (Vite bakes it in then, not from S3 at runtime). For https fan sites use wss via CDK context sfuPublicWsUrl or the same Vite variable.'
 
 type ChatTextLine = {
   kind: 'text'
@@ -135,20 +140,12 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-type GuestHostScreenFsm = 'idle' | 'verifying_media' | 'running'
-
-function guestShareStatusLine(fsm: GuestHostScreenFsm, wsDisconnected: boolean): string | null {
-  if (wsDisconnected) return 'Reconnecting chat… Video may pause briefly.'
-  switch (fsm) {
-    case 'idle':
-      return 'Waiting for host to share…'
-    case 'verifying_media':
-      return 'Connecting to video relay…'
-    case 'running':
-      return null
-    default:
-      return null
-  }
+function isSfuRelayConfigErrorCode(code: string): code is SfuRelayConfigErrorCode {
+  return (
+    code === 'missing_ws_url' ||
+    code === 'local_sfu_unreachable' ||
+    code === 'sfu_relay_unreachable'
+  )
 }
 
 export function RoomPage() {
@@ -803,15 +800,12 @@ export function RoomPage() {
       assignSession: (s) => {
         sfuSessionRef.current = s
       },
-      onMissingWsUrl: () => setSfuRoomErr(SFU_RELAY_URL_MISSING_MSG),
+      onMissingWsUrl: () =>
+        setSfuRoomErr(messageForSfuRelayConfigError('missing_ws_url')),
       onTokenError: (msg) => setSfuRoomErr(msg),
       onMediaError: (code, msg) => {
-        if (
-          code === 'missing_ws_url' ||
-          code === 'local_sfu_unreachable' ||
-          code === 'sfu_relay_unreachable'
-        ) {
-          setSfuRoomErr(msg)
+        if (isSfuRelayConfigErrorCode(code)) {
+          setSfuRoomErr(messageForSfuRelayConfigError(code))
           return
         }
         if (participantAvController.getState().needsProducerToken) {
@@ -1262,8 +1256,15 @@ export function RoomPage() {
 
   const guestVideoStatusSentence =
     !isPublisher ?
-      guestShareStatusLine(guestShareFsmUi, Boolean(wsBase) && wsStatus !== 'open')
+      resolveGuestVideoRelayStatusLine({
+        sfuRelayError: sfuRoomErr,
+        guestShareFsm: guestShareFsmUi,
+        chatWsDisconnected: Boolean(wsBase) && wsStatus !== 'open',
+      })
     : null
+
+  const hostVideoRelayStatusSentence =
+    isPublisher ? resolveHostVideoRelayStatusLine(sfuRoomErr) : null
 
   return (
     <div
@@ -1350,6 +1351,12 @@ export function RoomPage() {
                     </div>
                   )}
                 </div>
+
+                {hostVideoRelayStatusSentence ? (
+                  <p className="riffsync-muted" role="status">
+                    {hostVideoRelayStatusSentence}
+                  </p>
+                ) : null}
 
                 {isPublisher && (captureErr || (patchErr && !renameModalOpen)) ? (
                   <div className="riffsync-room-page__host-feedback" aria-label="Host notices">

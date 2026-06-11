@@ -66,6 +66,12 @@ describe('isParticipantAvTokenHardFail', () => {
 })
 
 describe('participantAvErrorFromSfuMediaCode', () => {
+  it('maps configuration-class SFU codes to sfu_signaling_failed', () => {
+    expect(participantAvErrorFromSfuMediaCode('missing_ws_url')).toBe('sfu_signaling_failed')
+    expect(participantAvErrorFromSfuMediaCode('local_sfu_unreachable')).toBe('sfu_signaling_failed')
+    expect(participantAvErrorFromSfuMediaCode('sfu_relay_unreachable')).toBe('sfu_signaling_failed')
+  })
+
   it('maps signaling failures to sfu_signaling_failed', () => {
     expect(participantAvErrorFromSfuMediaCode('signaling_failed')).toBe('sfu_signaling_failed')
     expect(participantAvErrorFromSfuMediaCode('signaling_closed')).toBe('sfu_signaling_failed')
