@@ -20,7 +20,14 @@ export function useRoomWebSocket(options: {
   status: WsStatus
   sendJson: (payload: Record<string, unknown>) => void
 } {
-  const { onMessage: _ignored, ...connect } = options
-  const { status, sendJson } = useChatSession(connect)
+  const { url, roomId, sessionId, displayName, accessToken, enabled } = options
+  const { status, sendJson } = useChatSession({
+    url,
+    roomId,
+    sessionId,
+    displayName,
+    accessToken,
+    enabled,
+  })
   return { status, sendJson }
 }

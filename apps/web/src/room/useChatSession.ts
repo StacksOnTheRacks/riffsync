@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ChatSession, type ChatSessionStatus } from './sessions/ChatSession'
 
 export type { ChatSessionStatus as WsStatus } from './sessions/ChatSession'
@@ -20,12 +20,8 @@ export function useChatSession(options: {
   session: ChatSession
 } {
   const { url, roomId, sessionId, displayName, accessToken, enabled } = options
-  const sessionRef = useRef<ChatSession | null>(null)
-  if (!sessionRef.current) {
-    sessionRef.current = new ChatSession()
-  }
-  const session = sessionRef.current
-  const [status, setStatus] = useState<ChatSessionStatus>(() => session.getStatus())
+  const [session] = useState(() => new ChatSession())
+  const [status, setStatus] = useState<ChatSessionStatus>('idle')
 
   useEffect(() => {
     return session.onStatusChange(setStatus)
