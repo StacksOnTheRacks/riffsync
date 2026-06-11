@@ -6,7 +6,8 @@
  * normative fan-visible / harness contract per `.ai/integration/api_contracts.md`.
  */
 
-import type { RoomSnapshot } from '../../api/roomsApi'
+import type { RoomMode, RoomSnapshot } from '../../api/roomsApi'
+import { fetchRtcIceServers } from '../../config/fetchRtcIceServers'
 import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
 import { ChatSession, type ChatSessionStatus } from './ChatSession'
 import { SfuMediaSession, type SfuMediaSessionStatus } from './SfuMediaSession'
@@ -61,6 +62,7 @@ export type JoinOptions = {
   apiBaseUrl?: string
   isHost?: boolean
   getIceServers?: () => Promise<RTCIceServer[]>
+  onDiagnosticsChange?: (diagnostics: RoomRealtimeDiagnostics) => void
 }
 
 export type PublishAvOptions = {
@@ -134,7 +136,15 @@ function collectActiveErrorCodes(
 export class RoomRealtimeSdk {
   private roomId = ''
   private sessionId = ''
+  private roomMode: RoomMode = 'theater'
+  private avDisabled = false
+  private isHost = false
   private theaterLayoutActive = false
+  private theaterBootstrapped = false
+  private mediaBootstrapStarted = false
+  private joinOptions: JoinOptions | null = null
+  private onDiagnosticsChange: ((diagnostics: RoomRealtimeDiagnostics) => void) | undefined
+
   private chatLastErrorCode: string | undefined
   private sfuLastErrorCode: string | undefined
   private theaterLastErrorCode: string | undefined
@@ -146,6 +156,7 @@ export class RoomRealtimeSdk {
   private chatStatusUnsub: (() => void) | null = null
   private sfuStatusUnsub: (() => void) | null = null
   private sfuErrorUnsub: (() => void) | null = null
+  private mediaPolicyUnsubs: Array<() => void> = []
   private hostScreenStreamUnsub: (() => void) | null = null
   private participantAvTrackUnsub: (() => void) | null = null
   private participantAvClearUnsub: (() => void) | null = null
@@ -155,44 +166,21 @@ export class RoomRealtimeSdk {
 
     this.roomId = roomId
     this.sessionId = options.sessionId
-    this.theaterLayoutActive = options.roomSnapshot.roomMode === 'theater'
+    this.roomMode = options.roomSnapshot.roomMode
+    this.avDisabled = options.roomSnapshot.avDisabled
+    this.isHost = options.isHost === true
+    this.theaterLayoutActive = this.roomMode === 'theater'
+    this.theaterBootstrapped = false
+    this.mediaBootstrapStarted = false
+    this.joinOptions = options
+    this.onDiagnosticsChange = options.onDiagnosticsChange
 
     this.chat = new ChatSession()
     this.sfu = new SfuMediaSession()
     this.theater = new TheaterPlayback()
 
-    this.chatStatusUnsub = this.chat.onStatusChange((status) => {
-      if (status === 'error' && !this.chatLastErrorCode) {
-        this.chatLastErrorCode = 'CHAT_SEND_DROPPED'
-      }
-      if (status === 'open') {
-        this.chatLastErrorCode = undefined
-      }
-    })
-
-    this.sfuStatusUnsub = this.sfu.onStatusChange((status) => {
-      if (status === 'error' && !this.sfuLastErrorCode) {
-        this.sfuLastErrorCode = 'SIGNALING_TIMEOUT'
-      }
-      if (status === 'open') {
-        this.sfuLastErrorCode = undefined
-      }
-    })
-
-    this.sfuErrorUnsub = this.sfu.onError((message) => {
-      if (message) {
-        this.sfuLastErrorCode = 'SIGNALING_TIMEOUT'
-      }
-    })
-
-    if (this.theaterLayoutActive) {
-      this.theater.configure({
-        enabled: true,
-        isPublisher: options.isHost === true,
-        avDisabled: options.roomSnapshot.avDisabled,
-      })
-      this.theater.attachSfuSession(this.sfu)
-    }
+    this.wireDrawerStatusListeners()
+    this.wireMediaPolicyCallbacks()
 
     if (options.wsUrl) {
       this.chat.connect({
@@ -205,18 +193,7 @@ export class RoomRealtimeSdk {
       })
     }
 
-    if (options.apiBaseUrl) {
-      this.sfu.connect({
-        apiBaseUrl: options.apiBaseUrl,
-        roomId,
-        sessionId: options.sessionId,
-        accessToken: options.accessToken ?? null,
-        getIceServers: options.getIceServers ?? (async () => []),
-        getHostScreenStream: () => null,
-        enabled: true,
-      })
-    }
-
+    this.emitDiagnosticsChange()
     return this
   }
 
@@ -272,11 +249,10 @@ export class RoomRealtimeSdk {
     const sfuState = this.sfu
       ? mapSfuMediaSessionStatusToDrawerState(this.sfu.getStatus())
       : 'torn-down'
-    const theaterState: DrawerLifecycleState = this.theaterLayoutActive
-      ? this.theater
+    const theaterState: DrawerLifecycleState =
+      this.theaterLayoutActive && this.theaterBootstrapped && this.theater
         ? 'connected'
-        : 'degraded'
-      : 'torn-down'
+        : 'torn-down'
 
     const drawers: RoomRealtimeDiagnostics['drawers'] = {
       chat: {
@@ -306,16 +282,155 @@ export class RoomRealtimeSdk {
     this.teardownModules({ intentional: true })
   }
 
+  private wireDrawerStatusListeners(): void {
+    const chat = this.chat
+    const sfu = this.sfu
+    if (!chat || !sfu) return
+
+    this.chatStatusUnsub = chat.onStatusChange((status) => {
+      if (status === 'error' && !this.chatLastErrorCode) {
+        this.chatLastErrorCode = 'CHAT_SEND_DROPPED'
+      }
+      if (status === 'open') {
+        this.chatLastErrorCode = undefined
+        void this.bootstrapMediaPlanes()
+      }
+      this.emitDiagnosticsChange()
+    })
+
+    this.sfuStatusUnsub = sfu.onStatusChange((status) => {
+      if (status === 'error' && !this.sfuLastErrorCode) {
+        this.sfuLastErrorCode = 'SIGNALING_TIMEOUT'
+      }
+      if (status === 'open') {
+        this.sfuLastErrorCode = undefined
+      }
+      this.emitDiagnosticsChange()
+    })
+
+    this.sfuErrorUnsub = sfu.onError((message) => {
+      if (message) {
+        this.sfuLastErrorCode = 'SIGNALING_TIMEOUT'
+      }
+      this.emitDiagnosticsChange()
+    })
+  }
+
+  private wireMediaPolicyCallbacks(): void {
+    const chat = this.chat
+    const sfu = this.sfu
+    const theater = this.theater
+    if (!chat || !sfu || !theater) return
+
+    this.mediaPolicyUnsubs = [
+      chat.onShareState((event) => {
+        if (event.state !== 'stopped') return
+        sfu.handleShareStateStopped(this.isHost)
+      }),
+      chat.onRoomMode((event) => {
+        const previousMode = this.roomMode
+        this.roomMode = event.roomMode
+        this.theaterLayoutActive = event.roomMode === 'theater'
+        sfu.handleRoomModeTransition(previousMode, event.roomMode, this.isHost)
+        if (event.roomMode === 'theater') {
+          this.initTheaterPlayback()
+        } else {
+          theater.configure({
+            enabled: false,
+            isPublisher: this.isHost,
+            avDisabled: this.avDisabled,
+          })
+          theater.detachSfuSession()
+          this.theaterBootstrapped = false
+        }
+        this.emitDiagnosticsChange()
+      }),
+      chat.onAvDisabled((event) => {
+        const previous = this.avDisabled
+        this.avDisabled = event.avDisabled
+        sfu.updatePublishGate({ avDisabled: event.avDisabled })
+        if (event.avDisabled && !previous) {
+          sfu.handleAvDisabledKillSwitch()
+        }
+        if (this.theaterLayoutActive && this.theaterBootstrapped) {
+          theater.configure({
+            enabled: true,
+            isPublisher: this.isHost,
+            avDisabled: event.avDisabled,
+          })
+        }
+        this.emitDiagnosticsChange()
+      }),
+    ]
+  }
+
+  private async bootstrapMediaPlanes(): Promise<void> {
+    if (this.mediaBootstrapStarted) return
+    this.mediaBootstrapStarted = true
+
+    const options = this.joinOptions
+    const sfu = this.sfu
+    const chat = this.chat
+    if (!options || !sfu || !chat) return
+
+    const getIceServers = options.getIceServers ?? fetchRtcIceServers
+    await getIceServers().catch(() => undefined)
+
+    sfu.updatePublishGate({
+      wsOpen: chat.getStatus() === 'open',
+      fanToken: options.accessToken ?? null,
+      avDisabled: this.avDisabled,
+    })
+
+    if (options.apiBaseUrl) {
+      sfu.connect({
+        apiBaseUrl: options.apiBaseUrl,
+        roomId: this.roomId,
+        sessionId: options.sessionId,
+        accessToken: options.accessToken ?? null,
+        getIceServers,
+        getHostScreenStream: () => null,
+        enabled: true,
+      })
+    }
+
+    if (this.theaterLayoutActive) {
+      this.initTheaterPlayback()
+    }
+
+    this.emitDiagnosticsChange()
+  }
+
+  private initTheaterPlayback(): void {
+    const sfu = this.sfu
+    const theater = this.theater
+    if (!sfu || !theater || !this.theaterLayoutActive) return
+
+    theater.configure({
+      enabled: true,
+      isPublisher: this.isHost,
+      avDisabled: this.avDisabled,
+    })
+    theater.attachSfuSession(sfu)
+    this.theaterBootstrapped = true
+  }
+
+  private emitDiagnosticsChange(): void {
+    this.onDiagnosticsChange?.(this.getDiagnostics())
+  }
+
   private teardownModules(opts: { intentional: boolean }): void {
     this.chatStatusUnsub?.()
     this.sfuStatusUnsub?.()
     this.sfuErrorUnsub?.()
+    for (const unsub of this.mediaPolicyUnsubs) unsub()
     this.hostScreenStreamUnsub?.()
     this.participantAvTrackUnsub?.()
     this.participantAvClearUnsub?.()
     this.chatStatusUnsub = null
     this.sfuStatusUnsub = null
     this.sfuErrorUnsub = null
+    this.mediaPolicyUnsubs = []
     this.hostScreenStreamUnsub = null
     this.participantAvTrackUnsub = null
     this.participantAvClearUnsub = null
@@ -330,6 +445,10 @@ export class RoomRealtimeSdk {
     this.sfu = null
     this.theater = null
     this.theaterLayoutActive = false
+    this.theaterBootstrapped = false
+    this.mediaBootstrapStarted = false
+    this.joinOptions = null
+    this.onDiagnosticsChange = undefined
     this.chatLastErrorCode = undefined
     this.sfuLastErrorCode = undefined
     this.theaterLastErrorCode = undefined
