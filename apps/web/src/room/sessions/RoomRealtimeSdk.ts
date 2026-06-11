@@ -8,10 +8,22 @@
 
 import type { RoomMode, RoomSnapshot } from '../../api/roomsApi'
 import { fetchRtcIceServers } from '../../config/fetchRtcIceServers'
+import type { ParticipantAvController } from '../sfu/participantAvSession'
 import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
-import { ChatSession, type ChatSessionStatus } from './ChatSession'
+import {
+  ChatSession,
+  type AvDisabledEvent,
+  type ChatGifLine,
+  type ChatReactionEvent,
+  type ChatSessionStatus,
+  type ChatTextLine,
+  type PresenceEvent,
+  type RoomModeEvent,
+} from './ChatSession'
 import { SfuMediaSession, type SfuMediaSessionStatus } from './SfuMediaSession'
-import { TheaterPlayback } from './TheaterPlayback'
+import { TheaterPlayback, type TheaterPlaybackSnapshot } from './TheaterPlayback'
+
+export type { TheaterPlaybackSnapshot }
 
 export const DRAWER_LIFECYCLE_STATES = [
   'connected',
@@ -53,6 +65,15 @@ export type RoomRealtimeDiagnostics = {
   activeErrorCodes: string[]
 }
 
+export type RoomControlHandlers = {
+  onChatText?: (line: ChatTextLine) => void
+  onChatGif?: (line: ChatGifLine) => void
+  onChatReaction?: (event: ChatReactionEvent) => void
+  onPresence?: (event: PresenceEvent) => void
+  onRoomModeUi?: (event: RoomModeEvent) => void
+  onAvDisabledUi?: (event: AvDisabledEvent) => void
+}
+
 export type JoinOptions = {
   roomSnapshot: RoomSnapshot
   sessionId: string
@@ -62,6 +83,9 @@ export type JoinOptions = {
   apiBaseUrl?: string
   isHost?: boolean
   getIceServers?: () => Promise<RTCIceServer[]>
+  getHostScreenStream?: () => MediaStream | null
+  youtubeVideoId?: string | null
+  roomControlHandlers?: RoomControlHandlers
   onDiagnosticsChange?: (diagnostics: RoomRealtimeDiagnostics) => void
 }
 
@@ -148,6 +172,10 @@ export class RoomRealtimeSdk {
   private chatLastErrorCode: string | undefined
   private sfuLastErrorCode: string | undefined
   private theaterLastErrorCode: string | undefined
+  private sfuRelayErrorMessage: string | null = null
+  private getHostScreenStream: () => MediaStream | null = () => null
+  private roomControlUnsubs: Array<() => void> = []
+  private theaterSnapshotUnsub: (() => void) | null = null
 
   private chat: ChatSession | null = null
   private sfu: SfuMediaSession | null = null
@@ -176,6 +204,8 @@ export class RoomRealtimeSdk {
     this.mediaBootstrapStarted = false
     this.joinOptions = options
     this.onDiagnosticsChange = options.onDiagnosticsChange
+    this.getHostScreenStream = options.getHostScreenStream ?? (() => null)
+    this.sfuRelayErrorMessage = null
 
     this.chat = new ChatSession()
     this.sfu = new SfuMediaSession()
@@ -183,6 +213,10 @@ export class RoomRealtimeSdk {
 
     this.wireDrawerStatusListeners()
     this.wireMediaPolicyCallbacks()
+    this.wireRoomControlHandlers(options.roomControlHandlers)
+    if (options.youtubeVideoId !== undefined) {
+      this.theater.setYoutubeVideoId(options.youtubeVideoId)
+    }
 
     if (options.wsUrl) {
       this.chat.connect({
@@ -280,6 +314,72 @@ export class RoomRealtimeSdk {
     this.teardownModules({ intentional: true })
   }
 
+  sendControl(payload: Record<string, unknown>): void {
+    this.chat?.send(payload)
+  }
+
+  getChatStatus(): ChatSessionStatus {
+    return this.chat?.getStatus() ?? 'idle'
+  }
+
+  getSfuRelayError(): string | null {
+    return this.sfuRelayErrorMessage
+  }
+
+  getParticipantAvController(): ParticipantAvController | null {
+    return this.sfu?.participantAv ?? null
+  }
+
+  unpublishHostScreen(): void {
+    this.sfu?.unpublishHostScreen()
+  }
+
+  syncHostScreenPublish(opts: {
+    stream: MediaStream | null
+    roomMode: RoomMode
+    isPublisher: boolean
+  }): void {
+    this.sfu?.syncHostScreenPublish(opts)
+  }
+
+  getTheaterSnapshot(): TheaterPlaybackSnapshot {
+    return this.theater?.getSnapshot() ?? {
+      guestShareFsm: 'idle',
+      guestPlayHint: false,
+      hostCapturePlayHint: false,
+    }
+  }
+
+  onTheaterSnapshotChange(listener: (snapshot: TheaterPlaybackSnapshot) => void): () => void {
+    const theater = this.theater
+    if (!theater) return () => undefined
+    return theater.onSnapshotChange(listener)
+  }
+
+  setCaptureStreamForTheater(stream: MediaStream | null): void {
+    this.theater?.setCaptureStream(stream)
+  }
+
+  setYoutubeVideoIdForTheater(videoId: string | null | undefined): void {
+    this.theater?.setYoutubeVideoId(videoId ?? null)
+  }
+
+  bindGuestVideo(element: HTMLVideoElement | null): void {
+    this.theater?.setGuestVideoElement(element)
+  }
+
+  bindHostCaptureVideo(element: HTMLVideoElement | null): void {
+    this.theater?.setHostCaptureVideoElement(element)
+  }
+
+  playGuestVideo(): Promise<void> {
+    return this.theater?.playGuestVideo() ?? Promise.resolve()
+  }
+
+  playHostCapturePreview(): Promise<void> {
+    return this.theater?.playHostCapturePreview() ?? Promise.resolve()
+  }
+
   private wireDrawerStatusListeners(): void {
     const chat = this.chat
     const sfu = this.sfu
@@ -307,6 +407,7 @@ export class RoomRealtimeSdk {
     })
 
     this.sfuErrorUnsub = sfu.onError((message) => {
+      this.sfuRelayErrorMessage = message
       if (message) {
         this.sfuLastErrorCode = 'SIGNALING_TIMEOUT'
       }
@@ -351,6 +452,7 @@ export class RoomRealtimeSdk {
           theater.detachSfuSession()
           this.theaterBootstrapped = false
         }
+        this.joinOptions?.roomControlHandlers?.onRoomModeUi?.(event)
         this.emitDiagnosticsChange()
       }),
       chat.onAvDisabled((event) => {
@@ -367,9 +469,26 @@ export class RoomRealtimeSdk {
             avDisabled: event.avDisabled,
           })
         }
+        this.joinOptions?.roomControlHandlers?.onAvDisabledUi?.(event)
         this.emitDiagnosticsChange()
       }),
     ]
+  }
+
+  private wireRoomControlHandlers(handlers: RoomControlHandlers | undefined): void {
+    for (const unsub of this.roomControlUnsubs) unsub()
+    this.roomControlUnsubs = []
+
+    const chat = this.chat
+    if (!chat || !handlers) return
+
+    const maybePush = (unsub: () => void) => {
+      this.roomControlUnsubs.push(unsub)
+    }
+    if (handlers.onChatText) maybePush(chat.onChatText(handlers.onChatText))
+    if (handlers.onChatGif) maybePush(chat.onChatGif(handlers.onChatGif))
+    if (handlers.onChatReaction) maybePush(chat.onChatReaction(handlers.onChatReaction))
+    if (handlers.onPresence) maybePush(chat.onPresence(handlers.onPresence))
   }
 
   private async bootstrapMediaPlanes(): Promise<void> {
@@ -397,7 +516,7 @@ export class RoomRealtimeSdk {
         sessionId: options.sessionId,
         accessToken: options.accessToken ?? null,
         getIceServers,
-        getHostScreenStream: () => null,
+        getHostScreenStream: () => this.getHostScreenStream(),
         enabled: true,
       })
     }
@@ -477,6 +596,8 @@ export class RoomRealtimeSdk {
     this.sfuStatusUnsub?.()
     this.sfuErrorUnsub?.()
     for (const unsub of this.mediaPolicyUnsubs) unsub()
+    for (const unsub of this.roomControlUnsubs) unsub()
+    this.theaterSnapshotUnsub?.()
     this.hostScreenStreamUnsub?.()
     this.participantAvTrackUnsub?.()
     this.participantAvClearUnsub?.()
@@ -485,6 +606,8 @@ export class RoomRealtimeSdk {
     this.sfuStatusUnsub = null
     this.sfuErrorUnsub = null
     this.mediaPolicyUnsubs = []
+    this.roomControlUnsubs = []
+    this.theaterSnapshotUnsub = null
     this.hostScreenStreamUnsub = null
     this.participantAvTrackUnsub = null
     this.participantAvClearUnsub = null
@@ -508,6 +631,7 @@ export class RoomRealtimeSdk {
     this.chatLastErrorCode = undefined
     this.sfuLastErrorCode = undefined
     this.theaterLastErrorCode = undefined
+    this.sfuRelayErrorMessage = null
 
     if (opts.intentional) {
       this.roomId = ''

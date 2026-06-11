@@ -57,6 +57,7 @@ vi.mock('../room/audio/theaterAudioMix', () => ({
     setHostVideoElement: vi.fn(),
     onConsumerEvent: vi.fn(),
     resumeIfSuspended: vi.fn().mockResolvedValue(undefined),
+    getAudioContextState: vi.fn(() => 'running'),
   })),
 }))
 
@@ -160,11 +161,12 @@ describe('RoomPage session integration', () => {
     root = createRoot(container)
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     act(() => root.unmount())
+    await new Promise((resolve) => setTimeout(resolve, 100))
     container.remove()
     vi.unstubAllGlobals()
-    vi.restoreAllMocks()
+    vi.clearAllMocks()
   })
 
   function renderRoom() {
@@ -181,6 +183,29 @@ describe('RoomPage session integration', () => {
     })
   }
 
+  it('does not import legacy session wiring or SFU modules directly', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const src = fs.readFileSync(path.join(__dirname, 'RoomPage.tsx'), 'utf8')
+    const forbidden = [
+      'useRoomWebSocket',
+      'useRoomSessionWiring',
+      'startSfuRoomSession',
+      'useChatSession',
+      'useSfuMediaSession',
+      'useTheaterPlayback',
+      'mediasoupSharing',
+      'sfuRelayStatusCopy',
+      'sessions/ChatSession',
+      'sessions/SfuMediaSession',
+      'sessions/TheaterPlayback',
+    ]
+    for (const token of forbidden) {
+      expect(src).not.toContain(token)
+    }
+    expect(src).toContain('useRoomRealtimeSdk')
+  })
+
   it('constructs session modules on mount and tears them down on unmount', async () => {
     renderRoom()
 
@@ -193,6 +218,7 @@ describe('RoomPage session integration', () => {
     const theaterDisposesBeforeUnmount = theaterDisposeSpy.mock.calls.length
 
     act(() => root.unmount())
+    await new Promise((resolve) => setTimeout(resolve, 50))
 
     expect(chatDisconnectSpy.mock.calls.length).toBeGreaterThan(chatDisconnectsBeforeUnmount)
     expect(sfuDisconnectSpy.mock.calls.length).toBeGreaterThan(sfuDisconnectsBeforeUnmount)
