@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RoomSnapshot } from '../../api/roomsApi'
+import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
 import { ChatSession } from './ChatSession'
 import { SfuMediaSession } from './SfuMediaSession'
 import { TheaterPlayback } from './TheaterPlayback'
@@ -385,5 +386,203 @@ describe('RoomRealtimeSdk public surface', () => {
     expect(diag.drawers.chat.state).toBe('connected')
     expect(diag.drawers.sfuSignaling.state).toBe('connected')
     expect(diag.drawers.theaterPlayback.state).toBe('connected')
+  })
+})
+
+describe('RoomRealtimeSdk.publishAv', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('is idempotent when camera and mic state already match', () => {
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-publish',
+    })
+
+    const av = (sdk as unknown as { sfu: SfuMediaSession }).sfu.participantAv
+    const enableCamera = vi.spyOn(av, 'enableCamera')
+    const disableCamera = vi.spyOn(av, 'disableCamera')
+    const enableMic = vi.spyOn(av, 'enableMic')
+    const disableMic = vi.spyOn(av, 'disableMic')
+    vi.spyOn(av, 'getState').mockReturnValue({
+      cameraEnabled: true,
+      micEnabled: false,
+      micMuted: false,
+      canPublish: true,
+      needsProducerToken: true,
+      error: null,
+      busy: false,
+    })
+
+    sdk.publishAv({ camera: true, mic: false })
+    sdk.publishAv({ camera: true, mic: false })
+
+    expect(enableCamera).not.toHaveBeenCalled()
+    expect(disableCamera).not.toHaveBeenCalled()
+    expect(enableMic).not.toHaveBeenCalled()
+    expect(disableMic).not.toHaveBeenCalled()
+  })
+
+  it('toggles only the AV axis that changed', () => {
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-publish-partial',
+    })
+
+    const av = (sdk as unknown as { sfu: SfuMediaSession }).sfu.participantAv
+    const disableCamera = vi.spyOn(av, 'disableCamera')
+    const enableMic = vi.spyOn(av, 'enableMic')
+    vi.spyOn(av, 'getState').mockReturnValue({
+      cameraEnabled: true,
+      micEnabled: false,
+      micMuted: false,
+      canPublish: true,
+      needsProducerToken: true,
+      error: null,
+      busy: false,
+    })
+
+    sdk.publishAv({ camera: false, mic: true })
+
+    expect(disableCamera).toHaveBeenCalledTimes(1)
+    expect(enableMic).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('RoomRealtimeSdk.subscribe', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('re-registers handlers and replaces prior host screen listener', () => {
+    const onRemoteStreamA = vi.fn()
+    const onRemoteStreamB = vi.fn()
+    const remoteStreamListeners: Array<(stream: MediaStream | null) => void> = []
+    vi.spyOn(SfuMediaSession.prototype, 'onRemoteStream').mockImplementation(function (
+      this: SfuMediaSession,
+      listener,
+    ) {
+      remoteStreamListeners.push(listener)
+      return () => {
+        const idx = remoteStreamListeners.indexOf(listener)
+        if (idx >= 0) remoteStreamListeners.splice(idx, 1)
+      }
+    })
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-sub',
+    })
+
+    sdk.subscribe({ hostScreen: { onRemoteStream: onRemoteStreamA } })
+    sdk.subscribe({ hostScreen: { onRemoteStream: onRemoteStreamB } })
+
+    expect(remoteStreamListeners).toHaveLength(1)
+    const stream = { id: 'remote' } as MediaStream
+    remoteStreamListeners[0]?.(stream)
+    expect(onRemoteStreamA).not.toHaveBeenCalled()
+    expect(onRemoteStreamB).toHaveBeenCalledWith(stream)
+  })
+
+  it('does not tear down chat when subscribe handlers detach', () => {
+    const disconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-sub-detach',
+      wsUrl: 'wss://ws.test',
+    })
+
+    const onConsumerTrack = vi.fn()
+    sdk.subscribe({ participantAv: { onConsumerTrack } })
+    sdk.subscribe({})
+
+    expect(disconnect).not.toHaveBeenCalled()
+    expect(sdk.getDiagnostics().drawers.chat.state).not.toBe('torn-down')
+  })
+
+  it('routes participant_av consumer events into TheaterPlayback via subscribe', async () => {
+    mockChatConnectOpensImmediately()
+    const routeSfuConsumerEvent = vi
+      .spyOn(TheaterPlayback.prototype, 'routeSfuConsumerEvent')
+      .mockImplementation(() => undefined)
+    const consumerListeners: Array<(event: SfuConsumerTrackEvent) => void> = []
+    vi.spyOn(SfuMediaSession.prototype, 'onConsumerTrack').mockImplementation(function (
+      listener: (event: SfuConsumerTrackEvent) => void,
+    ) {
+      consumerListeners.push(listener)
+      return () => {
+        const idx = consumerListeners.indexOf(listener)
+        if (idx >= 0) consumerListeners.splice(idx, 1)
+      }
+    })
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-theater-sub',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+    })
+
+    const onConsumerTrack = vi.fn()
+    sdk.subscribe({ participantAv: { onConsumerTrack } })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+    await vi.waitFor(() => expect(consumerListeners.length).toBeGreaterThan(0))
+
+    const event: SfuConsumerTrackEvent = {
+      action: 'attach',
+      producerId: 'p-1',
+      producerClass: 'participant_av',
+      kind: 'audio',
+      track: { id: 'a1' } as MediaStreamTrack,
+    }
+    consumerListeners[0]?.(event)
+
+    expect(routeSfuConsumerEvent).toHaveBeenCalledWith(event)
+    expect(onConsumerTrack).toHaveBeenCalledWith(event)
+  })
+})
+
+describe('RoomRealtimeSdk.getDiagnostics SFU counts', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('exposes optional SFU role and producer/consumer counts when session is open', async () => {
+    mockChatConnectOpensImmediately()
+    mockSfuConnectOpensImmediately()
+    vi.spyOn(SfuMediaSession.prototype, 'getSignalingDiagnostics').mockReturnValue({
+      role: 'consumer',
+      producerCount: 0,
+      consumerCount: 2,
+    })
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-sfu-diag',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+    })
+
+    await vi.waitFor(() => {
+      expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
+    })
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.sfuSignaling.role).toBe('consumer')
+    expect(diag.drawers.sfuSignaling.producerCount).toBe(0)
+    expect(diag.drawers.sfuSignaling.consumerCount).toBe(2)
   })
 })

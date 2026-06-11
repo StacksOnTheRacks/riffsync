@@ -160,6 +160,8 @@ export class RoomRealtimeSdk {
   private hostScreenStreamUnsub: (() => void) | null = null
   private participantAvTrackUnsub: (() => void) | null = null
   private participantAvClearUnsub: (() => void) | null = null
+  private participantAvStateUnsub: (() => void) | null = null
+  private activeSubscribeHandlers: SubscribeHandlers | null = null
 
   join(roomId: string, options: JoinOptions): this {
     this.teardownModules({ intentional: false })
@@ -201,45 +203,34 @@ export class RoomRealtimeSdk {
     const sfu = this.sfu
     if (!sfu) return
     const av = sfu.participantAv
-    if (options.camera) {
-      void av.enableCamera()
-    } else {
-      av.disableCamera()
+    const state = av.getState()
+    let changed = false
+
+    if (options.camera !== state.cameraEnabled) {
+      changed = true
+      if (options.camera) {
+        void av.enableCamera()
+      } else {
+        av.disableCamera()
+      }
     }
-    if (options.mic) {
-      void av.enableMic()
-    } else {
-      av.disableMic()
+    if (options.mic !== state.micEnabled) {
+      changed = true
+      if (options.mic) {
+        void av.enableMic()
+      } else {
+        av.disableMic()
+      }
+    }
+
+    if (changed) {
+      this.emitDiagnosticsChange()
     }
   }
 
   subscribe(handlers: SubscribeHandlers): void {
-    const sfu = this.sfu
-    if (!sfu) return
-
-    this.hostScreenStreamUnsub?.()
-    this.participantAvTrackUnsub?.()
-    this.participantAvClearUnsub?.()
-
-    if (handlers.hostScreen?.onRemoteStream) {
-      this.hostScreenStreamUnsub = sfu.onRemoteStream(handlers.hostScreen.onRemoteStream)
-    } else {
-      this.hostScreenStreamUnsub = null
-    }
-
-    if (handlers.participantAv?.onConsumerTrack) {
-      this.participantAvTrackUnsub = sfu.onConsumerTrack(handlers.participantAv.onConsumerTrack)
-    } else {
-      this.participantAvTrackUnsub = null
-    }
-
-    if (handlers.participantAv?.onConsumersClear) {
-      this.participantAvClearUnsub = sfu.onParticipantAvConsumersClear(
-        handlers.participantAv.onConsumersClear,
-      )
-    } else {
-      this.participantAvClearUnsub = null
-    }
+    this.activeSubscribeHandlers = handlers
+    this.applySubscribeHandlers()
   }
 
   getDiagnostics(): RoomRealtimeDiagnostics {
@@ -254,6 +245,9 @@ export class RoomRealtimeSdk {
         ? 'connected'
         : 'torn-down'
 
+    const sfuDiag = this.sfu?.getSignalingDiagnostics() ?? {}
+    const theaterAudioContextState = this.theater?.getAudioContextState()
+
     const drawers: RoomRealtimeDiagnostics['drawers'] = {
       chat: {
         state: chatState,
@@ -262,10 +256,14 @@ export class RoomRealtimeSdk {
       sfuSignaling: {
         state: sfuState,
         ...(this.sfuLastErrorCode ? { lastErrorCode: this.sfuLastErrorCode } : {}),
+        ...(sfuDiag.role ? { role: sfuDiag.role } : {}),
+        ...(sfuDiag.producerCount !== undefined ? { producerCount: sfuDiag.producerCount } : {}),
+        ...(sfuDiag.consumerCount !== undefined ? { consumerCount: sfuDiag.consumerCount } : {}),
       },
       theaterPlayback: {
         state: theaterState,
         ...(this.theaterLastErrorCode ? { lastErrorCode: this.theaterLastErrorCode } : {}),
+        ...(theaterAudioContextState ? { audioContextState: theaterAudioContextState } : {}),
       },
     }
 
@@ -311,6 +309,16 @@ export class RoomRealtimeSdk {
     this.sfuErrorUnsub = sfu.onError((message) => {
       if (message) {
         this.sfuLastErrorCode = 'SIGNALING_TIMEOUT'
+      }
+      this.emitDiagnosticsChange()
+    })
+
+    this.participantAvStateUnsub = sfu.participantAv.subscribe(() => {
+      const avError = sfu.participantAv.getState().error
+      if (avError) {
+        this.sfuLastErrorCode = avError
+      } else if (this.sfu?.getStatus() === 'open') {
+        this.sfuLastErrorCode = undefined
       }
       this.emitDiagnosticsChange()
     })
@@ -411,8 +419,53 @@ export class RoomRealtimeSdk {
       isPublisher: this.isHost,
       avDisabled: this.avDisabled,
     })
-    theater.attachSfuSession(sfu)
     this.theaterBootstrapped = true
+    this.applySubscribeHandlers()
+  }
+
+  private applySubscribeHandlers(): void {
+    const sfu = this.sfu
+    if (!sfu) return
+
+    this.hostScreenStreamUnsub?.()
+    this.participantAvTrackUnsub?.()
+    this.participantAvClearUnsub?.()
+
+    const handlers = this.activeSubscribeHandlers
+    if (!handlers) {
+      this.hostScreenStreamUnsub = null
+      this.participantAvTrackUnsub = null
+      this.participantAvClearUnsub = null
+      return
+    }
+
+    const theater = this.theater
+    const routeTheaterMix =
+      this.theaterLayoutActive && this.theaterBootstrapped && theater !== null
+
+    this.hostScreenStreamUnsub = sfu.onRemoteStream((stream) => {
+      if (routeTheaterMix && !this.isHost) {
+        theater.setGuestRemote(stream)
+      }
+      handlers.hostScreen?.onRemoteStream?.(stream)
+      this.emitDiagnosticsChange()
+    })
+
+    this.participantAvTrackUnsub = sfu.onConsumerTrack((event) => {
+      if (routeTheaterMix) {
+        theater.routeSfuConsumerEvent(event)
+      }
+      handlers.participantAv?.onConsumerTrack?.(event)
+      this.emitDiagnosticsChange()
+    })
+
+    if (handlers.participantAv?.onConsumersClear) {
+      this.participantAvClearUnsub = sfu.onParticipantAvConsumersClear(
+        handlers.participantAv.onConsumersClear,
+      )
+    } else {
+      this.participantAvClearUnsub = null
+    }
   }
 
   private emitDiagnosticsChange(): void {
@@ -427,6 +480,7 @@ export class RoomRealtimeSdk {
     this.hostScreenStreamUnsub?.()
     this.participantAvTrackUnsub?.()
     this.participantAvClearUnsub?.()
+    this.participantAvStateUnsub?.()
     this.chatStatusUnsub = null
     this.sfuStatusUnsub = null
     this.sfuErrorUnsub = null
@@ -434,6 +488,8 @@ export class RoomRealtimeSdk {
     this.hostScreenStreamUnsub = null
     this.participantAvTrackUnsub = null
     this.participantAvClearUnsub = null
+    this.participantAvStateUnsub = null
+    this.activeSubscribeHandlers = null
 
     if (opts.intentional) {
       this.chat?.disconnect()
