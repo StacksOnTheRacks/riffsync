@@ -197,6 +197,36 @@ describe('createTheaterAudioMix', () => {
     mix.dispose()
   })
 
+  it('keeps participant audio nodes connected when host_screen detaches', () => {
+    const { ctx, gainNodes } = makeMockAudioContext()
+    const mix = createTheaterAudioMix({ createContext: () => ctx })
+
+    mix.onConsumerEvent({
+      action: 'attach',
+      producerId: 'host-1',
+      producerClass: 'host_screen',
+      kind: 'audio',
+      track: makeTrack('host-audio'),
+    })
+    mix.onConsumerEvent({
+      action: 'attach',
+      producerId: 'fan-1',
+      producerClass: 'participant_av',
+      kind: 'audio',
+      track: makeTrack('fan-audio'),
+    })
+
+    const participantGain = gainNodes[1]
+    expect(participantGain?.gain.value).toBe(THEATER_AUDIO_GAIN)
+
+    mix.onConsumerEvent({ action: 'detach', producerId: 'host-1' })
+
+    expect(participantGain?.disconnect).not.toHaveBeenCalled()
+    expect(participantGain?.gain.value).toBe(THEATER_AUDIO_GAIN)
+    expect(ctx.close).not.toHaveBeenCalled()
+    mix.dispose()
+  })
+
   it('resumes a suspended AudioContext', async () => {
     const { ctx } = makeMockAudioContext()
     const mix = createTheaterAudioMix({ createContext: () => ctx })

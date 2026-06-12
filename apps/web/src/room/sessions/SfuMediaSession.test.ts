@@ -275,7 +275,19 @@ describe('SfuMediaSession media policy', () => {
 
     session.handleShareStateStopped(false)
     expect(detach).toHaveBeenCalledWith('host_screen')
+    expect(detach).not.toHaveBeenCalledWith('participant_av')
     expect(remoteListener).toHaveBeenCalledWith(null)
+  })
+
+  it('unpublishHostScreen closes host_screen producers only', () => {
+    const session = new SfuMediaSession()
+    const unpublish = vi.fn()
+    attachMockSessionHandle(session, { detachConsumerClass: vi.fn(), unpublishProducerClass: unpublish })
+
+    session.unpublishHostScreen()
+
+    expect(unpublish).toHaveBeenCalledWith('host_screen')
+    expect(unpublish).not.toHaveBeenCalledWith('participant_av')
   })
 
   it('handleAvDisabledKillSwitch tears down participant AV', () => {
