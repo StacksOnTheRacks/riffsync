@@ -75,6 +75,13 @@ describe('RoomPlaybackPanel guest #riffsync-video-relay-status (#210)', () => {
     expect(videoRelayStatusEl()).toBeNull()
   })
 
+  it('does not render retired guest not-sharing placeholder when idle FSM copy is shown (#211)', () => {
+    renderGuest({ videoRelayStatus: 'Waiting for host to share…', guestRemote: null })
+
+    expect(container.textContent).not.toContain('The host is not sharing video right now.')
+    expect(container.querySelector('.riffsync-room-page__guest-video-placeholder')).toBeNull()
+  })
+
   it('does not regress host captureErr alerts when guest path is inactive', () => {
     act(() => {
       root.render(

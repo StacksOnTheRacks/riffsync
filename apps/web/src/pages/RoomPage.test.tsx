@@ -8,6 +8,7 @@ import { ChatSession } from '../room/sessions/ChatSession'
 import { SfuMediaSession } from '../room/sessions/SfuMediaSession'
 import { TheaterPlayback } from '../room/sessions/TheaterPlayback'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
+import { RETIRED_GUEST_NOT_SHARING_PLACEHOLDER } from './roomPageDrawerStatusTestHelpers'
 
 const fetchRoom = vi.fn()
 const fetchRtcIceServers = vi.fn()
@@ -217,6 +218,9 @@ describe('RoomPage session integration', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('#riffsync-video-relay-status')).not.toBeNull()
     })
+
+    expect(container.textContent).not.toContain(RETIRED_GUEST_NOT_SHARING_PLACEHOLDER)
+    expect(container.querySelector('.riffsync-room-page__guest-video-placeholder')).toBeNull()
 
     const chatDisconnectsBeforeUnmount = chatDisconnectSpy.mock.calls.length
     const sfuDisconnectsBeforeUnmount = sfuDisconnectSpy.mock.calls.length
