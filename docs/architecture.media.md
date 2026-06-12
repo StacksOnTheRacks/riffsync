@@ -55,7 +55,7 @@ Producer-class changes do not require remint when the JWT already includes the n
 
 ## ICE / TURN
 
-Browsers fetch ICE servers from `GET /v1/webrtc/ice`. Production returns STUN plus time-limited coturn credentials (`turn:`, `turns:` on 443). The SFU does not embed TURN in server-side transports.
+Browsers fetch ICE servers from `GET /v1/webrtc/ice`. Production returns STUN plus time-limited coturn credentials: `turn:` on 3478 (UDP/TCP) and a `turn:` on 443/TCP fallback for networks that block UDP. coturn listens on 3478; the media-server stack redirects inbound 443/TCP to 3478, so no TLS cert is required. `turns:` (TLS on 443) is advertised only when `PROD_TURN_TLS_PORT` is set and a cert is provisioned; it is off by default. The SFU does not embed TURN in server-side transports.
 
 ## Code pointers
 

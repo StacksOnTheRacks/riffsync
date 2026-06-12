@@ -226,7 +226,7 @@ Watch-party WebRTC (SFU transports) uses **`GET /v1/webrtc/ice`** for **`iceServ
 | --- | --- | --- |
 | **`PROD_TURN_HOST`** | **`turnHost`** | **`TurnServerElasticIp`** (or DNS to it). **Omit** for STUN-only ICE. |
 | **`PROD_TURN_PORT`** | **`turnPort`** | Optional; default **`3478`** (**must match** EC2 **`listening-port`**). |
-| **`PROD_TURN_TLS_PORT`** | **`turnTlsPort`** | Optional **Lambda/ICE only**; CDK EC2 does **not** serve **`turns:`** yet. |
+| **`PROD_TURN_TLS_PORT`** | **`turnTlsPort`** | Optional **Lambda/ICE only**; CDK EC2 does **not** serve **`turns:`** (TLS) yet. Leave unset. |
 | **`PROD_TURN_CREDENTIAL_TTL_SECONDS`** | **`turnCredentialTtlSeconds`** | Optional; default **`43200`** (12h). |
 
 **Optional CDK context:** **`turnRealm`** (coturn **`realm`** / **`server-name`**; default **`riffsync-turn`**).

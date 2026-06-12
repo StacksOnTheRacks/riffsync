@@ -130,6 +130,9 @@ export class MediaServerStack extends cdk.Stack {
     });
     turnSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.udp(3478), 'STUN/TURN UDP');
     turnSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(3478), 'STUN/TURN TCP');
+    // TURN-over-TCP/443 fallback for networks that block UDP and non-standard TCP ports.
+    // coturn keeps listening on 3478; inbound 443/TCP is redirected to 3478 in UserData.
+    turnSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), 'TURN TCP 443 fallback (redirected to 3478)');
     turnSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcpRange(49152, 65535), 'TURN relay TCP');
     turnSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.udpRange(49152, 65535), 'TURN relay UDP');
 
@@ -173,6 +176,25 @@ export class MediaServerStack extends cdk.Stack {
       '  echo "no-cli"',
       '} > /etc/coturn/turnserver.conf',
       'rm -f /tmp/riffsync-turn-secret.txt',
+      // Serve the advertised turn:<host>:443?transport=tcp fallback without a TLS cert by
+      // redirecting inbound 443/TCP to coturn's 3478 listener. Persisted via a boot unit so
+      // it survives reboots (UserData runs only once).
+      'dnf install -y iptables iptables-services',
+      "cat > /etc/systemd/system/riffsync-turn-redirect.service <<'UNIT'",
+      '[Unit]',
+      'Description=RiffSync TURN 443->3478 TCP redirect',
+      'After=network-online.target',
+      'Wants=network-online.target',
+      '[Service]',
+      'Type=oneshot',
+      'RemainAfterExit=yes',
+      'ExecStart=/usr/sbin/iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 3478',
+      'ExecStop=/usr/sbin/iptables -t nat -D PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 3478',
+      '[Install]',
+      'WantedBy=multi-user.target',
+      'UNIT',
+      'systemctl daemon-reload',
+      'systemctl enable --now riffsync-turn-redirect.service',
       'systemctl enable --now coturn',
     );
 

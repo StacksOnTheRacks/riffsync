@@ -104,11 +104,25 @@ export function useRoomMediaEngine(options: {
     sessionMountedRef.current = false
   }, [engine])
 
+  // Keep the latest room snapshot in a ref so the mount effect can read it for its
+  // initial join without depending on the room object's identity. The 5s poll replaces
+  // `room` with a fresh object every tick; depending on it here would tear down and
+  // rebuild the entire SFU/WS session on every poll. Post-mount updates flow through
+  // the diffed `engine.applyRoomSnapshot` effect below instead.
+  const roomRef = useRef(room)
   useEffect(() => {
-    if (!room || !canonicalRoomId || sessionMountedRef.current) return
+    roomRef.current = room
+  }, [room])
+
+  const roomAvailable = Boolean(room) && Boolean(canonicalRoomId)
+
+  useEffect(() => {
+    if (!roomAvailable || sessionMountedRef.current) return
+    const initialRoom = roomRef.current
+    if (!initialRoom) return
     sessionMountedRef.current = true
 
-    engine.mount(room, {
+    engine.mount(initialRoom, {
       roomId,
       canonicalRoomId,
       sessionId,
@@ -138,20 +152,22 @@ export function useRoomMediaEngine(options: {
       sessionMountedRef.current = false
       engine.teardown()
     }
-  // fanToken updates via engine.setFanToken — remounting on token refresh would churn SFU/chat.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- fanToken omitted intentionally
+  // `room` and `fanToken` are intentionally omitted: the initial room is read from a ref,
+  // post-mount room updates flow through engine.applyRoomSnapshot, and fanToken refreshes
+  // go through engine.setFanToken. Including either here would churn the SFU/WS session.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     canonicalRoomId,
     displayName,
     engine,
     hostPatchSuppressAnnounceUntilRef,
     isPublisher,
+    roomAvailable,
     roomId,
     sessionId,
     setRoom,
     wsBase,
     captureStreamRef,
-    room,
   ])
 
   const lastAppliedMediaFieldsRef = useRef<string>('')
