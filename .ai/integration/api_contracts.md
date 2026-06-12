@@ -144,6 +144,15 @@ Entering **`videoChat`** still fully stops host tab-capture and **`host_screen`*
 
 **Client publish orchestration (#143):** **`participantAvSession.syncPublish`** and **`disableCamera` / `disableMic`** implement the table above. **`disableCamera`** with mic on **must** call **`unpublishProducerKind('participant_av', 'video')`** (or close the live video producer directly) — **not** **`publishStream`**, which historically called **`unpublishProducerClass`** first (**#144** removes that coupling). **`disableMic`** with camera on closes audio only. **`toggleMicMute`** uses **`pauseProducerKind` / `resumeProducerKind`** only.
 
+**`mediasoupSharing` session handle (#144):**
+
+| Method | Contract |
+| --- | --- |
+| **`unpublishProducerKind(producerClass, kind)`** | Close the single live producer for the tuple; SFU broadcasts **`producerClosed`**. No-op if absent. |
+| **`unpublishProducerClass(producerClass)`** | Close **all** producers for the class — session teardown, both axes off, kill switch only. |
+| **`publishStream(stream, producerClass)`** | Incremental produce: per track, skip if same track id already live; else replace that **kind** only. **Does not** close kinds missing from **`stream`**. |
+| **`pauseProducerKind` / `resumeProducerKind`** | Unchanged — mic mute with camera on. |
+
 **SFU service:** **`upsertProducer`** replaces the prior producer for the same **`(sessionId, producerClass, kind)`** tuple. When replace occurs, consumers observe **`producerClosed`** for the old **`producerId`** before **`newProducer`** for the replacement.
 
 ### Typed error catalog (by drawer)

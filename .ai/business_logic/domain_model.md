@@ -125,11 +125,21 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | **`syncPublish` after partial disable? | **Kind-aware incremental sync:** produce tracks for enabled axes only; unpublish kinds no longer desired; **never** class-wide unpublish when one axis stays enabled. |
 | Dependency on **#144**? | **`mediasoupSharing`** exposes **`unpublishProducerKind`** and incremental produce; **#143** wires **`participantAvSession`** only. Same **`feature/issue-143`** branch may carry both. |
 
+## Decisions (mediasoupSharing per-kind API — #144)
+
+| Question | Decision |
+| --- | --- |
+| Root defect? | **`publishStream`** historically called **`unpublishProducerClass`** before every produce, dropping the surviving kind during partial teardown. |
+| **`unpublishProducerKind` contract?** | Close one **`(producerClass, kind)`** producer; SFU **`producerClosed`** fan-out per existing server registry. |
+| **`publishStream` with subset stream? | Producing an audio-only **`MediaStream`** for **`participant_av`** must **not** close an existing video producer (and vice versa). |
+| Who calls per-kind unpublish? | **`participantAvSession`** (#143) for toggle-off paths; **`mediasoupSharing`** only exposes the handle API. |
+| Branch pairing with **#143**? | **`feature/issue-143`** may include both; **#144** sub-issues are independently testable before **#191–#193** wire-up. |
+
 ## Open implementation decisions
 
 - **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
 - **`share_state` behavior matrix:** per-role (**host** / **guest**) and **`roomMode`** detail for **`started`** vs **`stopped`** — which consumer classes attach, detach, or stay idle beyond the normative **`host_screen`-only** guest detach on **`stopped`** (**#146** / M18).
-- **Partial teardown — remaining M17 peers:** concurrent **`newProducer`** / **`producerClosed`** consumer attach (**#142**); **`mediasoupSharing`** per-kind API surface (**#144**); theater mic mix when **`host_screen`** closes (**#145**).
+- **Partial teardown — remaining M17 peers:** concurrent **`newProducer`** / **`producerClosed`** consumer attach (**#142**); theater mic mix when **`host_screen`** closes (**#145**).
 
 ### Partial teardown QA matrix — camera-off tile removal (#142)
 

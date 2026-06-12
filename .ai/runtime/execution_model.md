@@ -241,6 +241,18 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | **Module boundary typing** | Session modules emit **`RealtimeDrawerError`** ( **`code`**, **`drawer`**, optional **`cause`**) — not bare **`Error`**. **`RoomRealtimeSdk`** maps to **`lastErrorCode`** / **`activeErrorCodes`**. |
 | **Implementation files** | **`realtimeDrawerErrors.ts`** (types + mappers), **`drawerErrorPresentation.ts`** (copy + DOM ids). |
 
+## Decisions (mediasoupSharing per-kind API — #144)
+
+| Topic | Decision |
+| --- | --- |
+| **`unpublishProducerKind`** | Add **`(producerClass, kind)`** to **`SfuUnifiedSessionHandle`**. Closes the single live producer matching the tuple, removes it from **`liveProducers`**, and relies on **`producer.close()`** so the SFU emits **`producerClosed`** for that **`producerId`**. No-op when no matching producer. |
+| **`unpublishProducerClass`** | Unchanged semantics — closes **all** producers for a class. Used for session **`close()`**, both-axes-off, kill switch, and room leave. **Not** for camera-off-mic-on or mic-off-camera-on. |
+| **`publishStream` incremental produce** | Remove the leading **`unpublishProducerClass(producerClass)`** call. For each track in the stream: if the same **`(producerClass, kind)`** already publishes that **track id**, skip; else **`unpublishProducerKind(producerClass, kind)`** then **`produce`**. Kinds **not** present in the stream are **left running** — callers close them via **`unpublishProducerKind`**. |
+| **`classAlreadyPublishing`** | Evaluate per **`(producerClass, kind)`** tuple, not class-wide. |
+| **`publishChain`** | All produce and per-kind unpublish before produce stay on the existing serialized chain. |
+| **`host_screen`** | Single-video class uses the same incremental path (at most one video kind). |
+| **Consumer of APIs** | **`participantAvSession`** (#143) calls **`unpublishProducerKind`** from **`disableCamera` / `disableMic`**; **`syncPublish`** uses incremental **`publishStream`**. Same **`feature/issue-143`** branch may ship both issues. |
+
 ## Open implementation decisions
 
 _(None for #140 scope — peer #141 owns error-code UX completion; #141 open items resolved in this pass.)_
