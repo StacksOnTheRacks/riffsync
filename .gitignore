@@ -2,3 +2,4 @@
 node_modules
 infra/local-media/.env
 infra/local-media/coturn/turnserver.conf
+infra/local-media/compose.bootstrap.override.yml

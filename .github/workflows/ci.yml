@@ -104,7 +104,12 @@ jobs:
           bash tests/realtime-conformance/run.sh 2> harness-stderr.log
       - name: Teardown disposable media
         if: always() && hashFiles('tests/realtime-conformance/bootstrap-media.sh') != ''
-        run: bash tests/realtime-conformance/bootstrap-media.sh down
+        run: |
+          if [ "${{ job.status }}" != 'success' ]; then
+            bash tests/realtime-conformance/bootstrap-media.sh down capture
+          else
+            bash tests/realtime-conformance/bootstrap-media.sh down
+          fi
       - name: Report SFU compile failure to step summary
         if: failure() && steps.sfu_compile.outcome == 'failure'
         run: echo '[drawer=connectivity] code=SFU_BUILD_FAILED step=compile' >> "$GITHUB_STEP_SUMMARY"
