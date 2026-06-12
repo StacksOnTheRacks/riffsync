@@ -854,6 +854,9 @@ describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
 describe('RoomRealtimeSdk #208 chat send survives SFU-only outage', () => {
   class MockOpenWebSocket {
     static OPEN = 1
+    static CONNECTING = 0
+    static CLOSING = 2
+    static CLOSED = 3
     readyState = MockOpenWebSocket.OPEN
     send = vi.fn()
   }
@@ -865,12 +868,14 @@ describe('RoomRealtimeSdk #208 chat send survives SFU-only outage', () => {
   }
 
   function attachOpenChatSocket(sdk: RoomRealtimeSdk): void {
+    vi.stubGlobal('WebSocket', MockOpenWebSocket as unknown as typeof WebSocket)
     const chat = getChatSession(sdk)
     ;(chat as unknown as { ws: WebSocket | null }).ws =
       new MockOpenWebSocket() as unknown as WebSocket
   }
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
