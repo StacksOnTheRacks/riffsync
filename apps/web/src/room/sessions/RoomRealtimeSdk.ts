@@ -222,6 +222,8 @@ export class RoomRealtimeSdk {
       })
     }
 
+    void this.bootstrapMediaPlanes()
+
     this.emitDiagnosticsChange()
     return this
   }
@@ -388,8 +390,8 @@ export class RoomRealtimeSdk {
     this.chatStatusUnsub = chat.onStatusChange((status) => {
       if (status === 'open') {
         this.chatLastErrorCode = undefined
-        void this.bootstrapMediaPlanes()
       }
+      sfu.updatePublishGate({ wsOpen: status === 'open' })
       this.emitDiagnosticsChange()
     })
 

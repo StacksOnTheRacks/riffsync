@@ -157,3 +157,60 @@ export function assertNoDrawerTornDown(diag: RoomRealtimeDiagnostics): void {
     expect(diag.drawers[key].state).not.toBe('torn-down')
   }
 }
+
+/** Minimal WebSocket stub for harness step 5 chat-only outage (#202). */
+export class HarnessChatMockWebSocket {
+  static OPEN = 1
+  static CONNECTING = 0
+  static CLOSING = 2
+  static CLOSED = 3
+  static instances: HarnessChatMockWebSocket[] = []
+
+  readyState = 0
+  private listeners = new Map<string, Array<(ev?: unknown) => void>>()
+
+  constructor(url: string) {
+    void url
+    HarnessChatMockWebSocket.instances.push(this)
+  }
+
+  send = vi.fn()
+
+  addEventListener(type: string, fn: (ev?: unknown) => void): void {
+    const list = this.listeners.get(type) ?? []
+    list.push(fn)
+    this.listeners.set(type, list)
+  }
+
+  close(): void {
+    this.readyState = HarnessChatMockWebSocket.CLOSED
+  }
+
+  emit(type: string, ev?: unknown): void {
+    for (const fn of this.listeners.get(type) ?? []) fn(ev)
+  }
+}
+
+export function installHarnessChatMockWebSocket(): void {
+  HarnessChatMockWebSocket.instances = []
+  vi.stubGlobal('WebSocket', HarnessChatMockWebSocket as unknown as typeof WebSocket)
+  Object.assign(HarnessChatMockWebSocket, {
+    OPEN: 1,
+    CONNECTING: 0,
+    CLOSING: 2,
+    CLOSED: 3,
+  })
+}
+
+export function openLatestHarnessChatSocket(): HarnessChatMockWebSocket {
+  const ws = HarnessChatMockWebSocket.instances.at(-1)!
+  ws.readyState = HarnessChatMockWebSocket.OPEN
+  ws.emit('open')
+  return ws
+}
+
+export function emitLatestHarnessChatSocketClose(code = 1006): HarnessChatMockWebSocket {
+  const ws = HarnessChatMockWebSocket.instances.at(-1)!
+  ws.emit('close', { code, reason: '' })
+  return ws
+}
