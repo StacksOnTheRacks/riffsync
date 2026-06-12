@@ -143,7 +143,7 @@ export function useRoomSessionWiring(options: {
     session: sfuMediaSession,
     unpublishHostScreen,
   } = useSfuMediaSession({
-    enabled: wsStatus === 'open' && Boolean(canonicalRoomId),
+    enabled: Boolean(canonicalRoomId && sessionId && room),
     apiBaseUrl: getPublicApiBaseUrl(),
     roomId: canonicalRoomId,
     sessionId,

@@ -289,6 +289,57 @@ describe('RoomRealtimeSdk.join bootstrap order', () => {
     expect(order.indexOf('ice')).toBeLessThan(order.indexOf('sfu-connect'))
     expect(order.indexOf('sfu-connect')).toBeLessThan(order.indexOf('theater-configure'))
   })
+
+  it('bootstraps SFU from room join gates without waiting for chat open', async () => {
+    const sfuConnect = vi.spyOn(SfuMediaSession.prototype, 'connect')
+    vi.spyOn(ChatSession.prototype, 'connect').mockImplementation(function (this: ChatSession) {
+      ;(this as unknown as { setStatus: (status: string) => void }).setStatus('connecting')
+      ;(this as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
+        'reconnecting',
+      )
+    })
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-join-gate',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [{ urls: 'stun:stun.test' }],
+    })
+
+    await vi.waitFor(() => expect(sfuConnect).toHaveBeenCalled())
+    expect(sdk.getDiagnostics().drawers.chat.state).toBe('reconnecting')
+    expect(sfuConnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('updates publish gate wsOpen on chat flap without disconnecting SFU', async () => {
+    const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+    const updatePublishGate = vi.spyOn(SfuMediaSession.prototype, 'updatePublishGate')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-publish-gate-flap' })
+    const chat = getChatSession(sdk)
+
+    updatePublishGate.mockClear()
+    ;(chat as unknown as { setStatus: (status: string) => void }).setStatus('closed')
+    ;(chat as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
+      'reconnecting',
+    )
+
+    expect(sfuDisconnect).not.toHaveBeenCalled()
+    expect(updatePublishGate).toHaveBeenCalledWith({ wsOpen: false })
+    expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
+
+    updatePublishGate.mockClear()
+    ;(chat as unknown as { setStatus: (status: string) => void }).setStatus('open')
+    ;(chat as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
+      'connected',
+    )
+
+    expect(sfuDisconnect).not.toHaveBeenCalled()
+    expect(updatePublishGate).toHaveBeenCalledWith({ wsOpen: true })
+    expect(sdk.getDiagnostics().drawers.chat.state).toBe('connected')
+    expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
+  })
 })
 
 describe('RoomRealtimeSdk media policy wiring', () => {
