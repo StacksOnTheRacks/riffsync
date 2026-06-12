@@ -8,7 +8,7 @@ Disposable media stack for CI and local harness development. Reuses committed **
 
 | Subcommand | Behavior |
 | --- | --- |
-| **`up`** | Copy **`.env.example`** / **`coturn/turnserver.conf.example`** when missing; apply a **narrow TURN relay port range** (50000-50100) via gitignored **`compose.bootstrap.override.yml`** so CI runners avoid conflicts with the full prod 49152-65535 map; **`docker compose up -d --build`** from repo root. |
+| **`up`** | Copy **`.env.example`** / **`coturn/turnserver.conf.example`** when missing; apply a **narrow TURN relay port range** (50000-50010) via gitignored **`compose.bootstrap.override.yml`** with **`ports: !override`** so CI runners do not inherit the full prod 49152-65535 compose map; **`docker compose up -d --build`** from repo root. |
 | **`wait`** | Poll **`http://127.0.0.1:3000/healthz`** every **2s** for up to **60s**; timeout exits **1** with **`[drawer=connectivity] code=SFU_HEALTH_TIMEOUT step=bootstrap`** on stderr and prints **`docker compose ps`**. |
 | **`down`** | **`docker compose down`**. Optional **`capture`** (or **`--capture-log`**, or env **`BOOTSTRAP_CAPTURE_COMPOSE_LOG=1`**) writes **`docker compose ps`** + logs to repo-root **`sfu-compose.log`** before teardown. |
 
