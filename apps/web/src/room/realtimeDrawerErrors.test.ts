@@ -161,14 +161,13 @@ describe('realtimeDrawerErrors', () => {
   })
 
   it('scopes drawer membership for collected active codes', () => {
-    const codes = collectActiveErrorCodes([
-      'CHAT_SEND_DROPPED',
-      'SIGNALING_TIMEOUT',
-      'THEATER_AUDIO_SUSPENDED',
-    ])
-    for (const code of codes) {
-      expect(drawerForErrorCode(code as (typeof codes)[number])).toBeTruthy()
-    }
+    expect(
+      collectActiveErrorCodes([
+        'CHAT_SEND_DROPPED',
+        'SIGNALING_TIMEOUT',
+        'THEATER_AUDIO_SUSPENDED',
+      ]),
+    ).toEqual(['CHAT_SEND_DROPPED', 'SIGNALING_TIMEOUT', 'THEATER_AUDIO_SUSPENDED'])
     expect(drawerForErrorCode('CHAT_SEND_DROPPED')).toBe('chat')
     expect(drawerForErrorCode('SIGNALING_TIMEOUT')).toBe('sfuSignaling')
     expect(drawerForErrorCode('THEATER_AUDIO_SUSPENDED')).toBe('theaterPlayback')

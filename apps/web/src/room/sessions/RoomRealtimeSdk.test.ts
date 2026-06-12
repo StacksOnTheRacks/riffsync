@@ -714,8 +714,6 @@ describe('RoomRealtimeSdk.getDiagnostics activeErrorCodes contract', () => {
     consumerListeners[0]?.({
       action: 'detach',
       producerId: 'p-1',
-      producerClass: 'participant_av',
-      kind: 'video',
     })
 
     emitSfuDrawerError(sdk, producerClosedError('p-1'))
