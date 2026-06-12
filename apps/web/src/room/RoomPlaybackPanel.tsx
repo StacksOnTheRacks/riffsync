@@ -93,7 +93,7 @@ export function RoomPlaybackPanel({
         {videoRelayStatus ? (
           <p
             id={RIFFSYNC_VIDEO_RELAY_STATUS_ID}
-            className="riffsync-muted"
+            className="riffsync-room-page__share-status"
             role="status"
             aria-live="polite"
           >

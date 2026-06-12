@@ -333,6 +333,63 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     expect(videoRelayBanner()?.id).toBe(RIFFSYNC_VIDEO_RELAY_STATUS_ID)
   })
 
+  it('guest running FSM with healthy SFU omits #riffsync-video-relay-status (#210)', async () => {
+    drawerStatusMockConfig.set({
+      diagnostics: drawerDiagnostics({
+        chat: { state: 'connected' },
+        sfuSignaling: { state: 'connected' },
+      }),
+      guestShareFsm: 'running',
+    })
+    renderRoom()
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
+    })
+
+    expect(videoRelayBanner()).toBeNull()
+  })
+
+  it('guest idle FSM mounts #riffsync-video-relay-status with role="status" (#210)', async () => {
+    drawerStatusMockConfig.set({
+      diagnostics: drawerDiagnostics({
+        chat: { state: 'connected' },
+        sfuSignaling: { state: 'connected' },
+      }),
+      guestShareFsm: 'idle',
+    })
+    renderRoom()
+
+    await vi.waitFor(() => {
+      expect(videoRelayBanner()).not.toBeNull()
+    })
+
+    expect(videoRelayBanner()?.id).toBe(RIFFSYNC_VIDEO_RELAY_STATUS_ID)
+    expect(videoRelayBanner()?.getAttribute('role')).toBe('status')
+    expect(videoRelayBanner()?.textContent).toBe(GUEST_IDLE_VIDEO_RELAY_COPY)
+  })
+
+  it('config-class SFU error copy renders on #riffsync-video-relay-status (#210)', async () => {
+    drawerStatusMockConfig.set({
+      diagnostics: drawerDiagnostics(
+        {
+          chat: { state: 'connected' },
+          sfuSignaling: { state: 'connected', lastErrorCode: 'SFU_RELAY_UNREACHABLE' },
+        },
+        ['SFU_RELAY_UNREACHABLE'],
+      ),
+      guestShareFsm: 'running',
+    })
+    renderRoom()
+
+    await vi.waitFor(() => {
+      expect(videoRelayBanner()).not.toBeNull()
+    })
+
+    expect(videoRelayBanner()?.id).toBe(RIFFSYNC_VIDEO_RELAY_STATUS_ID)
+    expect(videoRelayBanner()?.textContent).toContain('relay')
+  })
+
   it('places chat drawer banner above sidebar tabs per input_handling.md', async () => {
     drawerStatusMockConfig.set({
       diagnostics: drawerDiagnostics({
