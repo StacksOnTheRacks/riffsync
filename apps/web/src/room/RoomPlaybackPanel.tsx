@@ -39,8 +39,6 @@ export function RoomPlaybackPanel({
   startCapture,
   openCapturePlayerTab,
 }: RoomPlaybackPanelProps) {
-  const hideGuestPlaceholder = !guestRemote && Boolean(videoRelayStatus)
-
   if (isPublisher) {
     return (
       <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
@@ -93,7 +91,7 @@ export function RoomPlaybackPanel({
         {videoRelayStatus ? (
           <p
             id={RIFFSYNC_VIDEO_RELAY_STATUS_ID}
-            className="riffsync-muted"
+            className="riffsync-room-page__share-status"
             role="status"
             aria-live="polite"
           >
@@ -165,11 +163,6 @@ export function RoomPlaybackPanel({
         </p>
       ) : null}
       <div className="riffsync-room-page__player-shell riffsync-room-page__player-shell--guest">
-        {!guestRemote && !hideGuestPlaceholder ? (
-          <div className="riffsync-room-page__guest-video-placeholder" role="status">
-            <p>The host is not sharing video right now.</p>
-          </div>
-        ) : null}
         <video
           ref={bindGuestVideo}
           className="riffsync-room-page__guest-video"
