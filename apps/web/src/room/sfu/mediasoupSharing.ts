@@ -423,16 +423,6 @@ export async function connectSfuUnifiedSession(options: {
     }
   }
 
-  /** True when every track of `stream` already has a live producer for this class. */
-  const classAlreadyPublishing = (producerClass: SfuProducerClass, stream: MediaStream): boolean => {
-    const live = liveProducers.filter((lp) => lp.producerClass === producerClass)
-    if (live.length === 0) return false
-    const trackIds = new Set(stream.getTracks().map((t) => t.id))
-    return live.every(
-      (lp) => !lp.producer.closed && lp.producer.track != null && trackIds.has(lp.producer.track.id),
-    )
-  }
-
   // Serialize all produce calls on the shared send transport. Two callers publish
   // host_screen (session connect + capture-change effect); without this lock they
   // can both unpublish-then-produce the same track concurrently, which throws in
@@ -444,7 +434,6 @@ export async function connectSfuUnifiedSession(options: {
       if (!sendTransport) {
         throw new Error('SFU send transport not ready')
       }
-      if (classAlreadyPublishing(producerClass, stream)) return
       for (const track of stream.getTracks()) {
         const kind = track.kind === 'audio' || track.kind === 'video' ? track.kind : null
         if (!kind) continue
