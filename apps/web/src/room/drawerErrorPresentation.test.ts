@@ -185,3 +185,92 @@ describe('drawerErrorPresentation', () => {
     expect(RIFFSYNC_THEATER_AUDIO_STATUS_ID).toBe('riffsync-theater-audio-status')
   })
 })
+
+describe('chat drawer banner and compose inline feedback (#207)', () => {
+  beforeEach(() => {
+    vi.stubEnv('DEV', false)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('renders chat drawer banner from chat lifecycle state only', () => {
+    expect(resolveChatDrawerBanner({ state: 'reconnecting' })).toBe('Reconnecting chat…')
+    expect(resolveChatDrawerBanner({ state: 'degraded' })).toBe(
+      'Chat unavailable. Try refreshing the page.',
+    )
+    expect(resolveChatDrawerBanner({ state: 'connected' })).toBeNull()
+  })
+
+  it('shows CHAT_SEND_DROPPED inline compose copy without SFU input', () => {
+    expect(
+      resolveChatComposeStatus({
+        state: 'connected',
+        lastErrorCode: 'CHAT_SEND_DROPPED',
+      }),
+    ).toEqual({
+      message: 'Message could not be sent. Check chat connection and try again.',
+      disableSubmit: true,
+    })
+  })
+
+  it('keeps compose enabled when chat is connected and SFU video relay is unhealthy', () => {
+    const presentation = selectDrawerPresentation(
+      {
+        roomId: 'room-1',
+        sessionId: 'sess-1',
+        asOf: new Date(0).toISOString(),
+        drawers: {
+          chat: { state: 'connected' },
+          sfuSignaling: { state: 'reconnecting' },
+          theaterPlayback: { state: 'connected' },
+        },
+        activeErrorCodes: [],
+      },
+      { guestShareFsm: 'running', isPublisher: false },
+    )
+
+    expect(presentation.chatComposeStatus).toEqual({
+      message: null,
+      disableSubmit: false,
+    })
+    expect(presentation.chatDrawerBanner).toBeNull()
+    expect(presentation.videoRelayStatus).toBe('Video relay reconnecting…')
+  })
+
+  it('clears inline compose feedback when chat recovers to connected without lastErrorCode', () => {
+    const afterDrop = resolveChatComposeStatus({
+      state: 'connected',
+      lastErrorCode: 'CHAT_SEND_DROPPED',
+    })
+    const afterRecovery = resolveChatComposeStatus({ state: 'connected' })
+
+    expect(afterDrop.message).not.toBeNull()
+    expect(afterRecovery).toEqual({
+      message: null,
+      disableSubmit: false,
+    })
+    expect(resolveChatDrawerBanner({ state: 'connected' })).toBeNull()
+  })
+
+  it('does not derive chat drawer banner from SFU diagnostics', () => {
+    const presentation = selectDrawerPresentation(
+      {
+        roomId: 'room-1',
+        sessionId: 'sess-1',
+        asOf: new Date(0).toISOString(),
+        drawers: {
+          chat: { state: 'connected' },
+          sfuSignaling: { state: 'degraded', lastErrorCode: 'ICE_FAILED' },
+          theaterPlayback: { state: 'connected' },
+        },
+        activeErrorCodes: ['ICE_FAILED'],
+      },
+      { guestShareFsm: 'running', isPublisher: false },
+    )
+
+    expect(presentation.chatDrawerBanner).toBeNull()
+    expect(presentation.videoRelayStatus).toContain('Network connection failed')
+  })
+})
