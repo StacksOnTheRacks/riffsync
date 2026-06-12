@@ -4,7 +4,6 @@ import {
   isParticipantAvTokenHardFail,
   participantAvErrorFromSfuSessionEnd,
   participantAvErrorFromSfuTokenDenial,
-  participantAvErrorFromSfuMediaCode,
   SfuTokenHttpError,
 } from '../av/participantAvErrors'
 import {
@@ -672,13 +671,13 @@ export class SfuMediaSession {
           this.emitError(messageForSfuRelayConfigError(code))
           return
         }
-        if (this.participantAv.getState().needsProducerToken) {
-          this.participantAv.failPublish(participantAvErrorFromSfuMediaCode(code))
-          this.emitDrawerError(drawerError)
-          return
-        }
         this.emitDrawerError(drawerError)
-        this.emitError(msg)
+        // Participant publish hard-fail is handled by syncPublish and session-end
+        // failPublish. Transient produce/consume errors during producer-token upgrade
+        // reconnect must not toggle camera/mic off while the loop retries.
+        if (!this.participantAv.getState().needsProducerToken) {
+          this.emitError(msg)
+        }
       },
       onConnecting: () => {
         this.emitError(null)

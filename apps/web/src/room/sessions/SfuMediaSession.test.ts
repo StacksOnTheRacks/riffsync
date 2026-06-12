@@ -348,6 +348,75 @@ describe('startSfuRoomSession recoverable signaling reconnect', () => {
 
     cancel()
   })
+
+  it('does not failPublish on transient produce_failed during producer-token reconnect', async () => {
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }
+    const stream = {
+      getVideoTracks: () => [videoTrack],
+      getAudioTracks: () => [],
+      getTracks: () => [videoTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+    vi.stubGlobal(
+      'MediaStream',
+      function MockMediaStream(
+        this: { tracks: MediaStreamTrack[]; getTracks: () => MediaStreamTrack[] },
+        tracks: MediaStreamTrack[] = [],
+      ) {
+        this.tracks = tracks
+        this.getTracks = () => this.tracks
+      },
+    )
+
+    vi.mocked(fetchSfuJoinToken).mockImplementation(async (opts) => ({
+      token: 'tok',
+      role: opts.producerClass ? 'producer' : 'consumer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    }))
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async (opts) => {
+      if (opts.tokenRole === 'producer') {
+        opts.onMediaError?.('produce_failed', 'createWebRtcTransport failed')
+        return {
+          ...mockSfuUnifiedSessionHandle(),
+          ready: Promise.reject(new Error('send_transport_failed')),
+          sessionEnded: Promise.resolve('signaling_close'),
+          supportsPublish: true,
+        } as Awaited<ReturnType<typeof connectSfuUnifiedSession>>
+      }
+      return mockSfuUnifiedSessionHandle()
+    })
+
+    const session = new SfuMediaSession()
+    const failPublish = vi.spyOn(session.participantAv, 'failPublish')
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-transient-produce',
+      accessToken: 'fan-jwt',
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+    session.updatePublishGate({ fanToken: 'fan-jwt', avDisabled: false })
+
+    await vi.waitFor(() => expect(session.getStatus()).toBe('open'))
+    await session.participantAv.enableCamera()
+
+    await vi.waitFor(() => {
+      expect(failPublish).not.toHaveBeenCalled()
+    })
+    expect(session.participantAv.getState().cameraEnabled).toBe(true)
+    expect(session.participantAv.getState().error).toBeNull()
+
+    session.disconnect()
+    vi.unstubAllGlobals()
+  })
 })
 
 describe('startSfuRoomSession config error banner persistence', () => {

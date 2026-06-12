@@ -207,7 +207,9 @@ export function createParticipantAvController(options: {
       throw new Error('Could not access camera or microphone.')
     }
     options.onNeedsProducerTokenChange?.()
-    await syncPublish()
+    if (session?.supportsPublish) {
+      await syncPublish()
+    }
     notify()
   }
 
