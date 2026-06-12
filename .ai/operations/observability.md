@@ -124,13 +124,21 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 
 **No** **`roomId`**, **`sessionId`**, or fan **`sub`** in browser console at default log level shipped to production builds.
 
+## Decisions (harness CI telemetry — #153)
+
+| Topic | Decision |
+| --- | --- |
+| **Primary surface** | GitHub Actions **step summary** markdown — one line per failed assertion: **`[drawer=<drawer>] code=<CODE> step=<scenario>`** where **`<drawer>`** is `chat` \| `signaling` \| `connectivity` \| `produce_consume`. |
+| **Failure artifacts** | Upload **`harness-summary.json`** (structured drawer/code/step/outcome array) and **`sfu-compose.log`** (`docker compose` stdout) when the harness runner fails — retain **7** days. |
+| **JUnit XML** | **Deferred** — step summary + JSON artifact are MVP; add JUnit when PR annotation integration is needed. |
+| **Compile-only interim** | When **`tests/realtime-conformance/run.sh`** is absent, SFU compile failure uses **`[drawer=connectivity] code=SFU_BUILD_FAILED step=compile`**. |
+
 ## Open implementation decisions
 
 - **Exact metric names** — Whether hardening adds **`ProducerLifecycleEvent`**, **`IceGatheringFailed`**, or **`ChatSendDropped`** counters under **`RiffSync/Media`** / **`RiffSync/Realtime`** vs log-only MVP; dimension sets frozen at ship time.
 - **EC2 alarms** — Wire **`AWS/EC2` CPUUtilization** (> 80%, 5 min) and **`StatusCheckFailed`** (≥ 1, 2 min) in **`media-server-stack.ts`** this milestone vs defer optional SNS email.
 - **Health probe canary** — Lambda periodic scrape of prod **`/healthz`** emitting **`HealthProbeSuccess`** vs operator-only **`curl`**; schedule, IAM, and cost guardrails.
 - **SFU EMF wiring** — Whether **`TransportLimitRejected`** / **`ConsumerLimitRejected`** emit from SFU stdout in hardening PR or remain checklist-only until scrape Lambda lands.
-- **Harness telemetry** — CI artifact format for drawer-tagged failure lines (JUnit, markdown summary) for PR annotations.
 
 ## Primary code pointers (optional)
 

@@ -83,13 +83,25 @@ Normative automated substitute for manual checklist steps that exercise client +
 
 Harness failures must name the **drawer** (chat, signaling, connectivity, produce/consume) in CI output. See **[`observability.md`](observability.md)** drawer mapping.
 
+## Decisions (realtime-conformance CI gate — #153)
+
+| Topic | Decision |
+| --- | --- |
+| **Job id** | **`realtime-conformance`** in **[`ci.yml`](../../.github/workflows/ci.yml)** — third PR job alongside **`infra-cdk`** and **`web-app`**. |
+| **Workflow file** | Extend existing **`ci.yml`** — **no** separate workflow file. |
+| **Path filters** | Add **`services/riffsync-sfu/**`**, **`tests/realtime-conformance/**`**, **`infra/local-media/**`** to **`pull_request`** and **`push`** **`paths`** (keep existing **`apps/web/**`** and CDK paths). |
+| **Blocking** | **PR-blocking** when path filters match — same required-check posture as **`web-app`**. |
+| **SFU compile gate** | First steps in **`realtime-conformance`**: **`npm ci && npm run build`** under **`services/riffsync-sfu`** — **not** folded into **`infra-cdk`**. |
+| **Runner entrypoint** | **`tests/realtime-conformance/run.sh`** at repo root (created by **#155**). When absent, job **passes after SFU compile only** (incremental ship before scenarios land). When present, non-zero exit **fails** the job. |
+| **Compose bootstrap** | **#154** adds disposable SFU + coturn startup inside this job (reuses **`infra/local-media/compose.yml`**); **#153** wires job shell and invokes bootstrap before **`run.sh`**. |
+| **AWS / prod** | **No** OIDC deploy role, **no** Secrets Manager prod classes, **no** **`RiffSyncTurn`** mutation. |
+| **Parallelism** | **`realtime-conformance`** has **no** **`needs:`** on sibling jobs — runs in parallel with **`infra-cdk`** / **`web-app`**. |
+
 ## Open implementation decisions
 
-- **Harness workflow** — Exact job name (**`realtime-conformance`** vs alias), workflow file location, and whether **`services/riffsync-sfu/**`** also adds a lightweight unit-test step to **`infra-cdk`** or a dedicated **`sfu-unit`** job before integration.
-- **Harness driver** — Playwright (browser **`getUserMedia`** fidelity) vs Node **`mediasoup-client`** script (faster, less UI coverage); may combine both with Playwright as gate and Node as fast pre-check.
-- **Harness package layout** — Directory for compose profile, bootstrap scripts, and scenario runner (e.g. **`tests/realtime-conformance/`**).
-- **Timeouts and flake policy** — Per-step wall clocks, retry budget, and CI artifact capture (HAR, SFU journal snippet) for **`/refine-issue`** backlog.
-- **Room WS stub** — Minimal in-process mock vs testcontainers vs skipped when scenario targets SFU-only paths.
+- **Harness driver** — Node dual-peer **`mediasoup-client`** script is the PR gate (**#155**); Playwright browser **`getUserMedia`** fidelity deferred post-MVP unless a scenario requires UI tile assertions.
+- **Timeouts and flake policy** — Per-step wall clocks, retry budget, and supplemental artifact capture (HAR) — **#155** runner; job-level **`timeout-minutes`** on **`realtime-conformance`** set when runner lands.
+- **Room WS stub** — Minimal in-process mock in **`tests/realtime-conformance/`** (**#155**); not testcontainers for MVP.
 
 ## Release and delivery
 
