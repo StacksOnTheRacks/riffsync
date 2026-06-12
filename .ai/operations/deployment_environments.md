@@ -154,3 +154,4 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 - [`infra/cdk/README.md`](../../infra/cdk/README.md) — operator runbooks, outputs, smoke checks
 - [`infra/local-media/compose.yml`](../../infra/local-media/compose.yml) — disposable SFU + coturn (issue **#136**)
 - [`infra/local-media/coturn/turnserver.conf.example`](../../infra/local-media/coturn/turnserver.conf.example) — TURN baseline for local/harness profiles
+- [`tests/realtime-conformance/bootstrap-media.sh`](../../tests/realtime-conformance/bootstrap-media.sh) — CI/local disposable SFU + TURN bootstrap (**#154**)

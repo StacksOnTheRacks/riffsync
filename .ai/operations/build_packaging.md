@@ -104,7 +104,7 @@ Harness failures must name the **drawer** (chat, signaling, connectivity, produc
 | **Bootstrap script** | **`tests/realtime-conformance/bootstrap-media.sh`** — **`up`** (fixture env + **`docker compose up -d --build`**), **`wait`** (**`/healthz`** poll), **`down`** (compose teardown + optional log capture). |
 | **Fixture env** | Generated from committed **`infra/local-media/.env.example`** and **`coturn/turnserver.conf.example`** — harness **`SFU_JWT_SECRET`** matches **#155** in-process token mint; **no** prod join HMAC in CI. |
 | **Docker posture** | Standard **`ubuntu-latest`** Docker; SFU signaling on **`127.0.0.1:3000`** only; coturn **3478** + relay range per compose — same port map as local profile. |
-| **Job wiring owner** | **#153** adds **`realtime-conformance`** steps that call bootstrap; **#154** ships the script + **`tests/realtime-conformance/README.md`** operator notes. |
+| **Job wiring owner** | **#153** adds **`realtime-conformance`** steps that call bootstrap; **#154** ships **[`bootstrap-media.sh`](../../tests/realtime-conformance/bootstrap-media.sh)** + **[`tests/realtime-conformance/README.md`](../../tests/realtime-conformance/README.md)** operator notes. |
 | **Incremental ship** | Bootstrap runs even when **`run.sh`** is absent — job passes after **`wait`** succeeds post-SFU compile (**#153** interim gate). |
 
 ## Decisions (realtime-conformance harness runner — #155)
