@@ -68,6 +68,15 @@ describe('ParticipantVideoTile', () => {
     expect(video?.srcObject).toBeNull()
   })
 
+  it('removes participant figure from the DOM on unmount', () => {
+    renderTile(makeTile('Alice', false))
+    expect(container.querySelector('figure[aria-label="Alice"]')).not.toBeNull()
+
+    act(() => root.unmount())
+    expect(container.querySelector('figure[aria-label="Alice"]')).toBeNull()
+    expect(document.body.querySelector('figure[aria-label="Alice"]')).toBeNull()
+  })
+
   it('clears srcObject when stream identity changes', () => {
     const firstStream = new MediaStream([{ kind: 'video' } as MediaStreamTrack])
     const secondStream = new MediaStream([{ kind: 'video' } as MediaStreamTrack])

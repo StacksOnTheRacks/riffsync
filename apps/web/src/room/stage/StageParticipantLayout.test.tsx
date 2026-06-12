@@ -99,6 +99,8 @@ describe('StageParticipantLayout', () => {
       tiles: [],
     })
     expect(container.querySelector('video.riffsync-room-page__participant-tile-video')).toBeNull()
+    expect(container.querySelector('figure[aria-label="Alice"]')).toBeNull()
+    expect(document.body.querySelector('figure[aria-label="Alice"]')).toBeNull()
     expect(video?.srcObject).toBeNull()
   })
 

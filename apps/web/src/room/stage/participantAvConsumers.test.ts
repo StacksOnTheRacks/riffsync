@@ -52,4 +52,24 @@ describe('participantAvConsumers', () => {
     })
     expect(next.size).toBe(0)
   })
+
+  it('wires attach then detach to an empty videoConsumers map', () => {
+    const track = { kind: 'video' } as MediaStreamTrack
+    const attached = applyParticipantAvConsumerEvent(new Map(), {
+      action: 'attach',
+      producerId: 'p1',
+      sessionId: 'fan-b',
+      producerClass: 'participant_av',
+      kind: 'video',
+      track,
+    })
+    expect(attached.size).toBe(1)
+
+    const detached = applyParticipantAvConsumerEvent(attached, {
+      action: 'detach',
+      producerId: 'p1',
+    })
+    expect(detached.size).toBe(0)
+    expect(detached.has('p1')).toBe(false)
+  })
 })
