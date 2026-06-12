@@ -14,15 +14,26 @@ vi.stubGlobal(
   },
 )
 
-function makeMixMock() {
-  return {
+function makeMixMock(overrides: Record<string, unknown> = {}) {
+  const contextListeners: Array<(state: AudioContextState | undefined) => void> = []
+  const mix = {
     dispose: vi.fn(),
     setAvDisabled: vi.fn(),
     setHostVideoElement: vi.fn(),
     onConsumerEvent: vi.fn(),
     resumeIfSuspended: vi.fn().mockResolvedValue(undefined),
-    getAudioContextState: vi.fn().mockReturnValue(undefined),
+    getAudioContextState: vi.fn().mockReturnValue('running' as AudioContextState),
+    watchAudioContextState: vi.fn((listener: (state: AudioContextState | undefined) => void) => {
+      contextListeners.push(listener)
+      listener('running')
+      return () => {
+        const idx = contextListeners.indexOf(listener)
+        if (idx >= 0) contextListeners.splice(idx, 1)
+      }
+    }),
+    ...overrides,
   }
+  return mix
 }
 
 function makeVideoElement(playImpl?: () => Promise<void>): HTMLVideoElement {
@@ -189,6 +200,101 @@ describe('TheaterPlayback', () => {
     playback.setYoutubeMountElement(mount as unknown as HTMLElement)
     playback.setYoutubeVideoId('abc123')
     expect(mount.dataset.riffsyncYoutubeVideoId).toBe('abc123')
+    playback.dispose()
+  })
+
+  it('reports torn-down lifecycle when theater mode is disabled', () => {
+    vi.mocked(createTheaterAudioMix).mockReturnValue(makeMixMock())
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    expect(playback.getLifecycleState()).toBe('connected')
+
+    playback.configure({ enabled: false, isPublisher: false, avDisabled: false })
+    expect(playback.getLifecycleState()).toBe('torn-down')
+    playback.dispose()
+  })
+
+  it('reports degraded lifecycle when AudioContext is suspended', () => {
+    const mix = makeMixMock({
+      getAudioContextState: vi.fn().mockReturnValue('suspended' as AudioContextState),
+    })
+    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+
+    expect(playback.getLifecycleState()).toBe('degraded')
+    expect(playback.getLastErrorCode()).toBe('THEATER_AUDIO_SUSPENDED')
+    playback.dispose()
+  })
+
+  it('returns to connected lifecycle after AudioContext resumes', async () => {
+    const getAudioContextState = vi.fn().mockReturnValue('suspended' as AudioContextState)
+    const resumeIfSuspended = vi.fn().mockImplementation(async () => {
+      getAudioContextState.mockReturnValue('running' as AudioContextState)
+    })
+    const mix = makeMixMock({ getAudioContextState, resumeIfSuspended })
+    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    expect(playback.getLifecycleState()).toBe('degraded')
+
+    playback.setGuestVideoElement(makeVideoElement())
+    await playback.playGuestVideo()
+    expect(playback.getLifecycleState()).toBe('connected')
+    playback.dispose()
+  })
+
+  it('reports degraded lifecycle when SFU signaling sibling reconnects after connect', () => {
+    vi.mocked(createTheaterAudioMix).mockReturnValue(makeMixMock())
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    expect(playback.getLifecycleState()).toBe('connected')
+
+    playback.notifySignalingSiblingState('connected')
+    playback.notifySignalingSiblingState('reconnecting')
+    expect(playback.getLifecycleState()).toBe('degraded')
+
+    playback.notifySignalingSiblingState('connected')
+    expect(playback.getLifecycleState()).toBe('connected')
+    playback.dispose()
+  })
+
+  it('ignores SFU reconnecting before signaling has connected', () => {
+    vi.mocked(createTheaterAudioMix).mockReturnValue(makeMixMock())
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+
+    playback.notifySignalingSiblingState('reconnecting')
+    expect(playback.getLifecycleState()).toBe('connected')
+    playback.dispose()
+  })
+
+  it('stays connected when only host_screen consumer detaches (share_state stopped)', () => {
+    const mix = makeMixMock()
+    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+    const consumerListeners: Array<(event: unknown) => void> = []
+    const sfuSession = {
+      onConsumerTrack: (listener: (event: unknown) => void) => {
+        consumerListeners.push(listener)
+        return () => undefined
+      },
+    } as unknown as SfuMediaSession
+
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    playback.attachSfuSession(sfuSession)
+
+    consumerListeners[0]?.({
+      action: 'attach',
+      producerId: 'fan-1',
+      producerClass: 'participant_av',
+      kind: 'audio',
+      track: { id: 'mic' } as MediaStreamTrack,
+    })
+    consumerListeners[0]?.({ action: 'detach', producerId: 'host-1' })
+
+    expect(playback.getLifecycleState()).toBe('connected')
+    expect(mix.onConsumerEvent).toHaveBeenCalledTimes(2)
     playback.dispose()
   })
 })

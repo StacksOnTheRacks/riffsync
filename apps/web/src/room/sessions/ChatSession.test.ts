@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ChatSession,
   routeInboundChatMessage,
@@ -124,14 +124,109 @@ describe('ChatSession send', () => {
     vi.mocked(realtimeDiagnostics.recordOutboundSent).mockClear()
   })
 
-  it('records outbound drop when socket is not open', () => {
+  it('records outbound drop when socket is not open and returns false', () => {
     const session = new ChatSession()
-    session.send({ action: 'chat', text: 'hi', messageId: '550e8400-e29b-41d4-a716-446655440002' })
+    const dropped = session.send({ action: 'chat', text: 'hi', messageId: '550e8400-e29b-41d4-a716-446655440002' })
+    expect(dropped).toBe(false)
     expect(realtimeDiagnostics.recordOutboundDropped).toHaveBeenCalledWith(
       { action: 'chat', text: 'hi', messageId: '550e8400-e29b-41d4-a716-446655440002' },
       -1,
     )
     expect(realtimeDiagnostics.recordOutboundSent).not.toHaveBeenCalled()
+    expect(session.getLastErrorCode()).toBe('CHAT_SEND_DROPPED')
+  })
+
+  it('notifies send-dropped listeners without queueing', () => {
+    const session = new ChatSession()
+    const dropped = vi.fn()
+    session.onSendDropped(dropped)
+    session.send({ action: 'ping' })
+    expect(dropped).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ChatSession lifecycle FSM', () => {
+  class MockWebSocket {
+    static OPEN = 1
+    static instances: MockWebSocket[] = []
+    readyState = 0
+    listeners = new Map<string, Array<(ev?: unknown) => void>>()
+
+    constructor(url: string) {
+      void url
+      MockWebSocket.instances.push(this)
+    }
+
+    send = vi.fn()
+
+    addEventListener(type: string, fn: (ev?: unknown) => void) {
+      const list = this.listeners.get(type) ?? []
+      list.push(fn)
+      this.listeners.set(type, list)
+    }
+
+    close() {
+      this.readyState = 3
+    }
+
+    emit(type: string, ev?: unknown) {
+      for (const fn of this.listeners.get(type) ?? []) fn(ev)
+    }
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    MockWebSocket.instances = []
+    vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+    Object.assign(MockWebSocket, { OPEN: 1, CONNECTING: 0, CLOSING: 2, CLOSED: 3 })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('promotes to degraded after three failed reconnect cycles', () => {
+    const session = new ChatSession()
+    session.connect({
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-fsm',
+      accessToken: null,
+      enabled: true,
+    })
+
+    expect(session.getLifecycleState()).toBe('reconnecting')
+
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      const ws = MockWebSocket.instances.at(-1)!
+      ws.emit('close', { code: 1006, reason: '' })
+      vi.runOnlyPendingTimers()
+    }
+
+    expect(session.getLifecycleState()).toBe('degraded')
+  })
+
+  it('resets failed cycles and returns to connected after a successful open', () => {
+    const session = new ChatSession()
+    session.connect({
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-recover',
+      accessToken: null,
+      enabled: true,
+    })
+
+    const first = MockWebSocket.instances.at(-1)!
+    first.emit('close', { code: 1006, reason: '' })
+    vi.runOnlyPendingTimers()
+
+    const second = MockWebSocket.instances.at(-1)!
+    second.readyState = MockWebSocket.OPEN
+    second.emit('open')
+
+    expect(session.getLifecycleState()).toBe('connected')
+    expect(session.getStatus()).toBe('open')
   })
 })
 

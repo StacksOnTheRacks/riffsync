@@ -58,6 +58,10 @@ vi.mock('../room/audio/theaterAudioMix', () => ({
     onConsumerEvent: vi.fn(),
     resumeIfSuspended: vi.fn().mockResolvedValue(undefined),
     getAudioContextState: vi.fn(() => 'running'),
+    watchAudioContextState: vi.fn((listener: (state: AudioContextState | undefined) => void) => {
+      listener('running')
+      return () => undefined
+    }),
   })),
 }))
 

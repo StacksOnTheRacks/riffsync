@@ -11,6 +11,35 @@ import {
   mapSfuMediaSessionStatusToDrawerState,
   type RoomRealtimeDiagnostics,
 } from './RoomRealtimeSdk'
+import {
+  assertDrawerReconnectCycle,
+  assertNoDrawerTornDown,
+  assertSiblingDrawerStaysConnected,
+  emitShareStateStopped,
+  joinHealthySdk,
+  mockChatConnectOpensImmediately,
+  mockSfuConnectOpensImmediately,
+  setChatLifecycle,
+  setSfuLifecycle,
+} from './roomRealtimeSdkTestHelpers'
+
+vi.mock('../audio/theaterAudioMix', () => ({
+  THEATER_AUDIO_GAIN: 1,
+  shouldRouteConsumerAudio: (producerClass: string | undefined) =>
+    producerClass === 'host_screen' || producerClass === 'participant_av',
+  createTheaterAudioMix: vi.fn(() => ({
+    dispose: vi.fn(),
+    setAvDisabled: vi.fn(),
+    setHostVideoElement: vi.fn(),
+    onConsumerEvent: vi.fn(),
+    resumeIfSuspended: vi.fn().mockResolvedValue(undefined),
+    getAudioContextState: vi.fn().mockReturnValue('running'),
+    watchAudioContextState: vi.fn((listener: (state: AudioContextState | undefined) => void) => {
+      listener('running')
+      return () => undefined
+    }),
+  })),
+}))
 
 const baseSnapshot: RoomSnapshot = {
   roomId: 'room-abc',
@@ -51,31 +80,19 @@ function assertStableDiagnosticsContract(diag: RoomRealtimeDiagnostics): void {
   expect(diag.asOf).toMatch(/^\d{4}-\d{2}-\d{2}T/)
 }
 
-function mockChatConnectOpensImmediately(): void {
-  vi.spyOn(ChatSession.prototype, 'connect').mockImplementation(function (this: ChatSession) {
-    ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
-  })
-}
-
-function mockSfuConnectOpensImmediately(): void {
-  vi.spyOn(SfuMediaSession.prototype, 'connect').mockImplementation(function (this: SfuMediaSession) {
-    ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
-  })
-}
-
 describe('RoomRealtimeSdk lifecycle mappers', () => {
   it('maps chat session statuses to drawer lifecycle enum strings', () => {
     expect(mapChatSessionStatusToDrawerState('open')).toBe('connected')
     expect(mapChatSessionStatusToDrawerState('connecting')).toBe('reconnecting')
+    expect(mapChatSessionStatusToDrawerState('closed')).toBe('reconnecting')
     expect(mapChatSessionStatusToDrawerState('error')).toBe('degraded')
-    expect(mapChatSessionStatusToDrawerState('idle')).toBe('torn-down')
-    expect(mapChatSessionStatusToDrawerState('closed')).toBe('torn-down')
   })
 
   it('maps SFU session statuses to drawer lifecycle enum strings', () => {
     expect(mapSfuMediaSessionStatusToDrawerState('open')).toBe('connected')
     expect(mapSfuMediaSessionStatusToDrawerState('connecting')).toBe('reconnecting')
     expect(mapSfuMediaSessionStatusToDrawerState('reconnecting')).toBe('reconnecting')
+    expect(mapSfuMediaSessionStatusToDrawerState('degraded')).toBe('degraded')
     expect(mapSfuMediaSessionStatusToDrawerState('error')).toBe('degraded')
     expect(mapSfuMediaSessionStatusToDrawerState('idle')).toBe('torn-down')
     expect(mapSfuMediaSessionStatusToDrawerState('closed')).toBe('torn-down')
@@ -233,6 +250,9 @@ describe('RoomRealtimeSdk.join bootstrap order', () => {
     vi.spyOn(ChatSession.prototype, 'connect').mockImplementation(function (this: ChatSession) {
       order.push('chat-connect')
       ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
+      ;(this as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
+        'connected',
+      )
     })
     vi.spyOn(SfuMediaSession.prototype, 'connect').mockImplementation(function (
       this: SfuMediaSession,
@@ -550,6 +570,175 @@ describe('RoomRealtimeSdk.subscribe', () => {
 
     expect(routeSfuConsumerEvent).toHaveBeenCalledWith(event)
     expect(onConsumerTrack).toHaveBeenCalledWith(event)
+  })
+})
+
+describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // Harness step 5: chat-only WS drop — sibling sfuSignaling stays connected.
+  it('harness step 5: chat-only forced drop reconnects without tearing down SFU', async () => {
+    const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-harness-chat-drop' })
+
+    setChatLifecycle(sdk, 'reconnecting')
+    const duringOutage = sdk.getDiagnostics()
+
+    expect(sfuDisconnect).not.toHaveBeenCalled()
+    assertSiblingDrawerStaysConnected(duringOutage, 'sfuSignaling')
+    expect(duringOutage.drawers.chat.state).toBe('reconnecting')
+
+    setChatLifecycle(sdk, 'connected')
+    const afterRecovery = sdk.getDiagnostics()
+
+    assertDrawerReconnectCycle(duringOutage, afterRecovery, 'chat')
+    assertSiblingDrawerStaysConnected(afterRecovery, 'sfuSignaling')
+  })
+
+  // Harness step 6: SFU-only signaling drop — sibling chat stays connected.
+  it('harness step 6: SFU-only forced drop reconnects without tearing down chat', async () => {
+    const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-harness-sfu-drop' })
+
+    setSfuLifecycle(sdk, 'reconnecting')
+    const duringOutage = sdk.getDiagnostics()
+
+    expect(chatDisconnect).not.toHaveBeenCalled()
+    assertSiblingDrawerStaysConnected(duringOutage, 'chat')
+    expect(duringOutage.drawers.sfuSignaling.state).toBe('reconnecting')
+
+    setSfuLifecycle(sdk, 'connected')
+    const afterRecovery = sdk.getDiagnostics()
+
+    assertDrawerReconnectCycle(duringOutage, afterRecovery, 'sfuSignaling')
+    assertSiblingDrawerStaysConnected(afterRecovery, 'chat')
+  })
+
+  it('regression: single-plane reconnecting lifecycle never calls cross-drawer disconnect', async () => {
+    const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+    const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-cross-drawer-regression' })
+
+    setChatLifecycle(sdk, 'reconnecting')
+    expect(sfuDisconnect).not.toHaveBeenCalled()
+
+    setSfuLifecycle(sdk, 'reconnecting')
+    expect(chatDisconnect).not.toHaveBeenCalled()
+  })
+
+  it('share_state stopped leaves all drawers non-torn-down and does not disconnect chat', async () => {
+    const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+    const handleShareStateStopped = vi.spyOn(SfuMediaSession.prototype, 'handleShareStateStopped')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-share-stop-isolation', isHost: false })
+
+    emitShareStateStopped(sdk)
+
+    expect(handleShareStateStopped).toHaveBeenCalledWith(false)
+    expect(chatDisconnect).not.toHaveBeenCalled()
+    assertNoDrawerTornDown(sdk.getDiagnostics())
+  })
+
+  it('surfaces CHAT_SEND_DROPPED when chat send is dropped', () => {
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-send-drop',
+      wsUrl: 'wss://ws.test',
+    })
+
+    sdk.sendControl({ action: 'chat', text: 'hello', messageId: '550e8400-e29b-41d4-a716-446655440099' })
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.chat.lastErrorCode).toBe('CHAT_SEND_DROPPED')
+    expect(diag.activeErrorCodes).toContain('CHAT_SEND_DROPPED')
+  })
+})
+
+describe('RoomRealtimeSdk theater playback lifecycle', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('marks theater drawer degraded when AudioContext is suspended', async () => {
+    mockChatConnectOpensImmediately()
+    vi.spyOn(TheaterPlayback.prototype, 'getAudioContextState').mockReturnValue('suspended')
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-theater-degraded',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+    })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.theaterPlayback.state).toBe('degraded')
+    expect(diag.drawers.theaterPlayback.lastErrorCode).toBe('THEATER_AUDIO_SUSPENDED')
+    expect(diag.drawers.theaterPlayback.audioContextState).toBe('suspended')
+  })
+
+  it('replays SFU consumers when transitioning from video chat to theater', async () => {
+    mockChatConnectOpensImmediately()
+    const replayActiveMediaSubscriptions = vi.spyOn(
+      SfuMediaSession.prototype,
+      'replayActiveMediaSubscriptions',
+    )
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: { ...baseSnapshot, roomMode: 'videoChat' },
+      sessionId: 'sess-mode-transition',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+    })
+
+    sdk.subscribe({ participantAv: { onConsumerTrack: vi.fn() } })
+
+    const chat = (sdk as unknown as { chat: ChatSession }).chat
+    const roomModeListeners = (chat as unknown as {
+      roomModeListeners: Set<(ev: { roomMode: string }) => void>
+    }).roomModeListeners
+    for (const listener of roomModeListeners) {
+      listener({ roomMode: 'theater' })
+    }
+
+    await vi.waitFor(() => expect(replayActiveMediaSubscriptions).toHaveBeenCalled())
+    expect(sdk.getDiagnostics().drawers.theaterPlayback.state).toBe('connected')
+  })
+
+  it('keeps theater drawer connected after share_state stopped', async () => {
+    mockChatConnectOpensImmediately()
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-share-stop',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+      isHost: false,
+    })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+
+    const chat = (sdk as unknown as { chat: ChatSession }).chat
+    const shareListeners = (chat as unknown as {
+      shareStateListeners: Set<(ev: { roomId: string; state: unknown }) => void>
+    }).shareStateListeners
+    for (const listener of shareListeners) {
+      listener({ roomId: 'room-abc', state: 'stopped' })
+    }
+
+    expect(sdk.getDiagnostics().drawers.theaterPlayback.state).toBe('connected')
   })
 })
 

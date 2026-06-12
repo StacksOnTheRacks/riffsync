@@ -7,6 +7,9 @@ import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
 import type { GuestHostScreenFsm } from '../sfu/sfuRelayStatusCopy'
 import type { SfuMediaSession } from './SfuMediaSession'
 
+/** Normative drawer lifecycle for diagnostics (`execution_model.md`). */
+export type TheaterPlaybackLifecycleState = 'connected' | 'degraded' | 'torn-down'
+
 export type TheaterPlaybackSnapshot = {
   guestShareFsm: GuestHostScreenFsm
   guestPlayHint: boolean
@@ -14,6 +17,7 @@ export type TheaterPlaybackSnapshot = {
 }
 
 type SnapshotListener = (snapshot: TheaterPlaybackSnapshot) => void
+type LifecycleListener = (state: TheaterPlaybackLifecycleState) => void
 
 const GUEST_INBOUND_POLL_MS = 2300
 
@@ -36,6 +40,10 @@ function mapSfuConsumerToMixEvent(event: SfuConsumerTrackEvent): TheaterAudioCon
  */
 export class TheaterPlayback {
   private enabled = false
+  private lifecycleState: TheaterPlaybackLifecycleState = 'torn-down'
+  private lastErrorCode: string | undefined
+  private signalingSiblingDegraded = false
+  private sfuSignalingWasConnected = false
   private isPublisher = false
   private avDisabled = false
   private mix: TheaterAudioMix | null = null
@@ -51,10 +59,43 @@ export class TheaterPlayback {
   private hostCapturePlayHint = false
   private pollInterval: ReturnType<typeof setInterval> | null = null
   private pollCancelled = false
+  private audioContextWatchUnsub: (() => void) | null = null
   private sfuConsumerUnsub: (() => void) | null = null
   private guestVideoPlayToken = 0
   private hostCapturePlayToken = 0
   private readonly snapshotListeners = new Set<SnapshotListener>()
+  private readonly lifecycleListeners = new Set<LifecycleListener>()
+
+  getLifecycleState(): TheaterPlaybackLifecycleState {
+    return this.lifecycleState
+  }
+
+  getLastErrorCode(): string | undefined {
+    return this.lastErrorCode
+  }
+
+  onLifecycleChange(listener: LifecycleListener): () => void {
+    this.lifecycleListeners.add(listener)
+    return () => this.lifecycleListeners.delete(listener)
+  }
+
+  /** SFU signaling sibling state while theater mix is active (`execution_model.md`). */
+  notifySignalingSiblingState(
+    state: 'connected' | 'reconnecting' | 'degraded' | 'torn-down',
+  ): void {
+    if (state === 'connected') {
+      this.sfuSignalingWasConnected = true
+      this.signalingSiblingDegraded = false
+    } else if (state === 'degraded') {
+      this.signalingSiblingDegraded = true
+    } else if (state === 'reconnecting' && this.sfuSignalingWasConnected) {
+      this.signalingSiblingDegraded = true
+    } else if (state === 'torn-down') {
+      this.sfuSignalingWasConnected = false
+      this.signalingSiblingDegraded = false
+    }
+    this.syncLifecycleState()
+  }
 
   getSnapshot(): TheaterPlaybackSnapshot {
     return {
@@ -81,6 +122,7 @@ export class TheaterPlayback {
       this.setGuestShareFsm('idle')
       this.setGuestPlayHint(false)
       this.setHostCapturePlayHint(false)
+      this.syncLifecycleState()
       return
     }
 
@@ -93,6 +135,7 @@ export class TheaterPlayback {
     this.syncHostCaptureVideoBinding()
     this.configureGuestInboundPoll()
     this.syncGuestShareFsm()
+    this.syncLifecycleState()
   }
 
   attachSfuSession(session: SfuMediaSession): void {
@@ -160,6 +203,7 @@ export class TheaterPlayback {
       await v.play()
       this.setGuestPlayHint(false)
       await this.mix?.resumeIfSuspended()
+      this.syncLifecycleState()
     } catch {
       this.setGuestPlayHint(true)
     }
@@ -173,6 +217,7 @@ export class TheaterPlayback {
       this.setHostCapturePlayHint(false)
       this.mix?.setHostVideoElement(v)
       await this.mix?.resumeIfSuspended()
+      this.syncLifecycleState()
     } catch {
       this.setHostCapturePlayHint(true)
     }
@@ -192,24 +237,66 @@ export class TheaterPlayback {
     this.guestShareFsm = 'idle'
     this.guestPlayHint = false
     this.hostCapturePlayHint = false
+    this.signalingSiblingDegraded = false
+    this.sfuSignalingWasConnected = false
+    this.lastErrorCode = undefined
+    this.setLifecycleState('torn-down', undefined)
     this.snapshotListeners.clear()
+    this.lifecycleListeners.clear()
   }
 
   private onSfuConsumerEvent(event: SfuConsumerTrackEvent): void {
     if (!this.enabled || !this.mix) return
     this.mix.onConsumerEvent(mapSfuConsumerToMixEvent(event))
-    void this.mix.resumeIfSuspended()
+    void this.mix.resumeIfSuspended().then(() => this.syncLifecycleState())
+    this.syncLifecycleState()
   }
 
   private ensureMix(): void {
     if (this.mix) return
     this.mix = createTheaterAudioMix()
     this.mix.setAvDisabled(this.avDisabled)
+    this.audioContextWatchUnsub?.()
+    this.audioContextWatchUnsub = this.mix.watchAudioContextState(() => {
+      this.syncLifecycleState()
+    })
   }
 
   private teardownMix(): void {
+    this.audioContextWatchUnsub?.()
+    this.audioContextWatchUnsub = null
     this.mix?.dispose()
     this.mix = null
+  }
+
+  private syncLifecycleState(): void {
+    if (!this.enabled || !this.mix) {
+      this.setLifecycleState('torn-down', undefined)
+      return
+    }
+
+    const audioSuspended = this.getAudioContextState() === 'suspended'
+    if (audioSuspended) {
+      this.setLifecycleState('degraded', 'THEATER_AUDIO_SUSPENDED')
+      return
+    }
+
+    if (this.signalingSiblingDegraded) {
+      this.setLifecycleState('degraded', undefined)
+      return
+    }
+
+    this.setLifecycleState('connected', undefined)
+  }
+
+  private setLifecycleState(
+    next: TheaterPlaybackLifecycleState,
+    errorCode: string | undefined,
+  ): void {
+    this.lastErrorCode = errorCode
+    if (this.lifecycleState === next) return
+    this.lifecycleState = next
+    for (const listener of this.lifecycleListeners) listener(next)
   }
 
   private syncHostVideoElement(): void {

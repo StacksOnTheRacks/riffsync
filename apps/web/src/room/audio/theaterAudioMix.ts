@@ -24,6 +24,7 @@ export type TheaterAudioMix = {
   onConsumerEvent: (event: TheaterAudioConsumerEvent) => void
   resumeIfSuspended: () => Promise<void>
   getAudioContextState: () => AudioContextState | undefined
+  watchAudioContextState: (listener: (state: AudioContextState | undefined) => void) => () => void
 }
 
 export type CreateTheaterAudioMixOptions = {
@@ -52,9 +53,27 @@ export function createTheaterAudioMix(options: CreateTheaterAudioMixOptions = {}
   const hostScreenConsumers = new Map<string, AudioNodeBundle>()
   const participantConsumers = new Map<string, AudioNodeBundle>()
 
+  const contextStateListeners = new Set<(state: AudioContextState | undefined) => void>()
+  let contextStateListenerAttached = false
+
+  const emitContextState = () => {
+    const state = ctx?.state
+    for (const listener of contextStateListeners) listener(state)
+  }
+
+  const attachContextStateListener = (audioCtx: AudioContext) => {
+    if (contextStateListenerAttached) return
+    contextStateListenerAttached = true
+    if (typeof audioCtx.addEventListener === 'function') {
+      audioCtx.addEventListener('statechange', emitContextState)
+    }
+  }
+
   const ensureContext = (): AudioContext => {
     if (!ctx) {
       ctx = createContext()
+      attachContextStateListener(ctx)
+      emitContextState()
     }
     return ctx
   }
@@ -182,7 +201,16 @@ export function createTheaterAudioMix(options: CreateTheaterAudioMixOptions = {}
       clearHostElementSource()
       clearHostScreenConsumers()
       clearParticipantConsumers()
+      contextStateListeners.clear()
       if (ctx) {
+        if (typeof ctx.removeEventListener === 'function') {
+          try {
+            ctx.removeEventListener('statechange', emitContextState)
+          } catch {
+            /* ignore */
+          }
+        }
+        contextStateListenerAttached = false
         try {
           void ctx.close()
         } catch {
@@ -219,10 +247,16 @@ export function createTheaterAudioMix(options: CreateTheaterAudioMixOptions = {}
       if (!audioCtx || audioCtx.state !== 'suspended') return
       try {
         await audioCtx.resume()
+        emitContextState()
       } catch {
         /* ignore autoplay policy */
       }
     },
     getAudioContextState: () => ctx?.state,
+    watchAudioContextState: (listener) => {
+      contextStateListeners.add(listener)
+      listener(ctx?.state)
+      return () => contextStateListeners.delete(listener)
+    },
   }
 }
