@@ -4,6 +4,7 @@ import { SfuTokenHttpError } from '../av/participantAvErrors'
 import { connectSfuUnifiedSession, type SfuSessionEndReason } from '../sfu/mediasoupSharing'
 import { createParticipantAvController } from '../sfu/participantAvSession'
 import { LOCAL_SFU_UNREACHABLE_MSG } from '../sfu/sfuConfigErrors'
+import { nextSfuReconnectDelayMs } from '../sfu/sfuReconnectPolicy'
 import { SFU_DEGRADED_AFTER_FAILED_CYCLES, SFU_JWT_REMINT_LEAD_SECONDS, sfuLifecycleAfterFailedCycle } from './drawerReconnectPolicy'
 import { resolveJwtRemintDelayMs } from './sfuJwtRemintSchedule'
 import {
@@ -135,6 +136,110 @@ describe('startSfuRoomSession recoverable signaling reconnect', () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.clearAllMocks()
+  })
+
+  it('#205 regression: signaling_close preserves toggles and syncPublish re-publishes after re-attach', async () => {
+    vi.useFakeTimers()
+
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }
+    const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }
+    const stream = {
+      getVideoTracks: () => [videoTrack],
+      getAudioTracks: () => [audioTrack],
+      getTracks: () => [videoTrack, audioTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+    vi.stubGlobal(
+      'MediaStream',
+      function MockMediaStream(
+        this: { tracks: MediaStreamTrack[]; getTracks: () => MediaStreamTrack[] },
+        tracks: MediaStreamTrack[] = [],
+      ) {
+        this.tracks = tracks
+        this.getTracks = () => this.tracks
+      },
+    )
+
+    const publishStreamFirst = vi.fn().mockResolvedValue(undefined)
+    const publishStreamSecond = vi.fn().mockResolvedValue(undefined)
+    let connectCall = 0
+    let resolveFirstSessionEnded: ((reason: SfuSessionEndReason) => void) | undefined
+
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'producer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => {
+      connectCall += 1
+      if (connectCall === 1) {
+        return {
+          ...mockSfuUnifiedSessionHandle(),
+          ready: Promise.resolve(),
+          sessionEnded: new Promise<SfuSessionEndReason>((resolve) => {
+            resolveFirstSessionEnded = resolve
+          }),
+          supportsPublish: true,
+          publishStream: publishStreamFirst,
+        } as Awaited<ReturnType<typeof connectSfuUnifiedSession>>
+      }
+      return {
+        ...mockSfuUnifiedSessionHandle(),
+        ready: Promise.resolve(),
+        sessionEnded: new Promise<SfuSessionEndReason>(() => {}),
+        supportsPublish: true,
+        publishStream: publishStreamSecond,
+      } as Awaited<ReturnType<typeof connectSfuUnifiedSession>>
+    })
+
+    const participantAv = createParticipantAvController({ canPublish: () => true })
+    await participantAv.enableCamera()
+    await participantAv.enableMic()
+
+    const { cancel } = startSfuRoomSession({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-205-reconnect',
+      accessToken: 'fan-jwt',
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      participantAv,
+      onRemoteStream: () => {},
+      assignSession: () => {},
+      onMissingWsUrl: vi.fn(),
+      onTokenError: vi.fn(),
+      onMediaError: vi.fn(),
+    })
+
+    await vi.waitFor(() => {
+      expect(publishStreamFirst).toHaveBeenCalled()
+    })
+    expect(participantAv.getState()).toMatchObject({
+      cameraEnabled: true,
+      micEnabled: true,
+      needsProducerToken: true,
+    })
+
+    resolveFirstSessionEnded?.('signaling_close')
+    await vi.advanceTimersByTimeAsync(nextSfuReconnectDelayMs(0) + 50)
+
+    await vi.waitFor(() => {
+      expect(publishStreamSecond).toHaveBeenCalled()
+    })
+    expect(participantAv.getState()).toMatchObject({
+      cameraEnabled: true,
+      micEnabled: true,
+      needsProducerToken: true,
+    })
+    expect(participantAv.getState().error).toBeNull()
+
+    cancel()
   })
 
   it('calls resetOnReconnect instead of failPublish on recoverable signaling_close', async () => {

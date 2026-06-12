@@ -25,6 +25,12 @@ describe('canParticipantAvPublish', () => {
     expect(canParticipantAvPublish({ fanToken: null, avDisabled: false })).toBe(false)
     expect(canParticipantAvPublish({ fanToken: 'jwt', avDisabled: true })).toBe(false)
   })
+
+  it('#205 regression: no wsOpen gate — chat websocket flap cannot block publish eligibility', () => {
+    // Pre-#148 coupling consulted chat wsOpen; drawer-independent gate is fan JWT + avDisabled only.
+    expect(canParticipantAvPublish({ fanToken: 'jwt', avDisabled: false })).toBe(true)
+    expect(canParticipantAvPublish({ fanToken: null, avDisabled: false })).toBe(false)
+  })
 })
 
 describe('createParticipantAvController', () => {
@@ -58,6 +64,62 @@ describe('createParticipantAvController', () => {
       micEnabled: false,
       needsProducerToken: false,
     })
+  })
+
+  it('#205 regression: resetOnReconnect preserves both camera and mic toggles', async () => {
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }
+    const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }
+    const stream = {
+      getVideoTracks: () => [videoTrack],
+      getAudioTracks: () => [audioTrack],
+      getTracks: () => [videoTrack, audioTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+
+    const unpublishProducerClass = vi.fn()
+    const controller = createParticipantAvController({
+      canPublish: () => true,
+    })
+    await controller.enableCamera()
+    await controller.enableMic()
+    const session = {
+      supportsPublish: true,
+      ready: Promise.resolve(),
+      publishStream: vi.fn().mockResolvedValue(undefined),
+      unpublishProducerKind: vi.fn(),
+      unpublishProducerClass,
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
+
+    controller.attachSession(session)
+    await vi.waitFor(() => {
+      expect(session.publishStream).toHaveBeenCalled()
+    })
+
+    unpublishProducerClass.mockClear()
+    videoTrack.stop.mockClear()
+    audioTrack.stop.mockClear()
+
+    controller.resetOnReconnect()
+
+    expect(controller.getState()).toMatchObject({
+      cameraEnabled: true,
+      micEnabled: true,
+      needsProducerToken: true,
+      busy: false,
+    })
+    expect(unpublishProducerClass).not.toHaveBeenCalled()
+    expect(videoTrack.stop).not.toHaveBeenCalled()
+    expect(audioTrack.stop).not.toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
   })
 
   it('resetOnReconnect preserves publish intent and only clears busy', async () => {

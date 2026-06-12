@@ -313,6 +313,50 @@ describe('RoomRealtimeSdk.join bootstrap order', () => {
     expect(sfuConnect).toHaveBeenCalledTimes(1)
   })
 
+  it('#205 regression: chat reconnecting flap preserves needsProducerToken while SFU stays connected', async () => {
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }
+    const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }
+    const stream = {
+      getVideoTracks: () => [videoTrack],
+      getAudioTracks: () => [audioTrack],
+      getTracks: () => [videoTrack, audioTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+
+    const sdk = await joinHealthySdk({ sessionId: 'sess-205-chat-flap' })
+    const av = getSfuSession(sdk).participantAv
+    getSfuSession(sdk).updatePublishGate({ fanToken: 'fan-jwt' })
+    await av.enableCamera()
+    await av.enableMic()
+
+    await vi.waitFor(() => {
+      expect(av.getState().needsProducerToken).toBe(true)
+    })
+
+    const beforeFlap = av.getState()
+    expect(beforeFlap.cameraEnabled).toBe(true)
+    expect(beforeFlap.micEnabled).toBe(true)
+
+    const chat = getChatSession(sdk)
+    ;(chat as unknown as { setStatus: (status: string) => void }).setStatus('closed')
+    setChatLifecycle(sdk, 'reconnecting')
+
+    const afterFlap = av.getState()
+    expect(afterFlap.needsProducerToken).toBe(true)
+    expect(afterFlap.cameraEnabled).toBe(true)
+    expect(afterFlap.micEnabled).toBe(true)
+    expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
+    expect(sdk.getDiagnostics().drawers.chat.state).toBe('reconnecting')
+
+    vi.unstubAllGlobals()
+  })
+
   it('does not update publish gate on chat flap while SFU stays connected', async () => {
     const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
     const updatePublishGate = vi.spyOn(SfuMediaSession.prototype, 'updatePublishGate')
