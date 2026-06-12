@@ -285,6 +285,16 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 | **Mesh retirement** | No **`negotiating_ice`**, **`recovering_ice`**, or mesh ICE strings in stage playback path; grep-clean **`apps/web`**. |
 | **M19 gate** | Parent **#151** tracks ship; sub-issues **#210–#212**; peer **#201** for chat decoupling. |
 
+## Decisions (M19 tile lifecycle — #152)
+
+| Topic | Decision |
+| --- | --- |
+| **Scope** | **Preserve** mic-only off strip/grid rule; **harden** tile attach/detach on video **`producerClosed`** only — no avatar chips, audible-only badges, or speaking-border chrome. |
+| **M19 gate** | Parent **#152** tracks M19 milestone exit when peer **#142** acceptance criteria pass across Theater strip, Video Chat grid, and narrow horizontal row. |
+| **Implementation** | Peer parent **#142** with sub-issues **#188–#190** on **`feature/issue-142`** — consumer detach → **`videoConsumers`** sync, **`ParticipantVideoTile`** **`srcObject`** cleanup, regression tests. |
+| **Timing contract** | Tile leaves strip/grid within **one React commit** after consumer **`detach`**; **`<video>`** **`srcObject = null`** before next paint (**`presentation.md`**). |
+| **Out of scope** | Mic-only stage chrome, mode-transition empty-state copy variants, tile lifecycle telemetry — not **#152**. |
+
 ## Decisions (participant AV publish gate — #148)
 
 | Topic | Decision |

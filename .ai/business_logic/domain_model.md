@@ -164,12 +164,15 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Guest in Video Chat; host stops share | **Open** | Grid tiles **persist** | **Audible** | **Unchanged** |
 | Host stops share while publishing participant mic | **Open** | Host tile **persists** if camera on | **Audible** | **Unchanged** |
 
-## Open implementation decisions
+## Decisions (M19 tile lifecycle — #152)
 
-- **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
-- **Partial teardown — remaining M17 peers:** concurrent **`newProducer`** / **`producerClosed`** consumer attach (**#142**).
+| Topic | Decision |
+| --- | --- |
+| **M19 ship gate** | Parent **#152** tracks M19 milestone exit for mic-only strip/grid rule preservation + tile attach/detach hardening only — **no** new mic-only stage chrome. |
+| **Implementation parent** | Executable work ships under peer parent **#142** and sub-issues **#188–#190** on shared branch **`feature/issue-142`**. **#152** does not duplicate sub-issues (single GitHub sub-issue parent). |
+| **Mic-only visibility** | Unchanged — off strip, grid, and narrow row; audible via theater mix or Video Chat audio path; identity via **People** tab and chat. |
 
-### Partial teardown QA matrix — camera-off tile removal (#142)
+### Camera-off tile removal QA matrix (#152 / #142)
 
 | Scenario | Theater strip | Video Chat grid | Narrow row | Expected |
 | --- | --- | --- | --- | --- |
@@ -177,6 +180,10 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Remote camera off, mic off | Tile removed | Tile removed | Tile removed | No tile; no audio |
 | Local **You** camera off | **You** tile removed | **You** tile removed | **You** tile removed | Preview cleared |
 | Roster member, no video consumer | No tile | No tile | No tile | Mic-only unchanged (off strip/grid) |
+
+## Open implementation decisions
+
+- **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
 - **Mode transition empty-state UX:** copy and layout when switching to **Video Chat** with zero video-on participants, or **Theater** before host has started tab-capture (**`interface/presentation.md`**).
 
 ## Decisions (theater mic mix on host_screen close — #145)
