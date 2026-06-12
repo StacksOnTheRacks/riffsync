@@ -25,6 +25,7 @@ import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { RoomPlaybackPanel } from '../room/RoomPlaybackPanel'
 import { RoomPageSidebar } from '../room/RoomPageSidebar'
 import { RoomRenameModal } from '../room/RoomRenameModal'
+import { RIFFSYNC_SFU_CONFIG_ALERT_ID } from '../room/drawerErrorPresentation'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
 
 export function RoomPage() {
@@ -114,7 +115,11 @@ export function RoomPage() {
     toggleChatReaction,
     peopleShown,
     chatMemberLabels,
-    sfuRoomErr,
+    sfuConfigAlert,
+    chatDrawerBanner,
+    chatComposeStatus,
+    videoRelayStatus,
+    theaterAudioStatus,
     guestRemote,
     participantAvController,
     unpublishHostScreen,
@@ -125,8 +130,6 @@ export function RoomPage() {
     bindHostCaptureVideo,
     stageParticipantTiles,
     stageLayoutUpdating,
-    guestVideoStatusSentence,
-    hostVideoRelayStatusSentence,
   } = useRoomRealtimeSdk({
     wsBase,
     canonicalRoomId,
@@ -331,9 +334,13 @@ export function RoomPage() {
       ) : null}
 
       <div className="container riffsync-room-page">
-        {sfuRoomErr ? (
-          <p className="riffsync-room-page__host-feedback-alert" role="alert">
-            {sfuRoomErr}
+        {sfuConfigAlert ? (
+          <p
+            id={RIFFSYNC_SFU_CONFIG_ALERT_ID}
+            className="riffsync-room-page__host-feedback-alert"
+            role="alert"
+          >
+            {sfuConfigAlert}
           </p>
         ) : null}
         <div className="riffsync-room-page__stage">
@@ -354,8 +361,8 @@ export function RoomPage() {
                   guestRemote={guestRemote}
                   fanToken={fanToken}
                   theaterPlaybackSnapshot={theaterPlaybackSnapshot}
-                  hostVideoRelayStatusSentence={hostVideoRelayStatusSentence}
-                  guestVideoStatusSentence={guestVideoStatusSentence}
+                  videoRelayStatus={videoRelayStatus}
+                  theaterAudioStatus={theaterAudioStatus}
                   bindHostCaptureVideo={bindHostCaptureVideo}
                   bindGuestVideo={bindGuestVideo}
                   playHostCapturePreview={playHostCapturePreview}
@@ -386,6 +393,8 @@ export function RoomPage() {
             showJumpToLatest={showJumpToLatest}
             jumpToLatestLabel={jumpToLatestLabel}
             jumpToLatest={jumpToLatest}
+            chatDrawerBanner={chatDrawerBanner}
+            chatComposeStatus={chatComposeStatus}
             sendChat={sendChat}
             sendChatGif={sendChatGif}
             toggleChatReaction={toggleChatReaction}

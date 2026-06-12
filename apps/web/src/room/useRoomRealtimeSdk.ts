@@ -20,10 +20,7 @@ import { createChatMessageId } from './chatMessageId'
 import { avDisabledAnnounceCopy, roomModeAnnounceCopy } from './hostRoomControls'
 import type { GiphySearchResult } from '../api/giphySearchApi'
 import type { SfuConsumerTrackEvent } from './sfu/mediasoupSharing'
-import {
-  resolveGuestVideoRelayStatusLine,
-  resolveHostVideoRelayStatusLine,
-} from './sfu/sfuRelayStatusCopy'
+import { selectDrawerPresentation } from './drawerErrorPresentation'
 import {
   applyParticipantAvConsumerEvent,
   type ParticipantAvVideoConsumer,
@@ -33,6 +30,7 @@ import { useStageLayoutTransition } from './stage/useStageLayoutTransition'
 import type { ChatLine, PresenceMember } from './roomPageTypes'
 import {
   RoomRealtimeSdk,
+  type RoomRealtimeDiagnostics,
   type TheaterPlaybackSnapshot,
 } from './sessions/RoomRealtimeSdk'
 import type { ChatSessionStatus } from './sessions/ChatSession'
@@ -66,7 +64,11 @@ export function useRoomRealtimeSdk(options: {
   toggleChatReaction: (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => void
   peopleShown: PresenceMember[]
   chatMemberLabels: Map<string, string>
-  sfuRoomErr: string | null
+  sfuConfigAlert: string | null
+  chatDrawerBanner: string | null
+  chatComposeStatus: { message: string | null; disableSubmit: boolean }
+  videoRelayStatus: string | null
+  theaterAudioStatus: string | null
   guestRemote: MediaStream | null
   participantAvController: ParticipantAvController
   unpublishHostScreen: () => void
@@ -77,8 +79,6 @@ export function useRoomRealtimeSdk(options: {
   bindHostCaptureVideo: (element: HTMLVideoElement | null) => void
   stageParticipantTiles: ReturnType<typeof buildStageParticipantTiles>
   stageLayoutUpdating: boolean
-  guestVideoStatusSentence: string | null
-  hostVideoRelayStatusSentence: string | null
 } {
   const {
     wsBase,
@@ -100,7 +100,9 @@ export function useRoomRealtimeSdk(options: {
 
   const [sdk] = useState(() => new RoomRealtimeSdk())
   const [wsStatus, setWsStatus] = useState<ChatSessionStatus>('idle')
-  const [sfuRoomErr, setSfuRoomErr] = useState<string | null>(null)
+  const [realtimeDiagnostics, setRealtimeDiagnostics] = useState<RoomRealtimeDiagnostics | null>(
+    null,
+  )
   const [guestRemote, setGuestRemote] = useState<MediaStream | null>(null)
   const [theaterPlaybackSnapshot, setTheaterPlaybackSnapshot] = useState<TheaterPlaybackSnapshot>(
     () => sdk.getTheaterSnapshot(),
@@ -199,10 +201,10 @@ export function useRoomRealtimeSdk(options: {
           }
         },
       },
-      onDiagnosticsChange: () => {
+      onDiagnosticsChange: (diagnostics) => {
         queueMicrotask(() => {
           setWsStatus(sdk.getChatStatus())
-          setSfuRoomErr(sdk.getSfuRelayError())
+          setRealtimeDiagnostics(diagnostics)
         })
       },
     })
@@ -226,6 +228,7 @@ export function useRoomRealtimeSdk(options: {
     const theaterUnsub = sdk.onTheaterSnapshotChange(setTheaterPlaybackSnapshot)
     queueMicrotask(() => {
       setTheaterPlaybackSnapshot(sdk.getTheaterSnapshot())
+      setRealtimeDiagnostics(sdk.getDiagnostics())
     })
     const chatPoll = window.setInterval(() => {
       setWsStatus(sdk.getChatStatus())
@@ -237,7 +240,7 @@ export function useRoomRealtimeSdk(options: {
       sdk.teardown()
       setGuestRemote(null)
       setWsStatus('idle')
-      setSfuRoomErr(null)
+      setRealtimeDiagnostics(null)
     }
   }, [
     canonicalRoomId,
@@ -400,15 +403,19 @@ export function useRoomRealtimeSdk(options: {
     [sendChatReaction],
   )
 
-  const guestVideoStatusSentence = !isPublisher
-    ? resolveGuestVideoRelayStatusLine({
-        sfuRelayError: sfuRoomErr,
-        guestShareFsm: theaterPlaybackSnapshot.guestShareFsm,
-        chatWsDisconnected: Boolean(wsBase) && wsStatus !== 'open',
-      })
-    : null
-
-  const hostVideoRelayStatusSentence = isPublisher ? resolveHostVideoRelayStatusLine(sfuRoomErr) : null
+  const drawerPresentation =
+    realtimeDiagnostics !== null
+      ? selectDrawerPresentation(realtimeDiagnostics, {
+          guestShareFsm: theaterPlaybackSnapshot.guestShareFsm,
+          isPublisher,
+        })
+      : {
+          chatDrawerBanner: null,
+          chatComposeStatus: { message: null, disableSubmit: false },
+          videoRelayStatus: null,
+          sfuConfigAlert: null,
+          theaterAudioStatus: null,
+        }
 
   const noopParticipantAvController: ParticipantAvController = {
     getState: () => participantAvPublishState,
@@ -439,7 +446,11 @@ export function useRoomRealtimeSdk(options: {
     toggleChatReaction,
     peopleShown,
     chatMemberLabels,
-    sfuRoomErr,
+    sfuConfigAlert: drawerPresentation.sfuConfigAlert,
+    chatDrawerBanner: drawerPresentation.chatDrawerBanner,
+    chatComposeStatus: drawerPresentation.chatComposeStatus,
+    videoRelayStatus: drawerPresentation.videoRelayStatus,
+    theaterAudioStatus: drawerPresentation.theaterAudioStatus,
     guestRemote: isPublisher ? null : guestRemote,
     participantAvController: participantAvController ?? noopParticipantAvController,
     unpublishHostScreen,
@@ -450,7 +461,5 @@ export function useRoomRealtimeSdk(options: {
     bindHostCaptureVideo,
     stageParticipantTiles,
     stageLayoutUpdating,
-    guestVideoStatusSentence,
-    hostVideoRelayStatusSentence,
   }
 }

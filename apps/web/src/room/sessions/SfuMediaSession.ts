@@ -27,6 +27,13 @@ import {
   messageForSfuRelayConfigError,
   type SfuRelayConfigErrorCode,
 } from '../sfu/sfuConfigErrors'
+import {
+  mapSfuConfigMediaCodeToDrawerError,
+  mapSfuMediaCodeToDrawerError,
+  mapSfuTokenDeniedError,
+  type RealtimeDrawerError,
+  type RealtimeDrawerErrorCode,
+} from '../realtimeDrawerErrors'
 import { sfuLifecycleAfterFailedCycle } from './drawerReconnectPolicy'
 import { resolveJwtRemintDelayMs } from './sfuJwtRemintSchedule'
 
@@ -354,7 +361,7 @@ export class SfuMediaSession {
   private status: SfuMediaSessionStatus = 'idle'
   private lifecycleState: SfuMediaSessionLifecycleState = 'torn-down'
   private failedReconnectCycles = 0
-  private lastErrorCode: string | undefined
+  private lastErrorCode: RealtimeDrawerErrorCode | undefined
   private cancelReconnect: (() => void) | null = null
   private sessionHandle: SfuUnifiedSessionHandle | null = null
   private tokenIntentGeneration = 0
@@ -376,6 +383,7 @@ export class SfuMediaSession {
   private consumerTrackListeners = new Set<Listener<SfuConsumerTrackEvent>>()
   private lastRemoteStream: MediaStream | null = null
   private errorListeners = new Set<Listener<string | null>>()
+  private drawerErrorListeners = new Set<Listener<RealtimeDrawerError | null>>()
   private statusListeners = new Set<Listener<SfuMediaSessionStatus>>()
   private lifecycleListeners = new Set<Listener<SfuMediaSessionLifecycleState>>()
   private participantAvConsumerClearListeners = new Set<Listener<void>>()
@@ -393,7 +401,7 @@ export class SfuMediaSession {
     return this.lifecycleState
   }
 
-  getLastErrorCode(): string | undefined {
+  getLastErrorCode(): RealtimeDrawerErrorCode | undefined {
     return this.lastErrorCode
   }
 
@@ -428,6 +436,11 @@ export class SfuMediaSession {
   onError(listener: Listener<string | null>): () => void {
     this.errorListeners.add(listener)
     return () => this.errorListeners.delete(listener)
+  }
+
+  onDrawerError(listener: Listener<RealtimeDrawerError | null>): () => void {
+    this.drawerErrorListeners.add(listener)
+    return () => this.drawerErrorListeners.delete(listener)
   }
 
   onStatusChange(listener: Listener<SfuMediaSessionStatus>): () => void {
@@ -482,6 +495,7 @@ export class SfuMediaSession {
     this.setStatus('idle')
     this.setLifecycleState('torn-down')
     this.emitError(null)
+    this.emitDrawerError(null)
   }
 
   /** Guest: detach host_screen consumers only when share stops. */
@@ -609,22 +623,29 @@ export class SfuMediaSession {
           this.setLifecycleState('connected')
         }
       },
-      onMissingWsUrl: () =>
-        this.emitError(messageForSfuRelayConfigError('missing_ws_url')),
+      onMissingWsUrl: () => {
+        this.emitDrawerError(mapSfuConfigMediaCodeToDrawerError('missing_ws_url'))
+        this.emitError(messageForSfuRelayConfigError('missing_ws_url'))
+      },
       onTokenError: (msg) => this.emitError(msg),
       onMediaError: (code, msg) => {
+        const drawerError = mapSfuMediaCodeToDrawerError(code)
         if (isSfuRelayConfigErrorCode(code)) {
+          this.emitDrawerError(drawerError)
           this.emitError(messageForSfuRelayConfigError(code))
           return
         }
         if (this.participantAv.getState().needsProducerToken) {
           this.participantAv.failPublish(participantAvErrorFromSfuMediaCode(code))
+          this.emitDrawerError(drawerError)
           return
         }
+        this.emitDrawerError(drawerError)
         this.emitError(msg)
       },
       onConnecting: () => {
         this.emitError(null)
+        this.emitDrawerError(null)
         this.setStatus('connecting')
         this.setLifecycleState(
           this.failedReconnectCycles > 0
@@ -634,6 +655,7 @@ export class SfuMediaSession {
       },
       onSessionReady: () => {
         this.emitError(null)
+        this.emitDrawerError(null)
         this.failedReconnectCycles = 0
         this.lastErrorCode = undefined
         this.setStatus('open')
@@ -712,8 +734,10 @@ export class SfuMediaSession {
       if (this.getStatus() === 'open') {
         this.scheduleJwtRemint(tok.token, tok.expiresInSeconds)
       }
-    } catch {
-      this.lastErrorCode = 'SFU_TOKEN_DENIED'
+    } catch (cause) {
+      const drawerError = mapSfuTokenDeniedError(cause)
+      this.lastErrorCode = drawerError.code
+      this.emitDrawerError(drawerError)
       this.setStatus('degraded')
       this.setLifecycleState('degraded')
     }
@@ -738,5 +762,10 @@ export class SfuMediaSession {
 
   private emitError(message: string | null): void {
     for (const listener of this.errorListeners) listener(message)
+  }
+
+  private emitDrawerError(error: RealtimeDrawerError | null): void {
+    this.lastErrorCode = error?.code
+    for (const listener of this.drawerErrorListeners) listener(error)
   }
 }

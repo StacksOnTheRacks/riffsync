@@ -214,6 +214,21 @@ describe('TheaterPlayback', () => {
     playback.dispose()
   })
 
+  it('reports PLAYBACK_AUDIO_BLOCKED when guest video autoplay is blocked', async () => {
+    const mix = makeMixMock()
+    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+    const video = makeVideoElement(() => Promise.reject(new Error('autoplay blocked')))
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    playback.setGuestVideoElement(video)
+    playback.setGuestRemote(makeStream([makeTrack('video')]))
+
+    await Promise.resolve()
+    expect(playback.getLifecycleState()).toBe('degraded')
+    expect(playback.getLastErrorCode()).toBe('PLAYBACK_AUDIO_BLOCKED')
+    playback.dispose()
+  })
+
   it('reports degraded lifecycle when AudioContext is suspended', () => {
     const mix = makeMixMock({
       getAudioContextState: vi.fn().mockReturnValue('suspended' as AudioContextState),

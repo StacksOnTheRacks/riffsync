@@ -8,6 +8,7 @@
 
 import { expect, vi } from 'vitest'
 import type { RoomSnapshot } from '../../api/roomsApi'
+import type { RealtimeDrawerError } from '../realtimeDrawerErrors'
 import { ChatSession } from './ChatSession'
 import { SfuMediaSession } from './SfuMediaSession'
 import {
@@ -98,6 +99,14 @@ export function setChatLifecycle(sdk: RoomRealtimeSdk, state: string): void {
 export function setSfuLifecycle(sdk: RoomRealtimeSdk, state: string): void {
   const sfu = getSfuSession(sdk)
   ;(sfu as unknown as { setLifecycleState: (s: string) => void }).setLifecycleState(state)
+}
+
+/** Drive SFU drawer error wiring the same path production uses via `onDrawerError`. */
+export function emitSfuDrawerError(sdk: RoomRealtimeSdk, error: RealtimeDrawerError): void {
+  const sfu = getSfuSession(sdk)
+  ;(sfu as unknown as { emitDrawerError: (e: RealtimeDrawerError | null) => void }).emitDrawerError(
+    error,
+  )
 }
 
 export function emitShareStateStopped(sdk: RoomRealtimeSdk, roomId = 'room-abc'): void {

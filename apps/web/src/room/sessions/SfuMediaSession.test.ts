@@ -213,6 +213,52 @@ function attachMockSessionHandle(
   ).sessionHandle = handle
 }
 
+describe('SfuMediaSession drawer errors', () => {
+  it('emits typed drawer errors for config-class signaling failures', async () => {
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'consumer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')))
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async (opts) => {
+      opts.onMediaError?.('signaling_failed', 'Could not connect to video relay (signaling).')
+      return {
+        ready: Promise.reject(new Error('signaling failed')),
+        sessionEnded: Promise.resolve('signaling_close'),
+        close: vi.fn(),
+        unpublishProducerClass: vi.fn(),
+        publishStream: vi.fn(),
+        supportsPublish: false,
+        detachConsumerClass: vi.fn(),
+        pauseProducerKind: vi.fn(),
+        resumeProducerKind: vi.fn(),
+      } as unknown as Awaited<ReturnType<typeof connectSfuUnifiedSession>>
+    })
+
+    const session = new SfuMediaSession()
+    const drawerErrors: Array<{ code: string; drawer: string } | null> = []
+    session.onDrawerError((error) => drawerErrors.push(error))
+
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-1',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => {
+      expect(drawerErrors.some((error) => error?.code === 'LOCAL_SFU_UNREACHABLE')).toBe(true)
+    })
+
+    session.disconnect()
+    vi.unstubAllGlobals()
+  })
+})
+
 describe('SfuMediaSession media policy', () => {
   it('handleShareStateStopped detaches host_screen for guests only', () => {
     const session = new SfuMediaSession()

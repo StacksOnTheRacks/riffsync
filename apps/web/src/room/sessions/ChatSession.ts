@@ -3,6 +3,11 @@ import { parseInboundChatGifMessage, type InboundChatGifLine } from '../chatGifM
 import { parseInboundChatMessageId } from '../chatMessageId'
 import { parseInboundRoomMode } from '../roomMediaLifecycle'
 import {
+  chatSendDroppedError,
+  type RealtimeDrawerError,
+  type RealtimeDrawerErrorCode,
+} from '../realtimeDrawerErrors'
+import {
   recordInboundWsMessage,
   recordOutboundDropped,
   recordOutboundSent,
@@ -191,7 +196,7 @@ export class ChatSession {
   private status: ChatSessionStatus = 'idle'
   private lifecycleState: ChatSessionLifecycleState = 'torn-down'
   private failedReconnectCycles = 0
-  private lastErrorCode: string | undefined
+  private lastErrorCode: RealtimeDrawerErrorCode | undefined
   private ws: WebSocket | null = null
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private reconnectTimer: number | null = null
@@ -210,7 +215,7 @@ export class ChatSession {
   private avDisabledListeners = new Set<Listener<AvDisabledEvent>>()
   private statusListeners = new Set<Listener<ChatSessionStatus>>()
   private lifecycleListeners = new Set<Listener<ChatSessionLifecycleState>>()
-  private sendDroppedListeners = new Set<Listener<void>>()
+  private sendDroppedListeners = new Set<Listener<RealtimeDrawerError>>()
 
   getStatus(): ChatSessionStatus {
     return this.status
@@ -220,7 +225,7 @@ export class ChatSession {
     return this.lifecycleState
   }
 
-  getLastErrorCode(): string | undefined {
+  getLastErrorCode(): RealtimeDrawerErrorCode | undefined {
     return this.lastErrorCode
   }
 
@@ -273,7 +278,7 @@ export class ChatSession {
   }
 
   /** Fired when outbound send is dropped because room WS is not open. */
-  onSendDropped(listener: Listener<void>): () => void {
+  onSendDropped(listener: Listener<RealtimeDrawerError>): () => void {
     this.sendDroppedListeners.add(listener)
     return () => this.sendDroppedListeners.delete(listener)
   }
@@ -319,9 +324,11 @@ export class ChatSession {
   send(payload: Record<string, unknown>): boolean {
     const ws = this.ws
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      recordOutboundDropped(payload, ws?.readyState ?? -1)
-      this.lastErrorCode = 'CHAT_SEND_DROPPED'
-      for (const listener of this.sendDroppedListeners) listener()
+      const readyState = ws?.readyState ?? -1
+      recordOutboundDropped(payload, readyState)
+      const drawerError = chatSendDroppedError({ readyState })
+      this.lastErrorCode = drawerError.code
+      for (const listener of this.sendDroppedListeners) listener(drawerError)
       return false
     }
     recordOutboundSent(payload)

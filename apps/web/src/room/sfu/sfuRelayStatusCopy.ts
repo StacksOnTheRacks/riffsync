@@ -8,10 +8,8 @@ export type GuestHostScreenFsm = 'idle' | 'verifying_media' | 'running'
 export function resolveGuestVideoRelayStatusLine(opts: {
   sfuRelayError: string | null
   guestShareFsm: GuestHostScreenFsm
-  chatWsDisconnected: boolean
 }): string | null {
   if (opts.sfuRelayError) return opts.sfuRelayError
-  if (opts.chatWsDisconnected) return 'Reconnecting chat… Video may pause briefly.'
   switch (opts.guestShareFsm) {
     case 'idle':
       return 'Waiting for host to share…'

@@ -3,6 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ParticipantAvToggles } from './ParticipantAvToggles'
+import { RIFFSYNC_AV_TOGGLE_STATUS_ID } from './drawerErrorPresentation'
 import { PARTICIPANT_AV_DISABLED_COPY } from './participantAvErrorCopy'
 import { createParticipantAvController } from './sfu/participantAvSession'
 
@@ -72,6 +73,7 @@ describe('ParticipantAvToggles', () => {
     ) as HTMLButtonElement
     expect(camera.getAttribute('aria-disabled')).toBe('true')
     expect(camera.getAttribute('aria-describedby')).toBe(killSwitch?.id)
+    expect(killSwitch?.getAttribute('aria-live')).toBeNull()
   })
 
   it('shows inline error copy with aria-describedby on toggles', () => {
@@ -108,11 +110,12 @@ describe('ParticipantAvToggles', () => {
         />,
       )
     })
-    const err = container.querySelector('.riffsync-room-av__err')
+    const err = container.querySelector(`#${RIFFSYNC_AV_TOGGLE_STATUS_ID}`)
     expect(err?.getAttribute('role')).toBe('status')
+    expect(err?.getAttribute('aria-live')).toBe('polite')
     expect(err?.textContent).toContain('maximum number of live')
     const camera = container.querySelector('button.riffsync-room-av-toggle') as HTMLButtonElement
-    expect(camera.getAttribute('aria-describedby')).toContain(err?.id ?? '')
+    expect(camera.getAttribute('aria-describedby')).toContain(RIFFSYNC_AV_TOGGLE_STATUS_ID)
   })
 
   it('announces local camera toggle via callback', () => {
