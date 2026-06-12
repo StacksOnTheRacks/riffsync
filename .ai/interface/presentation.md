@@ -63,6 +63,7 @@ Normative fan-visible strings when **`getDiagnostics()`** reports drawer lifecyc
 
 - **Both banners may appear at once** when each drawer is independently unhealthy; each clears when **that** drawer returns to **`connected`**.
 - **Host screen-share idle/negotiating** states (guest waiting for host share) use the **video-relay** surface, not the chat banner.
+- **Anti-pattern (#147):** video-relay resolvers must **not** branch on chat WS state (e.g. **`chatWsDisconnected`** in **`sfuRelayStatusCopy.ts`**). Retire **"Reconnecting chat… Video may pause briefly."** — chat reconnect belongs on the chat banner only.
 
 ### Host control bar (below stage)
 

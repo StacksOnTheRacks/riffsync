@@ -57,7 +57,7 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 | --- | --- |
 | **`SfuMediaSession` reconnect mid-publish** | **No** producer **`pause()`** during signaling reconnect — rely on mediasoup transport recovery without full session rebuild. |
 | **Theater mode transition** | On **Video Chat → Theater**, **`RoomRealtimeSdk.initTheaterPlayback()`** then **`applySubscribeHandlers()`** reattaches SFU consumers and mix nodes; ordered warmup avoids silent black screen beyond existing **Updating room layout…** copy. |
-| **Harness-visible teardown assertions** | Unit tests and **`realtime-conformance`** steps 5–6 assert **`getDiagnostics()`**: failed drawer **`reconnecting`** during outage, **`connected`** after recovery; sibling drawer **`connected`** throughout. Chat-only drop must **not** set **`sfuSignaling`** to **`torn-down`**. SFU-only drop must **not** set **`chat`** to **`torn-down`**. |
+| **Harness-visible teardown assertions** | Unit tests and **`realtime-conformance`** steps 5–6 assert **`getDiagnostics()`**: failed drawer **`reconnecting`** during outage, **`connected`** after recovery; sibling drawer **`connected`** throughout. Chat-only drop must **not** set **`sfuSignaling`** to **`torn-down`**. SFU-only drop must **not** set **`chat`** to **`torn-down`**. M18 wiring enforcement and regression tests: **#147**, sub-issues **#200–#202**. |
 
 ## Open implementation decisions
 

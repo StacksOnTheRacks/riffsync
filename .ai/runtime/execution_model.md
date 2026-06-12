@@ -253,9 +253,21 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | **`host_screen`** | Single-video class uses the same incremental path (at most one video kind). |
 | **Consumer of APIs** | **`participantAvSession`** (#143) calls **`unpublishProducerKind`** from **`disableCamera` / `disableMic`**; **`syncPublish`** uses incremental **`publishStream`**. Same **`feature/issue-143`** branch may ship both issues. |
 
+## Decisions (drawer wiring enforcement — #147)
+
+M18 hardening enforces the #140 transition tables in live React wiring. Normative fixes for known contradictions:
+
+| Topic | Decision |
+| --- | --- |
+| **SFU hook `enabled` gate** | **`SfuMediaSession`** connect/reconnect loops must **not** be disabled when **`ChatSession`** status is not **`open`** after initial room join. Room snapshot + **`sessionId`** (+ fan JWT when required) gate bootstrap only — not chat WS flap. **`ParticipantAvPublishGate.wsOpen`** may block **publish/token mint** (#148) but must not **`disconnect()`** SFU signaling on chat reconnect. |
+| **Chat WS handlers** | Inbound/outbound chat reconnect paths must **not** call **`SfuMediaSession.disconnect()`**, stop **`getUserMedia`**, or wipe mediasoup transports without explicit media policy (**`share_state`**, **`av_disabled`**, **`room_mode`**, global leave). |
+| **SFU reconnect handlers** | Signaling reconnect must **not** call **`ChatSession.disconnect()`** or clear chat scrollback. |
+| **Status surface coupling** | Video-relay status resolvers (**`sfuRelayStatusCopy.ts`**) must **not** accept chat WS state — chat reconnect copy lives on the **sidebar chat banner** only (**`.ai/interface/presentation.md`**). Retire combined **"Reconnecting chat… Video may pause briefly."** |
+| **Verification** | **`RoomRealtimeSdk.test.ts`** (and future harness steps 5–6) assert chat-only vs SFU-only outage matrix per **`lifecycle_shutdown.md`**. Sub-issues **#200–#202**. |
+
 ## Open implementation decisions
 
-_(None for #140 scope — peer #141 owns error-code UX completion; #141 open items resolved in this pass.)_
+_(None for #140 / #147 scope — peer #141 owns error-code UX completion; #141 open items resolved in this pass.)_
 
 ## Primary code pointers (optional)
 

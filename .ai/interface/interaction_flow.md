@@ -129,12 +129,13 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 
 Guests watching host tab-capture in **Theater** mode see status copy in the **playback region** (not AV toggles). Derived from remote **`MediaStream`** track liveness on the SFU **`host_screen`** consumer — not **`RTCPeerConnection`** FSM.
 
-| State | Guest-visible copy |
+| State | Guest-visible copy (video-relay / playback region only) |
 | --- | --- |
 | **`idle`** | Waiting for host to share… |
 | **`verifying_media`** | Connecting to video relay… |
 | **`running`** | No status line |
-| Chat WS disconnected | Reconnecting chat… Video may pause briefly. |
+
+**Chat WebSocket reconnect** is **not** shown in the playback region. Use the **sidebar chat drawer status** (**`presentation.md`**: **Reconnecting chat…**). Combined chat+video copy on the stage surface is a **contract violation** (#147).
 
 Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing encrypted path…`**, **`Verifying video feed…`**) retire with **`room/sharing/shareSessionFsm.ts`**.
 
