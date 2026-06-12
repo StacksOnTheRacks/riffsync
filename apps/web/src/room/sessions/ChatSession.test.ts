@@ -152,7 +152,8 @@ describe('ChatSession lifecycle FSM', () => {
     readyState = 0
     listeners = new Map<string, Array<(ev?: unknown) => void>>()
 
-    constructor(_url: string) {
+    constructor(url: string) {
+      void url
       MockWebSocket.instances.push(this)
     }
 
