@@ -144,6 +144,7 @@ describe('startSfuRoomSession config error banner persistence', () => {
         ready: Promise.reject(new Error('signaling failed')),
         sessionEnded: Promise.resolve('signaling_close'),
         close: vi.fn(),
+        unpublishProducerKind: vi.fn(),
         unpublishProducerClass: vi.fn(),
         publishStream: vi.fn(),
         supportsPublish: false,
