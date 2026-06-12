@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchSfuJoinToken } from '../../api/webrtcSfuApi'
 import { SfuTokenHttpError } from '../av/participantAvErrors'
-import { connectSfuUnifiedSession, type SfuConsumerTrackEvent, type SfuSessionEndReason } from '../sfu/mediasoupSharing'
+import { connectSfuUnifiedSession, type SfuConsumerTrackEvent, type SfuMediaErrorCode, type SfuSessionEndReason } from '../sfu/mediasoupSharing'
 import { createParticipantAvController } from '../sfu/participantAvSession'
 import { LOCAL_SFU_UNREACHABLE_MSG } from '../sfu/sfuConfigErrors'
 import { nextSfuReconnectDelayMs } from '../sfu/sfuReconnectPolicy'
@@ -639,7 +639,7 @@ describe('SfuMediaSession signaling drawer logs', () => {
 
 describe('SfuMediaSession produce/consume drawer logs', () => {
   let capturedOnConsumerTrack: ((event: SfuConsumerTrackEvent) => void) | undefined
-  let capturedOnMediaError: ((code: string, message: string) => void) | undefined
+  let capturedOnMediaError: ((code: SfuMediaErrorCode, message: string) => void) | undefined
 
   beforeEach(() => {
     vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
