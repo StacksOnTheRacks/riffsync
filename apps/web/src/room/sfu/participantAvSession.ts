@@ -15,11 +15,10 @@ export const PARTICIPANT_AV_MEDIA_CONSTRAINTS: MediaStreamConstraints = {
 }
 
 export function canParticipantAvPublish(opts: {
-  wsOpen: boolean
   fanToken: string | null
   avDisabled: boolean
 }): boolean {
-  return opts.wsOpen && Boolean(opts.fanToken) && !opts.avDisabled
+  return Boolean(opts.fanToken) && !opts.avDisabled
 }
 
 export type ParticipantAvPublishState = {
@@ -230,13 +229,8 @@ export function createParticipantAvController(options: {
       void syncPublish()
     },
     resetOnReconnect: () => {
-      cameraEnabled = false
-      micEnabled = false
-      micMuted = false
-      error = null
       busy = false
-      stopLocalTracks()
-      session?.unpublishProducerClass('participant_av')
+      session = null
       notify()
     },
     teardownPublishing: () => {
@@ -358,7 +352,6 @@ export function createParticipantAvController(options: {
 }
 
 export type ParticipantAvPublishGate = {
-  wsOpen: boolean
   fanToken: string | null
   avDisabled: boolean
   onNeedsProducerTokenChange?: () => void
@@ -371,7 +364,6 @@ export function createBoundParticipantAvController(
     canPublish: () => {
       const gate = readGate()
       return canParticipantAvPublish({
-        wsOpen: gate.wsOpen,
         fanToken: gate.fanToken,
         avDisabled: gate.avDisabled,
       })

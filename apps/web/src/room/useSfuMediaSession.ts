@@ -19,7 +19,6 @@ export function useSfuMediaSession(options: {
   accessToken: string | null
   fanToken: string | null
   avDisabled: boolean
-  wsOpen: boolean
   getIceServers: () => Promise<RTCIceServer[]>
   getHostScreenStream: () => MediaStream | null
   captureStream: MediaStream | null
@@ -43,7 +42,6 @@ export function useSfuMediaSession(options: {
     accessToken,
     fanToken,
     avDisabled,
-    wsOpen,
     getIceServers,
     getHostScreenStream,
     captureStream,
@@ -97,8 +95,8 @@ export function useSfuMediaSession(options: {
   }, [session])
 
   useEffect(() => {
-    session.updatePublishGate({ wsOpen, fanToken, avDisabled })
-  }, [session, wsOpen, fanToken, avDisabled])
+    session.updatePublishGate({ fanToken, avDisabled })
+  }, [session, fanToken, avDisabled])
 
   useEffect(() => {
     if (!enabled) {

@@ -150,7 +150,6 @@ export function useRoomSessionWiring(options: {
     accessToken: fanToken,
     fanToken,
     avDisabled,
-    wsOpen: wsStatus === 'open',
     getIceServers,
     getHostScreenStream: () => captureStreamRef.current,
     captureStream,
