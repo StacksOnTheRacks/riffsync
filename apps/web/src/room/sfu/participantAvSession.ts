@@ -229,13 +229,8 @@ export function createParticipantAvController(options: {
       void syncPublish()
     },
     resetOnReconnect: () => {
-      cameraEnabled = false
-      micEnabled = false
-      micMuted = false
-      error = null
       busy = false
-      stopLocalTracks()
-      session?.unpublishProducerClass('participant_av')
+      session = null
       notify()
     },
     teardownPublishing: () => {

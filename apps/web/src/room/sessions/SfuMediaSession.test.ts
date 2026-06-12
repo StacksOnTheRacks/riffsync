@@ -130,6 +130,129 @@ describe('resolveSfuTokenProducerClass', () => {
   })
 })
 
+describe('startSfuRoomSession recoverable signaling reconnect', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('calls resetOnReconnect instead of failPublish on recoverable signaling_close', async () => {
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'producer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
+      ready: Promise.resolve(),
+      sessionEnded: Promise.resolve('signaling_close'),
+      close: vi.fn(),
+      unpublishProducerKind: vi.fn(),
+      unpublishProducerClass: vi.fn(),
+      publishStream: vi.fn(),
+      supportsPublish: true,
+      detachConsumerClass: vi.fn(),
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    }))
+
+    const participantAv = {
+      getState: () => ({
+        cameraEnabled: true,
+        micEnabled: false,
+        micMuted: false,
+        canPublish: true,
+        needsProducerToken: true,
+        error: null,
+        busy: false,
+      }),
+      attachSession: vi.fn(),
+      resetOnReconnect: vi.fn(),
+      failPublish: vi.fn(),
+    } as unknown as ReturnType<typeof createParticipantAvController>
+
+    const { cancel } = startSfuRoomSession({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-1',
+      accessToken: 'fan-jwt',
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      participantAv,
+      onRemoteStream: () => {},
+      assignSession: () => {},
+      onMissingWsUrl: vi.fn(),
+      onTokenError: vi.fn(),
+      onMediaError: vi.fn(),
+    })
+
+    await vi.waitFor(() => {
+      expect(participantAv.resetOnReconnect).toHaveBeenCalled()
+    })
+    expect(participantAv.failPublish).not.toHaveBeenCalled()
+    expect(participantAv.attachSession).toHaveBeenCalledWith(null)
+
+    cancel()
+  })
+
+  it('failPublish still runs on hard session end while publish intent exists', async () => {
+    const participantAv = {
+      getState: () => ({
+        cameraEnabled: true,
+        micEnabled: false,
+        micMuted: false,
+        canPublish: true,
+        needsProducerToken: true,
+        error: null,
+        busy: false,
+      }),
+      attachSession: vi.fn(),
+      resetOnReconnect: vi.fn(),
+      failPublish: vi.fn(),
+    } as unknown as ReturnType<typeof createParticipantAvController>
+
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'producer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
+      ready: Promise.resolve(),
+      sessionEnded: Promise.resolve('jwt_expired' as SfuSessionEndReason),
+      close: vi.fn(),
+      unpublishProducerKind: vi.fn(),
+      unpublishProducerClass: vi.fn(),
+      publishStream: vi.fn(),
+      supportsPublish: true,
+      detachConsumerClass: vi.fn(),
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    }))
+
+    const { cancel } = startSfuRoomSession({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-1',
+      accessToken: 'fan-jwt',
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      participantAv,
+      onRemoteStream: () => {},
+      assignSession: () => {},
+      onMissingWsUrl: vi.fn(),
+      onTokenError: vi.fn(),
+      onMediaError: vi.fn(),
+    })
+
+    await vi.waitFor(() => {
+      expect(participantAv.failPublish).toHaveBeenCalledWith('token_expired')
+    })
+    expect(participantAv.resetOnReconnect).not.toHaveBeenCalled()
+
+    cancel()
+  })
+})
+
 describe('startSfuRoomSession config error banner persistence', () => {
   beforeEach(() => {
     vi.mocked(fetchSfuJoinToken).mockResolvedValue({
