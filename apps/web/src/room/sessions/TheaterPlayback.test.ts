@@ -331,6 +331,20 @@ describe('TheaterPlayback', () => {
     playback.dispose()
   })
 
+  it('transitions guestShareFsm running to idle on setGuestRemote(null) share-stop (#212)', () => {
+    const mix = makeMixMock()
+    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+
+    playback.setGuestRemote(makeStream([makeTrack('video', 'live')]))
+    expect(playback.getSnapshot().guestShareFsm).toBe('running')
+
+    playback.setGuestRemote(null)
+    expect(playback.getSnapshot().guestShareFsm).toBe('idle')
+    playback.dispose()
+  })
+
   it('theater guest FSM idle to verifying_media after share start before live track (#146 Guest theater started)', () => {
     const mix = makeMixMock()
     vi.mocked(createTheaterAudioMix).mockReturnValue(mix)

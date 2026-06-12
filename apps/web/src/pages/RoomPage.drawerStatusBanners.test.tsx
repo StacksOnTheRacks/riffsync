@@ -9,7 +9,9 @@ import {
   CHAT_RECONNECTING_COPY,
   drawerDiagnostics,
   GUEST_IDLE_VIDEO_RELAY_COPY,
+  GUEST_VERIFYING_VIDEO_RELAY_COPY,
   RETIRED_COMBINED_STATUS_COPY,
+  RETIRED_MESH_HOST_SCREEN_COPY,
   VIDEO_RELAY_RECONNECTING_COPY,
 } from './roomPageDrawerStatusTestHelpers'
 import { RIFFSYNC_CHAT_DRAWER_STATUS_ID, RIFFSYNC_VIDEO_RELAY_STATUS_ID } from '../room/drawerErrorPresentation'
@@ -348,6 +350,26 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     })
 
     expect(videoRelayBanner()).toBeNull()
+  })
+
+  it('guest verifying_media FSM mounts normative copy on #riffsync-video-relay-status (#212)', async () => {
+    drawerStatusMockConfig.set({
+      diagnostics: drawerDiagnostics({
+        chat: { state: 'connected' },
+        sfuSignaling: { state: 'connected' },
+      }),
+      guestShareFsm: 'verifying_media',
+    })
+    renderRoom()
+
+    await vi.waitFor(() => {
+      expect(videoRelayBanner()).not.toBeNull()
+    })
+
+    expect(videoRelayBanner()?.textContent).toBe(GUEST_VERIFYING_VIDEO_RELAY_COPY)
+    for (const meshCopy of RETIRED_MESH_HOST_SCREEN_COPY) {
+      expect(container.textContent).not.toContain(meshCopy)
+    }
   })
 
   it('guest idle FSM mounts #riffsync-video-relay-status with role="status" (#210)', async () => {

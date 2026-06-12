@@ -9,6 +9,18 @@ export const RETIRED_GUEST_NOT_SHARING_PLACEHOLDER = 'The host is not sharing vi
 export const CHAT_RECONNECTING_COPY = 'Reconnecting chat…'
 export const VIDEO_RELAY_RECONNECTING_COPY = 'Video relay reconnecting…'
 export const GUEST_IDLE_VIDEO_RELAY_COPY = 'Waiting for host to share…'
+export const GUEST_VERIFYING_VIDEO_RELAY_COPY = 'Connecting to video relay…'
+
+/** Retired mesh-era guest host-screen strings (`interaction_flow.md` / #151). */
+export const RETIRED_MESH_HOST_SCREEN_COPY = [
+  'negotiating_ice',
+  'recovering_ice',
+  'Establishing encrypted path…',
+  'Verifying video feed…',
+  'shareSessionFsm',
+  'isMeshWatchPartyMediaEnabled',
+  'VITE_WEBRTC_USE_MEDIASOU_SFU',
+] as const
 
 export function drawerDiagnostics(
   drawers: Partial<RoomRealtimeDiagnostics['drawers']>,

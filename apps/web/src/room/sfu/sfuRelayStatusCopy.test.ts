@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { LOCAL_SFU_UNREACHABLE_MSG } from './sfuConfigErrors'
 import {
@@ -48,6 +50,31 @@ describe('resolveGuestVideoRelayStatusLine', () => {
         guestShareFsm: 'idle',
       }),
     ).toBe('Waiting for host to share…')
+  })
+
+  it('maps verifying_media to Connecting to video relay… (#212)', () => {
+    expect(
+      resolveGuestVideoRelayStatusLine({
+        sfuRelayError: null,
+        guestShareFsm: 'verifying_media',
+      }),
+    ).toBe('Connecting to video relay…')
+  })
+
+  it('returns null for running FSM when relay is healthy (#212)', () => {
+    expect(
+      resolveGuestVideoRelayStatusLine({
+        sfuRelayError: null,
+        guestShareFsm: 'running',
+      }),
+    ).toBeNull()
+  })
+
+  it('accepts only sfuRelayError and guestShareFsm (no chat WS input) (#201 / #212)', () => {
+    const src = fs.readFileSync(path.join(import.meta.dirname, 'sfuRelayStatusCopy.ts'), 'utf8')
+    expect(src).not.toContain('chatWsDisconnected')
+    expect(src).toMatch(/resolveGuestVideoRelayStatusLine\(opts: \{\s*sfuRelayError/)
+    expect(src).toMatch(/guestShareFsm: GuestHostScreenFsm\s*\}/)
   })
 })
 

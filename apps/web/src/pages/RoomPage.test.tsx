@@ -8,7 +8,10 @@ import { ChatSession } from '../room/sessions/ChatSession'
 import { SfuMediaSession } from '../room/sessions/SfuMediaSession'
 import { TheaterPlayback } from '../room/sessions/TheaterPlayback'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
-import { RETIRED_GUEST_NOT_SHARING_PLACEHOLDER } from './roomPageDrawerStatusTestHelpers'
+import {
+  RETIRED_GUEST_NOT_SHARING_PLACEHOLDER,
+  RETIRED_MESH_HOST_SCREEN_COPY,
+} from './roomPageDrawerStatusTestHelpers'
 
 const fetchRoom = vi.fn()
 const fetchRtcIceServers = vi.fn()
@@ -219,8 +222,14 @@ describe('RoomPage session integration', () => {
       expect(container.querySelector('#riffsync-video-relay-status')).not.toBeNull()
     })
 
+    const videoRelayStatus = container.querySelector('#riffsync-video-relay-status')
+    expect(videoRelayStatus).not.toBeNull()
+    expect(videoRelayStatus?.getAttribute('role')).toBe('status')
     expect(container.textContent).not.toContain(RETIRED_GUEST_NOT_SHARING_PLACEHOLDER)
     expect(container.querySelector('.riffsync-room-page__guest-video-placeholder')).toBeNull()
+    for (const meshCopy of RETIRED_MESH_HOST_SCREEN_COPY) {
+      expect(container.textContent).not.toContain(meshCopy)
+    }
 
     const chatDisconnectsBeforeUnmount = chatDisconnectSpy.mock.calls.length
     const sfuDisconnectsBeforeUnmount = sfuDisconnectSpy.mock.calls.length
