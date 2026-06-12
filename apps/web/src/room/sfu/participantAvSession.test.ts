@@ -1,5 +1,23 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { canParticipantAvPublish, createParticipantAvController } from './participantAvSession'
+
+vi.stubGlobal(
+  'MediaStream',
+  function MockMediaStream(
+    this: {
+      tracks: MediaStreamTrack[]
+      getTracks: () => MediaStreamTrack[]
+      getVideoTracks: () => MediaStreamTrack[]
+      getAudioTracks: () => MediaStreamTrack[]
+    },
+    tracks: MediaStreamTrack[] = [],
+  ) {
+    this.tracks = tracks
+    this.getTracks = () => this.tracks
+    this.getVideoTracks = () => this.tracks.filter((t) => t.kind === 'video')
+    this.getAudioTracks = () => this.tracks.filter((t) => t.kind === 'audio')
+  },
+)
 
 describe('canParticipantAvPublish', () => {
   it('requires open room websocket, fan JWT, and av enabled', () => {
@@ -19,6 +37,27 @@ describe('canParticipantAvPublish', () => {
 })
 
 describe('createParticipantAvController', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.stubGlobal(
+      'MediaStream',
+      function MockMediaStream(
+        this: {
+          tracks: MediaStreamTrack[]
+          getTracks: () => MediaStreamTrack[]
+          getVideoTracks: () => MediaStreamTrack[]
+          getAudioTracks: () => MediaStreamTrack[]
+        },
+        tracks: MediaStreamTrack[] = [],
+      ) {
+        this.tracks = tracks
+        this.getTracks = () => this.tracks
+        this.getVideoTracks = () => this.tracks.filter((t) => t.kind === 'video')
+        this.getAudioTracks = () => this.tracks.filter((t) => t.kind === 'audio')
+      },
+    )
+  })
+
   it('defaults camera and mic off with no producer token intent', () => {
     const controller = createParticipantAvController({
       canPublish: () => true,
@@ -139,8 +178,13 @@ describe('createParticipantAvController', () => {
     } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
 
     controller.attachSession(producerSession)
-    await new Promise((r) => setTimeout(r, 0))
-    expect(publishStream).toHaveBeenCalledWith(stream, 'participant_av')
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalled()
+    })
+    const publishedStream = publishStream.mock.calls[0][0] as MediaStream
+    expect(publishedStream.getVideoTracks()).toHaveLength(1)
+    expect(publishedStream.getAudioTracks()).toHaveLength(0)
+    expect(publishStream.mock.calls[0][1]).toBe('participant_av')
     expect(controller.getState().error).toBeNull()
 
     vi.unstubAllGlobals()
@@ -179,7 +223,9 @@ describe('createParticipantAvController', () => {
     await controller.enableCamera()
     await controller.enableMic()
     controller.attachSession(session)
-    await new Promise((r) => setTimeout(r, 0))
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalled()
+    })
 
     publishStream.mockClear()
     unpublishProducerKind.mockClear()
@@ -230,7 +276,9 @@ describe('createParticipantAvController', () => {
     await controller.enableCamera()
     await controller.enableMic()
     controller.attachSession(session)
-    await new Promise((r) => setTimeout(r, 0))
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalled()
+    })
 
     publishStream.mockClear()
     unpublishProducerKind.mockClear()
@@ -278,7 +326,9 @@ describe('createParticipantAvController', () => {
 
     await controller.enableCamera()
     controller.attachSession(session)
-    await new Promise((r) => setTimeout(r, 0))
+    await vi.waitFor(() => {
+      expect(session.publishStream).toHaveBeenCalled()
+    })
 
     unpublishProducerClass.mockClear()
     unpublishProducerKind.mockClear()
@@ -322,7 +372,11 @@ describe('createParticipantAvController', () => {
 
     await controller.enableMic()
     controller.attachSession(session)
-    await new Promise((r) => setTimeout(r, 0))
+    await vi.waitFor(() => {
+      expect(session.publishStream).toHaveBeenCalled()
+    })
+
+    unpublishProducerKind.mockClear()
 
     controller.toggleMicMute()
     expect(pauseProducerKind).toHaveBeenCalledWith('participant_av', 'audio')
@@ -330,6 +384,160 @@ describe('createParticipantAvController', () => {
 
     controller.toggleMicMute()
     expect(resumeProducerKind).toHaveBeenCalledWith('participant_av', 'audio')
+
+    vi.unstubAllGlobals()
+  })
+
+  it('syncPublish with mic only does not class-wide unpublish on attachSession replay', async () => {
+    const unpublishProducerKind = vi.fn()
+    const unpublishProducerClass = vi.fn()
+    const publishStream = vi.fn().mockResolvedValue(undefined)
+    const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }
+    const stream = {
+      getVideoTracks: () => [],
+      getAudioTracks: () => [audioTrack],
+      getTracks: () => [audioTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+
+    const controller = createParticipantAvController({ canPublish: () => true })
+    await controller.enableMic()
+
+    const session = {
+      supportsPublish: true,
+      ready: Promise.resolve(),
+      publishStream,
+      unpublishProducerKind,
+      unpublishProducerClass,
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
+
+    controller.attachSession(session)
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalled()
+    })
+
+    expect(unpublishProducerClass).not.toHaveBeenCalled()
+    expect(unpublishProducerKind).toHaveBeenCalledWith('participant_av', 'video')
+    const publishedStream = publishStream.mock.calls[0][0] as MediaStream
+    expect(publishedStream.getVideoTracks()).toHaveLength(0)
+    expect(publishedStream.getAudioTracks()).toHaveLength(1)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('syncPublish after partial disable produces only the re-enabled kind', async () => {
+    const unpublishProducerKind = vi.fn()
+    const unpublishProducerClass = vi.fn()
+    const publishStream = vi.fn().mockResolvedValue(undefined)
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }
+    const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }
+    const stream = {
+      getVideoTracks: () => [videoTrack],
+      getAudioTracks: () => [audioTrack],
+      getTracks: () => [videoTrack, audioTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+
+    const controller = createParticipantAvController({ canPublish: () => true })
+    const session = {
+      supportsPublish: true,
+      ready: Promise.resolve(),
+      publishStream,
+      unpublishProducerKind,
+      unpublishProducerClass,
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
+
+    await controller.enableCamera()
+    await controller.enableMic()
+    controller.attachSession(session)
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalled()
+    })
+
+    publishStream.mockClear()
+    unpublishProducerClass.mockClear()
+    unpublishProducerKind.mockClear()
+
+    controller.disableCamera()
+    publishStream.mockClear()
+    unpublishProducerClass.mockClear()
+    unpublishProducerKind.mockClear()
+
+    await controller.enableCamera()
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalled()
+    })
+
+    expect(unpublishProducerClass).not.toHaveBeenCalled()
+    expect(unpublishProducerKind).not.toHaveBeenCalled()
+    const publishedStream = publishStream.mock.calls[0][0] as MediaStream
+    expect(publishedStream.getVideoTracks()).toHaveLength(1)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('syncPublish produce failure clears publish state without orphan intent', async () => {
+    const unpublishProducerClass = vi.fn()
+    const publishStream = vi.fn().mockRejectedValue(new Error('produce failed'))
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }
+    const stream = {
+      getVideoTracks: () => [videoTrack],
+      getAudioTracks: () => [],
+      getTracks: () => [videoTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+
+    const onNeedsProducerTokenChange = vi.fn()
+    const controller = createParticipantAvController({
+      canPublish: () => true,
+      onNeedsProducerTokenChange,
+    })
+    await controller.enableCamera()
+
+    const session = {
+      supportsPublish: true,
+      ready: Promise.resolve(),
+      publishStream,
+      unpublishProducerKind: vi.fn(),
+      unpublishProducerClass,
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
+
+    controller.attachSession(session)
+    await vi.waitFor(() => {
+      expect(unpublishProducerClass).toHaveBeenCalledWith('participant_av')
+    })
+
+    expect(controller.getState()).toMatchObject({
+      cameraEnabled: false,
+      micEnabled: false,
+      needsProducerToken: false,
+      error: 'sfu_publish_rejected',
+    })
+    expect(onNeedsProducerTokenChange).toHaveBeenCalled()
 
     vi.unstubAllGlobals()
   })

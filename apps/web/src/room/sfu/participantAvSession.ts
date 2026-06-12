@@ -125,16 +125,37 @@ export function createParticipantAvController(options: {
       stopLocalTracks()
       return
     }
+    if (!cameraEnabled) {
+      session.unpublishProducerKind('participant_av', 'video')
+    }
+    if (!micEnabled) {
+      session.unpublishProducerKind('participant_av', 'audio')
+    }
     if (!session.supportsPublish) return
     if (!(await ensureLocalMedia())) return
     if (!localStream) return
+    const tracksToPublish: MediaStreamTrack[] = []
+    if (cameraEnabled) {
+      for (const track of localStream.getVideoTracks()) {
+        tracksToPublish.push(track)
+      }
+    }
+    if (micEnabled) {
+      for (const track of localStream.getAudioTracks()) {
+        tracksToPublish.push(track)
+      }
+    }
+    if (tracksToPublish.length === 0) return
     try {
       await session.ready
-      await session.publishStream(localStream, 'participant_av')
-      if (micMuted) {
-        session.pauseProducerKind('participant_av', 'audio')
-      } else {
-        session.resumeProducerKind('participant_av', 'audio')
+      const streamForPublish = new MediaStream(tracksToPublish)
+      await session.publishStream(streamForPublish, 'participant_av')
+      if (micEnabled) {
+        if (micMuted) {
+          session.pauseProducerKind('participant_av', 'audio')
+        } else {
+          session.resumeProducerKind('participant_av', 'audio')
+        }
       }
     } catch {
       cameraEnabled = false
