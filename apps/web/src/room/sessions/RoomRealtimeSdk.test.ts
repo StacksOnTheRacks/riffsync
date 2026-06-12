@@ -693,6 +693,7 @@ describe('RoomRealtimeSdk.subscribe', () => {
   })
 })
 
+/** M18 / #202 drawer isolation matrix; see also `RoomRealtimeSdk.drawerIsolationRegression.test.ts`. */
 describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
   afterEach(() => {
     vi.restoreAllMocks()
