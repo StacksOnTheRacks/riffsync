@@ -67,6 +67,7 @@ After durable **`avDisabled`** write on room document, room **`PATCH`** Lambda f
 | Question | Decision |
 | --- | --- |
 | `share_state: stopped` handler scope? | Detach **`host_screen`** only; **no** guest full SFU session close from chat handler. |
+| `host_screen` close vs participant theater mix? | **`theaterAudioMix`** removes **`host_screen`** nodes only; **`participant_av`** audio nodes **persist** until producer close, **`avDisabled`**, or room leave (**#145**). |
 | Drawer-independent reconnect? | Each drawer recovers alone; cross-drawer destructive hooks forbidden except leave / **`avDisabled`**. |
 | Typed failure domains? | Extend taxonomy with drawer codes; failures name drawer in logs/metrics contracts (**`operations/observability.md`** peer). |
 | SFU config vs transient failure? | Classify **`LOCAL_SFU_UNREACHABLE`** / **`SFU_RELAY_UNREACHABLE`** per **`configuration.md`** thresholds; **no** mesh fallback. |

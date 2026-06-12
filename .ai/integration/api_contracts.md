@@ -133,6 +133,15 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 Entering **`videoChat`** still fully stops host tab-capture and **`host_screen`** per existing product contract. **`share_state: stopped`** is the realtime hint for guests when the host stops share in **theater** mode.
 
+### `host_screen` close — theater participant mic mix (#145)
+
+| Trigger | Theater mix behavior |
+| --- | --- |
+| Guest **`share_state: stopped`** | Detach **`host_screen`** mediasoup consumers; emit consumer **`detach`** for **`host_screen`** audio; **`theaterAudioMix`** removes **`hostScreenConsumers`** only — **`participantConsumers`** unchanged. |
+| SFU **`producerClosed`** (**`host_screen`**, audio) | Same consumer **`detach`** → mix path as row above. |
+| Host capture stop / **`unpublishHostScreen`** | Close **`host_screen`** producers locally; participant **`participant_av`** producers and mix nodes **persist**. |
+| **`avDisabled`** / room leave | Participant mix teardown per kill-switch / leave contracts — **not** a **`host_screen`**-only stop. |
+
 ### Partial producer teardown (`participant_av`)
 
 | Action | Contract |

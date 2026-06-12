@@ -139,7 +139,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 
 - **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
 - **`share_state` behavior matrix:** per-role (**host** / **guest**) and **`roomMode`** detail for **`started`** vs **`stopped`** — which consumer classes attach, detach, or stay idle beyond the normative **`host_screen`-only** guest detach on **`stopped`** (**#146** / M18).
-- **Partial teardown — remaining M17 peers:** concurrent **`newProducer`** / **`producerClosed`** consumer attach (**#142**); theater mic mix when **`host_screen`** closes (**#145**).
+- **Partial teardown — remaining M17 peers:** concurrent **`newProducer`** / **`producerClosed`** consumer attach (**#142**).
 
 ### Partial teardown QA matrix — camera-off tile removal (#142)
 
@@ -150,6 +150,27 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Local **You** camera off | **You** tile removed | **You** tile removed | **You** tile removed | Preview cleared |
 | Roster member, no video consumer | No tile | No tile | No tile | Mic-only unchanged (off strip/grid) |
 - **Mode transition empty-state UX:** copy and layout when switching to **Video Chat** with zero video-on participants, or **Theater** before host has started tab-capture (**`interface/presentation.md`**).
+
+## Decisions (theater mic mix on host_screen close — #145)
+
+| Question | Decision |
+| --- | --- |
+| Mix graph scope on **`host_screen`** close? | Remove only **`hostScreenConsumers`** entries in **`theaterAudioMix`**; **`participantConsumers`** nodes stay connected at **1.0** gain until their producer closes, **`avDisabled`**, or room leave. |
+| Guest trigger paths? | **`share_state: stopped`** → **`SfuMediaSession.handleShareStateStopped`** → **`detachConsumerClass('host_screen')`**; SFU **`producerClosed`** / consumer **`detach`** for **`host_screen`** audio routes the same mix detach via **`TheaterPlayback`**. |
+| Host trigger paths? | **`unpublishHostScreen`** / tab-capture stop closes **`host_screen`** producers only; **must not** tear down **`participant_av`** producers or clear participant mix nodes. |
+| **`AudioContext`** lifecycle? | **Stay open** while any participant mic node remains attached; **do not** call **`mix.dispose()`** or **`teardownMix()`** on host-screen stop alone. |
+| Video element fallback? | After last **`host_screen`** consumer detaches, **`syncHostElementSource()`** may attach movie audio from the guest **`<video>`** element when bound; participant mic nodes remain parallel sources. |
+| Forbidden side effects? | **`clearParticipantConsumers()`**, **`detachConsumerClass('participant_av')`**, full SFU session **`close()`**, **`handleAvDisabledKillSwitch()`** from share-stop handlers. |
+
+### Partial teardown QA matrix — theater mic mix on host_screen close (#145)
+
+| Scenario | Guest participant mic | Host participant mic (if publishing) | Expected |
+| --- | --- | --- | --- |
+| Guest hears fan mic + host movie; host stops share (`share_state: stopped`) | **Audible** | N/A (guest path) | Host movie/video gone; mic continues |
+| Guest hears two fan mics; host stops share | **Both audible** | N/A | Same |
+| Fan A camera off mic on + host movie; host stops share | **Audible (mic-only)** | N/A | No tile; mic continues |
+| Host publishing participant mic + tab capture; host stops capture | N/A | **Audible** | Host screen gone; host mic continues |
+| `avDisabled` after share stop | **Inaudible** (kill switch) | **Inaudible** | Out of #145 scope — intentional |
 
 ## Decisions (participant AV runtime — #104)
 
