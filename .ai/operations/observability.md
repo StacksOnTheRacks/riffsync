@@ -114,15 +114,33 @@ Document these steps in **`infra/cdk/README.md`** SFU section and **`docs/sfu-de
 
 ## Client diagnostic logs (hardening)
 
-Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**) emit structured JSON at **WARN**/**ERROR** with:
+Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**) emit structured JSON via **`apps/web/src/room/clientDrawerLog.ts`** — production always-on, separate from dev-only **`realtimeDiagnostics.ts`** (`?diag=1`) and opt-in **`webrtcDebug.ts`** (`?webrtcDebug=1`).
 
 | Field | Contract |
 | --- | --- |
 | **`drawer`** | `chat` \| `signaling` \| `connectivity` \| `produce_consume` |
-| **`code`** | Typed failure from **`business_logic/error_handling.md`** (`PRODUCER_CLOSED`, `CHAT_SEND_DROPPED`, `SIGNALING_TIMEOUT`, `ICE_FAILED`, `TURN_RELAY_REQUIRED`, …) |
+| **`event`** | Stable snake_case lifecycle name (e.g. **`ws_close`**, **`reconnect_scheduled`**, **`producer_closed`**) |
+| **`code`** | Typed failure from **`business_logic/error_handling.md`** when present (`PRODUCER_CLOSED`, `CHAT_SEND_DROPPED`, `SIGNALING_TIMEOUT`, `ICE_FAILED`, `TURN_RELAY_REQUIRED`, …) |
 | **`outcome`** | `retry` \| `failed` \| `recovered` |
 
+**Levels:** **INFO** for lifecycle transitions (connect, reconnect schedule, recovery); **WARN**/**ERROR** when **`code`** is set for typed failures. **`PRODUCER_CLOSED`** logs at **INFO** only (tile-only UX per **#141**).
+
 **No** **`roomId`**, **`sessionId`**, or fan **`sub`** in browser console at default log level shipped to production builds.
+
+## Decisions (client drawer logs — #157)
+
+| Topic | Decision |
+| --- | --- |
+| **Log module** | **`apps/web/src/room/clientDrawerLog.ts`** with colocated **`clientDrawerLog.test.ts`**. Export **`emitClientDrawerLog(payload)`**; tests assert JSON shape and forbidden identity keys. |
+| **Payload shape** | **`{ drawer, event, code?, outcome }`** serialized as one JSON object per line. **`drawer`** and **`outcome`** required; **`code`** required on WARN/ERROR failure paths. |
+| **Sink** | **`console.info`** (INFO lifecycle), **`console.warn`** (WARN), **`console.error`** (ERROR) — not gated by diag flags. |
+| **Forbidden fields** | No **`roomId`**, **`sessionId`**, **`sub`**, JWT, SDP bodies, or ICE candidate strings. |
+| **Chat drawer** | **`ChatSession`** emits: **`ws_connect_attempt`**, **`ws_open`**, **`ws_close`**, **`ws_error`**, **`reconnect_scheduled`**, **`reconnect_success`**, **`degraded_threshold`**, **`send_dropped`** (**`CHAT_SEND_DROPPED`**, outcome **`failed`**). |
+| **Signaling drawer** | **`SfuMediaSession`** emits: **`signaling_connect`**, **`signaling_open`**, **`signaling_close`**, **`signaling_reconnect_scheduled`**, **`signaling_reconnect_success`**, **`signaling_degraded`**, **`token_denied`** (typed denial code when known). |
+| **Connectivity drawer** | **`mediasoupSharing`** PC hooks (via **`clientDrawerLog`**): **`ice_failed`** (**`ICE_FAILED`**), **`turn_relay_required`** (**`TURN_RELAY_REQUIRED`**), **`ice_recovered`** (outcome **`recovered`**). Production path replaces ad hoc **`webrtcLog`** ICE-failed copy for **`iceConnectionState === 'failed'`**. |
+| **Produce/consume drawer** | **`SfuMediaSession`** + **`TheaterPlayback`**: **`producer_closed`** (**`PRODUCER_CLOSED`**, INFO), **`consumer_attach_failed`**, **`partial_unpublish`**, **`transport_limit`**, **`consumer_limit`**, **`mix_error`** (theater audio graph). |
+| **`realtimeDiagnostics` migration** | **`recordOutboundDropped`** calls **`emitClientDrawerLog`** with **`drawer: chat`**, **`event: send_dropped`**, **`code: CHAT_SEND_DROPPED`**, outcome **`failed`**; remove raw **`[riffsync-diag]`** warn string. Counter/timeline behavior for **`?diag=1`** unchanged. |
+| **Test contract** | Session module tests spy **`emitClientDrawerLog`** at WS close, reconnect, send-drop, and SFU reconnect boundaries; **`clientDrawerLog.test.ts`** covers serialization and redaction. |
 
 ## Decisions (harness CI telemetry — #153)
 
@@ -142,4 +160,6 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 
 ## Primary code pointers (optional)
 
+- **`apps/web/src/room/clientDrawerLog.ts`** — production drawer-tagged console logs (**#157**).
+- **`apps/web/src/room/realtimeDiagnostics.ts`** — dev-only diag panel counters (**`?diag=1`**).
 - Dashboard JSON in `infra/` when added.

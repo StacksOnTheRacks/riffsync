@@ -181,7 +181,7 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
 - **Mode-transition copy variants:** whether **"Updating room layout…"** varies by Theater ↔ Video Chat direction or sparse-state follow-up when **3s** elapses without consumers attached.
-- **Telemetry / UX story event names** for layout transition timeout, tile lifecycle failures, and per-drawer reconnect — **M21** observability milestone; not #150.
+- **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions (#157); not #150.
 
 ## Primary code pointers (optional)
 
