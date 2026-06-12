@@ -62,6 +62,57 @@ Each module exposes a coarse lifecycle state for UI and reconnect policy:
 
 **Drawer-independent reconnect:** When room WebSocket drops while SFU signaling stays open (or the reverse), the **healthy module keeps running**; only the failed module enters **`reconnecting`**. No coupled "leave room" that closes both planes unless the user navigates away or room leave policy applies globally.
 
+### Transition tables (normative — #140)
+
+Each module implements the four drawer lifecycle states. Internal enums may differ; **`RoomRealtimeSdk.getDiagnostics()`** maps to the strings below.
+
+**`ChatSession`**
+
+| From | Event | To |
+| --- | --- | --- |
+| **`torn-down`** | **`connect()`** / first **`openSocket()`** after join | **`reconnecting`** (maps from internal **`connecting`**) |
+| **`reconnecting`** | Room WS **`open`** | **`connected`** |
+| **`reconnecting`** | WS **`close`** / **`error`** while reconnect enabled | **`reconnecting`** (schedule backoff) |
+| **`reconnecting`** | **3** consecutive reconnect cycles without **`open`** | **`degraded`** |
+| **`connected`** | WS **`close`** / **`error`** | **`reconnecting`** |
+| **`connected`** | Outbound send while WS not **`open`** | stays **`connected`** or **`reconnecting`**; surfaces **`CHAT_SEND_DROPPED`** at SDK boundary |
+| **`*`** | **`disconnect()`** / intentional teardown | **`torn-down`** |
+
+**`SfuMediaSession`**
+
+| From | Event | To |
+| --- | --- | --- |
+| **`torn-down`** | **`connect()`** after chat WS open (bootstrap gate) | **`reconnecting`** (maps from internal **`connecting`**) |
+| **`reconnecting`** | Signaling WS **`open`** + session ready | **`connected`** |
+| **`reconnecting`** | Signaling **`close`** / recoverable error | **`reconnecting`** (backoff per **`sfuReconnectPolicy.ts`**) |
+| **`reconnecting`** | **5** failed reconnect cycles without stable **`open`** | **`degraded`** |
+| **`connected`** | Signaling **`close`** / error | **`reconnecting`** |
+| **`connected`** | Config-class failure (**`LOCAL_SFU_UNREACHABLE`**, etc.) | **`degraded`** (persistent until user/config fix) |
+| **`connected`** | JWT re-mint failure while WS **`open`** | **`degraded`** |
+| **`*`** | **`disconnect()`** / intentional teardown | **`torn-down`** |
+| **`*`** | Room WS drop alone | **unchanged** — **no** transition to **`torn-down`** |
+
+**`TheaterPlayback`**
+
+| From | Event | To |
+| --- | --- | --- |
+| **`torn-down`** | Theater layout active + **`initTheaterPlayback()`** | **`connected`** |
+| **`torn-down`** | Room mode → **Video Chat** | **`torn-down`** (theater graph disposed) |
+| **`connected`** | **`AudioContext`** **`suspended`** while mix active | **`degraded`** |
+| **`degraded`** | User gesture / **`resumeIfSuspended()`** success | **`connected`** |
+| **`connected`** | SFU consumer detach for **`host_screen`** only (**`share_state: stopped`**) | **`connected`** (host-screen mix node removed; participant mic nodes persist) |
+| **`connected`** | SFU signaling drop (sibling module) | **`degraded`** until consumers reattach or mix idle |
+| **`*`** | **`dispose()`** / room leave | **`torn-down`** |
+
+**Cross-drawer isolation (must never occur)**
+
+| Trigger | Forbidden side effect |
+| --- | --- |
+| Room WS **`close`** alone | SFU **`disconnect()`**, **`getUserMedia`** stop, full producer wipe |
+| SFU signaling **`close`** alone | Room WS **`disconnect()`**, chat log clear |
+| **`share_state: stopped`** | Full SFU session close; participant AV producer teardown |
+| Chat send failure | SFU reconnect or unpublish |
+
 ### Decouple destructive hooks (room WebSocket → media)
 
 Room WebSocket event handlers **must not** implicitly tear down **`SfuMediaSession`** unless an explicit **media policy** says so. Normative examples:
@@ -171,17 +222,27 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | **SDK vs state machines (#140)** | #139 may map module-internal coarse flags to the four lifecycle states; formal transition tables and drawer isolation enforcement land in #140. |
 | **SDK vs typed errors (#141)** | #139 exposes **`lastErrorCode`** / **`activeErrorCodes`** strings from module boundaries; canonical UX copy and toggle **`aria-describedby`** mapping land in #141. |
 
+## Decisions (state machines — #140)
+
+| Topic | Decision |
+| --- | --- |
+| **`ChatSession` send queue** | **Drop** when room WS is not **`open`** — no in-memory queue. Failed compose send surfaces **`CHAT_SEND_DROPPED`**; inline compose feedback **and** chat drawer status banner (**`interaction_flow.md`**). |
+| **Per-drawer backoff** | Shared constants in **`apps/web/src/room/sessions/drawerReconnectPolicy.ts`**. **Chat:** 1000ms initial delay, ×2 per failed cycle, 60000ms cap; **`degraded`** after **3** cycles without **`open`**. **SFU:** **`sfuReconnectPolicy.ts`** (600ms base, 45000ms cap); **`degraded`** after **5** failed cycles. **`reconnecting`** visible immediately on WS close. No jitter in MVP. |
+| **`TheaterPlayback` resume** | **Implicit gesture resume** via existing play hints and **`AudioContext.resume()`** on user tap/play; drawer **`degraded`** when **`audioContextState === 'suspended'`** in Theater layout. No persistent **Enable party audio** control in #140. |
+| **SFU JWT re-mint timer** | **`SfuMediaSession`** owns one **`setTimeout`** at **`exp - 60s`** wall clock while signaling WS is **`open`**; proactive **`POST /v1/webrtc/sfu-token`** re-mint. Timer cleared on teardown. Re-mint failure → drawer **`degraded`**, not **`torn-down`**. |
+| **Reconnect mid-publish** | **No** producer **`pause()`** during SFU signaling reconnect — rely on mediasoup transport recovery (**`lifecycle_shutdown.md`**). |
+| **Theater return from Video Chat** | **`RoomRealtimeSdk`** re-runs **`applySubscribeHandlers()`** after **`initTheaterPlayback()`** so consumers and mix nodes reattach. |
+| **Harness / unit assertions** | After forced chat-only WS drop: **`getDiagnostics().drawers.chat`** is **`reconnecting`** then **`connected`**; **`drawers.sfuSignaling`** stays **`connected`**. Inverse for SFU-only drop. See **`lifecycle_shutdown.md`** and **`build_packaging.md`** steps 5–6. |
+
 ## Open implementation decisions
 
-- **`ChatSession` send queue:** drop vs short buffer when room WS flaps while compose is active.
-- **Per-drawer backoff:** max attempts, jitter, and user-visible **`reconnecting`** threshold before **`degraded`** — align with **`.ai/interface/`** status copy.
-- **`TheaterPlayback` resume:** implicit gesture resume vs optional explicit control — **`.ai/interface/presentation.md`**.
-- **SFU JWT timer vs connected socket:** re-mint at ~60s before **`exp`** while signaling socket stays **`open`** — exact timer ownership between **`SfuMediaSession`** and token fetch helper.
+_(None for #140 scope — peer #141 owns error-code UX completion.)_
 
 ## Primary code pointers (optional)
 
-- **`apps/web/src/room/sessions/RoomRealtimeSdk.ts`** — narrow public realtime API (**#139**).
-- **`apps/web/src/room/sessions/`** — **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`** (post-#138).
+- **`apps/web/src/room/sessions/drawerReconnectPolicy.ts`** — shared chat/SFU degraded thresholds and chat backoff constants (**#140**).
+- **`apps/web/src/room/sessions/RoomRealtimeSdk.ts`** — narrow public realtime API (**#139**); maps module FSM to **`getDiagnostics()`** (**#140**).
+- **`apps/web/src/room/sessions/`** — **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`** formal lifecycle FSM (**#140**).
 - **`apps/web/src/pages/RoomPage.tsx`** — thin shell wiring session modules to room chrome.
 - **`apps/web/src/room/sfu/`** — low-level mediasoup helpers absorbed by **`SfuMediaSession`** during extraction; directory may shrink to shared types/utilities.
 - CDK **`lib/`** stacks; **`infra/cdk/lambda/`** WebSocket and SFU-token handlers (server-side; unchanged by client extraction).

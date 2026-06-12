@@ -51,12 +51,17 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 | SFU **`transport limit reached`** / **`consumer limit reached`** | Inline hard-fail on toggle with SFU error message; toggle returns off; no silent retry loop. |
 | Token / cap rejection (**403** / **429**) | Inline error at toggle; return to off per **`error_state.md`**. |
 
+## Decisions (state machines — #140)
+
+| Topic | Decision |
+| --- | --- |
+| **`SfuMediaSession` reconnect mid-publish** | **No** producer **`pause()`** during signaling reconnect — rely on mediasoup transport recovery without full session rebuild. |
+| **Theater mode transition** | On **Video Chat → Theater**, **`RoomRealtimeSdk.initTheaterPlayback()`** then **`applySubscribeHandlers()`** reattaches SFU consumers and mix nodes; ordered warmup avoids silent black screen beyond existing **Updating room layout…** copy. |
+| **Harness-visible teardown assertions** | Unit tests and **`realtime-conformance`** steps 5–6 assert **`getDiagnostics()`**: failed drawer **`reconnecting`** during outage, **`connected`** after recovery; sibling drawer **`connected`** throughout. Chat-only drop must **not** set **`sfuSignaling`** to **`torn-down`**. SFU-only drop must **not** set **`chat`** to **`torn-down`**. |
+
 ## Open implementation decisions
 
 - Page Visibility battery policy for participant producers while tab backgrounded (**MVP:** leave running per **`execution_model.md`**).
-- **`SfuMediaSession` reconnect mid-publish:** whether to **`pause()`** all producers during signaling reconnect or rely on transport recovery without pause.
-- **Theater mode transition:** ordered warmup when returning from Video Chat (consumer reattach vs explicit **`subscribe()`** re-call).
-- **Harness-visible teardown assertions:** which module states CI must observe after forced WS drop vs unpublish — **`.ai/operations/build_packaging.md`**.
 
 ## Primary code pointers (optional)
 

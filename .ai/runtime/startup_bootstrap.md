@@ -71,13 +71,13 @@ Developers **cannot** exercise watch-party media without a running SFU (+ TURN w
 | SFU down during room join? | **`SfuMediaSession`** enters **`degraded`** / failed config state with persistent visible error; **no** mesh fallback. |
 | Chat bootstrap when SFU unreachable? | **`ChatSession`** may reach **`connected`** independently; compose/send follows chat drawer policy. |
 | Local dev misconfiguration signal? | When **`VITE_PUBLIC_SFU_WS_URL`** targets local disposable host and SFU is not listening, show **`LOCAL_SFU_UNREACHABLE`** copy (see **`configuration.md`**) — not generic infinite "Connecting…" with cleared banners. |
+| Per-module reconnect backoff? | **Shared policy** in **`apps/web/src/room/sessions/drawerReconnectPolicy.ts`** — chat 1000ms→60000ms exponential; SFU per **`sfuReconnectPolicy.ts`**; degraded thresholds per **`execution_model.md`** transition tables (**#140**). |
 
 ## Open implementation decisions
 
 - **`webrtc-sfu-token`** branches for participant producer grant and **`avDisabled`** check at mint time (**#102** / **`integration/api_contracts.md`**).
 - Rate limits on participant producer token mint per **`sub`** (**#102** / **`operations/security.md`**).
 - **Harness credential bootstrap:** test fan JWT mint strategy without prod Cognito secrets in CI — **`.ai/operations/build_packaging.md`** (harness milestone).
-- **Per-module reconnect backoff constants:** shared vs per-drawer config surface.
 
 ## Primary code pointers (optional)
 

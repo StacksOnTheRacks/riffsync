@@ -114,6 +114,7 @@ When the host stops screen-share and guests receive authoritative **`share_state
 | Frozen frame on camera-off? | **Contract violation** — tile must leave strip/grid on video **`producerClosed`**. |
 | Mic-only stage chrome? | **Unchanged** — off strip/grid; no avatar chips/badges this milestone. |
 | Media path (all envs)? | **SFU mandatory**; mesh WebRTC UI removed. |
+| Chat send while chat **`reconnecting`**? | **Drop** send; show **sidebar chat status** **and** **inline compose feedback** (honest copy per **`error_state.md`** **`CHAT_SEND_DROPPED`**). |
 
 ## Guest host-screen status (SFU-only, #134)
 
@@ -130,7 +131,7 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 
 ## Open implementation decisions
 
-- **Chat send while chat plane `reconnecting`:** inline compose feedback vs sidebar banner only — align with **`runtime/execution_model.md`** **`ChatSession`** send policy.
+_(None for #140 — chat send policy resolved in **Decisions (answered)** above.)_
 
 ## Primary code pointers (optional)
 

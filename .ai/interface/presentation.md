@@ -48,6 +48,20 @@ Chat (room WebSocket) and video relay (SFU signaling + consumers) expose **indep
 
 - **Both banners may appear at once** when each drawer is independently unhealthy; each clears when **that** drawer returns to **`connected`** (or equivalent healthy state per **`getDiagnostics()`**).
 - **Hard failures** stay drawer-scoped: chat-plane errors near chat/compose; SFU/toggle failures at AV toggles or stage **`role="alert"`** per **`error_state.md`** — not merged into a single realtime toast.
+
+### Drawer status copy (#140)
+
+Normative fan-visible strings when **`getDiagnostics()`** reports drawer lifecycle states. Guest **host-screen** playback-region copy remains in **`interaction_flow.md`** (SFU three-state model); these strings cover **drawer health** only.
+
+| Drawer | Lifecycle | Copy |
+| --- | --- | --- |
+| **Chat** | **`reconnecting`** | Reconnecting chat… |
+| **Chat** | **`degraded`** | Chat unavailable. Try refreshing the page. |
+| **Video relay** | **`reconnecting`** | Video relay reconnecting… |
+| **Video relay** | **`degraded`** | Video relay unavailable. Try refreshing the page. |
+| **Either** | **`connected`** (recovery) | Clear that drawer's status banner (no success toast). |
+
+- **Both banners may appear at once** when each drawer is independently unhealthy; each clears when **that** drawer returns to **`connected`**.
 - **Host screen-share idle/negotiating** states (guest waiting for host share) use the **video-relay** surface, not the chat banner.
 
 ### Host control bar (below stage)
@@ -129,8 +143,7 @@ Chat (room WebSocket) and video relay (SFU signaling + consumers) expose **indep
 ## Open implementation decisions
 
 - **Tile removal animation** on **`producerClosed`:** instant DOM detach vs short fade-out; whether **`prefers-reduced-motion: reduce`** forces instant removal for remote tiles.
-- **Drawer status final strings:** exact copy for chat vs video-relay **`reconnecting`**, **`degraded`**, and post-recovery clear. Guest **host-screen** playback-region copy is normative in **`interaction_flow.md`** (SFU three-state model); video-relay drawer status covers SFU signaling health separately from that playback strip.
-- **Theater audio resume control:** implicit resume on first user gesture vs persistent **Enable party audio** (or equivalent) in stage chrome when **`THEATER_AUDIO_SUSPENDED`** — label, placement, dismiss behavior.
+- **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
 - **Mode-transition copy variants:** whether **"Updating room layout…"** varies by Theater ↔ Video Chat direction or sparse-state follow-up when **3s** elapses without consumers attached.
 - **Frozen-frame regression AC wording** for **`/refine-issue`** (e.g. max visible stale frame duration, mic-only tile absence checks) — harness-visible assertions.
 - **Telemetry / UX story event names** for layout transition timeout, tile lifecycle failures, and per-drawer reconnect.
