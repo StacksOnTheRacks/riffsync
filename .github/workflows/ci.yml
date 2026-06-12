@@ -6,6 +6,9 @@ on:
     paths:
       - 'infra/cdk/**'
       - 'apps/web/**'
+      - 'services/riffsync-sfu/**'
+      - 'tests/realtime-conformance/**'
+      - 'infra/local-media/**'
       - '.github/workflows/ci.yml'
       - '.github/workflows/deploy-prod.yml'
   push:
@@ -13,6 +16,9 @@ on:
     paths:
       - 'infra/cdk/**'
       - 'apps/web/**'
+      - 'services/riffsync-sfu/**'
+      - 'tests/realtime-conformance/**'
+      - 'infra/local-media/**'
       - '.github/workflows/ci.yml'
       - '.github/workflows/deploy-prod.yml'
 
@@ -67,3 +73,60 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run lint
+
+  realtime-conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: services/riffsync-sfu/package-lock.json
+      - name: SFU compile gate
+        id: sfu_compile
+        working-directory: services/riffsync-sfu
+        run: npm ci && npm run build
+      - name: Bootstrap disposable media
+        id: bootstrap_up
+        if: hashFiles('tests/realtime-conformance/bootstrap-media.sh') != ''
+        run: bash tests/realtime-conformance/bootstrap-media.sh up
+      - name: Wait for SFU health
+        id: bootstrap_wait
+        if: hashFiles('tests/realtime-conformance/bootstrap-media.sh') != ''
+        run: bash tests/realtime-conformance/bootstrap-media.sh wait
+      - name: Run realtime conformance harness
+        id: harness
+        if: hashFiles('tests/realtime-conformance/run.sh') != ''
+        run: |
+          set -o pipefail
+          bash tests/realtime-conformance/run.sh 2> harness-stderr.log
+      - name: Teardown disposable media
+        if: always() && hashFiles('tests/realtime-conformance/bootstrap-media.sh') != ''
+        run: bash tests/realtime-conformance/bootstrap-media.sh down
+      - name: Report SFU compile failure to step summary
+        if: failure() && steps.sfu_compile.outcome == 'failure'
+        run: echo '[drawer=connectivity] code=SFU_BUILD_FAILED step=compile' >> "$GITHUB_STEP_SUMMARY"
+      - name: Report harness failure to step summary
+        if: failure() && steps.harness.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f harness-stderr.log ]; then
+            grep -E '^\[drawer=' harness-stderr.log >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+          if [ -f harness-summary.json ] && command -v jq >/dev/null 2>&1; then
+            jq -r '.[] | "[drawer=\(.drawer)] code=\(.code) step=\(.step)"' harness-summary.json >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+      - name: Upload harness failure artifacts
+        if: failure() && steps.harness.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: realtime-conformance-failure
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            harness-summary.json
+            sfu-compose.log
+            harness-stderr.log
