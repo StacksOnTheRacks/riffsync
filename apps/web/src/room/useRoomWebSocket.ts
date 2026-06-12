@@ -18,7 +18,7 @@ export function useRoomWebSocket(options: {
   onMessage?: (data: Record<string, unknown>) => void
 }): {
   status: WsStatus
-  sendJson: (payload: Record<string, unknown>) => void
+  sendJson: (payload: Record<string, unknown>) => boolean
 } {
   const { url, roomId, sessionId, displayName, accessToken, enabled } = options
   const { status, sendJson } = useChatSession({

@@ -310,8 +310,16 @@ export class RoomRealtimeSdk {
     this.teardownModules({ intentional: true })
   }
 
-  sendControl(payload: Record<string, unknown>): void {
-    this.chat?.send(payload)
+  /** Returns false when chat outbound is dropped (socket not open). */
+  sendControl(payload: Record<string, unknown>): boolean {
+    const chat = this.chat
+    if (!chat) return false
+    const sent = chat.send(payload)
+    if (!sent) {
+      this.chatLastErrorCode = 'CHAT_SEND_DROPPED'
+      this.emitDiagnosticsChange()
+    }
+    return sent
   }
 
   getChatStatus(): ChatSessionStatus {

@@ -155,6 +155,25 @@ describe('ChatSession send', () => {
       cause: { readyState: -1 },
     })
   })
+
+  it('returns true and records outbound sent when socket is open', () => {
+    class MockWebSocket {
+      static OPEN = 1
+      readyState = MockWebSocket.OPEN
+      send = vi.fn()
+    }
+    vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+
+    const session = new ChatSession()
+    ;(session as unknown as { ws: WebSocket | null }).ws = new WebSocket('wss://ws.test')
+
+    const payload = { action: 'chat', text: 'hi', messageId: '550e8400-e29b-41d4-a716-446655440004' }
+    expect(session.send(payload)).toBe(true)
+    expect(realtimeDiagnostics.recordOutboundSent).toHaveBeenCalledWith(payload)
+    expect(realtimeDiagnostics.recordOutboundDropped).not.toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
+  })
 })
 
 describe('ChatSession lifecycle FSM', () => {

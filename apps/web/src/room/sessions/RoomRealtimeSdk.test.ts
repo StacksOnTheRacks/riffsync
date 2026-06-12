@@ -821,11 +821,32 @@ describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
       wsUrl: 'wss://ws.test',
     })
 
-    sdk.sendControl({ action: 'chat', text: 'hello', messageId: '550e8400-e29b-41d4-a716-446655440099' })
+    expect(
+      sdk.sendControl({ action: 'chat', text: 'hello', messageId: '550e8400-e29b-41d4-a716-446655440099' }),
+    ).toBe(false)
 
     const diag = sdk.getDiagnostics()
     expect(diag.drawers.chat.lastErrorCode).toBe('CHAT_SEND_DROPPED')
     expect(diag.activeErrorCodes).toContain('CHAT_SEND_DROPPED')
+  })
+
+  it('returns true from sendControl when chat session accepts outbound', async () => {
+    mockChatConnectOpensImmediately()
+    vi.spyOn(ChatSession.prototype, 'send').mockReturnValue(true)
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-send-ok',
+      wsUrl: 'wss://ws.test',
+    })
+
+    await vi.waitFor(() => expect(sdk.getDiagnostics().drawers.chat.state).toBe('connected'))
+
+    expect(
+      sdk.sendControl({ action: 'chat', text: 'hello', messageId: '550e8400-e29b-41d4-a716-446655440100' }),
+    ).toBe(true)
+    expect(sdk.getDiagnostics().drawers.chat.lastErrorCode).toBeUndefined()
   })
 })
 
