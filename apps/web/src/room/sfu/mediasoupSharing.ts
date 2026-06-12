@@ -6,6 +6,7 @@ import type {
   RtpParameters,
 } from 'mediasoup-client/types'
 import { getPublicSfuWsUrl } from '../../config/sfuWsUrl'
+import { attachTransportConnectivityDrawerLog } from './transportConnectivityDrawerLog'
 
 export type SfuTokenResponse = {
   token: string
@@ -547,6 +548,7 @@ export async function connectSfuUnifiedSession(options: {
           finish(r)
         }),
       )
+      unwatchFns.push(attachTransportConnectivityDrawerLog(recvTransport, iceServers))
 
       recvTransport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
         void signaling
@@ -696,6 +698,7 @@ export async function connectSfuUnifiedSession(options: {
           finish(r)
         }),
       )
+      unwatchFns.push(attachTransportConnectivityDrawerLog(sendTransport, iceServers))
 
       sendTransport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
         void signaling

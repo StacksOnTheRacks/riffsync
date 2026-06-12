@@ -34,6 +34,7 @@ import {
   type RealtimeDrawerError,
   type RealtimeDrawerErrorCode,
 } from '../realtimeDrawerErrors'
+import { emitClientDrawerLog } from '../clientDrawerLog'
 import { sfuLifecycleAfterFailedCycle } from './drawerReconnectPolicy'
 import { resolveJwtRemintDelayMs } from './sfuJwtRemintSchedule'
 
@@ -616,6 +617,11 @@ export class SfuMediaSession {
       assignSession: (s) => {
         this.sessionHandle = s
         if (s) {
+          emitClientDrawerLog({
+            drawer: 'signaling',
+            event: 'signaling_open',
+            outcome: 'recovered',
+          })
           this.setStatus('open')
           this.setLifecycleState('connected')
         }
@@ -643,6 +649,11 @@ export class SfuMediaSession {
       onConnecting: () => {
         this.emitError(null)
         this.emitDrawerError(null)
+        emitClientDrawerLog({
+          drawer: 'signaling',
+          event: 'signaling_connect',
+          outcome: 'retry',
+        })
         this.setStatus('connecting')
         this.setLifecycleState(
           this.failedReconnectCycles > 0
@@ -651,12 +662,20 @@ export class SfuMediaSession {
         )
       },
       onSessionReady: () => {
+        const recoveredFromReconnect = this.failedReconnectCycles > 0
         this.emitError(null)
         this.emitDrawerError(null)
         this.failedReconnectCycles = 0
         this.lastErrorCode = undefined
         this.setStatus('open')
         this.setLifecycleState('connected')
+        if (recoveredFromReconnect) {
+          emitClientDrawerLog({
+            drawer: 'signaling',
+            event: 'signaling_reconnect_success',
+            outcome: 'recovered',
+          })
+        }
         if (this.lastMintedToken) {
           this.scheduleJwtRemint(this.lastMintedToken, this.lastMintedExpiresInSeconds)
         }
@@ -669,6 +688,17 @@ export class SfuMediaSession {
         this.clearJwtRemintTimer()
         this.sessionHandle = null
         if (this.enabled && generation === this.tokenIntentGeneration) {
+          emitClientDrawerLog({
+            drawer: 'signaling',
+            event: 'signaling_close',
+            outcome: 'retry',
+            severity: 'warn',
+          })
+          emitClientDrawerLog({
+            drawer: 'signaling',
+            event: 'signaling_reconnect_scheduled',
+            outcome: 'retry',
+          })
           this.failedReconnectCycles += 1
           const lifecycle = sfuLifecycleAfterFailedCycle(this.failedReconnectCycles)
           this.setStatus(lifecycle === 'degraded' ? 'degraded' : 'reconnecting')
@@ -734,6 +764,12 @@ export class SfuMediaSession {
     } catch (cause) {
       const drawerError = mapSfuTokenDeniedError(cause)
       this.lastErrorCode = drawerError.code
+      emitClientDrawerLog({
+        drawer: 'signaling',
+        event: 'token_denied',
+        code: drawerError.code,
+        outcome: 'failed',
+      })
       this.emitDrawerError(drawerError)
       this.setStatus('degraded')
       this.setLifecycleState('degraded')
@@ -748,7 +784,16 @@ export class SfuMediaSession {
 
   private setLifecycleState(next: SfuMediaSessionLifecycleState): void {
     if (this.lifecycleState === next) return
+    const prev = this.lifecycleState
     this.lifecycleState = next
+    if (next === 'degraded' && prev !== 'degraded') {
+      emitClientDrawerLog({
+        drawer: 'signaling',
+        event: 'signaling_degraded',
+        outcome: 'failed',
+        severity: 'warn',
+      })
+    }
     for (const listener of this.lifecycleListeners) listener(next)
   }
 

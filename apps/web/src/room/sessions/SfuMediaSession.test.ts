@@ -14,6 +14,11 @@ import {
   SfuMediaSession,
   startSfuRoomSession,
 } from './SfuMediaSession'
+import * as clientDrawerLog from '../clientDrawerLog'
+
+vi.mock('../clientDrawerLog', () => ({
+  emitClientDrawerLog: vi.fn(),
+}))
 
 vi.mock('../../api/webrtcSfuApi', () => ({
   fetchSfuJoinToken: vi.fn(),
@@ -432,6 +437,205 @@ function attachMockSessionHandle(
     }
   ).sessionHandle = handle
 }
+
+describe('SfuMediaSession signaling drawer logs', () => {
+  beforeEach(() => {
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('emits signaling_connect on reconnect loop start', async () => {
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'consumer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => mockSfuUnifiedSessionHandle())
+
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-log',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => {
+      expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+        drawer: 'signaling',
+        event: 'signaling_connect',
+        outcome: 'retry',
+      })
+    })
+
+    session.disconnect()
+  })
+
+  it('emits signaling_close and signaling_reconnect_scheduled when session ends', async () => {
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'consumer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
+      ...mockSfuUnifiedSessionHandle(),
+      sessionEnded: Promise.resolve('signaling_close'),
+    }))
+
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-close-log',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => {
+      expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+        drawer: 'signaling',
+        event: 'signaling_close',
+        outcome: 'retry',
+        severity: 'warn',
+      })
+    })
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+      drawer: 'signaling',
+      event: 'signaling_reconnect_scheduled',
+      outcome: 'retry',
+    })
+
+    session.disconnect()
+  })
+
+  it('emits signaling_reconnect_success after a prior failed cycle', async () => {
+    let connectCall = 0
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'consumer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => {
+      connectCall += 1
+      if (connectCall === 1) {
+        return {
+          ...mockSfuUnifiedSessionHandle(),
+          sessionEnded: Promise.resolve('signaling_close'),
+        }
+      }
+      return mockSfuUnifiedSessionHandle()
+    })
+
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-recover-log',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => connectCall >= 2)
+    await vi.waitFor(() => {
+      expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+        drawer: 'signaling',
+        event: 'signaling_reconnect_success',
+        outcome: 'recovered',
+      })
+    })
+
+    session.disconnect()
+  })
+
+  it('emits token_denied on JWT remint failure', async () => {
+    const exp = Math.floor(Date.now() / 1000) + 120
+    const token = fakeJwt({ exp })
+    let fetchCalls = 0
+    vi.mocked(fetchSfuJoinToken).mockImplementation(async () => {
+      fetchCalls += 1
+      if (fetchCalls === 1) {
+        return {
+          token,
+          role: 'consumer' as const,
+          wsUrl: 'ws://127.0.0.1:3000',
+          expiresInSeconds: 120,
+        }
+      }
+      throw new SfuTokenHttpError(403, { code: 'av_disabled', error: 'denied' })
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => mockSfuUnifiedSessionHandle())
+
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-token-log',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => expect(session.getLifecycleState()).toBe('connected'))
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
+
+    await (
+      session as unknown as { remintJoinToken: () => Promise<void> }
+    ).remintJoinToken()
+
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+      drawer: 'signaling',
+      event: 'token_denied',
+      code: 'SFU_TOKEN_DENIED',
+      outcome: 'failed',
+    })
+
+    session.disconnect()
+  })
+
+  it('uses signaling drawer label, not chat', async () => {
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token: 'tok',
+      role: 'consumer',
+      wsUrl: 'ws://127.0.0.1:3000',
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
+      ...mockSfuUnifiedSessionHandle(),
+      sessionEnded: Promise.resolve('signaling_close'),
+    }))
+
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-drawer-label',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => {
+      expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalled()
+    })
+
+    for (const call of vi.mocked(clientDrawerLog.emitClientDrawerLog).mock.calls) {
+      expect(call[0]?.drawer).toBe('signaling')
+    }
+
+    session.disconnect()
+  })
+})
 
 describe('SfuMediaSession drawer errors', () => {
   it('emits typed drawer errors for config-class signaling failures', async () => {
