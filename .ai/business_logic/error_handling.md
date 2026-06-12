@@ -70,11 +70,8 @@ After durable **`avDisabled`** write on room document, room **`PATCH`** Lambda f
 | Drawer-independent reconnect? | Each drawer recovers alone; cross-drawer destructive hooks forbidden except leave / **`avDisabled`**. |
 | Typed failure domains? | Extend taxonomy with drawer codes; failures name drawer in logs/metrics contracts (**`operations/observability.md`** peer). |
 | SFU config vs transient failure? | Classify **`LOCAL_SFU_UNREACHABLE`** / **`SFU_RELAY_UNREACHABLE`** per **`configuration.md`** thresholds; **no** mesh fallback. |
-
-## Open implementation decisions
-
-- **Drawer error code table:** exhaustive mapping from drawer codes to toggle behavior, inline copy templates, recoverable vs refresh-required outcomes, and association with chat vs video-relay status surfaces (**`error_state.md`** extension). **`SFU_RELAY_*`** rows resolved for **#137**; remaining rows cover reconnecting/degraded copy (**presentation.md**).
+| Drawer code → surface mapping? | Normative table in **`error_state.md`** **Surface mapping (#141)**; shared enum in **`realtimeDrawerErrors.ts`**. |
 
 ## Primary code pointers (optional)
 
-- Shared error code enum in implementation.
+- **`apps/web/src/room/realtimeDrawerErrors.ts`** — shared drawer error enum and boundary mappers.

@@ -200,12 +200,15 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 
 **Dev-only:** **`realtimeDiagnostics.ts`** timeline (`?diag=1`) is **not** **`getDiagnostics()`** — maintainers use it for WS counters and role probes.
 
-## Open implementation decisions
+## Decisions (typed errors — #141)
 
-- Exact chat outbound **retry count** and queue depth before **`CHAT_SEND_DROPPED`**.
-- SFU signaling **request-ack timeout** (seconds) for **`SIGNALING_TIMEOUT`**.
-- ICE **`failed`** vs **`disconnected`** timing before surfacing **`ICE_FAILED`**.
-- Whether **`PRODUCER_CLOSED`** gets standalone status chrome vs tile-only UX — **`activeErrorCodes`** may include it transiently; fan copy in #141.
+| Topic | Decision |
+| --- | --- |
+| **Chat send before `CHAT_SEND_DROPPED`** | **No outbound retry queue** (aligned with #140 drop policy). Emit **`CHAT_SEND_DROPPED`** on first failed send when room WS is not **`open`** or send throws while chat plane is unhealthy. |
+| **`SIGNALING_TIMEOUT` deadline** | **15 seconds** wall clock for SFU signaling connect and per-RPC request-ack (join, produce, consume). |
+| **`ICE_FAILED` timing** | Surface immediately on ICE **`failed`**. On ICE **`disconnected`**, surface **`ICE_FAILED`** after **10 seconds** without recovery to **`connected`**. |
+| **`PRODUCER_CLOSED` UX** | **Tile-only** — not listed in **`activeErrorCodes`**; no standalone status chrome (**`error_state.md`**). |
+| **`activeErrorCodes` scope** | User-visible blocking codes only — excludes lifecycle pseudo-codes (**`CHAT_RECONNECTING`**) and informational **`PRODUCER_CLOSED`**. |
 
 ## Open implementation details
 

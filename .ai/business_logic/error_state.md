@@ -64,7 +64,8 @@ Stable client **`code`** values map to **inline recoverable** copy at the camera
 
 - **HTTP token denials** use API **`code`** from **`authorization.md`** where applicable.
 - **SFU signaling errors** without a stable server code map to **`sfu_publish_rejected`** or **`sfu_signaling_failed`** at the client boundary.
-- Copy may append a short technical hint in dev builds only; production uses the table strings above.
+- Copy may append a short technical hint in dev builds only (see **Dev-only hints (#141)** below); production uses the table strings above.
+- Each toggle error associates copy via **`aria-describedby`** pointing at a dedicated **`role="status"`** element **`#riffsync-av-toggle-status`** in the chat column (shared by camera and mic toggles; latest error wins).
 
 ## Realtime drawer error taxonomy (hardening extension)
 
@@ -87,6 +88,29 @@ Extends participant A/V codes with **drawer-typed** failures. Each maps to **inl
 
 - Drawer codes must **not** collapse into a single generic "connection lost" when planes are independent.
 - **`PRODUCER_CLOSED`** is the normative outcome for camera-off partial teardown; frozen tiles indicate client non-compliance.
+- **`PRODUCER_CLOSED`** does **not** appear in drawer status banners or **`getDiagnostics().activeErrorCodes`** — tile detach is the only fan-visible outcome unless a separate publish/consume error is active.
+
+## Surface mapping (#141)
+
+Normative association from **`code`** to DOM surfaces and accessibility targets. Implementation: **`apps/web/src/room/realtimeDrawerErrors.ts`** + **`drawerErrorPresentation.ts`**.
+
+| **`code`** | Primary surface | **`aria-describedby` / status target** | In **`activeErrorCodes`**? |
+| --- | --- | --- | --- |
+| Participant A/V rows | AV toggles | **`#riffsync-av-toggle-status`** | When toggle-blocking |
+| **`CHAT_SEND_DROPPED`** | Compose inline + chat drawer banner | **`#riffsync-chat-compose-status`** + **`#riffsync-chat-drawer-status`** | Yes |
+| **`CHAT_RECONNECTING`** | Chat drawer banner only | **`#riffsync-chat-drawer-status`** | No (lifecycle, not error code) |
+| **`SIGNALING_TIMEOUT`** | Video-relay status | **`#riffsync-video-relay-status`** | Yes |
+| **`sfu_signaling_failed`** | Video-relay status + AV toggles when publish blocked | **`#riffsync-video-relay-status`** / **`#riffsync-av-toggle-status`** | Yes |
+| **`ICE_FAILED`** | Video-relay status | **`#riffsync-video-relay-status`** | Yes |
+| **`TURN_RELAY_REQUIRED`** | Video-relay status | **`#riffsync-video-relay-status`** | Yes |
+| **`PRODUCER_CLOSED`** | Stage tiles (implicit detach) | _(none — tile lifecycle only)_ | **No** |
+| **`PLAYBACK_AUDIO_BLOCKED`** | Theater mix region | **`#riffsync-theater-audio-status`** | Yes |
+| **`THEATER_AUDIO_SUSPENDED`** | Theater mix region (implicit resume) | **`#riffsync-theater-audio-status`** when copy shown | Yes while suspended |
+| **`SFU_RELAY_*` config rows** | Page **`role="alert"`** + video-relay status | **`#riffsync-sfu-config-alert`** + **`#riffsync-video-relay-status`** | Yes |
+
+## Dev-only hints (#141)
+
+When **`import.meta.env.DEV`** (or equivalent Vite dev flag), append **` (code: {code})`** to the user-facing string for every row in both taxonomies. **Production builds omit the suffix.**
 
 ## Decisions (answered — realtime hardening)
 
@@ -96,12 +120,22 @@ Extends participant A/V codes with **drawer-typed** failures. Each maps to **inl
 | Server-side theater audio mixing? | **Deferred** — **`PLAYBACK_AUDIO_BLOCKED`** and client mix mitigations remain in scope; no server mix fallback this milestone. |
 | Mic-only visibility on errors? | Tiles remove on video producer close; mic-only stays off strip/grid; no audible-only badge chrome. |
 
+## Decisions (typed errors — #141)
+
+| Question | Decision |
+| --- | --- |
+| **`PRODUCER_CLOSED` status chrome?** | **Tile-only** — exclude from **`activeErrorCodes`** and drawer banners; informational at consumer boundary only. |
+| **Dev technical hints?** | Append **`(code: …)`** suffix in dev builds only for all taxonomy rows. |
+| **AV toggle error association?** | Shared **`#riffsync-av-toggle-status`** **`role="status"`** region; camera/mic toggles reference via **`aria-describedby`**. |
+| **Config-class SFU errors?** | Persistent page **`role="alert"`** until signaling **`session.ready`**; do not clear on reconnect attempt alone (**#137**). |
+
 ## Open implementation decisions
 
-- **Drawer error code table completion:** finalize toggle behavior, **`aria-describedby`** targets, and dev-only technical hints for every row in both taxonomies.
 - **Empty / transitional UX:** Video Chat zero-camera grid and Theater pre-capture states (**`interface/presentation.md`**).
-- **Kill-switch toggle affordance:** visible-disabled with host explanation vs hidden when **`avDisabled`** (**`user_stories.md`**).
+- **Kill-switch toggle affordance:** visible-disabled with host explanation vs hidden when **`avDisabled`** — resolved in **`presentation.md`** / **`user_stories.md`** (visible-disabled with copy).
 
 ## Primary code pointers (optional)
 
-- Empty/error components in SPA.
+- **`apps/web/src/room/realtimeDrawerErrors.ts`** — canonical drawer **`code`** union + module boundary helpers.
+- **`apps/web/src/room/drawerErrorPresentation.ts`** — copy templates and surface id mapping.
+- **`apps/web/src/room/av/participantAvErrors.ts`** — participant A/V toggle codes (existing).

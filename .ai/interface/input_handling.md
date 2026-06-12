@@ -42,15 +42,12 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 
 - Existing chat compose, emoji picker, and tab switching behavior unchanged; AV toggles sit **above** compose and precede it in focus order within the chat column.
 - **Jump to latest** control remains keyboard-activatable above compose when scrollback is not at bottom.
+- **Chat plane unhealthy:** disable compose **keyboard submit** (**Enter** in textarea) **and** show inline compose **`role="status"`** at **`#riffsync-chat-compose-status`** with **`CHAT_SEND_DROPPED`** copy in addition to the chat drawer banner (**`presentation.md`**).
 
 ## Theater fullscreen
 
 - Fullscreen enter/exit control remains keyboard-accessible.
 - When participant AV is in fullscreen scope, strip/grid tiles do not steal focus from fullscreen exit on open.
-
-## Open implementation decisions
-
-- Whether chat-plane **`reconnecting`** disables compose **keyboard** submit only or also shows inline compose **`role="status"`** in addition to the sidebar banner.
 
 ## Primary code pointers (optional)
 

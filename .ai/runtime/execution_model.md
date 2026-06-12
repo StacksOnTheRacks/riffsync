@@ -234,9 +234,16 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | **Theater return from Video Chat** | **`RoomRealtimeSdk`** re-runs **`applySubscribeHandlers()`** after **`initTheaterPlayback()`** so consumers and mix nodes reattach. |
 | **Harness / unit assertions** | After forced chat-only WS drop: **`getDiagnostics().drawers.chat`** is **`reconnecting`** then **`connected`**; **`drawers.sfuSignaling`** stays **`connected`**. Inverse for SFU-only drop. See **`lifecycle_shutdown.md`** and **`build_packaging.md`** steps 5–6. |
 
+## Decisions (typed errors — #141)
+
+| Topic | Decision |
+| --- | --- |
+| **Module boundary typing** | Session modules emit **`RealtimeDrawerError`** ( **`code`**, **`drawer`**, optional **`cause`**) — not bare **`Error`**. **`RoomRealtimeSdk`** maps to **`lastErrorCode`** / **`activeErrorCodes`**. |
+| **Implementation files** | **`realtimeDrawerErrors.ts`** (types + mappers), **`drawerErrorPresentation.ts`** (copy + DOM ids). |
+
 ## Open implementation decisions
 
-_(None for #140 scope — peer #141 owns error-code UX completion.)_
+_(None for #140 scope — peer #141 owns error-code UX completion; #141 open items resolved in this pass.)_
 
 ## Primary code pointers (optional)
 

@@ -34,10 +34,10 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | Room mode / AV kill switch ordering? | **Durable room write before fan-out** when persisted; best-effort delivery order across connections (same as playback **`PATCH`** + chat). |
 | Chat reconnect tears down SFU? | **No** — orthogonal drawer lifecycles; room WS recovery must not close SFU session without media policy. |
 | `share_state: stopped` tears down SFU for guests? | **No** — **`host_screen` consumer detach only**; preserve SFU session and **`participant_av`**. |
+| Chat outbound retry before **`CHAT_SEND_DROPPED`**? | **No retry queue** — first failed send while chat plane unavailable emits **`CHAT_SEND_DROPPED`** (**#140** / **`api_contracts.md`**). |
 
 ## Open implementation decisions
 
-- Chat outbound **retry/backoff** policy before **`CHAT_SEND_DROPPED`** (counts, max queue age).
 - Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
 - Presence re-hydration message shape after room WS reconnect (reuse existing **`presence`** broadcast vs incremental delta).
 
