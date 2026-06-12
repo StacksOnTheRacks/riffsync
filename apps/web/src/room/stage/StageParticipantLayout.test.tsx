@@ -88,7 +88,9 @@ describe('StageParticipantLayout', () => {
       viewportWide: true,
       tiles: [tile],
     })
-    const video = container.querySelector('video.riffsync-room-page__participant-tile-video')
+    const video = container.querySelector(
+      'video.riffsync-room-page__participant-tile-video',
+    ) as HTMLVideoElement | null
     expect(video?.srcObject).toBe(stream)
 
     renderLayout({
