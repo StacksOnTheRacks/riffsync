@@ -10,11 +10,11 @@ function readSrc(relativePath: string): string {
 }
 
 describe('chat drawer UX wiring (#207)', () => {
-  it('useRoomRealtimeSdk exposes chat drawer presentation from diagnostics only', () => {
-    const src = readSrc('useRoomRealtimeSdk.ts')
-    expect(src).toContain('selectDrawerPresentation')
-    expect(src).toContain('chatDrawerBanner: drawerPresentation.chatDrawerBanner')
-    expect(src).toContain('chatComposeStatus: drawerPresentation.chatComposeStatus')
+  it('useRoomMediaEngine exposes chat drawer presentation from diagnostics only', () => {
+    const src = readSrc('useRoomMediaEngine.ts')
+    const engineSrc = readSrc('engine/RoomMediaEngine.ts')
+    expect(engineSrc).toContain('selectDrawerPresentation')
+    expect(src).toContain('getDrawerPresentation')
     expect(src).not.toMatch(/chatDrawerBanner:[\s\S]*drawers\.sfuSignaling/)
     expect(src).not.toMatch(/chatComposeStatus:[\s\S]*drawers\.sfuSignaling/)
   })
@@ -23,7 +23,7 @@ describe('chat drawer UX wiring (#207)', () => {
     const src = readSrc('../pages/RoomPage.tsx')
     expect(src).toMatch(/chatDrawerBanner=\{chatDrawerBanner\}/)
     expect(src).toMatch(/chatComposeStatus=\{chatComposeStatus\}/)
-    expect(src).toContain('useRoomRealtimeSdk')
+    expect(src).toContain('useRoomMediaEngine')
   })
 
   it('RoomPageSidebar renders chat drawer banner and compose status surfaces', () => {

@@ -155,7 +155,15 @@ const drawerStatusMockConfig = vi.hoisted(() => {
 
     setCaptureStreamForTheater() {}
     setYoutubeVideoIdForTheater() {}
-    syncHostScreenPublish() {}
+    setRoomMode() {}
+    setAvDisabled() {}
+    updateFanToken() {}
+    getSfuStatus() {
+      return 'open' as const
+    }
+    syncHostScreenPublish() {
+      return () => undefined
+    }
     unpublishHostScreen() {}
     playGuestVideo() {
       return Promise.resolve()

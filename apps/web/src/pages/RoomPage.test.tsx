@@ -216,7 +216,7 @@ describe('RoomPage session integration', () => {
     for (const token of forbidden) {
       expect(src).not.toContain(token)
     }
-    expect(src).toContain('useRoomRealtimeSdk')
+    expect(src).toContain('useRoomMediaEngine')
   })
 
   it('constructs session modules on mount and tears them down on unmount', async () => {

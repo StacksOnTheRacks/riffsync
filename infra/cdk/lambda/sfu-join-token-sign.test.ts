@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { verifySfuJoinToken } from '../../../services/riffsync-sfu/src/jwt';
+import {
+  allowedProducerClasses,
+  isProducerClassAllowed,
+  verifySfuJoinToken,
+} from '../../../services/riffsync-sfu/src/jwt';
 import { signSfuJoinToken } from './sfu-join-token-sign';
 
 describe('signSfuJoinToken', () => {
@@ -95,5 +99,67 @@ describe('verifySfuJoinToken producerClass', () => {
       secret,
     );
     expect(verifySfuJoinToken(token, secret)).toBeNull();
+  });
+});
+
+describe('verifySfuJoinToken producerClasses', () => {
+  const secret = 'test-hmac-secret-at-least-32-chars-long';
+
+  it('accepts producerClasses with both host_screen and participant_av', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = signSfuJoinToken(
+      {
+        env: 'prod',
+        roomId: 'room-1',
+        sessionId: 'sess-host',
+        role: 'producer',
+        producerClasses: ['host_screen', 'participant_av'],
+        fanSub: 'host-sub',
+        iat: now,
+        exp: now + 60,
+      },
+      secret,
+    );
+    const claims = verifySfuJoinToken(token, secret);
+    expect(claims?.producerClasses).toEqual(['host_screen', 'participant_av']);
+    expect(isProducerClassAllowed(claims!, 'host_screen')).toBe(true);
+    expect(isProducerClassAllowed(claims!, 'participant_av')).toBe(true);
+  });
+
+  it('rejects participant_av not in allowed set', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = signSfuJoinToken(
+      {
+        env: 'prod',
+        roomId: 'room-1',
+        sessionId: 'sess-1',
+        role: 'producer',
+        producerClasses: ['host_screen'],
+        iat: now,
+        exp: now + 60,
+      },
+      secret,
+    );
+    const claims = verifySfuJoinToken(token, secret)!;
+    expect(isProducerClassAllowed(claims, 'participant_av')).toBe(false);
+  });
+
+  it('maps legacy host tokens without class claims to allow-all produce', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const token = signSfuJoinToken(
+      {
+        env: 'prod',
+        roomId: 'room-1',
+        sessionId: 'sess-host',
+        role: 'producer',
+        iat: now,
+        exp: now + 60,
+      },
+      secret,
+    );
+    const claims = verifySfuJoinToken(token, secret);
+    expect(allowedProducerClasses(claims!)).toEqual([]);
+    expect(isProducerClassAllowed(claims!, 'host_screen')).toBe(true);
+    expect(isProducerClassAllowed(claims!, 'participant_av')).toBe(true);
   });
 });

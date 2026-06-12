@@ -22,6 +22,9 @@ export type SfuJoinClaims = {
   roomId: string;
   sessionId: string;
   role: 'producer' | 'consumer';
+  /** Authoritative allowed produce classes when role is producer. */
+  producerClasses?: ProducerClass[];
+  /** Legacy single-class claim; treated as one-element producerClasses during verify. */
   producerClass?: ProducerClass;
   fanSub?: string;
   iat: number;
@@ -31,6 +34,38 @@ export type SfuJoinClaims = {
 function parseProducerClass(value: unknown): ProducerClass | null {
   if (value === 'host_screen' || value === 'participant_av') return value;
   return null;
+}
+
+function parseProducerClasses(value: unknown): ProducerClass[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const out: ProducerClass[] = [];
+  for (const entry of value) {
+    const parsed = parseProducerClass(entry);
+    if (!parsed) return null;
+    if (!out.includes(parsed)) out.push(parsed);
+  }
+  return out.length > 0 ? out : null;
+}
+
+/** Normalized allowed classes for produce authorization (legacy + new claims). */
+export function allowedProducerClasses(claims: SfuJoinClaims): ProducerClass[] {
+  if (claims.producerClasses && claims.producerClasses.length > 0) {
+    return claims.producerClasses;
+  }
+  if (claims.producerClass) {
+    return [claims.producerClass];
+  }
+  return [];
+}
+
+export function isProducerClassAllowed(claims: SfuJoinClaims, producerClass: ProducerClass): boolean {
+  if (claims.role !== 'producer') return false;
+  const allowed = allowedProducerClasses(claims);
+  if (allowed.length === 0) {
+    // Legacy host_screen tokens omitted producerClass entirely; allow any produce for producers.
+    return !claims.producerClass && !claims.producerClasses;
+  }
+  return allowed.includes(producerClass);
 }
 
 export function verifySfuJoinToken(token: string, secret: string): SfuJoinClaims | null {
@@ -62,6 +97,14 @@ export function verifySfuJoinToken(token: string, secret: string): SfuJoinClaims
   const now = Math.floor(Date.now() / 1000);
   if (o.exp < now) return null;
 
+  let producerClasses: ProducerClass[] | undefined;
+  if (o.producerClasses !== undefined && o.producerClasses !== null) {
+    if (o.role !== 'producer') return null;
+    const parsed = parseProducerClasses(o.producerClasses);
+    if (!parsed) return null;
+    producerClasses = parsed;
+  }
+
   let producerClass: ProducerClass | undefined;
   if (o.producerClass !== undefined && o.producerClass !== null) {
     if (o.role !== 'producer') return null;
@@ -77,8 +120,9 @@ export function verifySfuJoinToken(token: string, secret: string): SfuJoinClaims
   }
 
   if (o.role === 'producer') {
-    if (producerClass === 'participant_av' && !fanSub) return null;
-  } else if (producerClass !== undefined || fanSub !== undefined) {
+    const effective = producerClasses ?? (producerClass ? [producerClass] : []);
+    if (effective.includes('participant_av') && !fanSub) return null;
+  } else if (producerClass !== undefined || producerClasses !== undefined || fanSub !== undefined) {
     return null;
   }
 
@@ -90,6 +134,7 @@ export function verifySfuJoinToken(token: string, secret: string): SfuJoinClaims
     iat: o.iat,
     exp: o.exp,
   };
+  if (producerClasses) claims.producerClasses = producerClasses;
   if (producerClass) claims.producerClass = producerClass;
   if (fanSub) claims.fanSub = fanSub;
   return claims;

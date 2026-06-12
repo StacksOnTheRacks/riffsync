@@ -283,6 +283,18 @@ export function listProducerSummaries(roomKey: string): ProducerSummary[] {
   return out;
 }
 
+/** Close idle router when the room has no producers (called after last subscriber disconnects). */
+export function maybeCloseIdleRoom(roomKey: string): void {
+  const rt = roomMap.get(roomKey);
+  if (!rt || rt.producers.size > 0) return;
+  if (rt.closeTimer) {
+    clearTimeout(rt.closeTimer);
+    rt.closeTimer = null;
+  }
+  rt.router.close();
+  roomMap.delete(roomKey);
+}
+
 export type SignalingSession = {
   claims: SfuJoinClaims;
   roomKey: string;

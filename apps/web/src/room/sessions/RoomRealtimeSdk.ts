@@ -342,8 +342,57 @@ export class RoomRealtimeSdk {
     stream: MediaStream | null
     roomMode: RoomMode
     isPublisher: boolean
-  }): void {
-    this.sfu?.syncHostScreenPublish(opts)
+  }): () => void {
+    return this.sfu?.syncHostScreenPublish(opts) ?? (() => undefined)
+  }
+
+  setRoomMode(roomMode: RoomMode): void {
+    if (this.roomMode === roomMode) return
+    const previousMode = this.roomMode
+    this.roomMode = roomMode
+    this.theaterLayoutActive = roomMode === 'theater'
+    this.sfu?.handleRoomModeTransition(previousMode, roomMode, this.isHost)
+    if (roomMode === 'theater') {
+      this.initTheaterPlayback()
+    } else {
+      this.theater?.configure({
+        enabled: false,
+        isPublisher: this.isHost,
+        avDisabled: this.avDisabled,
+      })
+      this.theater?.detachSfuSession()
+      this.theaterBootstrapped = false
+    }
+    this.emitDiagnosticsChange()
+  }
+
+  setAvDisabled(avDisabled: boolean): void {
+    if (this.avDisabled === avDisabled) return
+    const previous = this.avDisabled
+    this.avDisabled = avDisabled
+    this.sfu?.updatePublishGate({ avDisabled })
+    if (avDisabled && !previous) {
+      this.sfu?.handleAvDisabledKillSwitch()
+    }
+    if (this.theaterLayoutActive && this.theaterBootstrapped) {
+      this.theater?.configure({
+        enabled: true,
+        isPublisher: this.isHost,
+        avDisabled,
+      })
+    }
+    this.emitDiagnosticsChange()
+  }
+
+  updateFanToken(accessToken: string | null): void {
+    if (this.joinOptions) {
+      this.joinOptions.accessToken = accessToken
+    }
+    this.sfu?.updatePublishGate({ fanToken: accessToken })
+  }
+
+  getSfuStatus(): SfuMediaSessionStatus {
+    return this.sfu?.getStatus() ?? 'idle'
   }
 
   getTheaterSnapshot(): TheaterPlaybackSnapshot {
@@ -541,6 +590,7 @@ export class RoomRealtimeSdk {
         roomId: this.roomId,
         sessionId: options.sessionId,
         accessToken: options.accessToken ?? null,
+        isHost: this.isHost,
         getIceServers,
         getHostScreenStream: () => this.getHostScreenStream(),
         enabled: true,

@@ -2,6 +2,7 @@ import type { Transport } from 'mediasoup-client/types'
 import { emitClientDrawerLog } from '../clientDrawerLog'
 import { ICE_DISCONNECTED_FAILURE_MS } from '../realtimeDrawerErrors'
 import { webrtcDebugEnabled, webrtcLog } from '../webrtcDebug'
+import { logIceCandidateSummary, summarizeLocalIceCandidates } from './iceDiagnostics'
 
 type TransportWithHandler = {
   _handler?: { _pc?: RTCPeerConnection }
@@ -113,7 +114,17 @@ export function attachTransportConnectivityDrawerLog(
   }
 
   const onIceGatheringStateChange = () => {
-    if (pc.iceGatheringState !== 'complete' || !turnRequired) return
+    if (pc.iceGatheringState !== 'complete') return
+    logIceCandidateSummary(pc)
+    const summary = summarizeLocalIceCandidates(pc.localDescription?.sdp ?? '')
+    if (summary.hasRelay) {
+      emitClientDrawerLog({
+        drawer: 'connectivity',
+        event: 'ice_relay_candidate',
+        outcome: 'recovered',
+      })
+    }
+    if (!turnRequired) return
     if (!localDescriptionHasRelayCandidate(pc)) {
       emitTurnRelayRequired()
     }

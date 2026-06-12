@@ -19,7 +19,7 @@ import {
 import { StageParticipantLayout } from '../room/stage/StageParticipantLayout'
 import { enteredVideoChatMode } from '../room/roomMediaLifecycle'
 import { useRoomSnapshot } from '../room/useRoomSnapshot'
-import { useRoomRealtimeSdk } from '../room/useRoomRealtimeSdk'
+import { useRoomMediaEngine } from '../room/useRoomMediaEngine'
 import { useHostScreenCapture } from '../room/useHostScreenCapture'
 import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { RoomPlaybackPanel } from '../room/RoomPlaybackPanel'
@@ -130,7 +130,7 @@ export function RoomPage() {
     bindHostCaptureVideo,
     stageParticipantTiles,
     stageLayoutUpdating,
-  } = useRoomRealtimeSdk({
+  } = useRoomMediaEngine({
     wsBase,
     canonicalRoomId,
     roomId,

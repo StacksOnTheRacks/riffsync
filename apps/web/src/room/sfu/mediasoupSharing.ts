@@ -12,6 +12,7 @@ export type SfuTokenResponse = {
   token: string
   role: 'producer' | 'consumer'
   producerClass?: 'host_screen' | 'participant_av'
+  producerClasses?: ('host_screen' | 'participant_av')[]
   wsUrl?: string
   expiresInSeconds?: number
 }

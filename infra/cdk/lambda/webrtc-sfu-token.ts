@@ -20,7 +20,7 @@ type JsonRecord = { [key: string]: unknown };
 type GrantResult =
   | {
       role: 'producer';
-      producerClass: SfuProducerClass;
+      producerClasses: SfuProducerClass[];
       fanSub?: string;
     }
   | { role: 'consumer' };
@@ -99,15 +99,39 @@ function maxParticipantAvPublishers(): number {
   return Math.min(8, Math.max(1, Math.floor(perRoom / 3)));
 }
 
-function parseRequestedProducerClass(body: JsonRecord): SfuProducerClass | null | 'invalid' {
-  if (!Object.prototype.hasOwnProperty.call(body, 'producerClass')) {
-    return null;
+function parseProducerClass(value: unknown): SfuProducerClass | null {
+  if (value === 'host_screen' || value === 'participant_av') return value;
+  return null;
+}
+
+type ProducerIntent =
+  | { kind: 'consumer' }
+  | { kind: 'invalid' }
+  | { kind: 'producer'; requestedClasses: SfuProducerClass[] };
+
+function parseProducerIntent(body: JsonRecord): ProducerIntent {
+  const hasLegacy = Object.prototype.hasOwnProperty.call(body, 'producerClass');
+  const hasArray = Object.prototype.hasOwnProperty.call(body, 'producerClasses');
+
+  if (!hasLegacy && !hasArray) {
+    return { kind: 'consumer' };
   }
-  const raw = body.producerClass;
-  if (raw === 'host_screen' || raw === 'participant_av') {
-    return raw;
+
+  if (hasArray) {
+    const raw = body.producerClasses;
+    if (!Array.isArray(raw) || raw.length === 0) return { kind: 'invalid' };
+    const classes: SfuProducerClass[] = [];
+    for (const entry of raw) {
+      const parsed = parseProducerClass(entry);
+      if (!parsed) return { kind: 'invalid' };
+      if (!classes.includes(parsed)) classes.push(parsed);
+    }
+    return { kind: 'producer', requestedClasses: classes };
   }
-  return 'invalid';
+
+  const legacy = parseProducerClass(body.producerClass);
+  if (!legacy) return { kind: 'invalid' };
+  return { kind: 'producer', requestedClasses: [legacy] };
 }
 
 function fanSubFromConn(conn: JsonRecord): string {
@@ -227,11 +251,18 @@ async function resolveParticipantAvGrant(
       error: 'This room has reached the maximum number of live cameras and microphones.',
     };
   }
-  return { role: 'producer', producerClass: 'participant_av', fanSub: effectiveFanSub };
+  return { role: 'producer', producerClasses: ['participant_av'], fanSub: effectiveFanSub };
+}
+
+function hostProducerClasses(room: JsonRecord): SfuProducerClass[] {
+  if (readAvDisabled(room)) {
+    return ['host_screen'];
+  }
+  return ['host_screen', 'participant_av'];
 }
 
 async function resolveGrant(
-  requested: SfuProducerClass | null,
+  intent: ProducerIntent,
   room: JsonRecord,
   presenceTable: string,
   roomId: string,
@@ -242,7 +273,22 @@ async function resolveGrant(
   const connFanSub = fanSubFromConn(myConn);
   const isHostJwt = jwtUser?.sub === roomHostSub;
 
-  if (requested === 'host_screen') {
+  if (intent.kind === 'consumer') {
+    return { role: 'consumer' };
+  }
+  if (intent.kind === 'invalid') {
+    return {
+      status: 403,
+      code: 'fan_auth_required',
+      error: 'Invalid producerClasses request.',
+    };
+  }
+
+  const requested = intent.requestedClasses;
+  const wantsHostScreen = requested.includes('host_screen');
+  const wantsParticipantAv = requested.includes('participant_av');
+
+  if (wantsHostScreen) {
     if (!isHostJwt || !isHostConnection(myConn, roomHostSub)) {
       return {
         status: 403,
@@ -250,10 +296,40 @@ async function resolveGrant(
         error: 'Only the room host may publish screen share.',
       };
     }
-    return { role: 'producer', producerClass: 'host_screen' };
+    if (wantsParticipantAv) {
+      if (readAvDisabled(room)) {
+        return { role: 'producer', producerClasses: ['host_screen'] };
+      }
+      const avGrant = await resolveParticipantAvGrant(
+        room,
+        presenceTable,
+        roomId,
+        jwtUser,
+        connFanSub,
+      );
+      if ('code' in avGrant) {
+        if (avGrant.code === 'av_disabled') {
+          return { role: 'producer', producerClasses: ['host_screen'] };
+        }
+        return avGrant;
+      }
+      return { role: 'producer', producerClasses: hostProducerClasses(room), fanSub: avGrant.fanSub };
+    }
+    return { role: 'producer', producerClasses: ['host_screen'] };
   }
 
-  if (requested === 'participant_av') {
+  if (wantsParticipantAv) {
+    if (isHostJwt && isHostConnection(myConn, roomHostSub)) {
+      const avGrant = await resolveParticipantAvGrant(
+        room,
+        presenceTable,
+        roomId,
+        jwtUser,
+        connFanSub,
+      );
+      if ('code' in avGrant) return avGrant;
+      return { role: 'producer', producerClasses: hostProducerClasses(room), fanSub: avGrant.fanSub };
+    }
     return resolveParticipantAvGrant(room, presenceTable, roomId, jwtUser, connFanSub);
   }
 
@@ -287,9 +363,11 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
     return json(400, { error: 'roomId required' });
   }
 
-  const requestedProducerClass = parseRequestedProducerClass(body);
-  if (requestedProducerClass === 'invalid') {
-    return json(400, { error: 'producerClass must be host_screen or participant_av' });
+  const producerIntent = parseProducerIntent(body);
+  if (producerIntent.kind === 'invalid') {
+    return json(400, {
+      error: 'producerClasses must be a non-empty array of host_screen and/or participant_av',
+    });
   }
 
   const sessionHeader = headers['x-session-id'] ?? headers['X-Session-Id'];
@@ -321,14 +399,7 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
     });
   }
 
-  const grant = await resolveGrant(
-    requestedProducerClass,
-    room,
-    presenceTable,
-    roomId,
-    jwtUser,
-    myConn,
-  );
+  const grant = await resolveGrant(producerIntent, room, presenceTable, roomId, jwtUser, myConn);
   if ('code' in grant) {
     return deny(grant);
   }
@@ -342,9 +413,9 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
       roomId,
       sessionId,
       role: grant.role,
-      ...(grant.role === 'producer' && grant.producerClass === 'participant_av'
+      ...(grant.role === 'producer'
         ? {
-            producerClass: grant.producerClass,
+            producerClasses: grant.producerClasses,
             ...(grant.fanSub ? { fanSub: grant.fanSub } : {}),
           }
         : {}),
@@ -361,7 +432,10 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
     expiresInSeconds: ttlSec,
   };
   if (grant.role === 'producer') {
-    response.producerClass = grant.producerClass;
+    response.producerClasses = grant.producerClasses;
+    if (grant.producerClasses.length === 1) {
+      response.producerClass = grant.producerClasses[0];
+    }
   }
 
   return json(200, response);

@@ -23,6 +23,9 @@ export type SfuJoinPayload = {
   roomId: string;
   sessionId: string;
   role: 'producer' | 'consumer';
+  /** Authoritative allowed produce classes. */
+  producerClasses?: SfuProducerClass[];
+  /** Legacy single-class claim (avoid on new mints). */
   producerClass?: SfuProducerClass;
   fanSub?: string;
   iat: number;

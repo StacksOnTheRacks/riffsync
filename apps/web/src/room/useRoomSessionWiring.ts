@@ -31,6 +31,7 @@ import { buildStageParticipantTiles } from './stage/stageParticipantTiles'
 import { useStageLayoutTransition } from './stage/useStageLayoutTransition'
 import type { ChatLine, PresenceMember } from './roomPageTypes'
 
+/** @deprecated Use useRoomMediaEngine instead. */
 export function useRoomSessionWiring(options: {
   wsBase: string | undefined
   canonicalRoomId: string

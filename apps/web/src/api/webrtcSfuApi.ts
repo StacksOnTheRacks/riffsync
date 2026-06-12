@@ -9,12 +9,17 @@ function requireApiBase(apiBase: string | undefined): string {
   return apiBase
 }
 
+export type SfuProducerClass = 'host_screen' | 'participant_av'
+
 export async function fetchSfuJoinToken(options: {
   apiBaseUrl: string | undefined
   roomId: string
   sessionId: string
   accessToken: string | null
-  producerClass?: 'host_screen' | 'participant_av'
+  /** Legacy single-class request. */
+  producerClass?: SfuProducerClass
+  /** Preferred: request allowed producer classes. */
+  producerClasses?: SfuProducerClass[]
 }): Promise<SfuTokenResponse> {
   const base = requireApiBase(options.apiBaseUrl)
   const headers: Record<string, string> = {
@@ -24,10 +29,16 @@ export async function fetchSfuJoinToken(options: {
   if (options.accessToken) {
     headers.Authorization = `Bearer ${options.accessToken}`
   }
-  const body: { roomId: string; producerClass?: 'host_screen' | 'participant_av' } = {
+  const body: {
+    roomId: string
+    producerClass?: SfuProducerClass
+    producerClasses?: SfuProducerClass[]
+  } = {
     roomId: options.roomId,
   }
-  if (options.producerClass) {
+  if (options.producerClasses && options.producerClasses.length > 0) {
+    body.producerClasses = options.producerClasses
+  } else if (options.producerClass) {
     body.producerClass = options.producerClass
   }
   const res = await fetch(`${base.replace(/\/$/, '')}/v1/webrtc/sfu-token`, {

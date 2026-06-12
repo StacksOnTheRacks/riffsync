@@ -25,14 +25,20 @@ import {
   removeProducersForSession,
   roomKeyFromClaims,
   shutdownMediasoup,
+  maybeCloseIdleRoom,
   transportListenIps,
   upsertProducer,
   verifySfuJoinToken,
   type ProducerSummary,
   type RoomRuntime,
 } from './rooms.js';
-import { isProducerClass, type ProducerClass, type SfuJoinClaims } from './jwt.js';
-import { emitMediaLimitRejected } from './media-observability.js';
+import {
+  isProducerClass,
+  isProducerClassAllowed,
+  type ProducerClass,
+  type SfuJoinClaims,
+} from './jwt.js';
+import { emitMediaLimitRejected, emitProduceFailure } from './media-observability.js';
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const JWT_SECRET = process.env.SFU_JWT_SECRET?.trim() ?? '';
@@ -42,7 +48,7 @@ const MAX_TRANSPORTS = Math.max(1, Number.parseInt(process.env.SFU_MAX_WEBRTC_TR
 const MAX_CONSUMERS = Math.max(1, Number.parseInt(process.env.SFU_MAX_CONSUMERS_PER_SESSION ?? '64', 10));
 const MAX_PRODUCERS_PER_SESSION = Math.max(
   1,
-  Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_SESSION ?? '3', 10),
+  Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_SESSION ?? '4', 10),
 );
 const MAX_PRODUCERS_PER_ROOM = Math.max(1, Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_ROOM ?? '24', 10));
 
@@ -88,6 +94,7 @@ function unregisterSubscriber(roomKey: string, sessionId: string, ws: WebSocket)
   }
   if (s.size === 0) {
     subscribersByRoom.delete(roomKey);
+    maybeCloseIdleRoom(roomKey);
   }
 }
 
@@ -486,6 +493,7 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
 
       case 'produce': {
         if (p.claims.role !== 'producer') {
+          emitProduceFailure('forbidden');
           send(ws, errResponse(id, 'forbidden'));
           return;
         }
@@ -496,19 +504,23 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
         const rtpParameters = data.rtpParameters;
         const transport = p.transports.get(transportId);
         if (!transport || !kind || !producerClass || typeof rtpParameters !== 'object' || rtpParameters === null) {
+          emitProduceFailure('bad_params');
           send(ws, errResponse(id, 'bad produce params'));
           return;
         }
-        if (p.claims.producerClass && p.claims.producerClass !== producerClass) {
+        if (!isProducerClassAllowed(p.claims, producerClass)) {
+          emitProduceFailure('producer_class_mismatch');
           send(ws, errResponse(id, 'producer_class_mismatch'));
           return;
         }
         const replacing = hasProducerForTuple(p.roomKey, p.claims.sessionId, producerClass, kind);
         if (!replacing && countProducersForSession(p.roomKey, p.claims.sessionId) >= MAX_PRODUCERS_PER_SESSION) {
+          emitProduceFailure('session_producer_limit');
           send(ws, errResponse(id, 'session producer limit reached'));
           return;
         }
         if (!replacing && countProducersInRoom(p.roomKey) >= MAX_PRODUCERS_PER_ROOM) {
+          emitProduceFailure('room_producer_limit');
           send(ws, errResponse(id, 'room producer limit reached'));
           return;
         }

@@ -104,11 +104,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const credential = turnRestCredential(secret, username);
 
   const port = (process.env.TURN_PORT ?? '3478').trim() || '3478';
-  const tlsPort = (process.env.TURN_TLS_PORT ?? '').trim();
+  const tlsPort = (process.env.TURN_TLS_PORT ?? '443').trim();
+  const tcp443Port = (process.env.TURN_TCP443_PORT ?? '443').trim();
 
   const urls: string[] = [
     `turn:${turnHost}:${port}?transport=udp`,
     `turn:${turnHost}:${port}?transport=tcp`,
+    `turn:${turnHost}:${tcp443Port}?transport=tcp`,
   ];
   if (tlsPort !== '') {
     urls.push(`turns:${turnHost}:${tlsPort}?transport=tcp`);

@@ -26,7 +26,8 @@ export function StageParticipantLayout({
   playback,
 }: StageParticipantLayoutProps) {
   const showDesktopStrip = avSurfacesEnabled && viewportWide && roomMode === 'theater' && tiles.length > 0
-  const showNarrowRow = avSurfacesEnabled && !viewportWide && tiles.length > 0
+  const showNarrowRow =
+    avSurfacesEnabled && !viewportWide && roomMode === 'theater' && tiles.length > 0
   const showVideoChatEmpty =
     roomMode === 'videoChat' && viewportWide && tiles.length === 0 && !layoutUpdating
 

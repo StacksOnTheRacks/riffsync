@@ -36,6 +36,9 @@ import {
 import type { ChatSessionStatus } from './sessions/ChatSession'
 import type { ParticipantAvController } from './sfu/participantAvSession'
 
+/**
+ * @deprecated Use useRoomMediaEngine instead. This hook tears down media on room snapshot identity changes.
+ */
 export function useRoomRealtimeSdk(options: {
   wsBase: string | undefined
   canonicalRoomId: string

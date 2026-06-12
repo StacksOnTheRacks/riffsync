@@ -79,12 +79,15 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | **`roomId`** | Always | Target watch room. |
 | **`sessionId`** | Always | Browser tab presence id (**`X-Session-Id`**). |
 | **`role`** | Always | **`producer`** or **`consumer`**. |
-| **`producerClass`** | **`role === producer`** | **`host_screen`** (tab capture) or **`participant_av`** (**`getUserMedia`**). |
-| **`fanSub`** | **`producerClass === participant_av`** | Cognito **`sub`** for audit and rate limits. |
+| **`producerClasses`** | **`role === producer`** | Non-empty array of allowed classes: **`host_screen`**, **`participant_av`**, or both. Authoritative grant shape. |
+| **`producerClass`** | Legacy rollout only | Single class; verify as **`[producerClass]`**. Prefer **`producerClasses`** on new mints. |
+| **`fanSub`** | When **`participant_av`** is in **`producerClasses`** | Cognito **`sub`** for audit and rate limits. |
 | **`iat`**, **`exp`** | Always | HMAC JWT lifetime (**900s** today). |
 
-- **One producer token per session** authorizes **multiple** mediasoup **`produce`** calls on the same SFU WebSocket (separate **`audio`** and **`video`** producers). No per-kind re-mint.
-- **Host concurrent producers:** **one SFU WebSocket per browser tab** may carry **`host_screen`** and **`participant_av`** producers together.
+- **One producer token per session** authorizes **multiple** mediasoup **`produce`** calls on the same SFU WebSocket (separate **`audio`** and **`video`** producers per class). No per-kind re-mint.
+- **Host concurrent producers:** **one SFU WebSocket per browser tab** may carry **`host_screen`** and **`participant_av`** producers together when both appear in **`producerClasses`**.
+- **Host mint:** **`POST /v1/webrtc/sfu-token`** signs **`producerClasses: ['host_screen', 'participant_av']`** for the room host when **`avDisabled`** is false; **`['host_screen']`** only when the kill switch is on.
+- **Non-host fan mint:** signs **`producerClasses: ['participant_av']`** when eligible.
 
 ## `POST /v1/webrtc/sfu-token` denial codes
 

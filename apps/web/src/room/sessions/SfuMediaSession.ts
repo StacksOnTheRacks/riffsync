@@ -41,6 +41,9 @@ import {
 import { emitClientDrawerLog } from '../clientDrawerLog'
 import { sfuLifecycleAfterFailedCycle } from './drawerReconnectPolicy'
 import { resolveJwtRemintDelayMs } from './sfuJwtRemintSchedule'
+import { resolveSfuTokenRequest } from './sfuTokenRequest'
+
+export { resolveSfuTokenProducerClass, resolveSfuTokenRequest } from './sfuTokenRequest'
 
 export type SfuMediaSessionStatus =
   | 'idle'
@@ -76,6 +79,7 @@ export type StartSfuRoomSessionOpts = SessionHooks & {
   roomId: string
   sessionId: string
   accessToken: string | null
+  isHost?: boolean
   getIceServers: () => Promise<RTCIceServer[]>
   onRemoteStream: (stream: MediaStream | null) => void
   onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
@@ -88,6 +92,7 @@ export type SfuMediaSessionConnectOptions = {
   roomId: string
   sessionId: string
   accessToken: string | null
+  isHost?: boolean
   getIceServers: () => Promise<RTCIceServer[]>
   getHostScreenStream: () => MediaStream | null
   enabled?: boolean
@@ -138,20 +143,6 @@ export function isRosterConsistency403(e: unknown): boolean {
     /sfu-token\s+403:/i.test(msg) &&
     /open the room websocket first|unknown session for this room/i.test(msg)
   )
-}
-
-export function resolveSfuTokenProducerClass(opts: {
-  participantAv: ParticipantAvController
-  getHostScreenStream: () => MediaStream | null
-}): SfuProducerClass | undefined {
-  const hostStream = opts.getHostScreenStream()
-  if (hostStream?.getTracks().some((track) => track.readyState === 'live')) {
-    return 'host_screen'
-  }
-  if (opts.participantAv.getState().needsProducerToken) {
-    return 'participant_av'
-  }
-  return undefined
 }
 
 async function sleepBackoffMs(ms: number, signal: AbortSignal): Promise<void> {
@@ -220,9 +211,10 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
         continue
       }
 
-      const producerClass = resolveSfuTokenProducerClass({
+      const tokenRequest = resolveSfuTokenRequest({
         participantAv,
         getHostScreenStream: opts.getHostScreenStream,
+        isHost: opts.isHost === true,
       })
 
       let tok
@@ -232,11 +224,15 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
           roomId,
           sessionId: opts.sessionId,
           accessToken: opts.accessToken,
-          ...(producerClass ? { producerClass } : {}),
+          ...(tokenRequest.role === 'producer'
+            ? { producerClasses: tokenRequest.producerClasses }
+            : {}),
         })
       } catch (e) {
         if (signal.aborted) break
-        const hardFail = routeParticipantAvTokenDenial(participantAv, producerClass, e)
+        const legacyClass =
+          tokenRequest.role === 'producer' ? tokenRequest.producerClasses[0] : undefined
+        const hardFail = routeParticipantAvTokenDenial(participantAv, legacyClass, e)
         const rosterRace = isRosterConsistency403(e)
         if (!hardFail && (!rosterRace || attempt >= 4)) {
           opts.onTokenError(formatSfuTokenError(e))
@@ -255,7 +251,7 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
 
       opts.onTokenMinted?.(tok)
 
-      const wantsProducer = producerClass !== undefined
+      const wantsProducer = tokenRequest.role === 'producer'
       if (wantsProducer && tok.role !== 'producer') {
         await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
         continue
@@ -501,6 +497,7 @@ export class SfuMediaSession {
     this.enabled = false
     this.clearJwtRemintTimer()
     this.stopReconnectLoop()
+    this.participantAv.teardownPublishing()
     this.sessionHandle?.unpublishProducerClass('host_screen')
     this.attachedConsumerMeta.clear()
     this.emitRemoteStream(null)
@@ -639,6 +636,7 @@ export class SfuMediaSession {
       roomId: opts.roomId,
       sessionId: opts.sessionId,
       accessToken: opts.accessToken,
+      isHost: opts.isHost,
       getIceServers: opts.getIceServers,
       getHostScreenStream: opts.getHostScreenStream,
       participantAv: this.participantAv,
@@ -778,9 +776,10 @@ export class SfuMediaSession {
     const opts = this.connectOptions
     if (!opts || !this.enabled || this.getStatus() !== 'open') return
 
-    const producerClass = resolveSfuTokenProducerClass({
+    const tokenRequest = resolveSfuTokenRequest({
       participantAv: this.participantAv,
       getHostScreenStream: opts.getHostScreenStream,
+      isHost: opts.isHost === true,
     })
 
     try {
@@ -789,7 +788,9 @@ export class SfuMediaSession {
         roomId: opts.roomId,
         sessionId: opts.sessionId,
         accessToken: opts.accessToken,
-        ...(producerClass ? { producerClass } : {}),
+        ...(tokenRequest.role === 'producer'
+          ? { producerClasses: tokenRequest.producerClasses }
+          : {}),
       })
       this.lastErrorCode = undefined
       if (this.getStatus() === 'open') {
