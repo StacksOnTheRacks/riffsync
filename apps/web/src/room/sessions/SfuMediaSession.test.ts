@@ -144,16 +144,9 @@ describe('startSfuRoomSession recoverable signaling reconnect', () => {
       wsUrl: 'ws://127.0.0.1:3000',
     })
     vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
-      ready: Promise.resolve(),
+      ...mockSfuUnifiedSessionHandle(),
       sessionEnded: Promise.resolve('signaling_close'),
-      close: vi.fn(),
-      unpublishProducerKind: vi.fn(),
-      unpublishProducerClass: vi.fn(),
-      publishStream: vi.fn(),
       supportsPublish: true,
-      detachConsumerClass: vi.fn(),
-      pauseProducerKind: vi.fn(),
-      resumeProducerKind: vi.fn(),
     }))
 
     const participantAv = {
@@ -217,16 +210,10 @@ describe('startSfuRoomSession recoverable signaling reconnect', () => {
       wsUrl: 'ws://127.0.0.1:3000',
     })
     vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
-      ready: Promise.resolve(),
+      ...mockSfuUnifiedSessionHandle(),
       sessionEnded: Promise.resolve('jwt_expired' as SfuSessionEndReason),
-      close: vi.fn(),
-      unpublishProducerKind: vi.fn(),
-      unpublishProducerClass: vi.fn(),
-      publishStream: vi.fn(),
       supportsPublish: true,
-      detachConsumerClass: vi.fn(),
-      pauseProducerKind: vi.fn(),
-      resumeProducerKind: vi.fn(),
+      tokenRole: 'producer',
     }))
 
     const { cancel } = startSfuRoomSession({
