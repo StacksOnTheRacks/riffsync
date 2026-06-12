@@ -276,9 +276,20 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 | **Wiring surfaces** | Drop **`wsOpen`** from **`useSfuMediaSession`**, **`useRoomSessionWiring`**, and **`RoomRealtimeSdk.bootstrapMediaPlanes`** gate updates. **`updatePublishGate`** accepts **`fanToken`** + **`avDisabled`** only. |
 | **Verification** | Unit tests: chat-only WS flap leaves **`needsProducerToken`** true when camera/mic were on; SFU **`signaling_close`** with publish intent preserves toggles and re-**`syncPublish`** on re-attach. Sub-issues under **#148**. |
 
+## Decisions (chat send while SFU degraded — #149)
+
+| Topic | Decision |
+| --- | --- |
+| **Send path gating** | **`RoomRealtimeSdk.sendControl`** and compose handlers (**`sendChat`**, **`sendChatGif`**, **`toggleChatReaction`**) must **not** consult SFU signaling status, **`sfuRoomErr`**, or **`drawers.sfuSignaling.state`**. Only **fan JWT** (for gated actions) and **chat-plane health** gate outbound delivery. |
+| **SFU-only outage** | When **`drawers.chat.state === 'connected'`** and **`drawers.sfuSignaling`** is **`reconnecting`** or **`degraded`**, text/GIF/reaction sends **proceed** if room WS is **`open`**. **`CHAT_SEND_DROPPED`** must **not** appear in **`activeErrorCodes`** solely because SFU is unhealthy. |
+| **`ChatSession.send` contract** | Returns **`boolean`** — **`true`** when payload is written to an **`open`** socket; **`false`** when WS is missing, not **`open`**, or **`ws.send`** throws. Callers clear compose draft **only** on **`true`**. |
+| **`CHAT_SEND_DROPPED` boundary** | Set on **`false`** send result or chat drawer **`error`** status — **never** on SFU signaling **`error`** / **`reconnecting`**. Cleared when chat returns **`open`**. |
+| **Compose feedback** | On drop: inline compose **`role="status"`** region with **`error_state.md`** copy; chat drawer banner shows **Reconnecting chat…** or degraded copy per **`presentation.md`**. Draft text **retained** for manual retry. |
+| **Verification** | Unit tests: SFU-only simulated outage leaves chat send callable and does not set **`CHAT_SEND_DROPPED`**; chat-only outage sets drop code and retains draft. Sub-issues under **#149**. |
+
 ## Open implementation decisions
 
-_(None for #140 / #147 / #148 scope — peer #141 owns error-code UX completion; #141 open items resolved in this pass.)_
+_(None for #140 / #147 / #148 / #149 scope.)_
 
 ## Primary code pointers (optional)
 

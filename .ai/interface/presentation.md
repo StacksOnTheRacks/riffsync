@@ -65,6 +65,13 @@ Normative fan-visible strings when **`getDiagnostics()`** reports drawer lifecyc
 - **Host screen-share idle/negotiating** states (guest waiting for host share) use the **video-relay** surface, not the chat banner.
 - **Anti-pattern (#147):** video-relay resolvers must **not** branch on chat WS state (e.g. **`chatWsDisconnected`** in **`sfuRelayStatusCopy.ts`**). Retire **"Reconnecting chat… Video may pause briefly."** — chat reconnect belongs on the chat banner only.
 
+### Chat compose inline feedback (#149)
+
+- When **`getDiagnostics().drawers.chat.lastErrorCode === 'CHAT_SEND_DROPPED'`** or chat drawer is **`reconnecting`** / **`degraded`**, render an inline **`role="status"`** line **below** the compose row (reuse **`riffsync-room-chat-giphy-status`** error styling).
+- Copy: **`error_state.md`** **`CHAT_SEND_DROPPED`** template — "Message could not be sent. Check chat connection and try again."
+- **Do not** disable compose solely because SFU video-relay status is unhealthy when chat drawer is **`connected`**.
+- Clear inline feedback when chat drawer returns **`connected`** without **`lastErrorCode`**.
+
 ### Host control bar (below stage)
 
 - Visible only when **`JWT.sub === hostSub`**.

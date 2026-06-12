@@ -124,6 +124,7 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 | Mic-only stage chrome? | **Unchanged** — off strip/grid; no avatar chips/badges this milestone. |
 | Media path (all envs)? | **SFU mandatory**; mesh WebRTC UI removed. |
 | Chat send while chat **`reconnecting`**? | **Drop** send; show **sidebar chat status** **and** **inline compose feedback** (honest copy per **`error_state.md`** **`CHAT_SEND_DROPPED`**). |
+| Chat send while SFU **`reconnecting`** / **`degraded`**? | **Allow** when room WS is **`open`** — compose stays enabled for signed-in fans; send proceeds; **no** SFU status on chat compose (**#149**). Retain draft on chat-plane drop only. |
 
 ## Guest host-screen status (SFU-only, #134)
 

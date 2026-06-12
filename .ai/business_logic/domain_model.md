@@ -115,6 +115,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Chat vs video-relay status UX? | **Separate** simultaneous status surfaces (e.g. chat reconnecting vs video relay reconnecting). |
 | Server-side theater audio mixing? | **Deferred** — client-side equal-gain Web Audio mix remains default; document fragility and mitigations in contracts. |
 | CI conformance harness? | **PR-blocking** when web or SFU service paths change; runs against **isolated** ephemeral SFU + TURN; **no** prod footprint touch. |
+| Chat send while SFU degraded? | **Orthogonal** — room WS outbound chat (text, GIF, react) succeeds when chat plane is **`open`**; SFU signaling outage does **not** block send or set **`CHAT_SEND_DROPPED`** (**#149**). |
 
 ## Decisions (partial teardown publish path — #143)
 
