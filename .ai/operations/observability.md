@@ -160,16 +160,30 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 | **Harness failure lines** | When assertion reads **`getDiagnostics()`**, stderr uses observability drawer label: e.g. **`[drawer=connectivity] code=ICE_FAILED step=5`**. |
 | **Support repro** | Dev builds: **`window.riffsyncRoomDiagnostics()`** documents support steps in issue **#158**; production fans use visible status banners + drawer logs only. |
 
+## Decisions (drawer → CloudWatch mapping — #159)
+
+| Topic | Decision |
+| --- | --- |
+| **Operator runbook** | **`docs/observability-drawer-mapping.md`** is the human-facing mapping (tables, investigation steps, Logs Insights examples). **`.ai/operations/observability.md`** (this file) remains the timeless contract; runbook links here and to **`docs/architecture.server.md`**. |
+| **M21 metric posture** | **Client drawer events are log-only** — browser **`clientDrawerLog`** JSON does not emit CloudWatch. Operators correlate fan console lines with AWS signals using the runbook drawer column. |
+| **Deferred client counters** | **`ChatSendDropped`**, **`IceGatheringFailed`**, and **`ProducerLifecycleEvent`** are **not** added in M21. Document as optional future **`RiffSync/Realtime`** / **`RiffSync/Media`** aggregates with **no** `roomId` / `sessionId` / `sub` dimensions. |
+| **`RiffSync/Realtime` (frozen)** | Metric **`Requests`** via Lambda stdout EMF (**`infra/cdk/lambda/riffsync-observability.ts`**). Dimensions **`Environment`**, **`Route`** (`chat` \| `chat_gif` \| `react`), **`Outcome`**. Maps to **chat drawer** only — not SFU signaling. |
+| **`RiffSync/Media` (frozen)** | Metric names are the **`Signal`** dimension values in the **`RiffSync/Media` metrics (#106)** table. Dimensions **`Environment`**, **`Signal`**; **`SfuTokenDenied`** Lambda may add **`Reason`** (server-side only). |
+| **Limit rejection EMF** | **`TransportLimitRejected`** and **`ConsumerLimitRejected`** emit from SFU stdout via **`services/riffsync-sfu/src/media-observability.ts`** — **shipped**; maps to **produce_consume** drawer. |
+| **Health gauges** | **`HealthProbeSuccess`**, **`WorkerAlive`**, **`SignalingConnections`**, **`RouterRoomCount`** are **contracted** but **not auto-scraped in M21** — operator **`curl /healthz`** per **`docs/sfu-deploy-checklist.md`**; periodic Lambda scrape **deferred**. |
+| **EC2 alarms** | **`riffsync-sfu-high-cpu`** (**`CPUUtilization` > 80%**, 5 min) **shipped** in **`media-server-stack.ts`** — no SNS in OSS default. **`StatusCheckFailed`** alarm **deferred** (**#220** optional). |
+| **Investigation order** | (1) Fan console filter **`drawer`** → (2) matching **`getDiagnostics()`** field per #158 table → (3) **`RiffSync/Realtime`** or **`RiffSync/Media`** dashboard / EMF → (4) SFU **`journalctl`** for signaling / produce_consume server lines. |
+
 ## Open implementation decisions
 
-- **Exact metric names** — Whether hardening adds **`ProducerLifecycleEvent`**, **`IceGatheringFailed`**, or **`ChatSendDropped`** counters under **`RiffSync/Media`** / **`RiffSync/Realtime`** vs log-only MVP; dimension sets frozen at ship time (**#159** documents mapping).
-- **EC2 alarms** — Wire **`AWS/EC2` CPUUtilization** (> 80%, 5 min) and **`StatusCheckFailed`** (≥ 1, 2 min) in **`media-server-stack.ts`** this milestone vs defer optional SNS email.
-- **Health probe canary** — Lambda periodic scrape of prod **`/healthz`** emitting **`HealthProbeSuccess`** vs operator-only **`curl`**; schedule, IAM, and cost guardrails.
-- **SFU EMF wiring** — Whether **`TransportLimitRejected`** / **`ConsumerLimitRejected`** emit from SFU stdout in hardening PR or remain checklist-only until scrape Lambda lands.
+- **StatusCheckFailed EC2 alarm** — Optional IaC alarm in **`media-server-stack.ts`** with maintainer SNS — tracked as **#220**; not blocking M21 doc ship.
+- **Health probe scrape Lambda** — Periodic **`/healthz`** scrape emitting **`HealthProbeSuccess`** / gauge metrics — deferred past M21 (cost and IAM guardrails).
+- **Optional aggregate client counters** — **`IceGatheringFailed`**, **`ProducerLifecycleEvent`**, **`ChatSendDropped`** — design only in runbook until a server-side aggregation path exists (no browser **`PutMetricData`**).
 
 ## Primary code pointers (optional)
 
 - **`apps/web/src/room/clientDrawerLog.ts`** — production drawer-tagged console logs (**#157**).
 - **`apps/web/src/room/sessions/roomRealtimeDiagnosticsContract.ts`** — stable **`getDiagnostics()`** contract helpers (**#158**).
 - **`apps/web/src/room/realtimeDiagnostics.ts`** — dev-only diag panel counters (**`?diag=1`**).
+- **`docs/observability-drawer-mapping.md`** — operator runbook for drawer → CloudWatch mapping (**#159**).
 - Dashboard JSON in `infra/` when added.
