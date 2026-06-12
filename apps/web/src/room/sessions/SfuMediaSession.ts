@@ -375,6 +375,7 @@ export class SfuMediaSession {
 
   private remoteStreamListeners = new Set<Listener<MediaStream | null>>()
   private consumerTrackListeners = new Set<Listener<SfuConsumerTrackEvent>>()
+  private lastRemoteStream: MediaStream | null = null
   private errorListeners = new Set<Listener<string | null>>()
   private statusListeners = new Set<Listener<SfuMediaSessionStatus>>()
   private lifecycleListeners = new Set<Listener<SfuMediaSessionLifecycleState>>()
@@ -520,6 +521,14 @@ export class SfuMediaSession {
 
   detachHostScreenConsumers(): void {
     this.sessionHandle?.detachConsumerClass('host_screen')
+  }
+
+  /** Re-deliver live SFU consumer attach events and last host_screen stream to subscribers. */
+  replayActiveMediaSubscriptions(): void {
+    this.sessionHandle?.replayConsumerTracks()
+    for (const listener of this.remoteStreamListeners) {
+      listener(this.lastRemoteStream)
+    }
   }
 
   /** Publish or unpublish host tab capture on the existing SFU session (no full reconnect). */
@@ -726,6 +735,7 @@ export class SfuMediaSession {
   }
 
   private emitRemoteStream(stream: MediaStream | null): void {
+    this.lastRemoteStream = stream
     for (const listener of this.remoteStreamListeners) listener(stream)
   }
 

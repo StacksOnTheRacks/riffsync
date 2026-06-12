@@ -12,6 +12,24 @@ import {
   type RoomRealtimeDiagnostics,
 } from './RoomRealtimeSdk'
 
+vi.mock('../audio/theaterAudioMix', () => ({
+  THEATER_AUDIO_GAIN: 1,
+  shouldRouteConsumerAudio: (producerClass: string | undefined) =>
+    producerClass === 'host_screen' || producerClass === 'participant_av',
+  createTheaterAudioMix: vi.fn(() => ({
+    dispose: vi.fn(),
+    setAvDisabled: vi.fn(),
+    setHostVideoElement: vi.fn(),
+    onConsumerEvent: vi.fn(),
+    resumeIfSuspended: vi.fn().mockResolvedValue(undefined),
+    getAudioContextState: vi.fn().mockReturnValue('running'),
+    watchAudioContextState: vi.fn((listener: (state: AudioContextState | undefined) => void) => {
+      listener('running')
+      return () => undefined
+    }),
+  })),
+}))
+
 const baseSnapshot: RoomSnapshot = {
   roomId: 'room-abc',
   hostSub: 'host-sub',
@@ -626,6 +644,92 @@ describe('RoomRealtimeSdk drawer isolation', () => {
     const diag = sdk.getDiagnostics()
     expect(diag.drawers.chat.lastErrorCode).toBe('CHAT_SEND_DROPPED')
     expect(diag.activeErrorCodes).toContain('CHAT_SEND_DROPPED')
+  })
+})
+
+describe('RoomRealtimeSdk theater playback lifecycle', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('marks theater drawer degraded when AudioContext is suspended', async () => {
+    mockChatConnectOpensImmediately()
+    vi.spyOn(TheaterPlayback.prototype, 'getAudioContextState').mockReturnValue('suspended')
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-theater-degraded',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+    })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.theaterPlayback.state).toBe('degraded')
+    expect(diag.drawers.theaterPlayback.lastErrorCode).toBe('THEATER_AUDIO_SUSPENDED')
+    expect(diag.drawers.theaterPlayback.audioContextState).toBe('suspended')
+  })
+
+  it('replays SFU consumers when transitioning from video chat to theater', async () => {
+    mockChatConnectOpensImmediately()
+    const replayActiveMediaSubscriptions = vi.spyOn(
+      SfuMediaSession.prototype,
+      'replayActiveMediaSubscriptions',
+    )
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: { ...baseSnapshot, roomMode: 'videoChat' },
+      sessionId: 'sess-mode-transition',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+    })
+
+    sdk.subscribe({ participantAv: { onConsumerTrack: vi.fn() } })
+
+    const chat = (sdk as unknown as { chat: ChatSession }).chat
+    const roomModeListeners = (chat as unknown as {
+      roomModeListeners: Set<(ev: { roomMode: string }) => void>
+    }).roomModeListeners
+    for (const listener of roomModeListeners) {
+      listener({ roomMode: 'theater' })
+    }
+
+    await vi.waitFor(() => expect(replayActiveMediaSubscriptions).toHaveBeenCalled())
+    expect(sdk.getDiagnostics().drawers.theaterPlayback.state).toBe('connected')
+  })
+
+  it('keeps theater drawer connected after share_state stopped', async () => {
+    mockChatConnectOpensImmediately()
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-share-stop',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+      isHost: false,
+    })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+
+    const chat = (sdk as unknown as { chat: ChatSession }).chat
+    const shareListeners = (chat as unknown as {
+      shareStateListeners: Set<(ev: { roomId: string; state: unknown }) => void>
+    }).shareStateListeners
+    for (const listener of shareListeners) {
+      listener({ roomId: 'room-abc', state: 'stopped' })
+    }
+
+    expect(sdk.getDiagnostics().drawers.theaterPlayback.state).toBe('connected')
   })
 })
 

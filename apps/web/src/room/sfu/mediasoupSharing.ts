@@ -265,6 +265,8 @@ export type SfuUnifiedSessionHandle = {
   detachConsumerClass: (producerClass: SfuProducerClass) => void
   pauseProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
   resumeProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
+  /** Re-emit attach events for live mediasoup consumers (theater mode re-entry). */
+  replayConsumerTracks: () => void
 }
 
 function parseProducerClass(value: unknown): SfuProducerClass | null {
@@ -744,6 +746,17 @@ export async function connectSfuUnifiedSession(options: {
     detachConsumerClass,
     pauseProducerKind,
     resumeProducerKind,
+    replayConsumerTracks: () => {
+      for (const consumer of mediasoupConsumers) {
+        onConsumerTrack?.({
+          action: 'attach',
+          producerId: consumer.producerId,
+          producerClass: consumerProducerClassById.get(consumer.producerId),
+          kind: consumer.kind === 'audio' || consumer.kind === 'video' ? consumer.kind : 'audio',
+          track: consumer.track,
+        })
+      }
+    },
     close: (reason: SfuSessionEndReason = 'user_close') => {
       userClosed = true
       void reason
