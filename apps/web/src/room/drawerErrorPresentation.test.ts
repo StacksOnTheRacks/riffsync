@@ -135,6 +135,29 @@ describe('drawerErrorPresentation', () => {
     ).toBe('Waiting for host to share…')
   })
 
+  it('keeps chat reconnect copy off the video-relay surface (#201)', () => {
+    const chatReconnecting = 'Reconnecting chat…'
+    const retiredCombinedCopy = 'Reconnecting chat… Video may pause briefly.'
+    const presentation = selectDrawerPresentation(
+      {
+        roomId: 'room-1',
+        sessionId: 'sess-1',
+        asOf: new Date(0).toISOString(),
+        drawers: {
+          chat: { state: 'reconnecting' },
+          sfuSignaling: { state: 'connected' },
+          theaterPlayback: { state: 'connected' },
+        },
+        activeErrorCodes: [],
+      },
+      { guestShareFsm: 'running', isPublisher: false },
+    )
+    expect(presentation.chatDrawerBanner).toBe(chatReconnecting)
+    expect(presentation.videoRelayStatus).toBeNull()
+    expect(presentation.videoRelayStatus).not.toBe(chatReconnecting)
+    expect(presentation.videoRelayStatus).not.toBe(retiredCombinedCopy)
+  })
+
   it('allows simultaneous chat and video-relay banners from diagnostics', () => {
     const presentation = selectDrawerPresentation(
       {
