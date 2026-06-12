@@ -201,5 +201,10 @@ The informal **SFU deploy checklist — hardening deltas** table above is supers
 
 ## Primary code pointers (optional)
 
+- [`tests/realtime-conformance/run.sh`](../../tests/realtime-conformance/run.sh) — PR-blocking harness entry (**#155**)
+- [`tests/realtime-conformance/lib/sfu-peer.ts`](../../tests/realtime-conformance/lib/sfu-peer.ts) — Node dual-peer mediasoup steps 1–4
+- [`tests/realtime-conformance/lib/room-ws-stub.ts`](../../tests/realtime-conformance/lib/room-ws-stub.ts) — in-process room WebSocket stub for step 5
+- [`tests/realtime-conformance/scenarios/05-chat-reconnect.test.ts`](../../tests/realtime-conformance/scenarios/05-chat-reconnect.test.ts) — vitest drawer reconnect step 5
+- [`tests/realtime-conformance/scenarios/06-sfu-reconnect.test.ts`](../../tests/realtime-conformance/scenarios/06-sfu-reconnect.test.ts) — vitest drawer reconnect step 6
 - [`apps/web/src/auth/fanHostedUiPkce.ts`](../../apps/web/src/auth/fanHostedUiPkce.ts) — fan **`VITE_COGNITO_*`** consumption pattern
 - [`infra/cdk/lib/fan-auth-stack.ts`](../../infra/cdk/lib/fan-auth-stack.ts) — template for staff stack outputs and SES wiring
