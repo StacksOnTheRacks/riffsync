@@ -5,17 +5,25 @@ import {
   type ChatSessionStatus,
 } from './ChatSession'
 import { SfuMediaSession } from './SfuMediaSession'
+import * as clientDrawerLog from '../clientDrawerLog'
 import * as realtimeDiagnostics from '../realtimeDiagnostics'
 
-vi.mock('../realtimeDiagnostics', () => ({
-  recordInboundWsMessage: vi.fn(),
-  recordOutboundDropped: vi.fn(),
-  recordOutboundSent: vi.fn(),
-  recordWsClose: vi.fn(),
-  recordWsConnectAttempt: vi.fn(),
-  recordWsErrorEvent: vi.fn(),
-  recordWsOpen: vi.fn(),
+vi.mock('../clientDrawerLog', () => ({
+  emitClientDrawerLog: vi.fn(),
 }))
+
+vi.mock('../realtimeDiagnostics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../realtimeDiagnostics')>()
+  return {
+    ...actual,
+    recordInboundWsMessage: vi.fn(),
+    recordOutboundSent: vi.fn(),
+    recordWsClose: vi.fn(),
+    recordWsConnectAttempt: vi.fn(),
+    recordWsErrorEvent: vi.fn(),
+    recordWsOpen: vi.fn(),
+  }
+})
 
 const ROOM = 'room-abc'
 
@@ -127,7 +135,7 @@ describe('routeInboundChatMessage', () => {
 
 describe('ChatSession send', () => {
   beforeEach(() => {
-    vi.mocked(realtimeDiagnostics.recordOutboundDropped).mockClear()
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
     vi.mocked(realtimeDiagnostics.recordOutboundSent).mockClear()
   })
 
@@ -135,10 +143,12 @@ describe('ChatSession send', () => {
     const session = new ChatSession()
     const dropped = session.send({ action: 'chat', text: 'hi', messageId: '550e8400-e29b-41d4-a716-446655440002' })
     expect(dropped).toBe(false)
-    expect(realtimeDiagnostics.recordOutboundDropped).toHaveBeenCalledWith(
-      { action: 'chat', text: 'hi', messageId: '550e8400-e29b-41d4-a716-446655440002' },
-      -1,
-    )
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+      drawer: 'chat',
+      event: 'send_dropped',
+      code: 'CHAT_SEND_DROPPED',
+      outcome: 'failed',
+    })
     expect(realtimeDiagnostics.recordOutboundSent).not.toHaveBeenCalled()
     expect(session.getLastErrorCode()).toBe('CHAT_SEND_DROPPED')
   })
@@ -170,7 +180,7 @@ describe('ChatSession send', () => {
     const payload = { action: 'chat', text: 'hi', messageId: '550e8400-e29b-41d4-a716-446655440004' }
     expect(session.send(payload)).toBe(true)
     expect(realtimeDiagnostics.recordOutboundSent).toHaveBeenCalledWith(payload)
-    expect(realtimeDiagnostics.recordOutboundDropped).not.toHaveBeenCalled()
+    expect(clientDrawerLog.emitClientDrawerLog).not.toHaveBeenCalled()
 
     vi.unstubAllGlobals()
   })
@@ -208,6 +218,7 @@ describe('ChatSession lifecycle FSM', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     MockWebSocket.instances = []
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
     vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
     Object.assign(MockWebSocket, { OPEN: 1, CONNECTING: 0, CLOSING: 2, CLOSED: 3 })
   })
@@ -236,6 +247,35 @@ describe('ChatSession lifecycle FSM', () => {
     }
 
     expect(session.getLifecycleState()).toBe('degraded')
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith(
+      expect.objectContaining({ drawer: 'chat', event: 'degraded_threshold', severity: 'warn' }),
+    )
+  })
+
+  it('emits drawer logs on ws close and reconnect schedule', () => {
+    const session = new ChatSession()
+    session.connect({
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-close-log',
+      accessToken: null,
+      enabled: true,
+    })
+
+    const ws = MockWebSocket.instances.at(-1)!
+    ws.emit('close', { code: 1006, reason: '' })
+
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+      drawer: 'chat',
+      event: 'ws_close',
+      outcome: 'retry',
+      severity: 'warn',
+    })
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+      drawer: 'chat',
+      event: 'reconnect_scheduled',
+      outcome: 'retry',
+    })
   })
 
   it('resets failed cycles and returns to connected after a successful open', () => {
@@ -258,6 +298,11 @@ describe('ChatSession lifecycle FSM', () => {
 
     expect(session.getLifecycleState()).toBe('connected')
     expect(session.getStatus()).toBe('open')
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+      drawer: 'chat',
+      event: 'reconnect_success',
+      outcome: 'recovered',
+    })
   })
 })
 

@@ -1,4 +1,5 @@
 import type { RoomMode } from '../../api/roomsApi'
+import { emitClientDrawerLog } from '../clientDrawerLog'
 import { parseInboundChatGifMessage, type InboundChatGifLine } from '../chatGifMessage'
 import { parseInboundChatMessageId } from '../chatMessageId'
 import { parseInboundRoomMode } from '../roomMediaLifecycle'
@@ -344,7 +345,16 @@ export class ChatSession {
 
   private setLifecycleState(next: ChatSessionLifecycleState): void {
     if (this.lifecycleState === next) return
+    const prev = this.lifecycleState
     this.lifecycleState = next
+    if (next === 'degraded' && prev !== 'degraded') {
+      emitClientDrawerLog({
+        drawer: 'chat',
+        event: 'degraded_threshold',
+        outcome: 'failed',
+        severity: 'warn',
+      })
+    }
     for (const listener of this.lifecycleListeners) listener(next)
   }
 
@@ -442,6 +452,11 @@ export class ChatSession {
     }
     const wsUrlBase = `${opts.url}?${qp.toString()}`
     recordWsConnectAttempt(wsUrlBase, Boolean(opts.accessToken))
+    emitClientDrawerLog({
+      drawer: 'chat',
+      event: 'ws_connect_attempt',
+      outcome: 'retry',
+    })
     if (webrtcDebugEnabled()) {
       webrtcLog('ws opening', {
         urlChars: wsUrlBase.length,
@@ -462,12 +477,25 @@ export class ChatSession {
 
     ws.addEventListener('open', () => {
       if (this.cancelled || this.ws !== ws) return
+      const recoveredFromReconnect = this.failedReconnectCycles > 0
       this.backoffMs = CHAT_RECONNECT_BACKOFF_INITIAL_MS
       this.failedReconnectCycles = 0
       this.lastErrorCode = undefined
       this.setStatus('open')
       this.setLifecycleState('connected')
       recordWsOpen()
+      emitClientDrawerLog({
+        drawer: 'chat',
+        event: 'ws_open',
+        outcome: 'recovered',
+      })
+      if (recoveredFromReconnect) {
+        emitClientDrawerLog({
+          drawer: 'chat',
+          event: 'reconnect_success',
+          outcome: 'recovered',
+        })
+      }
       if (webrtcDebugEnabled()) webrtcLog('ws open')
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ action: 'presence_request' }))
@@ -497,6 +525,12 @@ export class ChatSession {
       this.clearPing()
       this.ws = null
       recordWsClose(ev.code, ev.reason !== '' ? ev.reason : undefined)
+      emitClientDrawerLog({
+        drawer: 'chat',
+        event: 'ws_close',
+        outcome: 'retry',
+        severity: 'warn',
+      })
       if (!this.cancelled && webrtcDebugEnabled()) {
         webrtcLog('ws close', {
           code: ev.code,
@@ -513,6 +547,11 @@ export class ChatSession {
       this.setLifecycleState(chatLifecycleAfterFailedCycle(this.failedReconnectCycles))
       const { delayMs, nextBackoffMs } = nextChatReconnectBackoffMs(this.backoffMs)
       this.backoffMs = nextBackoffMs
+      emitClientDrawerLog({
+        drawer: 'chat',
+        event: 'reconnect_scheduled',
+        outcome: 'retry',
+      })
       this.reconnectTimer = globalThis.setTimeout(() => {
         this.reconnectTimer = null
         this.openSocket()
@@ -522,6 +561,12 @@ export class ChatSession {
     ws.addEventListener('error', () => {
       if (this.cancelled || this.ws !== ws) return
       recordWsErrorEvent()
+      emitClientDrawerLog({
+        drawer: 'chat',
+        event: 'ws_error',
+        outcome: 'failed',
+        severity: 'warn',
+      })
       if (webrtcDebugEnabled()) webrtcLog('ws error event')
       this.setStatus('error')
       if (this.enabled) {
