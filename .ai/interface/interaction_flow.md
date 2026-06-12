@@ -148,4 +148,5 @@ _(None for #140 — chat send policy resolved in **Decisions (answered)** above.
 
 - Router config when SPA exists.
 - **`apps/web/src/auth/fanHostedUiPkce.ts`**, **`fanTokens.ts`** — fan OAuth/PKCE and **`riffsync.fan*`** storage pattern to mirror for staff (**`/admin/auth/callback`**, **`riffsync.staff*`**).
-- **`apps/web/src/pages/RoomPage.tsx`** — thin room shell composing **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**; AV toggles, host bar, strip/grid remain in existing stage + sidebar layout.
+- **`apps/web/src/room/sfu/sfuRelayStatusCopy.ts`** — guest host-screen FSM copy resolver (**#151**).
+- **`apps/web/src/room/sessions/TheaterPlayback.ts`** — **`guestShareFsm`** source for guest host-screen attach states.

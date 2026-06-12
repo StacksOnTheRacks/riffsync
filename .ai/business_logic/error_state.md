@@ -129,10 +129,18 @@ When **`import.meta.env.DEV`** (or equivalent Vite dev flag), append **` (code: 
 | **AV toggle error association?** | Shared **`#riffsync-av-toggle-status`** **`role="status"`** region; camera/mic toggles reference via **`aria-describedby`**. |
 | **Config-class SFU errors?** | Persistent page **`role="alert"`** until signaling **`session.ready`**; do not clear on reconnect attempt alone (**#137**). |
 
+## Decisions (guest host-screen transitional UX — #151)
+
+| Question | Decision |
+| --- | --- |
+| **Theater pre-capture / not sharing?** | Guest **`idle`** FSM → **Waiting for host to share…** on **`#riffsync-video-relay-status`** — not a drawer **`code`** row; informational **`role="status"`** only. |
+| **Consumer attach pending?** | Guest **`verifying_media`** FSM → **Connecting to video relay…** on the same surface until live video track or **`running`**. |
+| **Duplicate placeholder?** | Retire **"The host is not sharing video right now."** when FSM idle copy is shown (**`RoomPlaybackPanel`**). |
+
 ## Open implementation decisions
 
-- **Empty / transitional UX:** Video Chat zero-camera grid and Theater pre-capture states (**`interface/presentation.md`**).
-- **Kill-switch toggle affordance:** visible-disabled with host explanation vs hidden when **`avDisabled`** — resolved in **`presentation.md`** / **`user_stories.md`** (visible-disabled with copy).
+- **Empty / transitional UX:** Video Chat zero-camera grid only (**`interface/presentation.md`** — centered sparse copy).
+- **Kill-switch toggle affordance:** visible-disabled with host explanation per **`presentation.md`** (resolved).
 
 ## Primary code pointers (optional)
 

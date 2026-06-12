@@ -272,7 +272,18 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 | **UI input** | Room shell status banners read **`getDiagnostics().drawers.*`** lifecycle + **`lastErrorCode`** — not ad hoc **`wsStatus`** / **`sfuRoomErr`** strings in presentation components. |
 | **Copy module** | Lifecycle strings and error-code templates resolve through **`drawerErrorPresentation.ts`** per **`error_state.md`** Surface mapping (#141). |
 | **M19 gate** | Parent **#150** tracks M19 milestone exit: peer issues **#201**, **#207**, **#186** ship; sub-issue **#209** adds room-shell integration tests for simultaneous banners. |
-| **Out of scope** | Guest host-screen FSM string retirement (**#151**); tile attach/detach hardening (**#152**). |
+| **Out of scope** | Tile attach/detach hardening (**#152**). |
+
+## Decisions (M19 guest host-screen status — #151)
+
+| Topic | Decision |
+| --- | --- |
+| **FSM source** | **`TheaterPlayback.getSnapshot().guestShareFsm`** drives guest host-screen attach states until **`getDiagnostics().drawers.theaterPlayback`** gains finer lifecycle (**#183** peer). |
+| **Copy resolver** | **`resolveGuestVideoRelayStatusLine({ sfuRelayError, guestShareFsm })`** — **no** chat WS parameter. Config-class SFU errors win over FSM copy. |
+| **DOM id** | Guest playback status line uses **`#riffsync-video-relay-status`**; maps to **`aria-describedby`** targets in **`error_state.md`** for drawer error codes on the same surface. |
+| **Idle UX** | **`idle`** shows **Waiting for host to share…** on the video-relay status line only — retire duplicate placeholder copy in **`RoomPlaybackPanel`**. |
+| **Mesh retirement** | No **`negotiating_ice`**, **`recovering_ice`**, or mesh ICE strings in stage playback path; grep-clean **`apps/web`**. |
+| **M19 gate** | Parent **#151** tracks ship; sub-issues **#210–#212**; peer **#201** for chat decoupling. |
 
 ## Decisions (participant AV publish gate — #148)
 

@@ -78,6 +78,20 @@ Milestone **M19** verifies the separate surfaces above ship in the thin **`RoomP
 
 Peer issues **#201** (retire combined copy), **#207** (chat banner), **#186** (presentation module) implement the wiring; **#150** is the M19 integration parent.
 
+### M19 guest host-screen status ship gate (#151)
+
+Milestone **M19** verifies SFU-only guest host-screen copy in the stage playback region (mesh FSM strings retired):
+
+| Surface | Implementation owner | Verification |
+| --- | --- | --- |
+| Guest FSM copy | **`sfuRelayStatusCopy.ts`** + **`TheaterPlayback`** snapshot | **`idle`** → **Waiting for host to share…**; **`verifying_media`** → **Connecting to video relay…**; **`running`** → no status line |
+| DOM anchor | **`RoomPlaybackPanel.tsx`** | Guest status line exposes **`id="riffsync-video-relay-status"`** with **`role="status"`** |
+| Placeholder dedupe | **`RoomPlaybackPanel.tsx`** | No second not-sharing paragraph when FSM idle copy is shown |
+| Chat decoupling | Peer **#201** / parent **#150** | **`resolveGuestVideoRelayStatusLine`** has **no** **`chatWsDisconnected`** input |
+| Share-stop idle | Peer **#198** / **#146** | After **`share_state: stopped`**, FSM **`idle`** and status line match **`interaction_flow.md`** |
+
+Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M19 exit for this surface.
+
 ### Chat compose inline feedback (#149)
 
 - When **`getDiagnostics().drawers.chat.lastErrorCode === 'CHAT_SEND_DROPPED'`** or chat drawer is **`reconnecting`** / **`degraded`**, render an inline **`role="status"`** line **below** the compose row (reuse **`riffsync-room-chat-giphy-status`** error styling).
@@ -172,5 +186,6 @@ Peer issues **#201** (retire combined copy), **#207** (chat banner), **#186** (p
 ## Primary code pointers (optional)
 
 - SPA layout, design system, and route-level **loading/error** boundaries once scaffolded.
-- **`apps/web/src/pages/RoomPage.tsx`** — thin shell composing session modules; stage + chat-column layout unchanged.
+- **`apps/web/src/room/RoomPlaybackPanel.tsx`** — guest **`#riffsync-video-relay-status`** host-screen status line.
+- **`apps/web/src/pages/RoomPage.tsx`** — thin room shell composing session modules; stage + chat-column layout unchanged.
 - **`apps/web/src/room/stage/participantAvConsumers.ts`**, **`stageParticipantTiles.ts`** — tile attach/detach on **`newProducer`** / **`producerClosed`**.
