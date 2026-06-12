@@ -20,31 +20,72 @@ describe('ParticipantVideoTile', () => {
     container.remove()
   })
 
-  function renderTile(label: string, isSelf: boolean) {
-    const stream = new MediaStream([{ kind: 'video' } as MediaStreamTrack])
-    const tile: StageParticipantTile = {
+  function makeTile(
+    label: string,
+    isSelf: boolean,
+    stream: MediaStream = new MediaStream([{ kind: 'video' } as MediaStreamTrack]),
+  ): StageParticipantTile {
+    return {
       key: isSelf ? 'self' : 'remote-1',
       sessionId: isSelf ? 'me' : 'remote-1',
       label,
       isSelf,
       stream,
     }
+  }
+
+  function renderTile(tile: StageParticipantTile) {
     act(() => {
       root.render(<ParticipantVideoTile tile={tile} />)
     })
   }
 
+  function videoElement(): HTMLVideoElement | null {
+    return container.querySelector('video.riffsync-room-page__participant-tile-video')
+  }
+
   it('exposes per-tile accessible name for local You tile', () => {
-    renderTile('You', true)
+    renderTile(makeTile('You', true))
     const figure = container.querySelector('figure.riffsync-room-page__participant-tile')
     expect(figure?.getAttribute('aria-label')).toBe('You')
     expect(figure?.textContent).toContain('You')
   })
 
   it('exposes per-tile accessible name for remote display name', () => {
-    renderTile('Alice', false)
+    renderTile(makeTile('Alice', false))
     const figure = container.querySelector('figure.riffsync-room-page__participant-tile')
     expect(figure?.getAttribute('aria-label')).toBe('Alice')
     expect(figure?.textContent).toContain('Alice')
+  })
+
+  it('clears srcObject on unmount', () => {
+    const stream = new MediaStream([{ kind: 'video' } as MediaStreamTrack])
+    renderTile(makeTile('Alice', false, stream))
+    const video = videoElement()
+    expect(video?.srcObject).toBe(stream)
+
+    act(() => root.unmount())
+    expect(video?.srcObject).toBeNull()
+  })
+
+  it('removes participant figure from the DOM on unmount', () => {
+    renderTile(makeTile('Alice', false))
+    expect(container.querySelector('figure[aria-label="Alice"]')).not.toBeNull()
+
+    act(() => root.unmount())
+    expect(container.querySelector('figure[aria-label="Alice"]')).toBeNull()
+    expect(document.body.querySelector('figure[aria-label="Alice"]')).toBeNull()
+  })
+
+  it('clears srcObject when stream identity changes', () => {
+    const firstStream = new MediaStream([{ kind: 'video' } as MediaStreamTrack])
+    const secondStream = new MediaStream([{ kind: 'video' } as MediaStreamTrack])
+    renderTile(makeTile('Alice', false, firstStream))
+    const video = videoElement()
+    expect(video?.srcObject).toBe(firstStream)
+
+    renderTile(makeTile('Alice', false, secondStream))
+    expect(video?.srcObject).toBe(secondStream)
+    expect(video?.srcObject).not.toBe(firstStream)
   })
 })

@@ -74,6 +74,36 @@ describe('StageParticipantLayout', () => {
     expect(container.textContent).toContain('You')
   })
 
+  it('unmounts participant tiles when removed from the list', () => {
+    const stream = new MediaStream([{ kind: 'video' } as MediaStreamTrack])
+    const tile = {
+      key: 'remote-1',
+      sessionId: 'remote-1',
+      label: 'Alice',
+      isSelf: false,
+      stream,
+    }
+    renderLayout({
+      roomMode: 'videoChat',
+      viewportWide: true,
+      tiles: [tile],
+    })
+    const video = container.querySelector(
+      'video.riffsync-room-page__participant-tile-video',
+    ) as HTMLVideoElement | null
+    expect(video?.srcObject).toBe(stream)
+
+    renderLayout({
+      roomMode: 'videoChat',
+      viewportWide: true,
+      tiles: [],
+    })
+    expect(container.querySelector('video.riffsync-room-page__participant-tile-video')).toBeNull()
+    expect(container.querySelector('figure[aria-label="Alice"]')).toBeNull()
+    expect(document.body.querySelector('figure[aria-label="Alice"]')).toBeNull()
+    expect(video?.srcObject).toBeNull()
+  })
+
   it('renders narrow horizontal row below primary on small viewport', () => {
     const stream = new MediaStream()
     renderLayout({

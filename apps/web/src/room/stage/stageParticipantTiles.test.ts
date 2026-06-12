@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest'
+import { applyParticipantAvConsumerEvent } from './participantAvConsumers'
 import type { ParticipantAvVideoConsumer } from './participantAvConsumers'
 import {
   VIDEO_CHAT_EMPTY_COPY,
@@ -57,6 +58,57 @@ describe('stageParticipantTiles', () => {
       localPreviewStream: null,
     })
     expect(tiles.map((t) => t.sessionId)).toEqual(['fan-b'])
+  })
+
+  describe('producerClosed regression (consumer detach → empty tile list)', () => {
+    it('removes remote fan-b tile after video consumer detach', () => {
+      const track = { kind: 'video' } as MediaStreamTrack
+      let videoConsumers = applyParticipantAvConsumerEvent(new Map(), {
+        action: 'attach',
+        producerId: 'p1',
+        sessionId: 'fan-b',
+        producerClass: 'participant_av',
+        kind: 'video',
+        track,
+      })
+      const tileArgs = {
+        roster,
+        videoConsumers,
+        ownSessionId: 'fan-a',
+        localCameraOn: false,
+        localPreviewStream: null,
+      }
+      expect(buildStageParticipantTiles(tileArgs).map((t) => t.sessionId)).toEqual(['fan-b'])
+
+      videoConsumers = applyParticipantAvConsumerEvent(videoConsumers, {
+        action: 'detach',
+        producerId: 'p1',
+      })
+      expect(
+        buildStageParticipantTiles({ ...tileArgs, videoConsumers }).map((t) => t.sessionId),
+      ).toEqual([])
+    })
+
+    it('removes local You tile when camera turns off', () => {
+      const local = new MediaStream([{ kind: 'video' } as MediaStreamTrack])
+      const withCamera = buildStageParticipantTiles({
+        roster,
+        videoConsumers: new Map(),
+        ownSessionId: 'fan-a',
+        localCameraOn: true,
+        localPreviewStream: local,
+      })
+      expect(withCamera.map((t) => t.label)).toEqual(['You'])
+
+      const cameraOff = buildStageParticipantTiles({
+        roster,
+        videoConsumers: new Map(),
+        ownSessionId: 'fan-a',
+        localCameraOn: false,
+        localPreviewStream: local,
+      })
+      expect(cameraOff).toEqual([])
+    })
   })
 
   it('orders tiles by roster join order', () => {

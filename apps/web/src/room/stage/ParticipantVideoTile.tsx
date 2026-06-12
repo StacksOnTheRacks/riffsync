@@ -11,6 +11,7 @@ export function ParticipantVideoTile({ tile }: ParticipantVideoTileProps) {
   useEffect(() => {
     const el = videoRef.current
     if (!el) return
+    el.srcObject = null
     el.srcObject = tile.stream
     void el.play().catch(() => undefined)
     return () => {
