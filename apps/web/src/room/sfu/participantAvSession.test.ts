@@ -334,6 +334,56 @@ describe('createParticipantAvController', () => {
     vi.unstubAllGlobals()
   })
 
+  it('invokes onPartialUnpublish when camera turns off while mic stays on (#216)', async () => {
+    const onPartialUnpublish = vi.fn()
+    const unpublishProducerKind = vi.fn()
+    const unpublishProducerClass = vi.fn()
+    const publishStream = vi.fn().mockResolvedValue(undefined)
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }
+    const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }
+    const stream = {
+      getVideoTracks: () => [videoTrack],
+      getAudioTracks: () => [audioTrack],
+      getTracks: () => [videoTrack, audioTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+
+    const controller = createParticipantAvController({
+      canPublish: () => true,
+      onPartialUnpublish,
+    })
+    const session = {
+      supportsPublish: true,
+      ready: Promise.resolve(),
+      publishStream,
+      unpublishProducerKind,
+      unpublishProducerClass,
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
+
+    await controller.enableCamera()
+    await controller.enableMic()
+    controller.attachSession(session)
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalled()
+    })
+
+    onPartialUnpublish.mockClear()
+    controller.disableCamera()
+
+    expect(onPartialUnpublish).toHaveBeenCalledOnce()
+    expect(unpublishProducerKind).toHaveBeenCalledWith('participant_av', 'video')
+
+    vi.unstubAllGlobals()
+  })
+
   it('disableMic with camera on unpublishes audio kind only', async () => {
     const unpublishProducerKind = vi.fn()
     const unpublishProducerClass = vi.fn()

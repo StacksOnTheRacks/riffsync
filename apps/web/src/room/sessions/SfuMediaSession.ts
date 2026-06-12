@@ -15,6 +15,11 @@ import {
   type SfuProducerClass,
   type SfuUnifiedSessionHandle,
 } from '../sfu/mediasoupSharing'
+import {
+  emitPartialUnpublishDrawerLog,
+  emitProduceConsumeMediaErrorLog,
+  emitProducerClosedDrawerLog,
+} from '../sfu/produceConsumeDrawerLog'
 import { classifySignalingOpenFailure, type SfuConfigMediaErrorCode } from '../sfu/sfuConfigErrors'
 import {
   createBoundParticipantAvController,
@@ -381,6 +386,10 @@ export class SfuMediaSession {
 
   private remoteStreamListeners = new Set<Listener<MediaStream | null>>()
   private consumerTrackListeners = new Set<Listener<SfuConsumerTrackEvent>>()
+  private readonly attachedConsumerMeta = new Map<
+    string,
+    { producerClass: SfuProducerClass | undefined; kind: 'audio' | 'video' }
+  >()
   private lastRemoteStream: MediaStream | null = null
   private errorListeners = new Set<Listener<string | null>>()
   private drawerErrorListeners = new Set<Listener<RealtimeDrawerError | null>>()
@@ -389,7 +398,9 @@ export class SfuMediaSession {
   private participantAvConsumerClearListeners = new Set<Listener<void>>()
 
   constructor() {
-    this.participantAv = createBoundParticipantAvController(() => this.gate)
+    this.participantAv = createBoundParticipantAvController(() => this.gate, {
+      onPartialUnpublish: () => emitPartialUnpublishDrawerLog(),
+    })
     this.gate.onNeedsProducerTokenChange = () => this.onNeedsProducerTokenChange()
   }
 
@@ -487,6 +498,7 @@ export class SfuMediaSession {
     this.clearJwtRemintTimer()
     this.stopReconnectLoop()
     this.sessionHandle?.unpublishProducerClass('host_screen')
+    this.attachedConsumerMeta.clear()
     this.emitRemoteStream(null)
     this.failedReconnectCycles = 0
     this.lastErrorCode = undefined
@@ -578,6 +590,22 @@ export class SfuMediaSession {
     }
   }
 
+  private dispatchConsumerTrack(event: SfuConsumerTrackEvent): void {
+    if (event.action === 'attach') {
+      this.attachedConsumerMeta.set(event.producerId, {
+        producerClass: event.producerClass,
+        kind: event.kind,
+      })
+    } else {
+      const meta = this.attachedConsumerMeta.get(event.producerId)
+      this.attachedConsumerMeta.delete(event.producerId)
+      if (meta?.producerClass === 'participant_av' && meta.kind === 'video') {
+        emitProducerClosedDrawerLog()
+      }
+    }
+    for (const listener of this.consumerTrackListeners) listener(event)
+  }
+
   private onNeedsProducerTokenChange(): void {
     if (this.sessionHandle?.supportsPublish) return
     this.tokenIntentGeneration++
@@ -611,9 +639,7 @@ export class SfuMediaSession {
       getHostScreenStream: opts.getHostScreenStream,
       participantAv: this.participantAv,
       onRemoteStream: (stream) => this.emitRemoteStream(stream),
-      onConsumerTrack: (event) => {
-        for (const listener of this.consumerTrackListeners) listener(event)
-      },
+      onConsumerTrack: (event) => this.dispatchConsumerTrack(event),
       assignSession: (s) => {
         this.sessionHandle = s
         if (s) {
@@ -632,6 +658,9 @@ export class SfuMediaSession {
       },
       onTokenError: (msg) => this.emitError(msg),
       onMediaError: (code, msg) => {
+        if (code === 'consume_failed' || code === 'produce_failed') {
+          emitProduceConsumeMediaErrorLog(code, msg)
+        }
         const drawerError = mapSfuMediaCodeToDrawerError(code)
         if (isSfuRelayConfigErrorCode(code)) {
           this.emitDrawerError(drawerError)
@@ -687,6 +716,7 @@ export class SfuMediaSession {
       onSessionClean: () => {
         this.clearJwtRemintTimer()
         this.sessionHandle = null
+        this.attachedConsumerMeta.clear()
         if (this.enabled && generation === this.tokenIntentGeneration) {
           emitClientDrawerLog({
             drawer: 'signaling',
