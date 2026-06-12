@@ -74,34 +74,82 @@ describe('StageParticipantLayout', () => {
     expect(container.textContent).toContain('You')
   })
 
-  it('unmounts participant tiles when removed from the list', () => {
-    const stream = new MediaStream([{ kind: 'video' } as MediaStreamTrack])
-    const tile = {
+  describe('producerClosed regression (tile detach across stage surfaces)', () => {
+    const remoteTile = {
       key: 'remote-1',
       sessionId: 'remote-1',
       label: 'Alice',
       isSelf: false,
-      stream,
+      stream: new MediaStream([{ kind: 'video' } as MediaStreamTrack]),
     }
-    renderLayout({
-      roomMode: 'videoChat',
-      viewportWide: true,
-      tiles: [tile],
-    })
-    const video = container.querySelector(
-      'video.riffsync-room-page__participant-tile-video',
-    ) as HTMLVideoElement | null
-    expect(video?.srcObject).toBe(stream)
 
-    renderLayout({
-      roomMode: 'videoChat',
-      viewportWide: true,
-      tiles: [],
+    function assertTileRemoved(video: HTMLVideoElement | null) {
+      expect(container.querySelector('video.riffsync-room-page__participant-tile-video')).toBeNull()
+      expect(container.querySelector('figure[aria-label="Alice"]')).toBeNull()
+      expect(document.body.querySelector('figure[aria-label="Alice"]')).toBeNull()
+      expect(video?.srcObject).toBeNull()
+    }
+
+    it('removes remote tile from Video Chat grid when consumer detaches', () => {
+      renderLayout({
+        roomMode: 'videoChat',
+        viewportWide: true,
+        tiles: [remoteTile],
+      })
+      const video = container.querySelector(
+        'video.riffsync-room-page__participant-tile-video',
+      ) as HTMLVideoElement | null
+      expect(video?.srcObject).toBe(remoteTile.stream)
+      expect(container.querySelector('.riffsync-room-page__participant-grid')).not.toBeNull()
+
+      renderLayout({
+        roomMode: 'videoChat',
+        viewportWide: true,
+        tiles: [],
+      })
+      assertTileRemoved(video)
+      expect(container.textContent).toContain(VIDEO_CHAT_EMPTY_COPY)
     })
-    expect(container.querySelector('video.riffsync-room-page__participant-tile-video')).toBeNull()
-    expect(container.querySelector('figure[aria-label="Alice"]')).toBeNull()
-    expect(document.body.querySelector('figure[aria-label="Alice"]')).toBeNull()
-    expect(video?.srcObject).toBeNull()
+
+    it('removes remote tile from Theater desktop strip when consumer detaches', () => {
+      renderLayout({
+        roomMode: 'theater',
+        viewportWide: true,
+        tiles: [remoteTile],
+      })
+      const video = container.querySelector(
+        'video.riffsync-room-page__participant-tile-video',
+      ) as HTMLVideoElement | null
+      expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).not.toBeNull()
+
+      renderLayout({
+        roomMode: 'theater',
+        viewportWide: true,
+        tiles: [],
+      })
+      assertTileRemoved(video)
+      expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).toBeNull()
+    })
+
+    it('removes remote tile from narrow horizontal row when consumer detaches', () => {
+      renderLayout({
+        roomMode: 'theater',
+        viewportWide: false,
+        tiles: [remoteTile],
+      })
+      const video = container.querySelector(
+        'video.riffsync-room-page__participant-tile-video',
+      ) as HTMLVideoElement | null
+      expect(container.querySelector('.riffsync-room-page__participant-row--narrow')).not.toBeNull()
+
+      renderLayout({
+        roomMode: 'theater',
+        viewportWide: false,
+        tiles: [],
+      })
+      assertTileRemoved(video)
+      expect(container.querySelector('.riffsync-room-page__participant-row--narrow')).toBeNull()
+    })
   })
 
   it('renders narrow horizontal row below primary on small viewport', () => {
