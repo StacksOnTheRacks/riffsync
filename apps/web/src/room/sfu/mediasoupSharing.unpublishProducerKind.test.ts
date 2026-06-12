@@ -33,11 +33,12 @@ class MockWebSocket {
 
   send(raw: string) {
     const msg = JSON.parse(raw) as { type?: string; id?: number; method?: string }
-    if (msg.type !== 'request' || msg.id === undefined || !msg.method) return
+    const { type, id, method } = msg
+    if (type !== 'request' || id === undefined || !method) return
     queueMicrotask(() => {
-      const data = this.responseData(msg.method)
+      const data = this.responseData(method)
       this.onmessage?.({
-        data: JSON.stringify({ type: 'response', id: msg.id, data }),
+        data: JSON.stringify({ type: 'response', id, data }),
       })
     })
   }
