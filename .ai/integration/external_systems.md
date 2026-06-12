@@ -102,6 +102,7 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | --- | --- |
 | **SFU join JWT** | Harness mints join tokens **in-process** via **`signSfuJoinToken`** (**`infra/cdk/lambda/sfu-join-token-sign.ts`**) using bootstrap **`SFU_JWT_SECRET`** — payload shape matches prod **`SfuJoinClaims`**. |
 | **Fan Cognito JWT** | **Not required** for MVP harness scenarios — room WS stub accepts connections without API Gateway authorizer emulation. |
+| **`fanSub` in SFU join JWT** | Required on **`participant_av`** producer tokens per SFU **`jwt.ts`** verification — harness mints fixture **`fanSub: harness-fan-sub`**. |
 | **ICE credentials** | Static-auth coturn credentials from **`infra/local-media/`** fixture config — **no** prod **`GET /v1/webrtc/ice`** call in CI. |
 
 ## Primary code pointers (optional)

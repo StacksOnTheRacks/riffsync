@@ -132,6 +132,9 @@ function mintToken(
       sessionId,
       role,
       ...(producerClass ? { producerClass } : {}),
+      ...(role === 'producer' && producerClass === 'participant_av'
+        ? { fanSub: 'harness-fan-sub' }
+        : {}),
       iat: now,
       exp: now + 900,
     },
