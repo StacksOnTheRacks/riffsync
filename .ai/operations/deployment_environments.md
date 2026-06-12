@@ -96,7 +96,7 @@ Lambda mint-time **`publisher_cap_exceeded`** estimate uses **8 fan publishers**
 
 | Change | Workflow | Post-deploy |
 | --- | --- | --- |
-| **`services/riffsync-sfu`** only | **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** | **`docs/sfu-deploy-checklist.md`** through step 6 + multi-publisher section |
+| **`services/riffsync-sfu`** only | **[`deploy-turn.yml`](../../.github/workflows/deploy-turn.yml)** | **`docs/sfu-deploy-checklist.md`** — **Manual only** rows always; **Abbreviated** / **PR** rows per **`.ai/operations/build_packaging.md`** Decisions (#156) when merged PR had green **`realtime-conformance`** |
 | **`webrtc-sfu-token`** / room PATCH | **`deploy-prod.yml`** phase 3 (API) | Token denial smoke + checklist |
 | SPA error copy / a11y | **`deploy-prod.yml`** phase 5 (SPA) | Manual toggle error smoke |
 | CDK SFU env / alarms | **`deploy-turn.yml`** (media stack) | **`curl /healthz`** + optional alarm verification |

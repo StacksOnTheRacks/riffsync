@@ -161,6 +161,54 @@ Post-deploy verification extends **[`docs/sfu-deploy-checklist.md`](../../docs/s
 
 Run full checklist (steps 1–16 + multi-publisher section) after **`deploy-turn.yml`** or **`deploy-prod.yml`** when SFU, token mint, or SPA AV error surfaces change.
 
+## Decisions (SFU deploy checklist harness mapping — #156)
+
+**Goal:** Operators see which **`docs/sfu-deploy-checklist.md`** rows are covered by PR **`realtime-conformance`** vs which always need full prod verification — reducing duplicate toil without replacing post-deploy smoke.
+
+### Tag vocabulary (normative)
+
+| Tag | Meaning |
+| --- | --- |
+| **`PR: step N`** | Scenario **N** in the six-step harness (**#155** **`run.sh`**) exercises the same drawer/produce contract on **isolated loopback** SFU + TURN. |
+| **`Abbreviated`** | When the **merged PR** had a green **`realtime-conformance`** run, operator runs a **short prod smoke** (minutes) instead of a full multi-window soak for that row. |
+| **`Manual only`** | Always requires **full prod** verification — harness does not cover prod UX, API Gateway room WS, Cognito-signed flows, or operator drills. |
+
+Harness **complements** checklist — it never mutates prod **`RiffSyncTurn`**.
+
+### Per-row mapping (`docs/sfu-deploy-checklist.md`)
+
+| Checklist row | Tag | Harness / operator note |
+| --- | --- | --- |
+| **1 Happy path** | **Abbreviated** | **PR: steps 1–3** cover join/publish/consume at protocol level; prod still confirms host **tab share** + two guest browsers. |
+| **2 Mid-join** | **Abbreviated** | **PR: step 3** (consume attach); prod confirms fresh guest mid-stream with live **`host_screen`**. |
+| **3 Fan WebSocket drop** | **PR: step 5** | Drawer-independent chat reconnect; **Abbreviated** prod: ~5s offline throttle smoke when PR green. |
+| **4 SFU signaling drop** | **PR: step 6** | Single-producer reconnect; **Abbreviated** prod smoke when PR green. |
+| **5 Host stop share** | **Manual only** | **`share_state: stopped`** fan-out — not in MVP harness. |
+| **6 Server health** | **Manual only** | Prod **`curl "${SFU_HTTP}/healthz"`**; CI bootstrap **`wait`** is pre-scenario gate only (**#154**). |
+| **7 Misconfiguration** | **Manual only** | Missing **`VITE_PUBLIC_SFU_WS_URL`** / token **`wsUrl`** visible error — SPA build/config surface. |
+| **8 Local SFU down** | **Manual only** | **`LOCAL_SFU_UNREACHABLE`** against **local** disposable profile (**#137**). |
+| **H1 Partial unpublish** (new hardening row) | **PR: step 4** | Fan camera off, mic on; remote video tile clears within **2s**; mic audible — insert in checklist **Hardening verification** subsection. |
+| **H2 Drawer reconnect** (new hardening row) | **PR: steps 5–6** | Cross-ref checklist steps **3–4**; single subsection avoids duplicate prose. |
+| **9 N fans publish** | **Manual only** | Harness uses **dual-peer** fixture, not three signed-in fans + strip UI. |
+| **10 Theater mixed audio** | **Manual only** | Client Web Audio mix; server-side mix deferred. |
+| **11 Video Chat grid** | **Manual only** | **`roomMode: videoChat`** layout — not in MVP harness. |
+| **12 Host AV kill switch** | **Manual only** | SFU admin teardown + **`av_disabled`** token denial. |
+| **13 Mid-party join with publishers** | **Abbreviated** | **PR: steps 1–3**; prod confirms third fan with two incumbents publishing. |
+| **14 Publisher cap** | **Manual only** | Ninth publisher **`publisher_cap_exceeded`** inline copy. |
+| **15 SFU drop (multi-producer)** | **PR: step 6** | Same signaling drawer reconnect with multiple remote producers; **Abbreviated** prod when PR green. |
+| **16 Post-deploy health** | **Manual only** | Prod **`/healthz`** + optional CloudWatch gauges. |
+| **17 Worker failure drill** | **Manual only** | Optional SSM / **`systemctl restart`** runbook. |
+
+### Checklist doc structure (#156 deliverable)
+
+1. Intro paragraph: PR harness vs post-deploy bands (**`.ai/operations/build_packaging.md`** CI vs prod table).
+2. **Legend** block defining **`PR: step N`**, **`Abbreviated`**, **`Manual only`** (same vocabulary as above).
+3. Inline tag on **each** numbered step **1–17** (prefix or suffix, e.g. **`[Abbreviated · PR: 1–3]`**).
+4. New **`## Hardening verification`** section after step **8** with rows **H1–H2** (partial unpublish, drawer reconnect cross-ref).
+5. Summary table at top of checklist linking harness step **1–6** → checklist rows (mirror this decisions table).
+
+Replace the informal **SFU deploy checklist — hardening deltas** table above when **#156** lands — this **Decisions (#156)** block is authoritative.
+
 ## Primary code pointers (optional)
 
 - [`apps/web/src/auth/fanHostedUiPkce.ts`](../../apps/web/src/auth/fanHostedUiPkce.ts) — fan **`VITE_COGNITO_*`** consumption pattern
