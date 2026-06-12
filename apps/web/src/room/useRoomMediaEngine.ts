@@ -47,7 +47,7 @@ export function useRoomMediaEngine(options: {
   sendChat: () => void
   sendChatGif: (result: GiphySearchResult) => void
   toggleChatReaction: (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => void
-  peopleShown: ReturnType<RoomMediaEngine['buildPeopleShown']>
+  peopleShown: ReturnType<RoomMediaEngine['getSnapshot']>['peopleShown']
   chatMemberLabels: Map<string, string>
   sfuConfigAlert: string | null
   chatDrawerBanner: string | null
@@ -83,20 +83,11 @@ export function useRoomMediaEngine(options: {
     setRoom,
   } = options
 
-  const engineRef = useRef<RoomMediaEngine | null>(null)
-  const mountedRoomIdRef = useRef<string | null>(null)
-  const joinedRef = useRef(false)
+  const engine = useMemo(() => acquireRoomMediaEngine(roomId), [roomId])
 
-  if (!engineRef.current || engineRef.current.roomId !== roomId) {
-    if (engineRef.current && mountedRoomIdRef.current) {
-      releaseRoomMediaEngine(mountedRoomIdRef.current)
-    }
-    engineRef.current = acquireRoomMediaEngine(roomId)
-    mountedRoomIdRef.current = roomId
-    joinedRef.current = false
-  }
-
-  const engine = engineRef.current
+  useEffect(() => {
+    return () => releaseRoomMediaEngine(roomId)
+  }, [roomId])
 
   const subscribe = useCallback((onStoreChange: () => void) => engine.subscribe(onStoreChange), [engine])
   const getSnapshot = useCallback(() => engine.getSnapshot(), [engine])
@@ -107,10 +98,15 @@ export function useRoomMediaEngine(options: {
     announceRoomA11yRef.current = announceRoomA11y
   }, [announceRoomA11y])
 
+  const sessionMountedRef = useRef(false)
+
   useEffect(() => {
-    if (!room || !canonicalRoomId) return
-    if (joinedRef.current) return
-    joinedRef.current = true
+    sessionMountedRef.current = false
+  }, [engine])
+
+  useEffect(() => {
+    if (!room || !canonicalRoomId || sessionMountedRef.current) return
+    sessionMountedRef.current = true
 
     engine.mount(room, {
       roomId,
@@ -139,13 +135,11 @@ export function useRoomMediaEngine(options: {
     })
 
     return () => {
-      joinedRef.current = false
-      releaseRoomMediaEngine(roomId)
-      if (engineRef.current?.roomId === roomId) {
-        engineRef.current = null
-        mountedRoomIdRef.current = null
-      }
+      sessionMountedRef.current = false
+      engine.teardown()
     }
+  // fanToken updates via engine.setFanToken — remounting on token refresh would churn SFU/chat.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fanToken omitted intentionally
   }, [
     canonicalRoomId,
     displayName,
@@ -181,11 +175,10 @@ export function useRoomMediaEngine(options: {
     engine.setRoomMode(roomMode)
   }, [engine, roomMode])
 
+  const avDisabled = room?.avDisabled ?? false
   useEffect(() => {
-    if (room) {
-      engine.setAvDisabled(room.avDisabled)
-    }
-  }, [engine, room?.avDisabled])
+    engine.setAvDisabled(avDisabled)
+  }, [avDisabled, engine])
 
   useEffect(() => {
     engine.setYoutubeVideoId(youtubeVideoId)
@@ -225,20 +218,16 @@ export function useRoomMediaEngine(options: {
     [engine],
   )
 
-  const peopleShown = useMemo(() => engine.buildPeopleShown(), [engine, snapshot.participantAvPublishTick, snapshot.presenceRoster])
-
   const chatMemberLabels = useMemo(() => {
     const m = new Map<string, string>()
-    for (const p of peopleShown) {
+    for (const p of snapshot.peopleShown) {
       m.set(p.sessionId, p.displayName)
     }
     return m
-  }, [peopleShown])
+  }, [snapshot.peopleShown])
 
-  const drawerPresentation = engine.getDrawerPresentation(isPublisher)
   const stageLayoutUpdating = useStageLayoutTransition(roomMode, snapshot.stageParticipantTiles.length)
 
-  const participantAvController = engine.getParticipantAvController()
   const noopParticipantAvController: ParticipantAvController = {
     getState: () => ({
       cameraEnabled: false,
@@ -269,20 +258,20 @@ export function useRoomMediaEngine(options: {
     sendJson,
     chat: snapshot.chat,
     chatReactions: snapshot.chatReactions,
-    chatDraft: engine.getChatDraft(),
+    chatDraft: snapshot.chatDraft,
     setChatDraft,
     sendChat,
     sendChatGif,
     toggleChatReaction,
-    peopleShown,
+    peopleShown: snapshot.peopleShown,
     chatMemberLabels,
-    sfuConfigAlert: drawerPresentation.sfuConfigAlert,
-    chatDrawerBanner: drawerPresentation.chatDrawerBanner,
-    chatComposeStatus: drawerPresentation.chatComposeStatus,
-    videoRelayStatus: drawerPresentation.videoRelayStatus,
-    theaterAudioStatus: drawerPresentation.theaterAudioStatus,
+    sfuConfigAlert: snapshot.drawerPresentation.sfuConfigAlert,
+    chatDrawerBanner: snapshot.drawerPresentation.chatDrawerBanner,
+    chatComposeStatus: snapshot.drawerPresentation.chatComposeStatus,
+    videoRelayStatus: snapshot.drawerPresentation.videoRelayStatus,
+    theaterAudioStatus: snapshot.drawerPresentation.theaterAudioStatus,
     guestRemote: snapshot.guestRemote,
-    participantAvController: participantAvController ?? noopParticipantAvController,
+    participantAvController: snapshot.participantAvController ?? noopParticipantAvController,
     unpublishHostScreen,
     theaterPlaybackSnapshot: snapshot.theaterPlaybackSnapshot,
     playGuestVideo,

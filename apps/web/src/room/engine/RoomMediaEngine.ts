@@ -49,6 +49,10 @@ export type RoomMediaEngineSnapshot = {
   theaterPlaybackSnapshot: TheaterPlaybackSnapshot
   chat: ChatLine[]
   chatReactions: ReactionsByMessage
+  chatDraft: string
+  peopleShown: PresenceMember[]
+  participantAvController: ParticipantAvController | null
+  drawerPresentation: ReturnType<RoomMediaEngine['getDrawerPresentation']>
   participantAvVideoConsumers: Map<string, ParticipantAvVideoConsumer>
   presenceRoster: { roomId: string; members: PresenceMember[] }
   participantAvPublishTick: number
@@ -165,6 +169,10 @@ export class RoomMediaEngine {
       theaterPlaybackSnapshot: this.theaterPlaybackSnapshot,
       chat: this.chat,
       chatReactions: this.chatReactions,
+      chatDraft: this.chatDraft,
+      peopleShown,
+      participantAvController: participantAvController ?? null,
+      drawerPresentation: this.getDrawerPresentation(opts?.isPublisher === true),
       participantAvVideoConsumers: this.participantAvVideoConsumers,
       presenceRoster: this.presenceRoster,
       participantAvPublishTick: this.participantAvPublishTick,
@@ -465,6 +473,23 @@ export class RoomMediaEngine {
   }
 
   dispose(): void {
+    this.resetSession()
+    emitClientDrawerLog({
+      drawer: 'signaling',
+      event: 'engine_dispose',
+      outcome: 'recovered',
+    })
+    this.notify()
+  }
+
+  /** Tear down the active room session without removing the engine from the registry. */
+  teardown(): void {
+    if (!this.mounted) return
+    this.resetSession()
+    this.notify()
+  }
+
+  private resetSession(): void {
     this.hostScreenCleanup?.()
     this.hostScreenCleanup = null
     this.participantAvUnsub?.()
@@ -478,12 +503,6 @@ export class RoomMediaEngine {
     this.connection = transitionRoomMediaConnection(this.connection, 'tornDown')
     this.wsStatus = 'idle'
     this.diagnostics = null
-    emitClientDrawerLog({
-      drawer: 'signaling',
-      event: 'engine_dispose',
-      outcome: 'recovered',
-    })
-    this.notify()
   }
 
   private getIceServers(): Promise<RTCIceServer[]> {

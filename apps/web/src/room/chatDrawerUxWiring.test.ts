@@ -14,7 +14,7 @@ describe('chat drawer UX wiring (#207)', () => {
     const src = readSrc('useRoomMediaEngine.ts')
     const engineSrc = readSrc('engine/RoomMediaEngine.ts')
     expect(engineSrc).toContain('selectDrawerPresentation')
-    expect(src).toContain('getDrawerPresentation')
+    expect(src).toContain('snapshot.drawerPresentation')
     expect(src).not.toMatch(/chatDrawerBanner:[\s\S]*drawers\.sfuSignaling/)
     expect(src).not.toMatch(/chatComposeStatus:[\s\S]*drawers\.sfuSignaling/)
   })
