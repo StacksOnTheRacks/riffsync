@@ -223,11 +223,23 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 | **`sessionId`** | string | Guest **`sessionId`** for this tab |
 | **`asOf`** | string | ISO-8601 snapshot time |
 | **`drawers.chat`** | object | **`{ state, lastErrorCode? }`** — maps to chat sidebar status |
-| **`drawers.sfuSignaling`** | object | **`{ state, lastErrorCode?, role?, producerCount?, consumerCount? }`** — maps to video-relay status |
-| **`drawers.theaterPlayback`** | object | **`{ state, lastErrorCode?, audioContextState? }`** — theater mix / iframe drawer |
-| **`activeErrorCodes`** | string[] | All drawer-tagged codes currently asserted (e.g. **`CHAT_SEND_DROPPED`**, **`SIGNALING_TIMEOUT`**) |
+| **`drawers.sfuSignaling`** | object | Signaling WS lifecycle + nested maintainer health (**#158**); see below |
+| **`drawers.theaterPlayback`** | object | **`{ state, lastErrorCode?, audioContextState?, guestShareFsm? }`** — theater mix / iframe drawer |
+| **`activeErrorCodes`** | string[] | User-visible blocking codes only (**#141**) — excludes informational **`PRODUCER_CLOSED`** |
 
-**`state`** on each drawer: **`connected` \| `reconnecting` \| `degraded` \| `torn-down`**. UI reads chat and SFU drawers **independently** — never collapse to one generic connection banner when only one plane fails.
+**`drawers.sfuSignaling` shape:**
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| **`state`** | enum | Signaling WebSocket lifecycle — maps to video-relay banner |
+| **`lastErrorCode?`** | string | Signaling-class codes (**`SIGNALING_TIMEOUT`**, config errors, **`SFU_TOKEN_DENIED`**) |
+| **`role?`** | `'producer' \| 'consumer'` | Active SFU join role when signaling **`open`** |
+| **`health.connectivity`** | object | **`{ state, lastErrorCode?, iceConnectionState? }`** — ICE/TURN transport health (**#158**) |
+| **`health.produceConsume`** | object | **`{ state, lastErrorCode?, producerCount?, consumerCount?, hostScreenAttached?, participantAvPublishActive? }`** — mediasoup producer/consumer plane (**#158**) |
+
+**`iceConnectionState`** when present mirrors **`RTCPeerConnection.iceConnectionState`**: **`new`**, **`checking`**, **`connected`**, **`completed`**, **`failed`**, **`disconnected`**, **`closed`**.
+
+**`state`** on every drawer and health object: **`connected` \| `reconnecting` \| `degraded` \| `torn-down`**. UI reads **`drawers.chat`** and **`drawers.sfuSignaling.state`** **independently** — health sub-objects are for harness, support, and logs alignment (**#157**), not new fan banners.
 
 **Dev-only:** **`realtimeDiagnostics.ts`** timeline (`?diag=1`) is **not** **`getDiagnostics()`** — maintainers use it for WS counters and role probes.
 

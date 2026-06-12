@@ -217,8 +217,9 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | **`join(roomId, options)`** | Accepts pre-fetched **`RoomSnapshot`**, guest **`sessionId`**, display name, optional fan JWT, API/WS base URLs, and host/guest role hints. Runs bootstrap order from **`startup_bootstrap.md`**: construct **`ChatSession`** → ICE warm → **`SfuMediaSession`** → **`TheaterPlayback`** when layout is Theater. Returns the SDK instance; **no** raw **`WebSocket`** or mediasoup handles escape the sessions package. |
 | **`publishAv({ camera, mic })`** | Idempotent delegate to **`SfuMediaSession`** participant publish gate. Partial unpublish (camera off, mic on) without full session rebuild when publish is already supported. |
 | **`subscribe(handlers)`** | Register **`hostScreen`** and/or **`participantAv`** consumer handler groups. Re-registering replaces prior handlers. **`SfuMediaSession`** attaches remote producers; **`TheaterPlayback`** wires audio mix nodes when Theater layout is active. |
-| **`getDiagnostics()`** | Returns **`RoomRealtimeDiagnostics`** snapshot (stable field names for harness + UI mapping): **`roomId`**, **`sessionId`**, **`asOf`** (ISO-8601), **`drawers.chat`**, **`drawers.sfuSignaling`**, **`drawers.theaterPlayback`**, **`activeErrorCodes`**. Each drawer object: **`{ state, lastErrorCode? }`** where **`state`** is **`connected` \| `reconnecting` \| `degraded` \| `torn-down`**. Optional **`sfuSignaling`**: **`role`**, **`producerCount`**, **`consumerCount`**. Optional **`theaterPlayback.audioContextState`**. Top-level **`activeErrorCodes`** lists all drawer-tagged codes currently asserted (multi-code allowed). |
+| **`getDiagnostics()`** | Returns **`RoomRealtimeDiagnostics`** snapshot (stable field names for harness + UI mapping): **`roomId`**, **`sessionId`**, **`asOf`** (ISO-8601), **`drawers.chat`**, **`drawers.sfuSignaling`**, **`drawers.theaterPlayback`**, **`activeErrorCodes`**. Module drawers expose **`{ state, lastErrorCode? }`** plus optional fields per **`integration/api_contracts.md`**. **#158** extends **`sfuSignaling`** with **`health.connectivity`** and **`health.produceConsume`** sub-snapshots aligned to observability log drawers. |
 | **Dev-only diagnostics** | **`realtimeDiagnostics.ts`** (`?diag=1`, **`window.riffsyncRealtimeDiag`**) remains separate from **`getDiagnostics()`** — timeline counters and JWT probes are maintainer tooling, not the fan status contract. |
+| **Dev support getter (#158)** | **`import.meta.env.DEV`** builds may register **`window.riffsyncRoomDiagnostics`** — zero-arg function returning the latest **`getDiagnostics()`** snapshot while the room SDK is joined. **Not** present in production bundles. |
 | **SDK vs state machines (#140)** | #139 may map module-internal coarse flags to the four lifecycle states; formal transition tables and drawer isolation enforcement land in #140. |
 | **SDK vs typed errors (#141)** | #139 exposes **`lastErrorCode`** / **`activeErrorCodes`** strings from module boundaries; canonical UX copy and toggle **`aria-describedby`** mapping land in #141. |
 
@@ -232,7 +233,20 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | **SFU JWT re-mint timer** | **`SfuMediaSession`** owns one **`setTimeout`** at **`exp - 60s`** wall clock while signaling WS is **`open`**; proactive **`POST /v1/webrtc/sfu-token`** re-mint. Timer cleared on teardown. Re-mint failure → drawer **`degraded`**, not **`torn-down`**. |
 | **Reconnect mid-publish** | **No** producer **`pause()`** during SFU signaling reconnect — rely on mediasoup transport recovery (**`lifecycle_shutdown.md`**). |
 | **Theater return from Video Chat** | **`RoomRealtimeSdk`** re-runs **`applySubscribeHandlers()`** after **`initTheaterPlayback()`** so consumers and mix nodes reattach. |
-| **Harness / unit assertions** | After forced chat-only WS drop: **`getDiagnostics().drawers.chat`** is **`reconnecting`** then **`connected`**; **`drawers.sfuSignaling`** stays **`connected`**. Inverse for SFU-only drop. See **`lifecycle_shutdown.md`** and **`build_packaging.md`** steps 5–6. |
+| **Harness / unit assertions** | After forced chat-only WS drop: **`getDiagnostics().drawers.chat`** is **`reconnecting`** then **`connected`**; **`drawers.sfuSignaling.state`** and **`drawers.sfuSignaling.health.connectivity.state`** stay **`connected`**. Inverse for SFU-only drop. See **`lifecycle_shutdown.md`** and **`build_packaging.md`** steps 5–6. |
+
+## Decisions (getDiagnostics health snapshot — #158)
+
+| Topic | Decision |
+| --- | --- |
+| **Scope** | Extend **`RoomRealtimeSdk.getDiagnostics()`** with per-drawer **health** fields for support repro and **`realtime-conformance`** assertions. **Does not** add fan-visible banners (**#150** peer). |
+| **Health nesting** | **`drawers.sfuSignaling.health.connectivity`** and **`drawers.sfuSignaling.health.produceConsume`** — maps observability log drawers **`connectivity`** and **`produce_consume`** without new top-level UI drawer keys. |
+| **Connectivity mapping** | **`SfuMediaSession`** / **`mediasoupSharing`** ICE hooks set **`health.connectivity.state`**: **`reconnecting`** on **`checking`** or **`disconnected`** before **`ICE_FAILED`** deadline (**10s** per **#141**); **`degraded`** on **`ICE_FAILED`** or **`TURN_RELAY_REQUIRED`**; **`connected`** on **`connected`** / **`completed`**. |
+| **Produce/consume mapping** | **`health.produceConsume`** reads live producer/consumer counts and attach flags from **`SfuMediaSession`**. **`degraded`** on **`TRANSPORT_LIMIT_REACHED`**, **`CONSUMER_LIMIT_REACHED`**, or **`consumer_attach_failed`**; **`PRODUCER_CLOSED`** does **not** flip state (**`error_state.md`**). |
+| **Theater lifecycle** | **`theaterPlayback.state`**: **`connected`** when Theater layout bootstrapped and mix not **`degraded`**; **`reconnecting`** when **`guestShareFsm`** is **`verifying_media`**; **`degraded`** when **`audioContextState === 'suspended'`** or theater mix error; **`torn-down`** on Video Chat layout or pre-bootstrap. |
+| **Contract module** | **`apps/web/src/room/sessions/roomRealtimeDiagnosticsContract.ts`** exports types, lifecycle enum, required top-level/drawer keys, and **`assertRoomRealtimeDiagnosticsContract(diag)`** for harness + unit tests. |
+| **`onDiagnosticsChange`** | Emit when any module drawer **or** health sub-field changes (ICE state transitions included). |
+| **Implementation split** | Sub-issues **#217** (SFU health wiring), **#218** (theater lifecycle + contract module + contract tests). |
 
 ## Decisions (typed errors — #141)
 
@@ -319,7 +333,7 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 
 ## Open implementation decisions
 
-_(None for #140 / #147 / #148 / #149 scope.)_
+_(None for #140 / #147 / #148 / #149 / #158 scope.)_
 
 ## Primary code pointers (optional)
 

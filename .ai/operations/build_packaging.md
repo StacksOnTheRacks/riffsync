@@ -78,8 +78,8 @@ Normative automated substitute for manual checklist steps that exercise client +
 2. **Publish** — produce **`participant_av`** video + audio (or **`host_screen`** where scenario requires).
 3. **Consume** — remote harness peer receives media; remote tile / consumer attach succeeds.
 4. **Partial unpublish** — camera off while mic on: video **`producerClosed`** propagates; remote video tile detaches promptly (**no** frozen last frame); audio continues without full SFU session rebuild.
-5. **Reconnect — chat WS** — force room WebSocket drop while SFU signaling stays open; chat plane recovers independently; media session persists per drawer-independent contract. Assert **`getDiagnostics().drawers.chat`** transitions **`connected` → `reconnecting` → `connected`** while **`drawers.sfuSignaling.state`** stays **`connected`**.
-6. **Reconnect — SFU WS** — force SFU signaling drop while room WebSocket stays open; token refetch + SFU reconnect recovers media; chat plane unaffected. Assert **`drawers.sfuSignaling`** recovers while **`drawers.chat.state`** stays **`connected`**.
+5. **Reconnect — chat WS** — force room WebSocket drop while SFU signaling stays open; chat plane recovers independently; media session persists per drawer-independent contract. Assert **`getDiagnostics().drawers.chat`** transitions **`connected` → `reconnecting` → `connected`** while **`drawers.sfuSignaling.state`** and **`drawers.sfuSignaling.health.connectivity.state`** stay **`connected`**.
+6. **Reconnect — SFU WS** — force SFU signaling drop while room WebSocket stays open; token refetch + SFU reconnect recovers media; chat plane unaffected. Assert **`drawers.sfuSignaling`** (and health sub-fields) recover while **`drawers.chat.state`** stays **`connected`**.
 
 Harness failures must name the **drawer** (chat, signaling, connectivity, produce/consume) in CI output. See **[`observability.md`](observability.md)** drawer mapping.
 

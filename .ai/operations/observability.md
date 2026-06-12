@@ -151,9 +151,18 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 | **JUnit XML** | **Deferred** — step summary + JSON artifact are MVP; add JUnit when PR annotation integration is needed. |
 | **Compile-only interim** | When **`tests/realtime-conformance/run.sh`** is absent, SFU compile failure uses **`[drawer=connectivity] code=SFU_BUILD_FAILED step=compile`**. |
 
+## Decisions (getDiagnostics vs client logs — #158)
+
+| Topic | Decision |
+| --- | --- |
+| **Dual surfaces** | **Console logs** (**#157**, **`clientDrawerLog`**) and **`getDiagnostics()`** health snapshot (**#158**) share drawer vocabulary but serve different consumers: unstructured JSON lines vs stable programmatic contract. |
+| **Log drawer → diagnostics field** | `chat` → **`drawers.chat`**; `signaling` → **`drawers.sfuSignaling.state`**; `connectivity` → **`drawers.sfuSignaling.health.connectivity`**; `produce_consume` → **`drawers.sfuSignaling.health.produceConsume`**. |
+| **Harness failure lines** | When assertion reads **`getDiagnostics()`**, stderr uses observability drawer label: e.g. **`[drawer=connectivity] code=ICE_FAILED step=5`**. |
+| **Support repro** | Dev builds: **`window.riffsyncRoomDiagnostics()`** documents support steps in issue **#158**; production fans use visible status banners + drawer logs only. |
+
 ## Open implementation decisions
 
-- **Exact metric names** — Whether hardening adds **`ProducerLifecycleEvent`**, **`IceGatheringFailed`**, or **`ChatSendDropped`** counters under **`RiffSync/Media`** / **`RiffSync/Realtime`** vs log-only MVP; dimension sets frozen at ship time.
+- **Exact metric names** — Whether hardening adds **`ProducerLifecycleEvent`**, **`IceGatheringFailed`**, or **`ChatSendDropped`** counters under **`RiffSync/Media`** / **`RiffSync/Realtime`** vs log-only MVP; dimension sets frozen at ship time (**#159** documents mapping).
 - **EC2 alarms** — Wire **`AWS/EC2` CPUUtilization** (> 80%, 5 min) and **`StatusCheckFailed`** (≥ 1, 2 min) in **`media-server-stack.ts`** this milestone vs defer optional SNS email.
 - **Health probe canary** — Lambda periodic scrape of prod **`/healthz`** emitting **`HealthProbeSuccess`** vs operator-only **`curl`**; schedule, IAM, and cost guardrails.
 - **SFU EMF wiring** — Whether **`TransportLimitRejected`** / **`ConsumerLimitRejected`** emit from SFU stdout in hardening PR or remain checklist-only until scrape Lambda lands.
@@ -161,5 +170,6 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 ## Primary code pointers (optional)
 
 - **`apps/web/src/room/clientDrawerLog.ts`** — production drawer-tagged console logs (**#157**).
+- **`apps/web/src/room/sessions/roomRealtimeDiagnosticsContract.ts`** — stable **`getDiagnostics()`** contract helpers (**#158**).
 - **`apps/web/src/room/realtimeDiagnostics.ts`** — dev-only diag panel counters (**`?diag=1`**).
 - Dashboard JSON in `infra/` when added.
