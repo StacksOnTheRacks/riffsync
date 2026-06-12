@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTheaterAudioMix } from '../audio/theaterAudioMix'
 import { TheaterPlayback } from './TheaterPlayback'
 import type { SfuMediaSession } from './SfuMediaSession'
+import * as clientDrawerLog from '../clientDrawerLog'
+
+vi.mock('../clientDrawerLog', () => ({
+  emitClientDrawerLog: vi.fn(),
+}))
 
 vi.mock('../audio/theaterAudioMix', () => ({
   createTheaterAudioMix: vi.fn(),
@@ -58,6 +63,7 @@ function makeStream(tracks: MediaStreamTrack[]): MediaStream {
 describe('TheaterPlayback', () => {
   beforeEach(() => {
     vi.mocked(createTheaterAudioMix).mockReset()
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
   })
 
   afterEach(() => {
@@ -239,6 +245,45 @@ describe('TheaterPlayback', () => {
 
     expect(playback.getLifecycleState()).toBe('degraded')
     expect(playback.getLastErrorCode()).toBe('THEATER_AUDIO_SUSPENDED')
+    playback.dispose()
+  })
+
+  it('emits mix_error on produce_consume drawer for theater audio graph failures', async () => {
+    const suspendedMix = makeMixMock({
+      getAudioContextState: vi.fn().mockReturnValue('suspended' as AudioContextState),
+    })
+    vi.mocked(createTheaterAudioMix).mockReturnValue(suspendedMix)
+    const suspendedPlayback = new TheaterPlayback()
+    suspendedPlayback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+      drawer: 'produce_consume',
+      event: 'mix_error',
+      code: 'THEATER_AUDIO_SUSPENDED',
+      outcome: 'failed',
+    })
+    suspendedPlayback.dispose()
+
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
+
+    const runningMix = makeMixMock()
+    vi.mocked(createTheaterAudioMix).mockReturnValue(runningMix)
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
+
+    const video = makeVideoElement(() => Promise.reject(new Error('autoplay blocked')))
+    playback.setGuestVideoElement(video)
+    playback.setGuestRemote(makeStream([makeTrack('video')]))
+    await Promise.resolve()
+
+    expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
+      drawer: 'produce_consume',
+      event: 'mix_error',
+      code: 'PLAYBACK_AUDIO_BLOCKED',
+      outcome: 'failed',
+    })
+
     playback.dispose()
   })
 

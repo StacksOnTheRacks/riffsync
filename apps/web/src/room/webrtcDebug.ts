@@ -1,4 +1,6 @@
 /** Enable with **`?webrtcDebug=1`** on the room URL (sessionStorage remembers for that tab). */
+import { emitClientDrawerLog } from './clientDrawerLog'
+
 const KEY = 'riffsync.webrtcDebug'
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -72,11 +74,19 @@ export function attachPcStateLogging(pc: RTCPeerConnection, label: string): void
   pc.addEventListener('connectionstatechange', () => log('connectionstatechange'))
   pc.addEventListener('iceconnectionstatechange', () => {
     log('iceconnectionstatechange')
-    if (webrtcDebugEnabled() && pc.iceConnectionState === 'failed') {
-      webrtcLog(
-        label,
-        'ICE failed — restrictive NAT/firewalls need TURN (`GET /v1/webrtc/ice` when API URL set, else `VITE_WEBRTC_ICE_SERVERS_JSON` — see apps/web/.env.example).',
-      )
+    if (pc.iceConnectionState === 'failed') {
+      emitClientDrawerLog({
+        drawer: 'connectivity',
+        event: 'ice_failed',
+        code: 'ICE_FAILED',
+        outcome: 'failed',
+      })
+      if (webrtcDebugEnabled()) {
+        webrtcLog(
+          label,
+          'ICE failed — restrictive NAT/firewalls need TURN (`GET /v1/webrtc/ice` when API URL set, else `VITE_WEBRTC_ICE_SERVERS_JSON` — see apps/web/.env.example).',
+        )
+      }
     }
   })
   pc.addEventListener('icegatheringstatechange', () => log('icegatheringstatechange'))

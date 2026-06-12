@@ -1,5 +1,7 @@
 /** Factual realtime / WebSocket diagnostics — no JWT bodies, no full SDP/candidates. Enable UI with **`?diag=1`** or call **`window.riffsyncRealtimeDiag.print()`**. */
 
+import { emitClientDrawerLog } from './clientDrawerLog'
+
 export type RealtimeInboundKind = 'chat' | 'signaling' | 'unknown' | 'parse_error'
 
 type WsTimelineEvent =
@@ -129,9 +131,11 @@ export function recordOutboundDropped(payload: Record<string, unknown>, readySta
     action: k,
     readyState,
   })
-  console.warn('[riffsync-diag] WebSocket outbound dropped (socket not OPEN)', {
-    action: k,
-    readyState,
+  emitClientDrawerLog({
+    drawer: 'chat',
+    event: 'send_dropped',
+    code: 'CHAT_SEND_DROPPED',
+    outcome: 'failed',
   })
 }
 

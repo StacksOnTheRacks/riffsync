@@ -53,6 +53,8 @@ export type ParticipantAvController = {
 export function createParticipantAvController(options: {
   canPublish: () => boolean
   onNeedsProducerTokenChange?: () => void
+  /** Camera off while mic remains — partial unpublish telemetry (#216). */
+  onPartialUnpublish?: () => void
 }): ParticipantAvController {
   let cameraEnabled = false
   let micEnabled = false
@@ -263,12 +265,16 @@ export function createParticipantAvController(options: {
     },
     disableCamera: () => {
       if (!cameraEnabled) return
+      const micStaysOn = micEnabled
       cameraEnabled = false
       if (!micEnabled) {
         session?.unpublishProducerClass('participant_av')
         stopLocalTracks()
         options.onNeedsProducerTokenChange?.()
       } else if (localStream) {
+        if (micStaysOn) {
+          options.onPartialUnpublish?.()
+        }
         for (const track of localStream.getVideoTracks()) {
           try {
             track.stop()
@@ -359,6 +365,7 @@ export type ParticipantAvPublishGate = {
 
 export function createBoundParticipantAvController(
   readGate: () => ParticipantAvPublishGate,
+  hooks?: { onPartialUnpublish?: () => void },
 ): ParticipantAvController {
   return createParticipantAvController({
     canPublish: () => {
@@ -369,5 +376,6 @@ export function createBoundParticipantAvController(
       })
     },
     onNeedsProducerTokenChange: () => readGate().onNeedsProducerTokenChange?.(),
+    onPartialUnpublish: hooks?.onPartialUnpublish,
   })
 }

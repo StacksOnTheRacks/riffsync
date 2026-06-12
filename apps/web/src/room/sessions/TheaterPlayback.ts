@@ -10,6 +10,7 @@ import {
   theaterAudioSuspendedError,
   type RealtimeDrawerErrorCode,
 } from '../realtimeDrawerErrors'
+import { emitMixErrorDrawerLog } from '../sfu/produceConsumeDrawerLog'
 import type { SfuMediaSession } from './SfuMediaSession'
 
 /** Normative drawer lifecycle for diagnostics (`execution_model.md`). */
@@ -303,7 +304,16 @@ export class TheaterPlayback {
     next: TheaterPlaybackLifecycleState,
     errorCode: RealtimeDrawerErrorCode | undefined,
   ): void {
+    const prevCode = this.lastErrorCode
     this.lastErrorCode = errorCode
+    if (
+      next === 'degraded' &&
+      errorCode &&
+      errorCode !== prevCode &&
+      (errorCode === 'THEATER_AUDIO_SUSPENDED' || errorCode === 'PLAYBACK_AUDIO_BLOCKED')
+    ) {
+      emitMixErrorDrawerLog(errorCode)
+    }
     if (this.lifecycleState === next) return
     this.lifecycleState = next
     for (const listener of this.lifecycleListeners) listener(next)
