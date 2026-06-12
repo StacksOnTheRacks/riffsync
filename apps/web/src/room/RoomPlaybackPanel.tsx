@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { TheaterPlaybackSnapshot } from './sessions/TheaterPlayback'
+import { RIFFSYNC_THEATER_AUDIO_STATUS_ID, RIFFSYNC_VIDEO_RELAY_STATUS_ID } from './drawerErrorPresentation'
 
 type RoomPlaybackPanelProps = {
   isPublisher: boolean
@@ -10,8 +11,8 @@ type RoomPlaybackPanelProps = {
   guestRemote: MediaStream | null
   fanToken: string | null
   theaterPlaybackSnapshot: TheaterPlaybackSnapshot
-  hostVideoRelayStatusSentence: string | null
-  guestVideoStatusSentence: string | null
+  videoRelayStatus: string | null
+  theaterAudioStatus: string | null
   bindHostCaptureVideo: (element: HTMLVideoElement | null) => void
   bindGuestVideo: (element: HTMLVideoElement | null) => void
   playHostCapturePreview: () => Promise<void>
@@ -29,8 +30,8 @@ export function RoomPlaybackPanel({
   guestRemote,
   fanToken,
   theaterPlaybackSnapshot,
-  hostVideoRelayStatusSentence,
-  guestVideoStatusSentence,
+  videoRelayStatus,
+  theaterAudioStatus,
   bindHostCaptureVideo,
   bindGuestVideo,
   playHostCapturePreview,
@@ -38,6 +39,8 @@ export function RoomPlaybackPanel({
   startCapture,
   openCapturePlayerTab,
 }: RoomPlaybackPanelProps) {
+  const hideGuestPlaceholder = !guestRemote && Boolean(videoRelayStatus)
+
   if (isPublisher) {
     return (
       <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
@@ -87,9 +90,15 @@ export function RoomPlaybackPanel({
           )}
         </div>
 
-        {hostVideoRelayStatusSentence ? (
-          <p className="riffsync-muted" role="status">
-            {hostVideoRelayStatusSentence}
+        {videoRelayStatus ? (
+          <p id={RIFFSYNC_VIDEO_RELAY_STATUS_ID} className="riffsync-muted" role="status">
+            {videoRelayStatus}
+          </p>
+        ) : null}
+
+        {theaterAudioStatus ? (
+          <p id={RIFFSYNC_THEATER_AUDIO_STATUS_ID} className="riffsync-muted" role="status">
+            {theaterAudioStatus}
           </p>
         ) : null}
 
@@ -118,9 +127,14 @@ export function RoomPlaybackPanel({
         in another browser; use Play if prompted. If you hear no audio, check that the video is not muted in the player
         controls.
       </span>
-      {guestVideoStatusSentence ? (
-        <p className="riffsync-muted" role="status">
-          {guestVideoStatusSentence}
+      {videoRelayStatus ? (
+        <p id={RIFFSYNC_VIDEO_RELAY_STATUS_ID} className="riffsync-muted" role="status">
+          {videoRelayStatus}
+        </p>
+      ) : null}
+      {theaterAudioStatus ? (
+        <p id={RIFFSYNC_THEATER_AUDIO_STATUS_ID} className="riffsync-muted" role="status">
+          {theaterAudioStatus}
         </p>
       ) : null}
       {theaterPlaybackSnapshot.guestPlayHint ? (
@@ -131,7 +145,7 @@ export function RoomPlaybackPanel({
         </p>
       ) : null}
       <div className="riffsync-room-page__player-shell riffsync-room-page__player-shell--guest">
-        {!guestRemote ? (
+        {!guestRemote && !hideGuestPlaceholder ? (
           <div className="riffsync-room-page__guest-video-placeholder" role="status">
             <p>The host is not sharing video right now.</p>
           </div>

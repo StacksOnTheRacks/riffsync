@@ -2,8 +2,8 @@ import { useCallback, useEffect, useId, useState } from 'react'
 import type { ParticipantAvController } from './sfu/participantAvSession'
 import {
   PARTICIPANT_AV_DISABLED_COPY,
-  participantAvErrorMessage,
 } from './participantAvErrorCopy'
+import { messageForParticipantAvError, RIFFSYNC_AV_TOGGLE_STATUS_ID } from './drawerErrorPresentation'
 
 export type ParticipantAvTogglesProps = {
   controller: ParticipantAvController
@@ -53,8 +53,6 @@ export function ParticipantAvToggles({
   onLocalToggleAnnounce,
 }: ParticipantAvTogglesProps) {
   const killSwitchId = useId()
-  const cameraErrId = useId()
-  const micErrId = useId()
   const [state, setState] = useState(() => controller.getState())
 
   useEffect(() => controller.subscribe(() => setState(controller.getState())), [controller])
@@ -62,20 +60,11 @@ export function ParticipantAvToggles({
   const killSwitchActive = avDisabled
   const activationBlocked = killSwitchActive || !state.canPublish || state.busy
 
-  const inlineErr = state.error ? participantAvErrorMessage(state.error) : null
-  const cameraErr = inlineErr
-  const micErr = inlineErr
+  const inlineErr = state.error ? messageForParticipantAvError(state.error) : null
 
-  const cameraDescribedBy = [
+  const toggleDescribedBy = [
     killSwitchActive ? killSwitchId : null,
-    cameraErr ? cameraErrId : null,
-  ]
-    .filter(Boolean)
-    .join(' ') || undefined
-
-  const micDescribedBy = [
-    killSwitchActive ? killSwitchId : null,
-    micErr ? micErrId : null,
+    inlineErr ? RIFFSYNC_AV_TOGGLE_STATUS_ID : null,
   ]
     .filter(Boolean)
     .join(' ') || undefined
@@ -121,7 +110,7 @@ export function ParticipantAvToggles({
           className={`gen-button riffsync-room-av-toggle${state.cameraEnabled ? ' riffsync-room-av-toggle--on' : ''}`}
           aria-pressed={state.cameraEnabled}
           aria-disabled={activationBlocked || undefined}
-          aria-describedby={cameraDescribedBy}
+          aria-describedby={toggleDescribedBy}
           disabled={state.busy}
           onClick={toggleCamera}
         >
@@ -133,7 +122,7 @@ export function ParticipantAvToggles({
           className={`gen-button riffsync-room-av-toggle${state.micEnabled ? ' riffsync-room-av-toggle--on' : ''}`}
           aria-pressed={state.micEnabled}
           aria-disabled={activationBlocked || undefined}
-          aria-describedby={micDescribedBy}
+          aria-describedby={toggleDescribedBy}
           disabled={state.busy}
           onClick={toggleMic}
         >
@@ -141,14 +130,9 @@ export function ParticipantAvToggles({
           <span className="riffsync-room-av-toggle__label">Microphone</span>
         </button>
       </div>
-      {cameraErr ? (
-        <p className="riffsync-room-av__err" id={cameraErrId} role="status">
-          {cameraErr}
-        </p>
-      ) : null}
-      {micErr && micErr !== cameraErr ? (
-        <p className="riffsync-room-av__err" id={micErrId} role="status">
-          {micErr}
+      {inlineErr ? (
+        <p className="riffsync-room-av__err" id={RIFFSYNC_AV_TOGGLE_STATUS_ID} role="status">
+          {inlineErr}
         </p>
       ) : null}
     </div>

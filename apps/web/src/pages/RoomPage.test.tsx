@@ -214,7 +214,7 @@ describe('RoomPage session integration', () => {
     renderRoom()
 
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('The host is not sharing video right now.')
+      expect(container.querySelector('#riffsync-video-relay-status')).not.toBeNull()
     })
 
     const chatDisconnectsBeforeUnmount = chatDisconnectSpy.mock.calls.length

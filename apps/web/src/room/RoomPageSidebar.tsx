@@ -13,6 +13,10 @@ import type { ParticipantAvController } from './sfu/participantAvSession'
 import type { ChatLine, PresenceMember, RoomSidebarTab } from './roomPageTypes'
 import { resolveMemberAvatarUrl } from './roomPageTypes'
 import type { GiphySearchResult } from '../api/giphySearchApi'
+import {
+  RIFFSYNC_CHAT_COMPOSE_STATUS_ID,
+  RIFFSYNC_CHAT_DRAWER_STATUS_ID,
+} from './drawerErrorPresentation'
 
 type RoomPageSidebarProps = {
   wsBase: string | undefined
@@ -33,6 +37,8 @@ type RoomPageSidebarProps = {
   showJumpToLatest: boolean
   jumpToLatestLabel: string
   jumpToLatest: () => void
+  chatDrawerBanner: string | null
+  chatComposeStatus: { message: string | null; disableSubmit: boolean }
   sendChat: () => void
   sendChatGif: (result: GiphySearchResult) => void
   toggleChatReaction: (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => void
@@ -76,6 +82,8 @@ export function RoomPageSidebar({
   showJumpToLatest,
   jumpToLatestLabel,
   jumpToLatest,
+  chatDrawerBanner,
+  chatComposeStatus,
   sendChat,
   sendChatGif,
   toggleChatReaction,
@@ -105,6 +113,16 @@ export function RoomPageSidebar({
         {!wsBase ? (
           <p className="riffsync-room-page__ws-banner riffsync-muted" role="status">
             Chat and viewer list require <code>VITE_PUBLIC_WS_URL</code> on this deployment.
+          </p>
+        ) : null}
+
+        {chatDrawerBanner ? (
+          <p
+            id={RIFFSYNC_CHAT_DRAWER_STATUS_ID}
+            className="riffsync-room-page__ws-banner riffsync-muted"
+            role="status"
+          >
+            {chatDrawerBanner}
           </p>
         ) : null}
 
@@ -391,18 +409,27 @@ export function RoomPageSidebar({
                     if (fanToken) setChatDraft(e.target.value)
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && fanToken) sendChat()
+                    if (e.key === 'Enter' && fanToken && !chatComposeStatus.disableSubmit) sendChat()
                   }}
                 />
                 <button
                   type="button"
                   className="riffsync-room-chat-compose-send gen-button"
-                  disabled={!fanToken}
+                  disabled={!fanToken || chatComposeStatus.disableSubmit}
                   onClick={sendChat}
                 >
                   Send
                 </button>
               </div>
+              {chatComposeStatus.message ? (
+                <p
+                  id={RIFFSYNC_CHAT_COMPOSE_STATUS_ID}
+                  className="riffsync-room-chat-giphy-status riffsync-room-chat-giphy-status--err"
+                  role="status"
+                >
+                  {chatComposeStatus.message}
+                </p>
+              ) : null}
               {!fanToken ? (
                 <div className="riffsync-room-chat-signin-overlay" role="region" aria-label="Sign in to participate in chat">
                   <button

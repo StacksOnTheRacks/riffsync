@@ -11,19 +11,17 @@ describe('resolveGuestVideoRelayStatusLine', () => {
       resolveGuestVideoRelayStatusLine({
         sfuRelayError: LOCAL_SFU_UNREACHABLE_MSG,
         guestShareFsm: 'verifying_media',
-        chatWsDisconnected: false,
       }),
     ).toBe(LOCAL_SFU_UNREACHABLE_MSG)
   })
 
-  it('shows chat reconnect copy only when no SFU config error is active', () => {
+  it('does not branch on chat WS state (drawer-independent banners)', () => {
     expect(
       resolveGuestVideoRelayStatusLine({
         sfuRelayError: null,
         guestShareFsm: 'running',
-        chatWsDisconnected: true,
       }),
-    ).toBe('Reconnecting chat… Video may pause briefly.')
+    ).toBeNull()
   })
 
   it('shows host-screen FSM copy when relay is healthy', () => {
@@ -31,7 +29,6 @@ describe('resolveGuestVideoRelayStatusLine', () => {
       resolveGuestVideoRelayStatusLine({
         sfuRelayError: null,
         guestShareFsm: 'idle',
-        chatWsDisconnected: false,
       }),
     ).toBe('Waiting for host to share…')
   })
