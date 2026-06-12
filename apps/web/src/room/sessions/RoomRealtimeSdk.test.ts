@@ -18,6 +18,7 @@ import {
   emitShareStateStopped,
   emitSfuDrawerError,
   getChatSession,
+  getSfuSession,
   joinHealthySdk,
   mockChatConnectOpensImmediately,
   mockSfuConnectOpensImmediately,
@@ -848,6 +849,33 @@ describe('RoomRealtimeSdk theater playback lifecycle', () => {
     }
 
     expect(sdk.getDiagnostics().drawers.theaterPlayback.state).toBe('connected')
+  })
+
+  it('routes emitRemoteStream(null) to TheaterPlayback.setGuestRemote for theater guests', async () => {
+    mockChatConnectOpensImmediately()
+    mockSfuConnectOpensImmediately()
+    const setGuestRemote = vi.spyOn(TheaterPlayback.prototype, 'setGuestRemote')
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-guest-remote-null',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+      isHost: false,
+    })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+
+    sdk.subscribe({ hostScreen: { onRemoteStream: vi.fn() } })
+    setGuestRemote.mockClear()
+
+    getSfuSession(sdk).handleShareStateStopped(false)
+
+    expect(setGuestRemote).toHaveBeenCalledWith(null)
   })
 })
 
