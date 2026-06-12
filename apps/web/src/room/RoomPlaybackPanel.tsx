@@ -91,13 +91,23 @@ export function RoomPlaybackPanel({
         </div>
 
         {videoRelayStatus ? (
-          <p id={RIFFSYNC_VIDEO_RELAY_STATUS_ID} className="riffsync-muted" role="status">
+          <p
+            id={RIFFSYNC_VIDEO_RELAY_STATUS_ID}
+            className="riffsync-muted"
+            role="status"
+            aria-live="polite"
+          >
             {videoRelayStatus}
           </p>
         ) : null}
 
         {theaterAudioStatus ? (
-          <p id={RIFFSYNC_THEATER_AUDIO_STATUS_ID} className="riffsync-muted" role="status">
+          <p
+            id={RIFFSYNC_THEATER_AUDIO_STATUS_ID}
+            className="riffsync-muted"
+            role="status"
+            aria-live="polite"
+          >
             {theaterAudioStatus}
           </p>
         ) : null}
@@ -128,12 +138,22 @@ export function RoomPlaybackPanel({
         controls.
       </span>
       {videoRelayStatus ? (
-        <p id={RIFFSYNC_VIDEO_RELAY_STATUS_ID} className="riffsync-muted" role="status">
+        <p
+          id={RIFFSYNC_VIDEO_RELAY_STATUS_ID}
+          className="riffsync-muted"
+          role="status"
+          aria-live="polite"
+        >
           {videoRelayStatus}
         </p>
       ) : null}
       {theaterAudioStatus ? (
-        <p id={RIFFSYNC_THEATER_AUDIO_STATUS_ID} className="riffsync-muted" role="status">
+        <p
+          id={RIFFSYNC_THEATER_AUDIO_STATUS_ID}
+          className="riffsync-muted"
+          role="status"
+          aria-live="polite"
+        >
           {theaterAudioStatus}
         </p>
       ) : null}

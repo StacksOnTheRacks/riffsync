@@ -153,4 +153,12 @@ describe('drawerErrorPresentation', () => {
     expect(presentation.chatDrawerBanner).toBe('Reconnecting chat…')
     expect(presentation.videoRelayStatus).toContain('Network connection failed')
   })
+
+  it('maps drawer status surfaces to stable ids for aria-describedby wiring', () => {
+    expect(RIFFSYNC_AV_TOGGLE_STATUS_ID).toBe('riffsync-av-toggle-status')
+    expect(RIFFSYNC_CHAT_DRAWER_STATUS_ID).toBe('riffsync-chat-drawer-status')
+    expect(RIFFSYNC_VIDEO_RELAY_STATUS_ID).toBe('riffsync-video-relay-status')
+    expect(RIFFSYNC_CHAT_COMPOSE_STATUS_ID).toBe('riffsync-chat-compose-status')
+    expect(RIFFSYNC_THEATER_AUDIO_STATUS_ID).toBe('riffsync-theater-audio-status')
+  })
 })

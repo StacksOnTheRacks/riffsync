@@ -131,7 +131,12 @@ export function ParticipantAvToggles({
         </button>
       </div>
       {inlineErr ? (
-        <p className="riffsync-room-av__err" id={RIFFSYNC_AV_TOGGLE_STATUS_ID} role="status">
+        <p
+          className="riffsync-room-av__err"
+          id={RIFFSYNC_AV_TOGGLE_STATUS_ID}
+          role="status"
+          aria-live="polite"
+        >
           {inlineErr}
         </p>
       ) : null}

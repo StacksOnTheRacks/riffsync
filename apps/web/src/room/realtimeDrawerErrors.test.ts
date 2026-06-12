@@ -146,6 +146,34 @@ describe('realtimeDrawerErrors', () => {
     ).toEqual(['CHAT_SEND_DROPPED', 'ICE_FAILED'])
   })
 
+  it('dedupes active codes and ignores unknown or inactive drawer codes', () => {
+    expect(
+      collectActiveErrorCodes([
+        undefined,
+        'not-a-real-code',
+        'CHAT_RECONNECTING',
+        'CHAT_SEND_DROPPED',
+        'SIGNALING_TIMEOUT',
+        'CHAT_SEND_DROPPED',
+        'THEATER_AUDIO_SUSPENDED',
+      ]),
+    ).toEqual(['CHAT_SEND_DROPPED', 'SIGNALING_TIMEOUT', 'THEATER_AUDIO_SUSPENDED'])
+  })
+
+  it('scopes drawer membership for collected active codes', () => {
+    const codes = collectActiveErrorCodes([
+      'CHAT_SEND_DROPPED',
+      'SIGNALING_TIMEOUT',
+      'THEATER_AUDIO_SUSPENDED',
+    ])
+    for (const code of codes) {
+      expect(drawerForErrorCode(code as (typeof codes)[number])).toBeTruthy()
+    }
+    expect(drawerForErrorCode('CHAT_SEND_DROPPED')).toBe('chat')
+    expect(drawerForErrorCode('SIGNALING_TIMEOUT')).toBe('sfuSignaling')
+    expect(drawerForErrorCode('THEATER_AUDIO_SUSPENDED')).toBe('theaterPlayback')
+  })
+
   it('treats producerClosedError as informational at diagnostics boundary', () => {
     const err = producerClosedError('producer-1')
     expect(err.code).toBe('PRODUCER_CLOSED')

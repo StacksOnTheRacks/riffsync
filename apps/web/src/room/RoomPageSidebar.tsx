@@ -121,6 +121,7 @@ export function RoomPageSidebar({
             id={RIFFSYNC_CHAT_DRAWER_STATUS_ID}
             className="riffsync-room-page__ws-banner riffsync-muted"
             role="status"
+            aria-live="polite"
           >
             {chatDrawerBanner}
           </p>
@@ -426,6 +427,7 @@ export function RoomPageSidebar({
                   id={RIFFSYNC_CHAT_COMPOSE_STATUS_ID}
                   className="riffsync-room-chat-giphy-status riffsync-room-chat-giphy-status--err"
                   role="status"
+                  aria-live="polite"
                 >
                   {chatComposeStatus.message}
                 </p>

@@ -73,6 +73,7 @@ describe('ParticipantAvToggles', () => {
     ) as HTMLButtonElement
     expect(camera.getAttribute('aria-disabled')).toBe('true')
     expect(camera.getAttribute('aria-describedby')).toBe(killSwitch?.id)
+    expect(killSwitch?.getAttribute('aria-live')).toBeNull()
   })
 
   it('shows inline error copy with aria-describedby on toggles', () => {
@@ -111,6 +112,7 @@ describe('ParticipantAvToggles', () => {
     })
     const err = container.querySelector(`#${RIFFSYNC_AV_TOGGLE_STATUS_ID}`)
     expect(err?.getAttribute('role')).toBe('status')
+    expect(err?.getAttribute('aria-live')).toBe('polite')
     expect(err?.textContent).toContain('maximum number of live')
     const camera = container.querySelector('button.riffsync-room-av-toggle') as HTMLButtonElement
     expect(camera.getAttribute('aria-describedby')).toContain(RIFFSYNC_AV_TOGGLE_STATUS_ID)

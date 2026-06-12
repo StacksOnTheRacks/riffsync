@@ -16,12 +16,18 @@ import {
   assertNoDrawerTornDown,
   assertSiblingDrawerStaysConnected,
   emitShareStateStopped,
+  emitSfuDrawerError,
   joinHealthySdk,
   mockChatConnectOpensImmediately,
   mockSfuConnectOpensImmediately,
   setChatLifecycle,
   setSfuLifecycle,
 } from './roomRealtimeSdkTestHelpers'
+import {
+  mapSfuConfigMediaCodeToDrawerError,
+  mapSfuMediaCodeToDrawerError,
+  producerClosedError,
+} from '../realtimeDrawerErrors'
 
 vi.mock('../audio/theaterAudioMix', () => ({
   THEATER_AUDIO_GAIN: 1,
@@ -653,6 +659,71 @@ describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
     const diag = sdk.getDiagnostics()
     expect(diag.drawers.chat.lastErrorCode).toBe('CHAT_SEND_DROPPED')
     expect(diag.activeErrorCodes).toContain('CHAT_SEND_DROPPED')
+  })
+})
+
+describe('RoomRealtimeSdk.getDiagnostics activeErrorCodes contract', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('includes SIGNALING_TIMEOUT from SFU drawer errors', async () => {
+    const sdk = await joinHealthySdk({ sessionId: 'sess-signaling-timeout' })
+    emitSfuDrawerError(sdk, mapSfuMediaCodeToDrawerError('signaling_failed'))
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.sfuSignaling.lastErrorCode).toBe('SIGNALING_TIMEOUT')
+    expect(diag.activeErrorCodes).toEqual(['SIGNALING_TIMEOUT'])
+  })
+
+  it('includes config-class LOCAL_SFU_UNREACHABLE from SFU drawer errors', async () => {
+    const sdk = await joinHealthySdk({ sessionId: 'sess-config-error' })
+    emitSfuDrawerError(sdk, mapSfuConfigMediaCodeToDrawerError('local_sfu_unreachable'))
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.sfuSignaling.lastErrorCode).toBe('LOCAL_SFU_UNREACHABLE')
+    expect(diag.activeErrorCodes).toEqual(['LOCAL_SFU_UNREACHABLE'])
+  })
+
+  it('collects activeErrorCodes from multiple drawers without duplicates', async () => {
+    const sdk = await joinHealthySdk({ sessionId: 'sess-multi-drawer' })
+    sdk.sendControl({ action: 'chat', text: 'hello', messageId: '550e8400-e29b-41d4-a716-446655440099' })
+    emitSfuDrawerError(sdk, mapSfuMediaCodeToDrawerError('signaling_failed'))
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.activeErrorCodes).toEqual(['CHAT_SEND_DROPPED', 'SIGNALING_TIMEOUT'])
+  })
+
+  it('excludes PRODUCER_CLOSED from activeErrorCodes after consumer detach simulation', async () => {
+    mockChatConnectOpensImmediately()
+    const consumerListeners: Array<(event: SfuConsumerTrackEvent) => void> = []
+    vi.spyOn(SfuMediaSession.prototype, 'onConsumerTrack').mockImplementation(function (
+      listener: (event: SfuConsumerTrackEvent) => void,
+    ) {
+      consumerListeners.push(listener)
+      return () => {
+        const idx = consumerListeners.indexOf(listener)
+        if (idx >= 0) consumerListeners.splice(idx, 1)
+      }
+    })
+
+    const sdk = await joinHealthySdk({ sessionId: 'sess-producer-closed' })
+    sdk.subscribe({ participantAv: { onConsumerTrack: vi.fn() } })
+    await vi.waitFor(() => expect(consumerListeners.length).toBeGreaterThan(0))
+
+    consumerListeners[0]?.({
+      action: 'detach',
+      producerId: 'p-1',
+      producerClass: 'participant_av',
+      kind: 'video',
+    })
+
+    emitSfuDrawerError(sdk, producerClosedError('p-1'))
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.sfuSignaling.lastErrorCode).toBe('PRODUCER_CLOSED')
+    expect(diag.activeErrorCodes).not.toContain('PRODUCER_CLOSED')
+    expect(diag.activeErrorCodes).toEqual([])
   })
 })
 
