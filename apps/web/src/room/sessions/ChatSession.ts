@@ -12,10 +12,22 @@ import {
   recordWsOpen,
 } from '../realtimeDiagnostics'
 import { webrtcDebugEnabled, webrtcLog } from '../webrtcDebug'
+import {
+  CHAT_RECONNECT_BACKOFF_INITIAL_MS,
+  chatLifecycleAfterFailedCycle,
+  nextChatReconnectBackoffMs,
+} from './drawerReconnectPolicy'
 
 const PING_MS = 25_000
 
 export type ChatSessionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
+
+/** Normative drawer lifecycle for diagnostics (`execution_model.md`). */
+export type ChatSessionLifecycleState =
+  | 'connected'
+  | 'reconnecting'
+  | 'degraded'
+  | 'torn-down'
 
 export type ChatTextLine = {
   kind: 'text'
@@ -177,10 +189,13 @@ type Listener<T> = (event: T) => void
 
 export class ChatSession {
   private status: ChatSessionStatus = 'idle'
+  private lifecycleState: ChatSessionLifecycleState = 'torn-down'
+  private failedReconnectCycles = 0
+  private lastErrorCode: string | undefined
   private ws: WebSocket | null = null
   private pingTimer: ReturnType<typeof setInterval> | null = null
   private reconnectTimer: number | null = null
-  private backoffMs = 1000
+  private backoffMs = CHAT_RECONNECT_BACKOFF_INITIAL_MS
   private cancelled = false
   private enabled = false
   private connectOptions: ChatSessionConnectOptions | null = null
@@ -194,9 +209,19 @@ export class ChatSession {
   private roomModeListeners = new Set<Listener<RoomModeEvent>>()
   private avDisabledListeners = new Set<Listener<AvDisabledEvent>>()
   private statusListeners = new Set<Listener<ChatSessionStatus>>()
+  private lifecycleListeners = new Set<Listener<ChatSessionLifecycleState>>()
+  private sendDroppedListeners = new Set<Listener<void>>()
 
   getStatus(): ChatSessionStatus {
     return this.status
+  }
+
+  getLifecycleState(): ChatSessionLifecycleState {
+    return this.lifecycleState
+  }
+
+  getLastErrorCode(): string | undefined {
+    return this.lastErrorCode
   }
 
   onChatText(listener: Listener<ChatTextLine>): () => void {
@@ -242,6 +267,17 @@ export class ChatSession {
     return () => this.statusListeners.delete(listener)
   }
 
+  onLifecycleChange(listener: Listener<ChatSessionLifecycleState>): () => void {
+    this.lifecycleListeners.add(listener)
+    return () => this.lifecycleListeners.delete(listener)
+  }
+
+  /** Fired when outbound send is dropped because room WS is not open. */
+  onSendDropped(listener: Listener<void>): () => void {
+    this.sendDroppedListeners.add(listener)
+    return () => this.sendDroppedListeners.delete(listener)
+  }
+
   connect(options: ChatSessionConnectOptions & { enabled?: boolean }): void {
     this.connectOptions = {
       url: options.url,
@@ -255,9 +291,12 @@ export class ChatSession {
     this.teardownSocket()
     if (!this.enabled || !options.url) {
       this.setStatus('idle')
+      this.setLifecycleState('torn-down')
       return
     }
-    this.backoffMs = 1000
+    this.backoffMs = CHAT_RECONNECT_BACKOFF_INITIAL_MS
+    this.failedReconnectCycles = 0
+    this.lastErrorCode = undefined
     this.attachPageHide()
     this.openSocket()
   }
@@ -270,23 +309,36 @@ export class ChatSession {
     this.clearReconnectTimer()
     this.ws?.close()
     this.ws = null
+    this.failedReconnectCycles = 0
+    this.lastErrorCode = undefined
     this.setStatus('idle')
+    this.setLifecycleState('torn-down')
   }
 
-  send(payload: Record<string, unknown>): void {
+  /** Returns false when the send is dropped (no queue while WS is not open). */
+  send(payload: Record<string, unknown>): boolean {
     const ws = this.ws
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       recordOutboundDropped(payload, ws?.readyState ?? -1)
-      return
+      this.lastErrorCode = 'CHAT_SEND_DROPPED'
+      for (const listener of this.sendDroppedListeners) listener()
+      return false
     }
     recordOutboundSent(payload)
     ws.send(JSON.stringify(payload))
+    return true
   }
 
   private setStatus(next: ChatSessionStatus): void {
     if (this.status === next) return
     this.status = next
     for (const listener of this.statusListeners) listener(next)
+  }
+
+  private setLifecycleState(next: ChatSessionLifecycleState): void {
+    if (this.lifecycleState === next) return
+    this.lifecycleState = next
+    for (const listener of this.lifecycleListeners) listener(next)
   }
 
   private clearPing(): void {
@@ -368,6 +420,11 @@ export class ChatSession {
 
     this.teardownSocket()
     this.setStatus('connecting')
+    this.setLifecycleState(
+      this.failedReconnectCycles > 0
+        ? chatLifecycleAfterFailedCycle(this.failedReconnectCycles)
+        : 'reconnecting',
+    )
 
     const qp = new URLSearchParams({ roomId: opts.roomId, sessionId: opts.sessionId })
     if (opts.displayName && opts.displayName.trim() !== '') {
@@ -390,6 +447,7 @@ export class ChatSession {
     try {
       ws = new WebSocket(wsUrlBase)
     } catch {
+      this.recordReconnectFailure()
       this.setStatus('error')
       return
     }
@@ -397,8 +455,11 @@ export class ChatSession {
 
     ws.addEventListener('open', () => {
       if (this.cancelled || this.ws !== ws) return
-      this.backoffMs = 1000
+      this.backoffMs = CHAT_RECONNECT_BACKOFF_INITIAL_MS
+      this.failedReconnectCycles = 0
+      this.lastErrorCode = undefined
       this.setStatus('open')
+      this.setLifecycleState('connected')
       recordWsOpen()
       if (webrtcDebugEnabled()) webrtcLog('ws open')
       if (ws.readyState === WebSocket.OPEN) {
@@ -436,14 +497,19 @@ export class ChatSession {
         })
       }
       if (this.cancelled) return
+      this.recordReconnectFailure()
       this.setStatus('closed')
-      if (!this.enabled) return
-      const delay = Math.min(this.backoffMs, 60_000)
-      this.backoffMs = Math.min(this.backoffMs * 2, 60_000)
-      this.reconnectTimer = window.setTimeout(() => {
+      if (!this.enabled) {
+        this.setLifecycleState('torn-down')
+        return
+      }
+      this.setLifecycleState(chatLifecycleAfterFailedCycle(this.failedReconnectCycles))
+      const { delayMs, nextBackoffMs } = nextChatReconnectBackoffMs(this.backoffMs)
+      this.backoffMs = nextBackoffMs
+      this.reconnectTimer = globalThis.setTimeout(() => {
         this.reconnectTimer = null
         this.openSocket()
-      }, delay)
+      }, delayMs) as unknown as number
     })
 
     ws.addEventListener('error', () => {
@@ -451,6 +517,14 @@ export class ChatSession {
       recordWsErrorEvent()
       if (webrtcDebugEnabled()) webrtcLog('ws error event')
       this.setStatus('error')
+      if (this.enabled) {
+        this.setLifecycleState(chatLifecycleAfterFailedCycle(this.failedReconnectCycles))
+      }
     })
+  }
+
+  private recordReconnectFailure(): void {
+    if (this.cancelled || !this.enabled) return
+    this.failedReconnectCycles += 1
   }
 }

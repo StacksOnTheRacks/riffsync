@@ -54,12 +54,18 @@ function assertStableDiagnosticsContract(diag: RoomRealtimeDiagnostics): void {
 function mockChatConnectOpensImmediately(): void {
   vi.spyOn(ChatSession.prototype, 'connect').mockImplementation(function (this: ChatSession) {
     ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
+    ;(this as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
+      'connected',
+    )
   })
 }
 
 function mockSfuConnectOpensImmediately(): void {
   vi.spyOn(SfuMediaSession.prototype, 'connect').mockImplementation(function (this: SfuMediaSession) {
     ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
+    ;(this as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
+      'connected',
+    )
   })
 }
 
@@ -67,15 +73,15 @@ describe('RoomRealtimeSdk lifecycle mappers', () => {
   it('maps chat session statuses to drawer lifecycle enum strings', () => {
     expect(mapChatSessionStatusToDrawerState('open')).toBe('connected')
     expect(mapChatSessionStatusToDrawerState('connecting')).toBe('reconnecting')
+    expect(mapChatSessionStatusToDrawerState('closed')).toBe('reconnecting')
     expect(mapChatSessionStatusToDrawerState('error')).toBe('degraded')
-    expect(mapChatSessionStatusToDrawerState('idle')).toBe('torn-down')
-    expect(mapChatSessionStatusToDrawerState('closed')).toBe('torn-down')
   })
 
   it('maps SFU session statuses to drawer lifecycle enum strings', () => {
     expect(mapSfuMediaSessionStatusToDrawerState('open')).toBe('connected')
     expect(mapSfuMediaSessionStatusToDrawerState('connecting')).toBe('reconnecting')
     expect(mapSfuMediaSessionStatusToDrawerState('reconnecting')).toBe('reconnecting')
+    expect(mapSfuMediaSessionStatusToDrawerState('degraded')).toBe('degraded')
     expect(mapSfuMediaSessionStatusToDrawerState('error')).toBe('degraded')
     expect(mapSfuMediaSessionStatusToDrawerState('idle')).toBe('torn-down')
     expect(mapSfuMediaSessionStatusToDrawerState('closed')).toBe('torn-down')
@@ -233,6 +239,9 @@ describe('RoomRealtimeSdk.join bootstrap order', () => {
     vi.spyOn(ChatSession.prototype, 'connect').mockImplementation(function (this: ChatSession) {
       order.push('chat-connect')
       ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
+      ;(this as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
+        'connected',
+      )
     })
     vi.spyOn(SfuMediaSession.prototype, 'connect').mockImplementation(function (
       this: SfuMediaSession,
@@ -550,6 +559,73 @@ describe('RoomRealtimeSdk.subscribe', () => {
 
     expect(routeSfuConsumerEvent).toHaveBeenCalledWith(event)
     expect(onConsumerTrack).toHaveBeenCalledWith(event)
+  })
+})
+
+describe('RoomRealtimeSdk drawer isolation', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('does not disconnect SFU when chat WS enters reconnecting lifecycle', async () => {
+    mockChatConnectOpensImmediately()
+    mockSfuConnectOpensImmediately()
+    const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-isolate-chat',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+    })
+
+    await vi.waitFor(() => expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected'))
+
+    const chat = (sdk as unknown as { chat: ChatSession }).chat
+    ;(chat as unknown as { setLifecycleState: (s: string) => void }).setLifecycleState('reconnecting')
+
+    expect(sfuDisconnect).not.toHaveBeenCalled()
+    expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
+  })
+
+  it('does not disconnect chat when SFU enters reconnecting lifecycle', async () => {
+    mockChatConnectOpensImmediately()
+    mockSfuConnectOpensImmediately()
+    const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-isolate-sfu',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+    })
+
+    await vi.waitFor(() => expect(sdk.getDiagnostics().drawers.chat.state).toBe('connected'))
+
+    const sfu = (sdk as unknown as { sfu: SfuMediaSession }).sfu
+    ;(sfu as unknown as { setLifecycleState: (s: string) => void }).setLifecycleState('reconnecting')
+
+    expect(chatDisconnect).not.toHaveBeenCalled()
+    expect(sdk.getDiagnostics().drawers.chat.state).toBe('connected')
+  })
+
+  it('surfaces CHAT_SEND_DROPPED when chat send is dropped', () => {
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-send-drop',
+      wsUrl: 'wss://ws.test',
+    })
+
+    sdk.sendControl({ action: 'chat', text: 'hello', messageId: '550e8400-e29b-41d4-a716-446655440099' })
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.chat.lastErrorCode).toBe('CHAT_SEND_DROPPED')
+    expect(diag.activeErrorCodes).toContain('CHAT_SEND_DROPPED')
   })
 })
 

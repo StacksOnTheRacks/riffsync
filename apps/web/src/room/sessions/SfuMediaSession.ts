@@ -27,6 +27,8 @@ import {
   messageForSfuRelayConfigError,
   type SfuRelayConfigErrorCode,
 } from '../sfu/sfuConfigErrors'
+import { sfuLifecycleAfterFailedCycle } from './drawerReconnectPolicy'
+import { resolveJwtRemintDelayMs } from './sfuJwtRemintSchedule'
 
 export type SfuMediaSessionStatus =
   | 'idle'
@@ -35,6 +37,14 @@ export type SfuMediaSessionStatus =
   | 'closed'
   | 'error'
   | 'reconnecting'
+  | 'degraded'
+
+/** Normative drawer lifecycle for diagnostics (`execution_model.md`). */
+export type SfuMediaSessionLifecycleState =
+  | 'connected'
+  | 'reconnecting'
+  | 'degraded'
+  | 'torn-down'
 
 export type SfuRoomSessionHandle = SfuUnifiedSessionHandle
 
@@ -46,6 +56,7 @@ type SessionHooks = {
   onSessionClean?: () => void
   onConnecting?: () => void
   onSessionReady?: () => void
+  onTokenMinted?: (tok: import('../sfu/mediasoupSharing').SfuTokenResponse) => void
 }
 
 export type StartSfuRoomSessionOpts = SessionHooks & {
@@ -230,6 +241,8 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
 
       if (signal.aborted) break
 
+      opts.onTokenMinted?.(tok)
+
       const wantsProducer = producerClass !== undefined
       if (wantsProducer && tok.role !== 'producer') {
         await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
@@ -339,11 +352,18 @@ type Listener<T> = (event: T) => void
  */
 export class SfuMediaSession {
   private status: SfuMediaSessionStatus = 'idle'
+  private lifecycleState: SfuMediaSessionLifecycleState = 'torn-down'
+  private failedReconnectCycles = 0
+  private lastErrorCode: string | undefined
   private cancelReconnect: (() => void) | null = null
   private sessionHandle: SfuUnifiedSessionHandle | null = null
   private tokenIntentGeneration = 0
   private connectOptions: SfuMediaSessionConnectOptions | null = null
   private enabled = false
+  private jwtRemintTimer: ReturnType<typeof setTimeout> | null = null
+  private refreshedJoinToken: string | null = null
+  private lastMintedToken: string | null = null
+  private lastMintedExpiresInSeconds: number | undefined
 
   private readonly gate: ParticipantAvPublishGate = {
     wsOpen: false,
@@ -357,6 +377,7 @@ export class SfuMediaSession {
   private consumerTrackListeners = new Set<Listener<SfuConsumerTrackEvent>>()
   private errorListeners = new Set<Listener<string | null>>()
   private statusListeners = new Set<Listener<SfuMediaSessionStatus>>()
+  private lifecycleListeners = new Set<Listener<SfuMediaSessionLifecycleState>>()
   private participantAvConsumerClearListeners = new Set<Listener<void>>()
 
   constructor() {
@@ -366,6 +387,14 @@ export class SfuMediaSession {
 
   getStatus(): SfuMediaSessionStatus {
     return this.status
+  }
+
+  getLifecycleState(): SfuMediaSessionLifecycleState {
+    return this.lifecycleState
+  }
+
+  getLastErrorCode(): string | undefined {
+    return this.lastErrorCode
   }
 
   getSessionHandle(): SfuUnifiedSessionHandle | null {
@@ -406,6 +435,11 @@ export class SfuMediaSession {
     return () => this.statusListeners.delete(listener)
   }
 
+  onLifecycleChange(listener: Listener<SfuMediaSessionLifecycleState>): () => void {
+    this.lifecycleListeners.add(listener)
+    return () => this.lifecycleListeners.delete(listener)
+  }
+
   /** Fired when participant_av consumers should be cleared (kill switch). */
   onParticipantAvConsumersClear(listener: Listener<void>): () => void {
     this.participantAvConsumerClearListeners.add(listener)
@@ -429,17 +463,25 @@ export class SfuMediaSession {
     this.stopReconnectLoop()
     if (!this.enabled || !options.apiBaseUrl || !options.roomId) {
       this.setStatus('idle')
+      this.setLifecycleState('torn-down')
       return
     }
+    this.failedReconnectCycles = 0
+    this.lastErrorCode = undefined
     this.startReconnectLoop()
   }
 
   disconnect(): void {
     this.enabled = false
+    this.clearJwtRemintTimer()
+    this.refreshedJoinToken = null
     this.stopReconnectLoop()
     this.sessionHandle?.unpublishProducerClass('host_screen')
     this.emitRemoteStream(null)
+    this.failedReconnectCycles = 0
+    this.lastErrorCode = undefined
     this.setStatus('idle')
+    this.setLifecycleState('torn-down')
     this.emitError(null)
   }
 
@@ -534,6 +576,11 @@ export class SfuMediaSession {
     if (!opts || !this.enabled) return
 
     this.setStatus('connecting')
+    this.setLifecycleState(
+      this.failedReconnectCycles > 0
+        ? sfuLifecycleAfterFailedCycle(this.failedReconnectCycles)
+        : 'reconnecting',
+    )
     const generation = this.tokenIntentGeneration
 
     const { cancel } = startSfuRoomSession({
@@ -550,7 +597,10 @@ export class SfuMediaSession {
       },
       assignSession: (s) => {
         this.sessionHandle = s
-        if (s) this.setStatus('open')
+        if (s) {
+          this.setStatus('open')
+          this.setLifecycleState('connected')
+        }
       },
       onMissingWsUrl: () =>
         this.emitError(messageForSfuRelayConfigError('missing_ws_url')),
@@ -569,15 +619,34 @@ export class SfuMediaSession {
       onConnecting: () => {
         this.emitError(null)
         this.setStatus('connecting')
+        this.setLifecycleState(
+          this.failedReconnectCycles > 0
+            ? sfuLifecycleAfterFailedCycle(this.failedReconnectCycles)
+            : 'reconnecting',
+        )
       },
       onSessionReady: () => {
         this.emitError(null)
+        this.failedReconnectCycles = 0
+        this.lastErrorCode = undefined
         this.setStatus('open')
+        this.setLifecycleState('connected')
+        if (this.lastMintedToken) {
+          this.scheduleJwtRemint(this.lastMintedToken, this.lastMintedExpiresInSeconds)
+        }
+      },
+      onTokenMinted: (tok) => {
+        this.lastMintedToken = tok.token
+        this.lastMintedExpiresInSeconds = tok.expiresInSeconds
       },
       onSessionClean: () => {
+        this.clearJwtRemintTimer()
         this.sessionHandle = null
         if (this.enabled && generation === this.tokenIntentGeneration) {
-          this.setStatus('reconnecting')
+          this.failedReconnectCycles += 1
+          const lifecycle = sfuLifecycleAfterFailedCycle(this.failedReconnectCycles)
+          this.setStatus(lifecycle === 'degraded' ? 'degraded' : 'reconnecting')
+          this.setLifecycleState(lifecycle)
         }
       },
     })
@@ -589,15 +658,71 @@ export class SfuMediaSession {
   }
 
   private stopReconnectLoop(): void {
+    this.clearJwtRemintTimer()
     this.cancelReconnect?.()
     this.cancelReconnect = null
     this.sessionHandle = null
+  }
+
+  private clearJwtRemintTimer(): void {
+    if (this.jwtRemintTimer !== null) {
+      clearTimeout(this.jwtRemintTimer)
+      this.jwtRemintTimer = null
+    }
+  }
+
+  private scheduleJwtRemint(token: string, expiresInSeconds?: number): void {
+    this.clearJwtRemintTimer()
+    if (this.getStatus() !== 'open') return
+
+    const delayMs = resolveJwtRemintDelayMs(token, expiresInSeconds)
+    if (delayMs === null) return
+
+    this.jwtRemintTimer = setTimeout(() => {
+      this.jwtRemintTimer = null
+      void this.remintJoinToken()
+    }, delayMs)
+  }
+
+  private async remintJoinToken(): Promise<void> {
+    const opts = this.connectOptions
+    if (!opts || !this.enabled || this.getStatus() !== 'open') return
+
+    const producerClass = resolveSfuTokenProducerClass({
+      participantAv: this.participantAv,
+      getHostScreenStream: opts.getHostScreenStream,
+    })
+
+    try {
+      const tok = await fetchSfuJoinToken({
+        apiBaseUrl: opts.apiBaseUrl,
+        roomId: opts.roomId,
+        sessionId: opts.sessionId,
+        accessToken: opts.accessToken,
+        ...(producerClass ? { producerClass } : {}),
+      })
+      this.refreshedJoinToken = tok.token
+      this.lastErrorCode = undefined
+      if (this.getStatus() === 'open') {
+        this.scheduleJwtRemint(tok.token, tok.expiresInSeconds)
+      }
+    } catch {
+      this.lastErrorCode = 'SFU_TOKEN_DENIED'
+      this.setStatus('degraded')
+      this.setLifecycleState('degraded')
+    }
   }
 
   private setStatus(next: SfuMediaSessionStatus): void {
     if (this.status === next) return
     this.status = next
     for (const listener of this.statusListeners) listener(next)
+  }
+
+  private setLifecycleState(next: SfuMediaSessionLifecycleState): void {
+    if (this.lifecycleState === next) return
+    this.lifecycleState = next
+    for (const listener of this.lifecycleListeners) listener(next)
   }
 
   private emitRemoteStream(stream: MediaStream | null): void {

@@ -113,11 +113,11 @@ export function mapChatSessionStatusToDrawerState(status: ChatSessionStatus): Dr
     case 'open':
       return 'connected'
     case 'connecting':
+    case 'closed':
       return 'reconnecting'
     case 'error':
       return 'degraded'
     case 'idle':
-    case 'closed':
     default:
       return 'torn-down'
   }
@@ -132,6 +132,7 @@ export function mapSfuMediaSessionStatusToDrawerState(
     case 'connecting':
     case 'reconnecting':
       return 'reconnecting'
+    case 'degraded':
     case 'error':
       return 'degraded'
     case 'idle':
@@ -182,7 +183,10 @@ export class RoomRealtimeSdk {
   private theater: TheaterPlayback | null = null
 
   private chatStatusUnsub: (() => void) | null = null
+  private chatLifecycleUnsub: (() => void) | null = null
+  private chatSendDroppedUnsub: (() => void) | null = null
   private sfuStatusUnsub: (() => void) | null = null
+  private sfuLifecycleUnsub: (() => void) | null = null
   private sfuErrorUnsub: (() => void) | null = null
   private mediaPolicyUnsubs: Array<() => void> = []
   private hostScreenStreamUnsub: (() => void) | null = null
@@ -268,12 +272,8 @@ export class RoomRealtimeSdk {
   }
 
   getDiagnostics(): RoomRealtimeDiagnostics {
-    const chatState = this.chat
-      ? mapChatSessionStatusToDrawerState(this.chat.getStatus())
-      : 'torn-down'
-    const sfuState = this.sfu
-      ? mapSfuMediaSessionStatusToDrawerState(this.sfu.getStatus())
-      : 'torn-down'
+    const chatState = this.chat?.getLifecycleState() ?? 'torn-down'
+    const sfuState = this.sfu?.getLifecycleState() ?? 'torn-down'
     const theaterState: DrawerLifecycleState =
       this.theaterLayoutActive && this.theaterBootstrapped && this.theater
         ? 'connected'
@@ -282,14 +282,17 @@ export class RoomRealtimeSdk {
     const sfuDiag = this.sfu?.getSignalingDiagnostics() ?? {}
     const theaterAudioContextState = this.theater?.getAudioContextState()
 
+    const chatLastError = this.chatLastErrorCode ?? this.chat?.getLastErrorCode()
+    const sfuLastError = this.sfuLastErrorCode ?? this.sfu?.getLastErrorCode()
+
     const drawers: RoomRealtimeDiagnostics['drawers'] = {
       chat: {
         state: chatState,
-        ...(this.chatLastErrorCode ? { lastErrorCode: this.chatLastErrorCode } : {}),
+        ...(chatLastError ? { lastErrorCode: chatLastError } : {}),
       },
       sfuSignaling: {
         state: sfuState,
-        ...(this.sfuLastErrorCode ? { lastErrorCode: this.sfuLastErrorCode } : {}),
+        ...(sfuLastError ? { lastErrorCode: sfuLastError } : {}),
         ...(sfuDiag.role ? { role: sfuDiag.role } : {}),
         ...(sfuDiag.producerCount !== undefined ? { producerCount: sfuDiag.producerCount } : {}),
         ...(sfuDiag.consumerCount !== undefined ? { consumerCount: sfuDiag.consumerCount } : {}),
@@ -386,9 +389,6 @@ export class RoomRealtimeSdk {
     if (!chat || !sfu) return
 
     this.chatStatusUnsub = chat.onStatusChange((status) => {
-      if (status === 'error' && !this.chatLastErrorCode) {
-        this.chatLastErrorCode = 'CHAT_SEND_DROPPED'
-      }
       if (status === 'open') {
         this.chatLastErrorCode = undefined
         void this.bootstrapMediaPlanes()
@@ -396,12 +396,30 @@ export class RoomRealtimeSdk {
       this.emitDiagnosticsChange()
     })
 
-    this.sfuStatusUnsub = sfu.onStatusChange((status) => {
-      if (status === 'error' && !this.sfuLastErrorCode) {
-        this.sfuLastErrorCode = 'SIGNALING_TIMEOUT'
+    this.chatLifecycleUnsub = chat.onLifecycleChange((state) => {
+      if (state === 'connected') {
+        this.chatLastErrorCode = undefined
       }
+      this.emitDiagnosticsChange()
+    })
+
+    this.chatSendDroppedUnsub = chat.onSendDropped(() => {
+      this.chatLastErrorCode = 'CHAT_SEND_DROPPED'
+      this.emitDiagnosticsChange()
+    })
+
+    this.sfuStatusUnsub = sfu.onStatusChange((status) => {
       if (status === 'open') {
         this.sfuLastErrorCode = undefined
+      }
+      this.emitDiagnosticsChange()
+    })
+
+    this.sfuLifecycleUnsub = sfu.onLifecycleChange((state) => {
+      if (state === 'connected') {
+        this.sfuLastErrorCode = undefined
+      } else if (state === 'degraded' && sfu.getLastErrorCode()) {
+        this.sfuLastErrorCode = sfu.getLastErrorCode()
       }
       this.emitDiagnosticsChange()
     })
@@ -593,7 +611,10 @@ export class RoomRealtimeSdk {
 
   private teardownModules(opts: { intentional: boolean }): void {
     this.chatStatusUnsub?.()
+    this.chatLifecycleUnsub?.()
+    this.chatSendDroppedUnsub?.()
     this.sfuStatusUnsub?.()
+    this.sfuLifecycleUnsub?.()
     this.sfuErrorUnsub?.()
     for (const unsub of this.mediaPolicyUnsubs) unsub()
     for (const unsub of this.roomControlUnsubs) unsub()
@@ -603,7 +624,10 @@ export class RoomRealtimeSdk {
     this.participantAvClearUnsub?.()
     this.participantAvStateUnsub?.()
     this.chatStatusUnsub = null
+    this.chatLifecycleUnsub = null
+    this.chatSendDroppedUnsub = null
     this.sfuStatusUnsub = null
+    this.sfuLifecycleUnsub = null
     this.sfuErrorUnsub = null
     this.mediaPolicyUnsubs = []
     this.roomControlUnsubs = []

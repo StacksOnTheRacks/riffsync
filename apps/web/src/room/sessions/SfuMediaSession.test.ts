@@ -4,6 +4,8 @@ import { SfuTokenHttpError } from '../av/participantAvErrors'
 import { connectSfuUnifiedSession } from '../sfu/mediasoupSharing'
 import { createParticipantAvController } from '../sfu/participantAvSession'
 import { LOCAL_SFU_UNREACHABLE_MSG } from '../sfu/sfuConfigErrors'
+import { SFU_DEGRADED_AFTER_FAILED_CYCLES, SFU_JWT_REMINT_LEAD_SECONDS, sfuLifecycleAfterFailedCycle } from './drawerReconnectPolicy'
+import { resolveJwtRemintDelayMs } from './sfuJwtRemintSchedule'
 import {
   formatSfuTokenError,
   isRosterConsistency403,
@@ -241,5 +243,222 @@ describe('SfuMediaSession media policy', () => {
     expect(teardown).toHaveBeenCalled()
     expect(detach).toHaveBeenCalledWith('participant_av')
     expect(clearListener).toHaveBeenCalled()
+  })
+})
+
+function base64UrlJson(obj: unknown): string {
+  return Buffer.from(JSON.stringify(obj), 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+}
+
+function fakeJwt(payload: Record<string, unknown>): string {
+  return `header.${base64UrlJson(payload)}.sig`
+}
+
+describe('SfuMediaSession lifecycle FSM', () => {
+  it('maps failed reconnect cycles to degraded lifecycle at threshold', () => {
+    const session = new SfuMediaSession()
+    const internal = session as unknown as {
+      failedReconnectCycles: number
+      enabled: boolean
+      tokenIntentGeneration: number
+      clearJwtRemintTimer: () => void
+      sessionHandle: null
+      setStatus: (status: string) => void
+      setLifecycleState: (state: string) => void
+    }
+
+    internal.enabled = true
+    internal.tokenIntentGeneration = 0
+    internal.sessionHandle = null
+
+    for (let i = 0; i < SFU_DEGRADED_AFTER_FAILED_CYCLES - 1; i += 1) {
+      internal.failedReconnectCycles += 1
+      internal.clearJwtRemintTimer()
+      const lifecycle = sfuLifecycleAfterFailedCycle(internal.failedReconnectCycles)
+      internal.setStatus(lifecycle === 'degraded' ? 'degraded' : 'reconnecting')
+      internal.setLifecycleState(lifecycle)
+      expect(session.getLifecycleState()).toBe('reconnecting')
+    }
+
+    internal.failedReconnectCycles += 1
+    const lifecycle = sfuLifecycleAfterFailedCycle(internal.failedReconnectCycles)
+    internal.setStatus(lifecycle === 'degraded' ? 'degraded' : 'reconnecting')
+    internal.setLifecycleState(lifecycle)
+    expect(session.getLifecycleState()).toBe('degraded')
+    expect(session.getStatus()).toBe('degraded')
+  })
+})
+
+describe('SfuMediaSession JWT remint', () => {
+  const fixedNowMs = 1_700_000_000_000
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.clearAllMocks()
+  })
+
+  it('schedules proactive remint at exp minus lead while signaling is open', async () => {
+    const exp = Math.floor(fixedNowMs / 1000) + 900
+    const token = fakeJwt({ exp })
+    vi.mocked(fetchSfuJoinToken)
+      .mockResolvedValueOnce({
+        token,
+        role: 'consumer',
+        wsUrl: 'ws://127.0.0.1:3000',
+        expiresInSeconds: 900,
+      })
+      .mockResolvedValueOnce({
+        token: fakeJwt({ exp: exp + 900 }),
+        role: 'consumer',
+        wsUrl: 'ws://127.0.0.1:3000',
+        expiresInSeconds: 900,
+      })
+
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
+      ready: Promise.resolve(),
+      sessionEnded: new Promise(() => {}),
+      close: vi.fn(),
+      unpublishProducerClass: vi.fn(),
+      publishStream: vi.fn(),
+      supportsPublish: false,
+      tokenRole: 'consumer',
+      getProducerCount: () => 0,
+      getConsumerCount: () => 0,
+      detachConsumerClass: vi.fn(),
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    }))
+
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-jwt',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => expect(session.getLifecycleState()).toBe('connected'))
+
+    const delay = resolveJwtRemintDelayMs(token, 900, fixedNowMs)!
+    expect(delay).toBe((900 - SFU_JWT_REMINT_LEAD_SECONDS) * 1000)
+
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNowMs)
+    ;(
+      session as unknown as { scheduleJwtRemint: (t: string, e?: number) => void }
+    ).scheduleJwtRemint(token, 900)
+    await vi.advanceTimersByTimeAsync(delay + 1)
+    await vi.waitFor(() => expect(fetchSfuJoinToken.mock.calls.length).toBeGreaterThanOrEqual(2))
+    expect(session.getLifecycleState()).toBe('connected')
+  })
+
+  it('enters degraded on failed remint without tearing down reconnect loop', async () => {
+    const exp = Math.floor(Date.now() / 1000) + 120
+    const token = fakeJwt({ exp })
+    let fetchCalls = 0
+    vi.mocked(fetchSfuJoinToken).mockImplementation(async () => {
+      fetchCalls += 1
+      if (fetchCalls === 1) {
+        return {
+          token,
+          role: 'consumer' as const,
+          wsUrl: 'ws://127.0.0.1:3000',
+          expiresInSeconds: 120,
+        }
+      }
+      throw new SfuTokenHttpError(403, { code: 'av_disabled', error: 'denied' })
+    })
+
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
+      ready: Promise.resolve(),
+      sessionEnded: new Promise(() => {}),
+      close: vi.fn(),
+      unpublishProducerClass: vi.fn(),
+      publishStream: vi.fn(),
+      supportsPublish: false,
+      tokenRole: 'consumer',
+      getProducerCount: () => 0,
+      getConsumerCount: () => 0,
+      detachConsumerClass: vi.fn(),
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    }))
+
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-jwt-fail',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => expect(session.getLifecycleState()).toBe('connected'))
+
+    await (
+      session as unknown as { remintJoinToken: () => Promise<void> }
+    ).remintJoinToken()
+
+    expect(session.getLifecycleState()).toBe('degraded')
+    expect(session.getLastErrorCode()).toBe('SFU_TOKEN_DENIED')
+    expect(session.getStatus()).toBe('degraded')
+  })
+
+  it('clears JWT remint timer on disconnect', async () => {
+    const exp = Math.floor(fixedNowMs / 1000) + 900
+    const token = fakeJwt({ exp })
+    vi.mocked(fetchSfuJoinToken).mockResolvedValue({
+      token,
+      role: 'consumer',
+      wsUrl: 'ws://127.0.0.1:3000',
+      expiresInSeconds: 900,
+    })
+    vi.mocked(connectSfuUnifiedSession).mockImplementation(async () => ({
+      ready: Promise.resolve(),
+      sessionEnded: new Promise(() => {}),
+      close: vi.fn(),
+      unpublishProducerClass: vi.fn(),
+      publishStream: vi.fn(),
+      supportsPublish: false,
+      tokenRole: 'consumer',
+      getProducerCount: () => 0,
+      getConsumerCount: () => 0,
+      detachConsumerClass: vi.fn(),
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    }))
+
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-teardown',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    await vi.waitFor(() => expect(session.getLifecycleState()).toBe('connected'))
+    const callsBefore = fetchSfuJoinToken.mock.calls.length
+    session.disconnect()
+
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNowMs)
+    ;(
+      session as unknown as { scheduleJwtRemint: (t: string, e?: number) => void }
+    ).scheduleJwtRemint(token, 900)
+    await vi.advanceTimersByTimeAsync(900_000)
+    expect(fetchSfuJoinToken.mock.calls.length).toBe(callsBefore)
+    expect(session.getLifecycleState()).toBe('torn-down')
   })
 })
