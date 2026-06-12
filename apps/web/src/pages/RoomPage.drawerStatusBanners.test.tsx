@@ -35,9 +35,13 @@ vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: () => ({ data: undefined }),
 }))
 
-vi.mock('../auth/fanTokens', () => ({
-  getFanAccessToken: () => null,
-}))
+vi.mock('../auth/fanTokens', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../auth/fanTokens')>()
+  return {
+    ...actual,
+    getFanAccessToken: () => null,
+  }
+})
 
 vi.mock('../config/wsUrl', () => ({
   getPublicWsUrl: () => 'wss://ws.test.example',
