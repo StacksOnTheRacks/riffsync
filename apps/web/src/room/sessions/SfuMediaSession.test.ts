@@ -205,7 +205,11 @@ describe('startSfuRoomSession config error banner persistence', () => {
 
 function attachMockSessionHandle(
   session: SfuMediaSession,
-  handle: { detachConsumerClass: ReturnType<typeof vi.fn>; unpublishProducerClass?: ReturnType<typeof vi.fn> },
+  handle: {
+    detachConsumerClass: ReturnType<typeof vi.fn>
+    unpublishProducerClass?: ReturnType<typeof vi.fn>
+    close?: ReturnType<typeof vi.fn>
+  },
 ): void {
   ;(
     session as unknown as {
@@ -277,6 +281,47 @@ describe('SfuMediaSession media policy', () => {
     expect(detach).toHaveBeenCalledWith('host_screen')
     expect(detach).not.toHaveBeenCalledWith('participant_av')
     expect(remoteListener).toHaveBeenCalledWith(null)
+  })
+
+  it('share_state started has no symmetric detach — guest theater re-attaches via onRemoteStream (#146)', () => {
+    const session = new SfuMediaSession()
+    const detach = vi.fn()
+    attachMockSessionHandle(session, { detachConsumerClass: detach })
+
+    const remoteListener = vi.fn()
+    session.onRemoteStream(remoteListener)
+
+    const hostScreenStream = {
+      getTracks: () => [{ kind: 'video', readyState: 'live' }],
+      getVideoTracks: () => [{ kind: 'video', readyState: 'live' }],
+    } as MediaStream
+    ;(
+      session as unknown as { emitRemoteStream: (stream: MediaStream | null) => void }
+    ).emitRemoteStream(hostScreenStream)
+
+    expect(detach).not.toHaveBeenCalled()
+    expect(remoteListener).toHaveBeenCalledWith(hostScreenStream)
+    expect(session.getStatus()).not.toBe('closed')
+  })
+
+  it('regression: guest share-stop never tears down SFU session or participant AV', () => {
+    const session = new SfuMediaSession()
+    const detach = vi.fn()
+    const close = vi.fn()
+    attachMockSessionHandle(session, { detachConsumerClass: detach, close })
+
+    const disconnect = vi.spyOn(session, 'disconnect')
+    const killSwitch = vi.spyOn(session, 'handleAvDisabledKillSwitch')
+    const teardown = vi.spyOn(session.participantAv, 'teardownPublishing')
+
+    session.handleShareStateStopped(false)
+
+    expect(detach).toHaveBeenCalledWith('host_screen')
+    expect(detach).not.toHaveBeenCalledWith('participant_av')
+    expect(disconnect).not.toHaveBeenCalled()
+    expect(close).not.toHaveBeenCalled()
+    expect(killSwitch).not.toHaveBeenCalled()
+    expect(teardown).not.toHaveBeenCalled()
   })
 
   it('unpublishHostScreen closes host_screen producers only', () => {

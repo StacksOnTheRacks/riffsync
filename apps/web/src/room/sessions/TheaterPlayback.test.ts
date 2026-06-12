@@ -284,6 +284,68 @@ describe('TheaterPlayback', () => {
     playback.dispose()
   })
 
+  it('detaches guest host-screen playback on share stop while preserving participant mix', async () => {
+    const mix = makeMixMock()
+    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+    const consumerListeners: Array<(event: unknown) => void> = []
+    const sfuSession = {
+      onConsumerTrack: (listener: (event: unknown) => void) => {
+        consumerListeners.push(listener)
+        return () => undefined
+      },
+    } as unknown as SfuMediaSession
+
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    playback.attachSfuSession(sfuSession)
+    const video = makeVideoElement()
+    playback.setGuestVideoElement(video)
+
+    playback.setGuestRemote(makeStream([makeTrack('video', 'live')]))
+    await Promise.resolve()
+    expect(playback.getSnapshot().guestShareFsm).toBe('running')
+    expect(video.srcObject).not.toBeNull()
+
+    consumerListeners[0]?.({
+      action: 'attach',
+      producerId: 'fan-1',
+      producerClass: 'participant_av',
+      kind: 'audio',
+      track: { id: 'mic' } as MediaStreamTrack,
+    })
+    consumerListeners[0]?.({ action: 'detach', producerId: 'host-1' })
+    playback.setGuestRemote(null)
+    await Promise.resolve()
+
+    expect(playback.getSnapshot().guestShareFsm).toBe('idle')
+    expect(video.srcObject).toBeNull()
+    expect(mix.onConsumerEvent).toHaveBeenCalledWith({
+      action: 'attach',
+      producerId: 'fan-1',
+      producerClass: 'participant_av',
+      kind: 'audio',
+      track: { id: 'mic' },
+    })
+    expect(mix.onConsumerEvent).toHaveBeenCalledWith({ action: 'detach', producerId: 'host-1' })
+    expect(mix.onConsumerEvent).not.toHaveBeenCalledWith({ action: 'detach', producerId: 'fan-1' })
+    playback.dispose()
+  })
+
+  it('theater guest FSM idle to verifying_media after share start before live track (#146 Guest theater started)', () => {
+    const mix = makeMixMock()
+    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    playback.setGuestVideoElement(makeVideoElement())
+
+    expect(playback.getSnapshot().guestShareFsm).toBe('idle')
+
+    playback.setGuestRemote(makeStream([makeTrack('video', 'ended')]))
+
+    expect(playback.getSnapshot().guestShareFsm).toBe('verifying_media')
+    playback.dispose()
+  })
+
   it('stays connected when only host_screen consumer detaches (share_state stopped)', () => {
     const mix = makeMixMock()
     vi.mocked(createTheaterAudioMix).mockReturnValue(mix)

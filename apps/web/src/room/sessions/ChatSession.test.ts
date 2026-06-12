@@ -4,6 +4,7 @@ import {
   routeInboundChatMessage,
   type ChatSessionStatus,
 } from './ChatSession'
+import { SfuMediaSession } from './SfuMediaSession'
 import * as realtimeDiagnostics from '../realtimeDiagnostics'
 
 vi.mock('../realtimeDiagnostics', () => ({
@@ -101,6 +102,12 @@ describe('routeInboundChatMessage', () => {
     expect(
       routeInboundChatMessage({ type: 'presence', roomId: 'other', members: [] }, ROOM),
     ).toBeNull()
+  })
+
+  it('routes share_state started per #146 api_contracts matrix', () => {
+    expect(
+      routeInboundChatMessage({ type: 'share_state', roomId: ROOM, state: 'started' }, ROOM),
+    ).toEqual({ type: 'share_state', event: { roomId: ROOM, state: 'started' } })
   })
 
   it('routes media policy frames without SFU side effects', () => {
@@ -264,5 +271,65 @@ describe('ChatSession subscriptions', () => {
     expect(chatLines).toEqual(['ping'])
     expect(shareStates).toEqual(['stopped'])
     expect(statuses).toEqual([])
+  })
+
+  it('share_state started does not invoke handleShareStateStopped or detachConsumerClass (#146 Guest theater started)', () => {
+    const session = new ChatSession()
+    const sfu = new SfuMediaSession()
+    const handleShareStateStopped = vi.spyOn(sfu, 'handleShareStateStopped')
+    const detach = vi.fn()
+    ;(
+      sfu as unknown as {
+        sessionHandle: { detachConsumerClass: ReturnType<typeof vi.fn> }
+      }
+    ).sessionHandle = { detachConsumerClass: detach }
+
+    session.onShareState((event) => {
+      if (event.state !== 'stopped') return
+      sfu.handleShareStateStopped(false)
+    })
+    ;(session as unknown as { setStatus: (status: ChatSessionStatus) => void }).setStatus('open')
+    ;(session as unknown as { setLifecycleState: (state: string) => void }).setLifecycleState(
+      'connected',
+    )
+
+    const dispatch = (
+      session as unknown as { dispatchInbound: (d: Record<string, unknown>) => void }
+    ).dispatchInbound.bind(session)
+    ;(session as unknown as { connectOptions: { roomId: string } }).connectOptions = {
+      roomId: ROOM,
+    }
+
+    dispatch({ type: 'share_state', roomId: ROOM, state: 'started' })
+
+    expect(handleShareStateStopped).not.toHaveBeenCalled()
+    expect(detach).not.toHaveBeenCalled()
+    expect(session.getStatus()).toBe('open')
+    expect(session.getLifecycleState()).toBe('connected')
+  })
+
+  it('keeps status open when share-stop media policy runs', () => {
+    const session = new ChatSession()
+    const sfu = new SfuMediaSession()
+    session.onShareState((event) => {
+      if (event.state !== 'stopped') return
+      sfu.handleShareStateStopped(false)
+    })
+    ;(session as unknown as { setStatus: (status: ChatSessionStatus) => void }).setStatus('open')
+    ;(session as unknown as { setLifecycleState: (state: string) => void }).setLifecycleState(
+      'connected',
+    )
+
+    const dispatch = (
+      session as unknown as { dispatchInbound: (d: Record<string, unknown>) => void }
+    ).dispatchInbound.bind(session)
+    ;(session as unknown as { connectOptions: { roomId: string } }).connectOptions = {
+      roomId: ROOM,
+    }
+
+    dispatch({ type: 'share_state', roomId: ROOM, state: 'stopped' })
+
+    expect(session.getStatus()).toBe('open')
+    expect(session.getLifecycleState()).toBe('connected')
   })
 })

@@ -110,12 +110,24 @@ export function emitSfuDrawerError(sdk: RoomRealtimeSdk, error: RealtimeDrawerEr
 }
 
 export function emitShareStateStopped(sdk: RoomRealtimeSdk, roomId = 'room-abc'): void {
+  emitShareState(sdk, 'stopped', roomId)
+}
+
+export function emitShareStateStarted(sdk: RoomRealtimeSdk, roomId = 'room-abc'): void {
+  emitShareState(sdk, 'started', roomId)
+}
+
+function emitShareState(
+  sdk: RoomRealtimeSdk,
+  state: 'started' | 'stopped',
+  roomId: string,
+): void {
   const chat = getChatSession(sdk)
   const shareListeners = (chat as unknown as {
     shareStateListeners: Set<(ev: { roomId: string; state: unknown }) => void>
   }).shareStateListeners
   for (const listener of shareListeners) {
-    listener({ roomId, state: 'stopped' })
+    listener({ roomId, state })
   }
 }
 
