@@ -82,7 +82,7 @@ Each module implements the four drawer lifecycle states. Internal enums may diff
 
 | From | Event | To |
 | --- | --- | --- |
-| **`torn-down`** | **`connect()`** after chat WS open (bootstrap gate) | **`reconnecting`** (maps from internal **`connecting`**) |
+| **`torn-down`** | **`connect()`** after room join bootstrap (**`sessionId`** + API base; **not** gated on chat WS flap) | **`reconnecting`** (maps from internal **`connecting`**) |
 | **`reconnecting`** | Signaling WS **`open`** + session ready | **`connected`** |
 | **`reconnecting`** | Signaling **`close`** / recoverable error | **`reconnecting`** (backoff per **`sfuReconnectPolicy.ts`**) |
 | **`reconnecting`** | **5** failed reconnect cycles without stable **`open`** | **`degraded`** |
@@ -259,15 +259,26 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 
 | Topic | Decision |
 | --- | --- |
-| **SFU hook `enabled` gate** | **`SfuMediaSession`** connect/reconnect loops must **not** be disabled when **`ChatSession`** status is not **`open`** after initial room join. Room snapshot + **`sessionId`** (+ fan JWT when required) gate bootstrap only — not chat WS flap. **`ParticipantAvPublishGate.wsOpen`** may block **publish/token mint** (#148) but must not **`disconnect()`** SFU signaling on chat reconnect. |
+| **SFU hook `enabled` gate** | **`SfuMediaSession`** connect/reconnect loops must **not** be disabled when **`ChatSession`** status is not **`open`** after initial room join. Room snapshot + **`sessionId`** (+ fan JWT when required) gate bootstrap only — not chat WS flap. |
 | **Chat WS handlers** | Inbound/outbound chat reconnect paths must **not** call **`SfuMediaSession.disconnect()`**, stop **`getUserMedia`**, or wipe mediasoup transports without explicit media policy (**`share_state`**, **`av_disabled`**, **`room_mode`**, global leave). |
 | **SFU reconnect handlers** | Signaling reconnect must **not** call **`ChatSession.disconnect()`** or clear chat scrollback. |
 | **Status surface coupling** | Video-relay status resolvers (**`sfuRelayStatusCopy.ts`**) must **not** accept chat WS state — chat reconnect copy lives on the **sidebar chat banner** only (**`.ai/interface/presentation.md`**). Retire combined **"Reconnecting chat… Video may pause briefly."** |
 | **Verification** | **`RoomRealtimeSdk.test.ts`** (and future harness steps 5–6) assert chat-only vs SFU-only outage matrix per **`lifecycle_shutdown.md`**. Sub-issues **#200–#202**. |
 
+## Decisions (participant AV publish gate — #148)
+
+| Topic | Decision |
+| --- | --- |
+| **Client publish gate inputs** | **`ParticipantAvPublishGate`** gates **`canPublish`** on **`fanToken`** (signed-in fan JWT present) and **`!avDisabled`** only. **Remove `wsOpen`** — chat WebSocket status must **not** disable toggles or clear publish intent when SFU signaling is healthy. |
+| **Server mint enforcement** | **`POST /v1/webrtc/sfu-token`** still requires active room presence row + **`X-Session-Id`**. Client re-establishes presence after chat reconnect before re-mint when needed (**`api_contracts.md`**). Token denial surfaces via existing toggle / SFU error paths — not preemptive **`canPublish: false`** from chat WS flap. |
+| **SFU reconnect + publish intent** | On recoverable SFU signaling **`close`** (not **`user_close`** / exhausted retry), **preserve** **`cameraEnabled`** / **`micEnabled`** intent. Detach mediasoup session handle only; **do not** call class-wide **`unpublishProducerClass('participant_av')`** or **`getUserMedia` `track.stop()`** from the reconnect loop. **`attachSession`** + **`syncPublish`** resumes producers when signaling returns. |
+| **`resetOnReconnect` semantics** | Narrow to **session detach for signaling blip** — clear in-flight **`busy`**, detach handle, **keep** toggle intent and local preview tracks. Distinct from **`teardownPublishing`** (kill switch, room leave, **`avDisabled`**). **`failPublish`** unchanged for hard / exhausted signaling failures (**`participantAvErrorFromSfuSessionEnd`**). |
+| **Wiring surfaces** | Drop **`wsOpen`** from **`useSfuMediaSession`**, **`useRoomSessionWiring`**, and **`RoomRealtimeSdk.bootstrapMediaPlanes`** gate updates. **`updatePublishGate`** accepts **`fanToken`** + **`avDisabled`** only. |
+| **Verification** | Unit tests: chat-only WS flap leaves **`needsProducerToken`** true when camera/mic were on; SFU **`signaling_close`** with publish intent preserves toggles and re-**`syncPublish`** on re-attach. Sub-issues under **#148**. |
+
 ## Open implementation decisions
 
-_(None for #140 / #147 scope — peer #141 owns error-code UX completion; #141 open items resolved in this pass.)_
+_(None for #140 / #147 / #148 scope — peer #141 owns error-code UX completion; #141 open items resolved in this pass.)_
 
 ## Primary code pointers (optional)
 

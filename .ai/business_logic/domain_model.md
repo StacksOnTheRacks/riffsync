@@ -109,6 +109,8 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | SFU in all environments? | **Mandatory** — remove mesh WebRTC paths; local dev and CI use disposable SFU + TURN matching prod topology. |
 | `share_state: stopped` guest teardown? | Detach **`host_screen`** consumers only; **no** full SFU session teardown; participant A/V and theater mic mix **persist**. |
 | Drawer-independent reconnect? | Healthy plane keeps running while the failed plane reconnects alone; chat and SFU lifecycles are **orthogonal**. |
+| Participant AV publish gate vs chat WS? | Client gate uses **`fanToken`** + **`!avDisabled`** only (**#148**); chat WS flap does not disable toggles or clear publish intent when SFU is healthy. |
+| SFU reconnect vs publish intent? | Recoverable signaling blip **preserves** camera/mic intent; **`syncPublish`** on re-**`attachSession`** — not **`resetOnReconnect`** full teardown (**#148**). |
 | Mic-only stage visibility? | **Keep off** strip/grid; harden tile lifecycle only (prompt detach on video producer close); no supplementary audible-only chrome this milestone. |
 | Chat vs video-relay status UX? | **Separate** simultaneous status surfaces (e.g. chat reconnecting vs video relay reconnecting). |
 | Server-side theater audio mixing? | **Deferred** — client-side equal-gain Web Audio mix remains default; document fragility and mitigations in contracts. |

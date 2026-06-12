@@ -195,7 +195,8 @@ Beyond participant A/V publish errors (**`error_state.md`**, **`authorization.md
 | --- | --- |
 | **Orthogonal lifecycles** | Room WebSocket (chat, presence, **`share_state`**) and SFU signaling WebSocket **recover independently**. A healthy plane **keeps running** while the other reconnects. |
 | **Prohibited coupling** | Room WS handlers (**including **`share_state`**) **must not** invoke SFU session **`close()`** without an explicit **media policy** (user leave, AV kill switch, intentional unpublish). Chat disconnect **must not** reset participant AV publish state when the SFU WS remains connected. |
-| **Publish gate** | **`POST /v1/webrtc/sfu-token`** still requires an active room WS **presence row** + **`X-Session-Id`**. After room WS reconnect, the client re-establishes presence before re-mint when needed. |
+| **Publish gate (server)** | **`POST /v1/webrtc/sfu-token`** still requires an active room WS **presence row** + **`X-Session-Id`**. After room WS reconnect, the client re-establishes presence before re-mint when needed. |
+| **Publish gate (client — #148)** | **`canParticipantAvPublish`** uses **`fanToken`** + **`!avDisabled`** only — **no `wsOpen`**. Chat disconnect **must not** reset participant AV publish intent when SFU signaling stays connected. SFU signaling reconnect **must not** call **`resetOnReconnect`** teardown that clears toggle intent; preserve intent and **`syncPublish`** on re-**`attachSession`**. |
 | **Chat send while SFU degraded** | Chat may queue/retry per client policy. SFU outage **does not** block chat send when room WS is healthy. Emit **`CHAT_SEND_DROPPED`** only when the chat plane fails. |
 
 ### Application SDK boundary (integration surface)
