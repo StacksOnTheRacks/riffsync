@@ -54,7 +54,7 @@ export function useRoomRealtimeSdk(options: {
   setRoom: Dispatch<SetStateAction<RoomSnapshot | null | undefined>>
 }): {
   wsStatus: ChatSessionStatus
-  sendJson: (payload: Record<string, unknown>) => void
+  sendJson: (payload: Record<string, unknown>) => boolean
   chat: ChatLine[]
   chatReactions: ReactionsByMessage
   chatDraft: string
@@ -290,9 +290,7 @@ export function useRoomRealtimeSdk(options: {
   }, [sdk])
 
   const sendJson = useCallback(
-    (payload: Record<string, unknown>) => {
-      sdk.sendControl(payload)
-    },
+    (payload: Record<string, unknown>) => sdk.sendControl(payload),
     [sdk],
   )
 
@@ -357,8 +355,8 @@ export function useRoomRealtimeSdk(options: {
     if (!fanToken) return
     const txt = chatDraft.trim()
     if (!txt) return
-    sendJson({ action: 'chat', text: txt, messageId: createChatMessageId() })
-    setChatDraft('')
+    const sent = sendJson({ action: 'chat', text: txt, messageId: createChatMessageId() })
+    if (sent) setChatDraft('')
   }, [chatDraft, fanToken, sendJson])
 
   const sendChatGif = useCallback(
@@ -386,12 +384,14 @@ export function useRoomRealtimeSdk(options: {
         const chips = chatReactions[messageId] ?? {}
         if (!canAcceptReactionAdd(chips, trimmedEmoji)) return
       }
-      sendJson({
+      if (!sendJson({
         action: 'react',
         messageId,
         emoji: trimmedEmoji,
         reactionAction,
-      })
+      })) {
+        return
+      }
     },
     [chatReactions, fanToken, sendJson],
   )

@@ -16,7 +16,7 @@ export function useChatSession(options: {
   enabled: boolean
 }): {
   status: ChatSessionStatus
-  sendJson: (payload: Record<string, unknown>) => void
+  sendJson: (payload: Record<string, unknown>) => boolean
   session: ChatSession
 } {
   const { url, roomId, sessionId, displayName, accessToken, enabled } = options
@@ -44,9 +44,7 @@ export function useChatSession(options: {
   }, [accessToken, displayName, enabled, roomId, session, sessionId, url])
 
   const sendJson = useCallback(
-    (payload: Record<string, unknown>) => {
-      session.send(payload)
-    },
+    (payload: Record<string, unknown>) => session.send(payload),
     [session],
   )
 

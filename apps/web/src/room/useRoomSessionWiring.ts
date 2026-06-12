@@ -50,7 +50,7 @@ export function useRoomSessionWiring(options: {
   setRoom: Dispatch<SetStateAction<RoomSnapshot | null | undefined>>
 }): {
   wsStatus: ReturnType<typeof useChatSession>['status']
-  sendJson: (payload: Record<string, unknown>) => void
+  sendJson: (payload: Record<string, unknown>) => boolean
   chat: ChatLine[]
   chatReactions: ReactionsByMessage
   chatDraft: string
@@ -244,9 +244,7 @@ export function useRoomSessionWiring(options: {
   }, [roomId, room, wsStatus, getIceServers])
 
   const sendJson = useCallback(
-    (payload: Record<string, unknown>) => {
-      wsSendJson(payload)
-    },
+    (payload: Record<string, unknown>) => wsSendJson(payload),
     [wsSendJson],
   )
 
@@ -301,8 +299,8 @@ export function useRoomSessionWiring(options: {
     if (!fanToken) return
     const txt = chatDraft.trim()
     if (!txt) return
-    sendJson({ action: 'chat', text: txt, messageId: createChatMessageId() })
-    setChatDraft('')
+    const sent = sendJson({ action: 'chat', text: txt, messageId: createChatMessageId() })
+    if (sent) setChatDraft('')
   }, [chatDraft, fanToken, sendJson])
 
   const sendChatGif = useCallback(
@@ -330,12 +328,14 @@ export function useRoomSessionWiring(options: {
         const chips = chatReactions[messageId] ?? {}
         if (!canAcceptReactionAdd(chips, trimmedEmoji)) return
       }
-      sendJson({
+      if (!sendJson({
         action: 'react',
         messageId,
         emoji: trimmedEmoji,
         reactionAction,
-      })
+      })) {
+        return
+      }
     },
     [chatReactions, fanToken, sendJson],
   )
