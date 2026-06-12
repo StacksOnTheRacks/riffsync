@@ -265,6 +265,15 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 | **Status surface coupling** | Video-relay status resolvers (**`sfuRelayStatusCopy.ts`**) must **not** accept chat WS state — chat reconnect copy lives on the **sidebar chat banner** only (**`.ai/interface/presentation.md`**). Retire combined **"Reconnecting chat… Video may pause briefly."** |
 | **Verification** | **`RoomRealtimeSdk.test.ts`** (and future harness steps 5–6) assert chat-only vs SFU-only outage matrix per **`lifecycle_shutdown.md`**. Sub-issues **#200–#202**. |
 
+## Decisions (M19 status surfaces — #150)
+
+| Topic | Decision |
+| --- | --- |
+| **UI input** | Room shell status banners read **`getDiagnostics().drawers.*`** lifecycle + **`lastErrorCode`** — not ad hoc **`wsStatus`** / **`sfuRoomErr`** strings in presentation components. |
+| **Copy module** | Lifecycle strings and error-code templates resolve through **`drawerErrorPresentation.ts`** per **`error_state.md`** Surface mapping (#141). |
+| **M19 gate** | Parent **#150** tracks M19 milestone exit: peer issues **#201**, **#207**, **#186** ship; sub-issue **#209** adds room-shell integration tests for simultaneous banners. |
+| **Out of scope** | Guest host-screen FSM string retirement (**#151**); tile attach/detach hardening (**#152**). |
+
 ## Decisions (participant AV publish gate — #148)
 
 | Topic | Decision |

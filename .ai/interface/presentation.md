@@ -41,15 +41,15 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 
 Chat (room WebSocket) and video relay (SFU signaling + consumers) expose **independent, simultaneous** status when lifecycles diverge. **Do not** consolidate into one banner that implies both planes failed (e.g. avoid combined copy like "Reconnecting chat… Video may pause briefly." when only chat is down).
 
-| Drawer | Placement | When shown | Copy pattern (template) |
-| --- | --- | --- | --- |
-| **Chat** | Top of **`riffsync-room-page__chat-column`**, above tabs/toolbar (reuse **`riffsync-room-page__ws-banner`** styling) | **`ChatSession`** is **`reconnecting`** or chat send is blocked by chat-plane outage | **"Chat reconnecting…"** (final string tier TW) |
-| **Video relay** | Stage playback region — guest **`riffsync-muted`** status line and/or host **`riffsync-room-page__share-status`** / host feedback area | **`SfuMediaSession`** is **`reconnecting`**, ICE/TURN recovery in progress, or host-screen consumer attach pending after **`share_state`** | **"Video relay reconnecting…"** (final string tier TW) |
+| Drawer | Placement | When shown |
+| --- | --- | --- |
+| **Chat** | Top of **`riffsync-room-page__chat-column`**, above tabs/toolbar — **`#riffsync-chat-drawer-status`** (reuse **`riffsync-room-page__ws-banner`** styling) | **`getDiagnostics().drawers.chat.state`** is **`reconnecting`** or **`degraded`**, or chat-plane send is blocked |
+| **Video relay** | Stage playback region — **`#riffsync-video-relay-status`** (guest **`riffsync-muted`** status line and/or host **`riffsync-room-page__share-status`**) | **`getDiagnostics().drawers.sfuSignaling.state`** is **`reconnecting`** or **`degraded`**, config-class SFU error active, or guest host-screen FSM is non-**`running`** (see **`interaction_flow.md`**) |
 
 - **Both banners may appear at once** when each drawer is independently unhealthy; each clears when **that** drawer returns to **`connected`** (or equivalent healthy state per **`getDiagnostics()`**).
 - **Hard failures** stay drawer-scoped: chat-plane errors near chat/compose; SFU/toggle failures at AV toggles or stage **`role="alert"`** per **`error_state.md`** — not merged into a single realtime toast.
 
-### Drawer status copy (#140)
+### Drawer status copy (#140 / #150)
 
 Normative fan-visible strings when **`getDiagnostics()`** reports drawer lifecycle states. Guest **host-screen** playback-region copy remains in **`interaction_flow.md`** (SFU three-state model); these strings cover **drawer health** only.
 
@@ -63,7 +63,20 @@ Normative fan-visible strings when **`getDiagnostics()`** reports drawer lifecyc
 
 - **Both banners may appear at once** when each drawer is independently unhealthy; each clears when **that** drawer returns to **`connected`**.
 - **Host screen-share idle/negotiating** states (guest waiting for host share) use the **video-relay** surface, not the chat banner.
-- **Anti-pattern (#147):** video-relay resolvers must **not** branch on chat WS state (e.g. **`chatWsDisconnected`** in **`sfuRelayStatusCopy.ts`**). Retire **"Reconnecting chat… Video may pause briefly."** — chat reconnect belongs on the chat banner only.
+- **Anti-pattern (#147 / #150):** video-relay resolvers must **not** branch on chat WS state (e.g. **`chatWsDisconnected`** in **`sfuRelayStatusCopy.ts`**). Retire **"Reconnecting chat… Video may pause briefly."** — chat reconnect belongs on the chat banner only.
+
+### M19 room shell ship gate (#150)
+
+Milestone **M19** verifies the separate surfaces above ship in the thin **`RoomPage`** shell:
+
+| Surface | Implementation owner | Verification |
+| --- | --- | --- |
+| Chat drawer banner | **`RoomPageSidebar`** + **`drawerErrorPresentation.ts`** (**#186**, **#207**) | Renders from **`drawers.chat`** only — never from SFU diagnostics |
+| Video-relay banner | Stage status hooks + **`sfuRelayStatusCopy.ts`** (**#201**, **#186**) | Renders from **`drawers.sfuSignaling`** + config errors + guest host-screen FSM — **no** chat WS input |
+| Simultaneous display | **`RoomPage`** / hooks | Both banners visible when each drawer is independently unhealthy; each clears on that drawer's recovery |
+| Copy source | **`drawerErrorPresentation.ts`** | Lifecycle strings from **Drawer status copy** table above; error codes from **`error_state.md`** |
+
+Peer issues **#201** (retire combined copy), **#207** (chat banner), **#186** (presentation module) implement the wiring; **#150** is the M19 integration parent.
 
 ### Chat compose inline feedback (#149)
 
@@ -154,7 +167,7 @@ Normative fan-visible strings when **`getDiagnostics()`** reports drawer lifecyc
 
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
 - **Mode-transition copy variants:** whether **"Updating room layout…"** varies by Theater ↔ Video Chat direction or sparse-state follow-up when **3s** elapses without consumers attached.
-- **Telemetry / UX story event names** for layout transition timeout, tile lifecycle failures, and per-drawer reconnect.
+- **Telemetry / UX story event names** for layout transition timeout, tile lifecycle failures, and per-drawer reconnect — **M21** observability milestone; not #150.
 
 ## Primary code pointers (optional)
 
