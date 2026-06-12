@@ -11,6 +11,17 @@ import {
   mapSfuMediaSessionStatusToDrawerState,
   type RoomRealtimeDiagnostics,
 } from './RoomRealtimeSdk'
+import {
+  assertDrawerReconnectCycle,
+  assertNoDrawerTornDown,
+  assertSiblingDrawerStaysConnected,
+  emitShareStateStopped,
+  joinHealthySdk,
+  mockChatConnectOpensImmediately,
+  mockSfuConnectOpensImmediately,
+  setChatLifecycle,
+  setSfuLifecycle,
+} from './roomRealtimeSdkTestHelpers'
 
 vi.mock('../audio/theaterAudioMix', () => ({
   THEATER_AUDIO_GAIN: 1,
@@ -67,24 +78,6 @@ function assertStableDiagnosticsContract(diag: RoomRealtimeDiagnostics): void {
 
   expect(Array.isArray(diag.activeErrorCodes)).toBe(true)
   expect(diag.asOf).toMatch(/^\d{4}-\d{2}-\d{2}T/)
-}
-
-function mockChatConnectOpensImmediately(): void {
-  vi.spyOn(ChatSession.prototype, 'connect').mockImplementation(function (this: ChatSession) {
-    ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
-    ;(this as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
-      'connected',
-    )
-  })
-}
-
-function mockSfuConnectOpensImmediately(): void {
-  vi.spyOn(SfuMediaSession.prototype, 'connect').mockImplementation(function (this: SfuMediaSession) {
-    ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
-    ;(this as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
-      'connected',
-    )
-  })
 }
 
 describe('RoomRealtimeSdk lifecycle mappers', () => {
@@ -580,55 +573,71 @@ describe('RoomRealtimeSdk.subscribe', () => {
   })
 })
 
-describe('RoomRealtimeSdk drawer isolation', () => {
+describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('does not disconnect SFU when chat WS enters reconnecting lifecycle', async () => {
-    mockChatConnectOpensImmediately()
-    mockSfuConnectOpensImmediately()
+  // Harness step 5: chat-only WS drop — sibling sfuSignaling stays connected.
+  it('harness step 5: chat-only forced drop reconnects without tearing down SFU', async () => {
     const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-harness-chat-drop' })
 
-    const sdk = new RoomRealtimeSdk()
-    sdk.join('room-abc', {
-      roomSnapshot: baseSnapshot,
-      sessionId: 'sess-isolate-chat',
-      wsUrl: 'wss://ws.test',
-      apiBaseUrl: 'https://api.test',
-      getIceServers: async () => [],
-    })
-
-    await vi.waitFor(() => expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected'))
-
-    const chat = (sdk as unknown as { chat: ChatSession }).chat
-    ;(chat as unknown as { setLifecycleState: (s: string) => void }).setLifecycleState('reconnecting')
+    setChatLifecycle(sdk, 'reconnecting')
+    const duringOutage = sdk.getDiagnostics()
 
     expect(sfuDisconnect).not.toHaveBeenCalled()
-    expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
+    assertSiblingDrawerStaysConnected(duringOutage, 'sfuSignaling')
+    expect(duringOutage.drawers.chat.state).toBe('reconnecting')
+
+    setChatLifecycle(sdk, 'connected')
+    const afterRecovery = sdk.getDiagnostics()
+
+    assertDrawerReconnectCycle(duringOutage, afterRecovery, 'chat')
+    assertSiblingDrawerStaysConnected(afterRecovery, 'sfuSignaling')
   })
 
-  it('does not disconnect chat when SFU enters reconnecting lifecycle', async () => {
-    mockChatConnectOpensImmediately()
-    mockSfuConnectOpensImmediately()
+  // Harness step 6: SFU-only signaling drop — sibling chat stays connected.
+  it('harness step 6: SFU-only forced drop reconnects without tearing down chat', async () => {
     const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-harness-sfu-drop' })
 
-    const sdk = new RoomRealtimeSdk()
-    sdk.join('room-abc', {
-      roomSnapshot: baseSnapshot,
-      sessionId: 'sess-isolate-sfu',
-      wsUrl: 'wss://ws.test',
-      apiBaseUrl: 'https://api.test',
-      getIceServers: async () => [],
-    })
-
-    await vi.waitFor(() => expect(sdk.getDiagnostics().drawers.chat.state).toBe('connected'))
-
-    const sfu = (sdk as unknown as { sfu: SfuMediaSession }).sfu
-    ;(sfu as unknown as { setLifecycleState: (s: string) => void }).setLifecycleState('reconnecting')
+    setSfuLifecycle(sdk, 'reconnecting')
+    const duringOutage = sdk.getDiagnostics()
 
     expect(chatDisconnect).not.toHaveBeenCalled()
-    expect(sdk.getDiagnostics().drawers.chat.state).toBe('connected')
+    assertSiblingDrawerStaysConnected(duringOutage, 'chat')
+    expect(duringOutage.drawers.sfuSignaling.state).toBe('reconnecting')
+
+    setSfuLifecycle(sdk, 'connected')
+    const afterRecovery = sdk.getDiagnostics()
+
+    assertDrawerReconnectCycle(duringOutage, afterRecovery, 'sfuSignaling')
+    assertSiblingDrawerStaysConnected(afterRecovery, 'chat')
+  })
+
+  it('regression: single-plane reconnecting lifecycle never calls cross-drawer disconnect', async () => {
+    const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+    const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-cross-drawer-regression' })
+
+    setChatLifecycle(sdk, 'reconnecting')
+    expect(sfuDisconnect).not.toHaveBeenCalled()
+
+    setSfuLifecycle(sdk, 'reconnecting')
+    expect(chatDisconnect).not.toHaveBeenCalled()
+  })
+
+  it('share_state stopped leaves all drawers non-torn-down and does not disconnect chat', async () => {
+    const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+    const handleShareStateStopped = vi.spyOn(SfuMediaSession.prototype, 'handleShareStateStopped')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-share-stop-isolation', isHost: false })
+
+    emitShareStateStopped(sdk)
+
+    expect(handleShareStateStopped).toHaveBeenCalledWith(false)
+    expect(chatDisconnect).not.toHaveBeenCalled()
+    assertNoDrawerTornDown(sdk.getDiagnostics())
   })
 
   it('surfaces CHAT_SEND_DROPPED when chat send is dropped', () => {
