@@ -36,6 +36,7 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - **Mic-only** participants not in strip/grid remain discoverable via **People** tab roster (do not rely on video surface alone for identity).
 - Empty Video Chat grid exposes accessible status text matching visible copy (**"No cameras on yet…"**).
 - **Camera-off / `producerClosed`:** tile removal must be reflected in the accessibility tree promptly — no stale tile name or **frozen last frame** exposed as an active video surface after video producer ends.
+- **Frozen-frame regression (#142):** after video **`producerClosed`**, the participant **`figure`** must not remain in the stage accessibility tree; no stale **`aria-label`** for that display name on strip/grid/narrow-row surfaces. Unit tests assert tile list empty and **`ParticipantVideoTile`** unmount clears **`srcObject`**.
 
 ### Errors
 
@@ -66,7 +67,6 @@ Accessible-by-default contract for presentation and interaction surfaces.
 ## Open implementation decisions
 
 - **`THEATER_AUDIO_SUSPENDED` a11y:** whether resume uses implicit gesture only or a keyboard-focusable explicit control with accessible name (pairs with **`presentation.md`** theater audio TW item).
-- **Frozen-frame regression a11y AC:** screen-reader + visual checks for tile removal timing in harness stories.
 
 ## Primary code pointers (optional)
 

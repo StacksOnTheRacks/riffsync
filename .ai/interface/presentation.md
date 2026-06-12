@@ -108,6 +108,8 @@ Normative fan-visible strings when **`getDiagnostics()`** reports drawer lifecyc
 
 - Strip/grid tiles exist **only** while a **live video** consumer is attached for **`participant_av`** at that **`sessionId`**.
 - On **`producerClosed`** for video (camera off, leave, kill switch, session teardown): **remove the tile promptly** — detach **`<video>`**, clear tile state, do **not** leave a **frozen last frame**. Frozen frames are a **contract violation**.
+- **Removal timing (#142):** After consumer **`detach`** updates **`videoConsumers`**, the tile must leave strip/grid within **one React commit**. The **`<video>`** element must set **`srcObject = null`** before the next paint (cleanup on unmount or stream change).
+- **Removal animation (#142):** **Instant DOM detach** for remote tiles and local **You** preview — no fade-out in MVP. **`prefers-reduced-motion`** does not alter behavior (already instant).
 - **Mic-only** after camera-off: no tile; audio continues per mode (theater client mix or Video Chat audio path). Visibility rules **unchanged** from pre-hardening contracts.
 - **`share_state: stopped`:** guests lose **host-screen** attachment only; participant tiles and mic audio **persist** when SFU plane is healthy (**`interaction_flow.md`**).
 
@@ -142,10 +144,8 @@ Normative fan-visible strings when **`getDiagnostics()`** reports drawer lifecyc
 
 ## Open implementation decisions
 
-- **Tile removal animation** on **`producerClosed`:** instant DOM detach vs short fade-out; whether **`prefers-reduced-motion: reduce`** forces instant removal for remote tiles.
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
 - **Mode-transition copy variants:** whether **"Updating room layout…"** varies by Theater ↔ Video Chat direction or sparse-state follow-up when **3s** elapses without consumers attached.
-- **Frozen-frame regression AC wording** for **`/refine-issue`** (e.g. max visible stale frame duration, mic-only tile absence checks) — harness-visible assertions.
 - **Telemetry / UX story event names** for layout transition timeout, tile lifecycle failures, and per-drawer reconnect.
 
 ## Primary code pointers (optional)

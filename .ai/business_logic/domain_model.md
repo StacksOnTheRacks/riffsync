@@ -118,7 +118,16 @@ Three coexisting modes (see **`integration/authorization.md`**):
 
 - **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
 - **`share_state` behavior matrix:** per-role (**host** / **guest**) and **`roomMode`** detail for **`started`** vs **`stopped`** — which consumer classes attach, detach, or stay idle beyond the normative **`host_screen`-only** guest detach on **`stopped`**.
-- **Partial teardown acceptance criteria:** QA permutations for camera-off-mic-on, mic-mute-with-camera-on (**pause/resume**), concurrent **`newProducer`** / **`producerClosed`**, and **Video Chat** ↔ **Theater** transitions with active participant tiles.
+- **Partial teardown acceptance criteria (peers #143–#145):** mic-mute-with-camera-on (**pause/resume**), concurrent **`newProducer`** / **`producerClosed`**, **Video Chat** ↔ **Theater** transitions with active participant tiles, and per-kind publish/unpublish paths — owned by peer M17 issues.
+
+### Partial teardown QA matrix — camera-off tile removal (#142)
+
+| Scenario | Theater strip | Video Chat grid | Narrow row | Expected |
+| --- | --- | --- | --- | --- |
+| Remote camera off, mic on | Tile removed | Tile removed | Tile removed | No frozen frame; mic audible; no tile |
+| Remote camera off, mic off | Tile removed | Tile removed | Tile removed | No tile; no audio |
+| Local **You** camera off | **You** tile removed | **You** tile removed | **You** tile removed | Preview cleared |
+| Roster member, no video consumer | No tile | No tile | No tile | Mic-only unchanged (off strip/grid) |
 - **Mode transition empty-state UX:** copy and layout when switching to **Video Chat** with zero video-on participants, or **Theater** before host has started tab-capture (**`interface/presentation.md`**).
 
 ## Decisions (participant AV runtime — #104)
