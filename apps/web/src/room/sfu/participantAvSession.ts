@@ -262,7 +262,7 @@ export function createParticipantAvController(options: {
             /* ignore */
           }
         }
-        void syncPublish()
+        session?.unpublishProducerKind('participant_av', 'video')
       }
       notify()
     },
@@ -303,7 +303,7 @@ export function createParticipantAvController(options: {
             /* ignore */
           }
         }
-        void syncPublish()
+        session?.unpublishProducerKind('participant_av', 'audio')
       }
       notify()
     },

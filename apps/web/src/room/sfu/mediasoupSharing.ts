@@ -261,6 +261,7 @@ export type SfuUnifiedSessionHandle = {
   getProducerCount: () => number
   getConsumerCount: () => number
   publishStream: (stream: MediaStream, producerClass: SfuProducerClass) => Promise<void>
+  unpublishProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
   unpublishProducerClass: (producerClass: SfuProducerClass) => void
   detachConsumerClass: (producerClass: SfuProducerClass) => void
   pauseProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
@@ -325,6 +326,23 @@ export async function connectSfuUnifiedSession(options: {
 
   const emitRemote = () => {
     onRemoteStream(remoteStream.getTracks().length > 0 ? remoteStream : null)
+  }
+
+  const unpublishProducerKind = (producerClass: SfuProducerClass, kind: 'audio' | 'video') => {
+    const keep: LiveProducer[] = []
+    for (const lp of liveProducers) {
+      if (lp.producerClass === producerClass && lp.kind === kind) {
+        try {
+          lp.producer.close()
+        } catch {
+          /* ignore */
+        }
+      } else {
+        keep.push(lp)
+      }
+    }
+    liveProducers.length = 0
+    for (const lp of keep) liveProducers.push(lp)
   }
 
   const unpublishProducerClass = (producerClass: SfuProducerClass) => {
@@ -427,10 +445,19 @@ export async function connectSfuUnifiedSession(options: {
         throw new Error('SFU send transport not ready')
       }
       if (classAlreadyPublishing(producerClass, stream)) return
-      unpublishProducerClass(producerClass)
       for (const track of stream.getTracks()) {
         const kind = track.kind === 'audio' || track.kind === 'video' ? track.kind : null
         if (!kind) continue
+        const existing = findLiveProducer(producerClass, kind)
+        if (
+          existing &&
+          !existing.producer.closed &&
+          existing.producer.track != null &&
+          existing.producer.track.id === track.id
+        ) {
+          continue
+        }
+        unpublishProducerKind(producerClass, kind)
         const producer = await sendTransport.produce({
           track,
           appData: { producerClass },
@@ -742,6 +769,7 @@ export async function connectSfuUnifiedSession(options: {
     getProducerCount: () => liveProducers.length,
     getConsumerCount: () => mediasoupConsumers.length,
     publishStream,
+    unpublishProducerKind,
     unpublishProducerClass,
     detachConsumerClass,
     pauseProducerKind,
