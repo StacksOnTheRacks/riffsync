@@ -372,7 +372,6 @@ export class SfuMediaSession {
   private lastMintedExpiresInSeconds: number | undefined
 
   private readonly gate: ParticipantAvPublishGate = {
-    wsOpen: false,
     fanToken: null,
     avDisabled: true,
   }
@@ -460,11 +459,9 @@ export class SfuMediaSession {
   }
 
   updatePublishGate(partial: {
-    wsOpen?: boolean
     fanToken?: string | null
     avDisabled?: boolean
   }): void {
-    if (partial.wsOpen !== undefined) this.gate.wsOpen = partial.wsOpen
     if (partial.fanToken !== undefined) this.gate.fanToken = partial.fanToken
     if (partial.avDisabled !== undefined) this.gate.avDisabled = partial.avDisabled
     this.participantAv.refreshPublishGate()

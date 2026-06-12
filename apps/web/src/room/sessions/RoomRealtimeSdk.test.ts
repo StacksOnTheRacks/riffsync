@@ -313,7 +313,7 @@ describe('RoomRealtimeSdk.join bootstrap order', () => {
     expect(sfuConnect).toHaveBeenCalledTimes(1)
   })
 
-  it('updates publish gate wsOpen on chat flap without disconnecting SFU', async () => {
+  it('does not update publish gate on chat flap while SFU stays connected', async () => {
     const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
     const updatePublishGate = vi.spyOn(SfuMediaSession.prototype, 'updatePublishGate')
     const sdk = await joinHealthySdk({ sessionId: 'sess-publish-gate-flap' })
@@ -326,7 +326,7 @@ describe('RoomRealtimeSdk.join bootstrap order', () => {
     )
 
     expect(sfuDisconnect).not.toHaveBeenCalled()
-    expect(updatePublishGate).toHaveBeenCalledWith({ wsOpen: false })
+    expect(updatePublishGate).not.toHaveBeenCalled()
     expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
 
     updatePublishGate.mockClear()
@@ -336,7 +336,7 @@ describe('RoomRealtimeSdk.join bootstrap order', () => {
     )
 
     expect(sfuDisconnect).not.toHaveBeenCalled()
-    expect(updatePublishGate).toHaveBeenCalledWith({ wsOpen: true })
+    expect(updatePublishGate).not.toHaveBeenCalled()
     expect(sdk.getDiagnostics().drawers.chat.state).toBe('connected')
     expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
   })

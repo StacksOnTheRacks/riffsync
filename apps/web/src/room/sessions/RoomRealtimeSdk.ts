@@ -391,7 +391,6 @@ export class RoomRealtimeSdk {
       if (status === 'open') {
         this.chatLastErrorCode = undefined
       }
-      sfu.updatePublishGate({ wsOpen: status === 'open' })
       this.emitDiagnosticsChange()
     })
 
@@ -524,7 +523,6 @@ export class RoomRealtimeSdk {
     await getIceServers().catch(() => undefined)
 
     sfu.updatePublishGate({
-      wsOpen: chat.getStatus() === 'open',
       fanToken: options.accessToken ?? null,
       avDisabled: this.avDisabled,
     })

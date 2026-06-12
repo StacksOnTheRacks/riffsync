@@ -20,19 +20,10 @@ vi.stubGlobal(
 )
 
 describe('canParticipantAvPublish', () => {
-  it('requires open room websocket, fan JWT, and av enabled', () => {
-    expect(
-      canParticipantAvPublish({ wsOpen: true, fanToken: 'jwt', avDisabled: false }),
-    ).toBe(true)
-    expect(
-      canParticipantAvPublish({ wsOpen: false, fanToken: 'jwt', avDisabled: false }),
-    ).toBe(false)
-    expect(
-      canParticipantAvPublish({ wsOpen: true, fanToken: null, avDisabled: false }),
-    ).toBe(false)
-    expect(
-      canParticipantAvPublish({ wsOpen: true, fanToken: 'jwt', avDisabled: true }),
-    ).toBe(false)
+  it('requires fan JWT and av enabled regardless of chat websocket', () => {
+    expect(canParticipantAvPublish({ fanToken: 'jwt', avDisabled: false })).toBe(true)
+    expect(canParticipantAvPublish({ fanToken: null, avDisabled: false })).toBe(false)
+    expect(canParticipantAvPublish({ fanToken: 'jwt', avDisabled: true })).toBe(false)
   })
 })
 
