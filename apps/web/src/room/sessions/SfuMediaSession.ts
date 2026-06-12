@@ -361,7 +361,6 @@ export class SfuMediaSession {
   private connectOptions: SfuMediaSessionConnectOptions | null = null
   private enabled = false
   private jwtRemintTimer: ReturnType<typeof setTimeout> | null = null
-  private refreshedJoinToken: string | null = null
   private lastMintedToken: string | null = null
   private lastMintedExpiresInSeconds: number | undefined
 
@@ -475,7 +474,6 @@ export class SfuMediaSession {
   disconnect(): void {
     this.enabled = false
     this.clearJwtRemintTimer()
-    this.refreshedJoinToken = null
     this.stopReconnectLoop()
     this.sessionHandle?.unpublishProducerClass('host_screen')
     this.emitRemoteStream(null)
@@ -710,7 +708,6 @@ export class SfuMediaSession {
         accessToken: opts.accessToken,
         ...(producerClass ? { producerClass } : {}),
       })
-      this.refreshedJoinToken = tok.token
       this.lastErrorCode = undefined
       if (this.getStatus() === 'open') {
         this.scheduleJwtRemint(tok.token, tok.expiresInSeconds)

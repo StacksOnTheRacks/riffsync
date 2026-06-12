@@ -240,7 +240,7 @@ export class TheaterPlayback {
     this.signalingSiblingDegraded = false
     this.sfuSignalingWasConnected = false
     this.lastErrorCode = undefined
-    this.setLifecycleState('torn-down')
+    this.setLifecycleState('torn-down', undefined)
     this.snapshotListeners.clear()
     this.lifecycleListeners.clear()
   }
