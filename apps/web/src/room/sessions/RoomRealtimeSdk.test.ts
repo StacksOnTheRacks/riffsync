@@ -850,6 +850,100 @@ describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
   })
 })
 
+/** M18 / #208 send-path regressions; names cross-ref parent #149 AC and execution_model.md cross-drawer table. */
+describe('RoomRealtimeSdk #208 chat send survives SFU-only outage', () => {
+  class MockOpenWebSocket {
+    static OPEN = 1
+    readyState = MockOpenWebSocket.OPEN
+    send = vi.fn()
+  }
+
+  const chatPayload = {
+    action: 'chat',
+    text: 'hello',
+    messageId: '550e8400-e29b-41d4-a716-446655440208',
+  }
+
+  function attachOpenChatSocket(sdk: RoomRealtimeSdk): void {
+    const chat = getChatSession(sdk)
+    ;(chat as unknown as { ws: WebSocket | null }).ws =
+      new MockOpenWebSocket() as unknown as WebSocket
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('#208 SFU reconnecting: sendControl succeeds without CHAT_SEND_DROPPED', async () => {
+    const sdk = await joinHealthySdk({ sessionId: 'sess-208-sfu-reconnecting' })
+    attachOpenChatSocket(sdk)
+
+    const sfu = getSfuSession(sdk)
+    ;(sfu as unknown as { setStatus: (status: string) => void }).setStatus('reconnecting')
+    setSfuLifecycle(sdk, 'reconnecting')
+
+    expect(getChatSession(sdk).getStatus()).toBe('open')
+    expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('reconnecting')
+
+    expect(sdk.sendControl(chatPayload)).toBe(true)
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.activeErrorCodes).not.toContain('CHAT_SEND_DROPPED')
+    expect(diag.drawers.chat.lastErrorCode).toBeUndefined()
+  })
+
+  it('#208 SFU error/degraded: sendControl succeeds without CHAT_SEND_DROPPED', async () => {
+    const sdk = await joinHealthySdk({ sessionId: 'sess-208-sfu-degraded' })
+    attachOpenChatSocket(sdk)
+
+    const sfu = getSfuSession(sdk)
+    ;(sfu as unknown as { setStatus: (status: string) => void }).setStatus('error')
+    setSfuLifecycle(sdk, 'degraded')
+
+    expect(getChatSession(sdk).getStatus()).toBe('open')
+    expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('degraded')
+
+    expect(sdk.sendControl(chatPayload)).toBe(true)
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.activeErrorCodes).not.toContain('CHAT_SEND_DROPPED')
+    expect(diag.drawers.chat.lastErrorCode).toBeUndefined()
+  })
+
+  it('#208 chat WS not open: sendControl fails with CHAT_SEND_DROPPED while SFU stays connected', async () => {
+    const sdk = await joinHealthySdk({ sessionId: 'sess-208-chat-send-drop' })
+
+    const chat = getChatSession(sdk)
+    ;(chat as unknown as { setStatus: (status: string) => void }).setStatus('closed')
+    ;(chat as unknown as { ws: WebSocket | null }).ws = null
+
+    expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
+
+    expect(sdk.sendControl(chatPayload)).toBe(false)
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.chat.lastErrorCode).toBe('CHAT_SEND_DROPPED')
+    expect(diag.activeErrorCodes).toContain('CHAT_SEND_DROPPED')
+    expect(diag.drawers.sfuSignaling.state).toBe('connected')
+  })
+
+  it('#208 cross-drawer table: SFU reconnect does not disconnect chat or block sendControl', async () => {
+    const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+    const sdk = await joinHealthySdk({ sessionId: 'sess-208-sfu-no-chat-block' })
+    attachOpenChatSocket(sdk)
+
+    setSfuLifecycle(sdk, 'reconnecting')
+    ;(getSfuSession(sdk) as unknown as { setStatus: (status: string) => void }).setStatus(
+      'reconnecting',
+    )
+
+    expect(chatDisconnect).not.toHaveBeenCalled()
+    expect(getChatSession(sdk).getStatus()).toBe('open')
+    expect(sdk.sendControl(chatPayload)).toBe(true)
+    expect(sdk.getDiagnostics().activeErrorCodes).not.toContain('CHAT_SEND_DROPPED')
+  })
+})
+
 describe('RoomRealtimeSdk.getDiagnostics activeErrorCodes contract', () => {
   afterEach(() => {
     vi.restoreAllMocks()
