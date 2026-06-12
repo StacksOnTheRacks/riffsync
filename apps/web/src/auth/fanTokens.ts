@@ -4,6 +4,13 @@ const LS_ACCESS = 'riffsync.fanAccessToken'
 const LS_EXPIRES = 'riffsync.fanAccessTokenExp'
 const LS_REFRESH = 'riffsync.fanRefreshToken'
 
+export const FAN_AUTH_CHANGED_EVENT = 'riffsync:fan-auth-changed'
+
+function notifyFanAuthChanged(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(FAN_AUTH_CHANGED_EVENT))
+}
+
 export interface FanTokenBundle {
   accessToken: string
   /** Epoch seconds (Cognito `exp` claim rounded / server `expires_in`). */
@@ -61,10 +68,12 @@ export function setFanTokenBundle(
   if (opts?.refreshToken !== undefined && opts.refreshToken.length > 0) {
     localStorage.setItem(LS_REFRESH, opts.refreshToken)
   }
+  notifyFanAuthChanged()
 }
 
 export function clearFanTokens(): void {
   localStorage.removeItem(LS_ACCESS)
   localStorage.removeItem(LS_EXPIRES)
   localStorage.removeItem(LS_REFRESH)
+  notifyFanAuthChanged()
 }

@@ -235,6 +235,65 @@ describe('webrtc-sfu-token handler', () => {
     expect(body.code).toBe('fan_auth_required');
   });
 
+  it('grants participant_av when JWT is valid but the presence row lacks fanSub (WS query JWT miss)', async () => {
+    stubRoomAndPresence({ myConn: {} });
+    mocks.verifyAccessToken.mockResolvedValue({ sub: fanSub });
+
+    const res = await handler(
+      tokenEvent({
+        authorization: 'Bearer fan-jwt',
+        body: { producerClass: 'participant_av' },
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.role).toBe('producer');
+    expect(body.producerClass).toBe('participant_av');
+    const claims = verifySfuJoinToken(body.token as string, joinSecret);
+    expect(claims?.fanSub).toBe(fanSub);
+  });
+
+  it('prefers the presence row whose fanSub matches the JWT when multiple tabs share sessionId', async () => {
+    mocks.docSend.mockImplementation(async (cmd: { kind?: string; input?: { TableName?: string } }) => {
+      const table = cmd.input?.TableName;
+      if (table === 'rooms') {
+        return { Item: { roomId: 'room-1', hostSub, avDisabled: false } };
+      }
+      if (table === 'presence' && cmd.kind === 'Query') {
+        return {
+          Items: [
+            {
+              roomId: 'room-1',
+              sessionId: 'sess-1',
+              presenceKey: 'sess-1#conn-guest',
+              lastSeenAt: 200,
+            },
+            {
+              roomId: 'room-1',
+              sessionId: 'sess-1',
+              presenceKey: 'sess-1#conn-signed-in',
+              fanSub,
+              lastSeenAt: 100,
+            },
+          ],
+        };
+      }
+      return {};
+    });
+    mocks.queryRoomPresenceItems.mockResolvedValue([]);
+    mocks.verifyAccessToken.mockResolvedValue({ sub: fanSub });
+
+    const res = await handler(
+      tokenEvent({
+        authorization: 'Bearer fan-jwt',
+        body: { producerClass: 'participant_av' },
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.producerClass).toBe('participant_av');
+  });
+
   it('returns unknown_session when presence row is missing', async () => {
     mocks.docSend.mockImplementation(async (cmd: { kind?: string; input?: { TableName?: string } }) => {
       if (cmd.input?.TableName === 'rooms') {

@@ -3,7 +3,7 @@ import type { RoomSnapshot } from '../api/roomsApi'
 import { fetchRoom } from '../api/roomsApi'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { cognitoSub } from '../auth/jwtDecode'
-import { getFanAccessToken } from '../auth/fanTokens'
+import { FAN_AUTH_CHANGED_EVENT, getFanAccessToken } from '../auth/fanTokens'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { useRoomChrome } from './useRoomChrome'
 
@@ -19,7 +19,21 @@ export function useRoomSnapshot(roomId: string): {
   roomMode: RoomSnapshot['roomMode']
   youtubeVideoId: string | null | undefined
 } {
-  const fanToken = getFanAccessToken()
+  const [fanToken, setFanToken] = useState<string | null>(() => getFanAccessToken())
+
+  useEffect(() => {
+    const sync = () => {
+      setFanToken(getFanAccessToken())
+    }
+    sync()
+    window.addEventListener(FAN_AUTH_CHANGED_EVENT, sync)
+    const expiryPoll = window.setInterval(sync, 30_000)
+    return () => {
+      window.removeEventListener(FAN_AUTH_CHANGED_EVENT, sync)
+      window.clearInterval(expiryPoll)
+    }
+  }, [])
+
   const { setNowPlayingLabel } = useRoomChrome()
   const [room, setRoom] = useState<RoomSnapshot | null | undefined>(undefined)
   const [roomErr, setRoomErr] = useState<string | null>(null)

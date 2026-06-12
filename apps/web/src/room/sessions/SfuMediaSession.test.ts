@@ -438,6 +438,29 @@ function attachMockSessionHandle(
   ).sessionHandle = handle
 }
 
+describe('SfuMediaSession publish gate', () => {
+  it('updatePublishGate keeps connectOptions.accessToken in sync with fanToken', () => {
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-gate',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: false,
+    })
+
+    session.updatePublishGate({ fanToken: 'fan-jwt', avDisabled: false })
+
+    const opts = (
+      session as unknown as { connectOptions: { accessToken: string | null } | null }
+    ).connectOptions
+    expect(opts?.accessToken).toBe('fan-jwt')
+    expect(session.participantAv.getState().canPublish).toBe(true)
+  })
+})
+
 describe('SfuMediaSession signaling drawer logs', () => {
   beforeEach(() => {
     vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()

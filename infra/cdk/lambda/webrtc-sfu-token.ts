@@ -143,10 +143,20 @@ async function distinctFanSubsInRoom(presenceTable: string, roomId: string): Pro
   return subs;
 }
 
+function lastSeenAtOf(conn: JsonRecord): number {
+  const n = conn.lastSeenAt;
+  return typeof n === 'number' && Number.isFinite(n) ? n : 0;
+}
+
+function pickNewestConnectionRow(items: JsonRecord[]): JsonRecord {
+  return [...items].sort((a, b) => lastSeenAtOf(b) - lastSeenAtOf(a))[0]!;
+}
+
 async function findMyConnectionRow(
   presenceTable: string,
   roomId: string,
   sessionId: string,
+  jwtUser?: { sub: string } | null,
 ): Promise<JsonRecord | undefined> {
   const out = await doc.send(
     new QueryCommand({
@@ -159,7 +169,23 @@ async function findMyConnectionRow(
       ConsistentRead: true,
     }),
   );
-  return (out.Items ?? [])[0] as JsonRecord | undefined;
+  const items = (out.Items ?? []) as JsonRecord[];
+  if (items.length === 0) return undefined;
+  if (items.length === 1) return items[0];
+
+  if (jwtUser) {
+    const matchingFanSub = items.filter((it) => fanSubFromConn(it) === jwtUser.sub);
+    if (matchingFanSub.length > 0) {
+      return pickNewestConnectionRow(matchingFanSub);
+    }
+  }
+
+  const withFanSub = items.filter((it) => fanSubFromConn(it) !== '');
+  if (withFanSub.length > 0) {
+    return pickNewestConnectionRow(withFanSub);
+  }
+
+  return pickNewestConnectionRow(items);
 }
 
 async function resolveParticipantAvGrant(
@@ -169,7 +195,9 @@ async function resolveParticipantAvGrant(
   jwtUser: { sub: string } | null,
   connFanSub: string,
 ): Promise<GrantResult | DenialResult> {
-  if (!jwtUser || !connFanSub || jwtUser.sub !== connFanSub) {
+  /** WS `$connect` may omit `fanSub` when the JWT query param fails verification; HTTP `Authorization` is authoritative here. */
+  const effectiveFanSub = connFanSub || (jwtUser?.sub ?? '');
+  if (!jwtUser || !effectiveFanSub || jwtUser.sub !== effectiveFanSub) {
     return {
       status: 403,
       code: 'fan_auth_required',
@@ -183,7 +211,7 @@ async function resolveParticipantAvGrant(
       error: 'The host turned room A/V off.',
     };
   }
-  if (!checkParticipantMintRateLimit(connFanSub)) {
+  if (!checkParticipantMintRateLimit(effectiveFanSub)) {
     return {
       status: 429,
       code: 'rate_limited',
@@ -192,14 +220,14 @@ async function resolveParticipantAvGrant(
   }
   const fanSubs = await distinctFanSubsInRoom(presenceTable, roomId);
   const cap = maxParticipantAvPublishers();
-  if (!fanSubs.has(connFanSub) && fanSubs.size >= cap) {
+  if (!fanSubs.has(effectiveFanSub) && fanSubs.size >= cap) {
     return {
       status: 403,
       code: 'publisher_cap_exceeded',
       error: 'This room has reached the maximum number of live cameras and microphones.',
     };
   }
-  return { role: 'producer', producerClass: 'participant_av', fanSub: connFanSub };
+  return { role: 'producer', producerClass: 'participant_av', fanSub: effectiveFanSub };
 }
 
 async function resolveGrant(
@@ -281,7 +309,10 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
     return json(404, { error: 'Room not found' });
   }
 
-  const myConn = await findMyConnectionRow(presenceTable, roomId, sessionId);
+  const authHdr = headers.authorization ?? headers.Authorization;
+  const jwtUser = await verifyAccessToken(typeof authHdr === 'string' ? authHdr : undefined);
+
+  const myConn = await findMyConnectionRow(presenceTable, roomId, sessionId, jwtUser);
   if (!myConn) {
     return deny({
       status: 403,
@@ -289,9 +320,6 @@ async function handleSfuToken(event: APIGatewayProxyEventV2): Promise<APIGateway
       error: 'Open the room WebSocket first (unknown session for this room).',
     });
   }
-
-  const authHdr = headers.authorization ?? headers.Authorization;
-  const jwtUser = await verifyAccessToken(typeof authHdr === 'string' ? authHdr : undefined);
 
   const grant = await resolveGrant(
     requestedProducerClass,

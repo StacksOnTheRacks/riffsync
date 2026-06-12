@@ -474,7 +474,12 @@ export class SfuMediaSession {
     fanToken?: string | null
     avDisabled?: boolean
   }): void {
-    if (partial.fanToken !== undefined) this.gate.fanToken = partial.fanToken
+    if (partial.fanToken !== undefined) {
+      this.gate.fanToken = partial.fanToken
+      if (this.connectOptions) {
+        this.connectOptions = { ...this.connectOptions, accessToken: partial.fanToken }
+      }
+    }
     if (partial.avDisabled !== undefined) this.gate.avDisabled = partial.avDisabled
     this.participantAv.refreshPublishGate()
   }
