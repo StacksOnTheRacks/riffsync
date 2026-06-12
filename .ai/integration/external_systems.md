@@ -90,10 +90,15 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | Local TURN credential source? | **coturn** in **`infra/local-media/`** compose with static-auth secret shared via **`.env`**; SPA may override ICE via **`VITE_WEBRTC_ICE_SERVERS_JSON`**. |
 | Staging AWS slice for harness? | **Out of scope** — isolated local/ephemeral only. |
 
+## Decisions (CI ephemeral bootstrap — #154)
+
+| Question | Decision |
+| --- | --- |
+| Harness container image? | Compose **`build`** from **`services/riffsync-sfu/Dockerfile`** at PR checkout — same context as local **`media:local`**; **no** separate pinned harness image for MVP. |
+
 ## Open implementation decisions
 
-- Disposable harness **container image** pin (reuse **`infra/local-media/`** compose build context).
-- Whether harness mints real **`sfu-token`** via mocked Lambda or in-process JWT signer (must match **`SfuJoinClaims`** shape) — harness milestone, not #136.
+- Whether harness mints real **`sfu-token`** via mocked Lambda or in-process JWT signer (must match **`SfuJoinClaims`** shape) — **#155** harness runner.
 
 ## Primary code pointers (optional)
 

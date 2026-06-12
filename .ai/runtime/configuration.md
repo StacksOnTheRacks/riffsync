@@ -116,7 +116,7 @@ When mediasoup signaling cannot be reached, the SPA surfaces an **honest configu
 | Question | Decision |
 | --- | --- |
 | Local SFU URL env name? | **`VITE_PUBLIC_SFU_WS_URL`** only — same name as prod SPA build; no **`VITE_SFU_WS_URL`** alias. |
-| CI harness env injection? | **Out of #136** — harness milestone documents per-run HMAC and GitHub Actions secrets. |
+| CI harness env injection? | **#154** — bootstrap copies **`.env.example`** / **`turnserver.conf.example`** with fixture secrets; **no** GitHub Actions secrets or prod HMAC in CI logs. |
 
 ## Decisions (visible SFU config error — #137)
 

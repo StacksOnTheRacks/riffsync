@@ -93,9 +93,19 @@ Harness failures must name the **drawer** (chat, signaling, connectivity, produc
 | **Blocking** | **PR-blocking** when path filters match — same required-check posture as **`web-app`**. |
 | **SFU compile gate** | First steps in **`realtime-conformance`**: **`npm ci && npm run build`** under **`services/riffsync-sfu`** — **not** folded into **`infra-cdk`**. |
 | **Runner entrypoint** | **`tests/realtime-conformance/run.sh`** at repo root (created by **#155**). When absent, job **passes after SFU compile only** (incremental ship before scenarios land). When present, non-zero exit **fails** the job. |
-| **Compose bootstrap** | **#154** adds disposable SFU + coturn startup inside this job (reuses **`infra/local-media/compose.yml`**); **#153** wires job shell and invokes bootstrap before **`run.sh`**. |
+| **Compose bootstrap** | **`tests/realtime-conformance/bootstrap-media.sh`** (**#154**) starts disposable SFU + coturn via **`infra/local-media/compose.yml`**; **#153** job invokes **`up`** + **`wait`** before **`run.sh`**, **`down`** in **`if: always()`**. |
 | **AWS / prod** | **No** OIDC deploy role, **no** Secrets Manager prod classes, **no** **`RiffSyncTurn`** mutation. |
 | **Parallelism** | **`realtime-conformance`** has **no** **`needs:`** on sibling jobs — runs in parallel with **`infra-cdk`** / **`web-app`**. |
+
+## Decisions (CI ephemeral bootstrap — #154)
+
+| Topic | Decision |
+| --- | --- |
+| **Bootstrap script** | **`tests/realtime-conformance/bootstrap-media.sh`** — **`up`** (fixture env + **`docker compose up -d --build`**), **`wait`** (**`/healthz`** poll), **`down`** (compose teardown + optional log capture). |
+| **Fixture env** | Generated from committed **`infra/local-media/.env.example`** and **`coturn/turnserver.conf.example`** — harness **`SFU_JWT_SECRET`** matches **#155** in-process token mint; **no** prod join HMAC in CI. |
+| **Docker posture** | Standard **`ubuntu-latest`** Docker; SFU signaling on **`127.0.0.1:3000`** only; coturn **3478** + relay range per compose — same port map as local profile. |
+| **Job wiring owner** | **#153** adds **`realtime-conformance`** steps that call bootstrap; **#154** ships the script + **`tests/realtime-conformance/README.md`** operator notes. |
+| **Incremental ship** | Bootstrap runs even when **`run.sh`** is absent — job passes after **`wait`** succeeds post-SFU compile (**#153** interim gate). |
 
 ## Open implementation decisions
 

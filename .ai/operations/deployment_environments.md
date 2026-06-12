@@ -122,7 +122,7 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 | --- | --- |
 | Compose profile location? | **`infra/local-media/`** — shared contract for workstation dev; CI harness imports same compose later. |
 | Dev bootstrap script? | Root **`npm run media:local`** / **`media:local:down`**; README **Local watch-party media** section documents prerequisites (Docker, health probe). |
-| ICE in CI? | **Out of #136 scope** — harness milestone chooses host-network vs TURN-only on GitHub runners; local profile documents coturn for cross-tab workstation dev. |
+| ICE in CI? | **#154** — TURN-enabled **loopback** profile on **`ubuntu-latest`** (see **Decisions (CI ephemeral bootstrap — #154)**); not Docker host network. |
 | Prod **`RiffSyncTurn`** debugging? | **No** for routine dev — disposable profile only. |
 
 ## Decisions (visible SFU config error — #137)
@@ -131,6 +131,18 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 | --- | --- |
 | Operator smoke when local stack down? | With **`VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000`** and compose stopped, room page shows **`LOCAL_SFU_UNREACHABLE`** within two signaling open attempts; chat may still connect. |
 | Checklist step? | Add **`docs/sfu-deploy-checklist.md`** step for local disposable down + prod missing **`wsUrl`** regression. |
+
+## Decisions (CI ephemeral bootstrap — #154)
+
+| Question | Decision |
+| --- | --- |
+| Bootstrap entrypoint? | **`tests/realtime-conformance/bootstrap-media.sh`** — subcommands **`up`**, **`wait`**, **`down`**; **`realtime-conformance`** job (**#153**) invokes before **`run.sh`**. |
+| Compose source? | Reuse committed **`infra/local-media/compose.yml`** — **no** CI-specific compose fork. |
+| CI env fixtures? | Copy **`.env.example`** → **`.env`** and **`coturn/turnserver.conf.example`** → **`coturn/turnserver.conf`** in bootstrap **`up`**; committed placeholder secrets only — **no** GitHub Actions secrets, **no** AWS Secrets Manager. |
+| ICE on GHA runners? | **TURN + loopback** — **`MEDIASOUP_ANNOUNCED_IP=127.0.0.1`**, coturn **`external-ip=127.0.0.1`**; sufficient for dual-peer **`mediasoup-client`** harness on one runner; **no** **`network_mode: host`**. |
+| Health gate? | **`bootstrap-media.sh wait`** polls **`curl -sSf http://127.0.0.1:3000/healthz`** every **2s**, max **60s**; timeout exits **1** and prints **`docker compose ps`**. |
+| Teardown? | Job **`if: always()`** step runs **`bootstrap-media.sh down`**; failures capture compose stdout to **`sfu-compose.log`** for artifact upload (**`.ai/operations/observability.md`**). |
+| Prod isolation? | Bootstrap must **not** read prod Secrets Manager, use OIDC deploy roles, or mutate **`RiffSyncTurn`**. |
 
 ## Open implementation decisions
 

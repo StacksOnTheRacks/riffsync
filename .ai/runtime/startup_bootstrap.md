@@ -35,7 +35,7 @@
 | --- | --- |
 | **Purpose** | Same code path as prod **`SfuMediaSession`**; eliminates **`VITE_WEBRTC_USE_MEDIASOU_SFU`** mesh branch. |
 | **Isolation** | CI harness runs against **ephemeral** containers/services — **no** prod SFU/TURN footprint. |
-| **Startup order** | Start disposable TURN → start disposable **`riffsync-sfu`** → health probe **`/healthz`** → SPA or headless client **`join()`** per harness scenario. |
+| **Startup order** | **`bootstrap-media.sh up`** (compose starts coturn + SFU) → **`wait`** (**`/healthz`**) → headless harness **`join()`** per scenario (**#155**) or SPA local dev via **`npm run media:local`**. |
 | **SPA env** | **`VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000`** (overrides token **`wsUrl`**); optional **`VITE_WEBRTC_ICE_SERVERS_JSON`** for local coturn; prod **`VITE_PUBLIC_API_BASE_URL`** / **`VITE_PUBLIC_WS_URL`** unchanged — see **`apps/web/.env.example`**. |
 | **Operations cross-ref** | Harness triggers, path filters, and flake policy — **`.ai/operations/deployment_environments.md`**, **`build_packaging.md`**. |
 
