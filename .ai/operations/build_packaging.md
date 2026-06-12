@@ -149,17 +149,7 @@ Media-only SFU hotfixes may use **`deploy-turn.yml`** without a full platform/AP
 
 ## SFU deploy checklist — hardening deltas
 
-Post-deploy verification extends **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)**. After realtime hardening lands, operators add or re-run these rows (map to harness scenarios to avoid duplicate toil):
-
-| Checklist theme | Operator step (manual) | Harness scenario |
-| --- | --- | --- |
-| **Partial unpublish** | Fan disables camera with mic on; remote video tile clears promptly | Harness step 4 |
-| **Drawer-independent reconnect** | Chat WS drop with SFU up; then SFU WS drop with chat up | Harness steps 5–6; extends existing steps 3–4 |
-| **`share_state: stopped`** | Host stops share; guests detach **`host_screen`** only; participant A/V persists | Manual only (prod room WS); assert no full SFU session teardown |
-| **Theater ↔ Video Chat** | Mode transition without silent black screen | Manual smoke; not in MVP harness unless Playwright gate expands |
-| **Mic-only lifecycle** | Mic-only fan audible, off strip/grid; no frozen frame on camera-off peers | Harness step 4 + checklist step 9 |
-
-Run full checklist (steps 1–16 + multi-publisher section) after **`deploy-turn.yml`** or **`deploy-prod.yml`** when SFU, token mint, or SPA AV error surfaces change.
+Superseded by **Decisions (SFU deploy checklist harness mapping — #156)** below and tagged rows in **[`docs/sfu-deploy-checklist.md`](../../docs/sfu-deploy-checklist.md)**. Run checklist steps **1–17** plus **Hardening verification** (**H1–H2**) after **`deploy-turn.yml`** or **`deploy-prod.yml`** when SFU, token mint, or SPA AV error surfaces change.
 
 ## Decisions (SFU deploy checklist harness mapping — #156)
 
@@ -207,7 +197,7 @@ Harness **complements** checklist — it never mutates prod **`RiffSyncTurn`**.
 4. New **`## Hardening verification`** section after step **8** with rows **H1–H2** (partial unpublish, drawer reconnect cross-ref).
 5. Summary table at top of checklist linking harness step **1–6** → checklist rows (mirror this decisions table).
 
-Replace the informal **SFU deploy checklist — hardening deltas** table above when **#156** lands — this **Decisions (#156)** block is authoritative.
+The informal **SFU deploy checklist — hardening deltas** table above is superseded — this **Decisions (#156)** block is authoritative.
 
 ## Primary code pointers (optional)
 
