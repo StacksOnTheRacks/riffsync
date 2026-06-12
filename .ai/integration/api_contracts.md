@@ -133,6 +133,16 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 Entering **`videoChat`** still fully stops host tab-capture and **`host_screen`** per existing product contract. **`share_state: stopped`** is the realtime hint for guests when the host stops share in **theater** mode.
 
+### `share_state: started` — host vs guest (#146)
+
+| Actor | **`roomMode`** | On **`share_state: started`** (broadcast or local start) |
+| --- | --- | --- |
+| **Host (publisher)** | **`theater`** | Apply tab-capture **`MediaStream`**; **`syncHostScreenPublish`** publishes **`host_screen`** on the existing SFU session when tracks are live. **Does not** tear down **`participant_av`**. |
+| **Host (publisher)** | **`videoChat`** | **No** **`host_screen`** publish — mode keeps host-screen consumers detached. |
+| **Guest / non-host consumer** | **`theater`** | **No SFU session rebuild.** Wait for host **`host_screen`** **`newProducer`** / consumer attach on the healthy signaling socket. Guest playback FSM may show **`verifying_media`** until a live video track arrives. |
+| **Guest / non-host consumer** | **`videoChat`** | **Ignore** for host-screen attach — participant grid only. |
+| **Both** | either | Ephemeral fan-out only; optional **`shareGeneration`** monotonic int on host outbound messages. |
+
 ### `host_screen` close — theater participant mic mix (#145)
 
 | Trigger | Theater mix behavior |

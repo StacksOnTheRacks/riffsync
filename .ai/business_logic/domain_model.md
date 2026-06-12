@@ -135,10 +135,35 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Who calls per-kind unpublish? | **`participantAvSession`** (#143) for toggle-off paths; **`mediasoupSharing`** only exposes the handle API. |
 | Branch pairing with **#143**? | **`feature/issue-143`** may include both; **#144** sub-issues are independently testable before **#191–#193** wire-up. |
 
+## Decisions (`share_state` behavior matrix — #146)
+
+| Role | **`roomMode`** | **`state`** | **`host_screen`** SFU action | **`participant_av`** | Theater guest playback |
+| --- | --- | --- | --- | --- | --- |
+| **Host** | **`theater`** | **`stopped`** | **`unpublishHostScreen`** locally; emit **`share_state: stopped`** | **Preserve** producers/consumers | N/A (publisher) |
+| **Host** | **`theater`** | **`started`** | Publish tab-capture stream when live; emit **`share_state: started`** | **Preserve** | N/A |
+| **Host** | **`videoChat`** | **`stopped`** | **`unpublishHostScreen`** if any; no guest host-screen attach | **Preserve** | N/A |
+| **Host** | **`videoChat`** | **`started`** | **No** **`host_screen`** attach (mode rule) | **Preserve** | N/A |
+| **Guest** | **`theater`** | **`stopped`** | **`detachConsumerClass('host_screen')`** only — **no** SFU session **`close()`** | **Preserve** tiles/consumers/mic mix | Clear guest remote stream; FSM **`idle`**; honest not-sharing placeholder |
+| **Guest** | **`theater`** | **`started`** | **No forced reconnect** — attach/resume via inbound SFU **`newProducer`** when host publishes | **Preserve** | FSM **`verifying_media`** until live video track; then **`running`** |
+| **Guest** | **`videoChat`** | **`stopped`** | Detach stray **`host_screen`** consumers if present | **Preserve** | Guest remote cleared; host-screen chrome idle |
+| **Guest** | **`videoChat`** | **`started`** | **Idle** — do not attach **`host_screen`** per mode contract | **Preserve** | No host-screen playback region |
+
+**Prohibited on any `share_state` handler:** full **`SfuMediaSession.disconnect()`**, **`handleAvDisabledKillSwitch()`**, **`detachConsumerClass('participant_av')`**, or **`participantAv.teardownPublishing()`** unless a separate media policy applies (**`avDisabled`**, room leave).
+
+**Wiring:** **`ChatSession`** fan-out → **`SfuMediaSession.handleShareStateStopped(isPublisher)`** on **`stopped`** only; **`TheaterPlayback.setGuestRemote(null)`** via **`onRemoteStream`** chain. **`started`** does not call a symmetric detach — consumer attach follows SFU signaling.
+
+### `share_state: stopped` QA matrix (#146)
+
+| Scenario | SFU session | `participant_av` tile | Participant mic | Chat WS |
+| --- | --- | --- | --- | --- |
+| Guest in Theater; host stops share | **Open** | **Persists** (if camera on) | **Audible** | **Unchanged** |
+| Guest mic-only; host stops share | **Open** | No tile (unchanged) | **Audible** | **Unchanged** |
+| Guest in Video Chat; host stops share | **Open** | Grid tiles **persist** | **Audible** | **Unchanged** |
+| Host stops share while publishing participant mic | **Open** | Host tile **persists** if camera on | **Audible** | **Unchanged** |
+
 ## Open implementation decisions
 
 - **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
-- **`share_state` behavior matrix:** per-role (**host** / **guest**) and **`roomMode`** detail for **`started`** vs **`stopped`** — which consumer classes attach, detach, or stay idle beyond the normative **`host_screen`-only** guest detach on **`stopped`** (**#146** / M18).
 - **Partial teardown — remaining M17 peers:** concurrent **`newProducer`** / **`producerClosed`** consumer attach (**#142**).
 
 ### Partial teardown QA matrix — camera-off tile removal (#142)

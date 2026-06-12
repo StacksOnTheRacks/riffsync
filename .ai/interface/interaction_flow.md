@@ -59,6 +59,15 @@ When the host stops screen-share and guests receive authoritative **`share_state
 2. **Preserve** SFU signaling session, **`participant_av`** producers/consumers, strip/grid tiles, and theater participant mic mix.
 3. **Do not** close the full SFU session or reset participant AV toggles for this event alone.
 
+### `share_state: started` (guest host-screen re-attach — #146)
+
+When the host starts screen-share and guests receive authoritative **`share_state: started`** in **Theater** mode:
+
+1. **Do not** close or rebuild the SFU signaling session.
+2. **Do not** detach or reset **`participant_av`** consumers or strip/grid tiles.
+3. Guest playback FSM transitions **`idle`** → **`verifying_media`** until a live **`host_screen`** video track is attached via SFU **`newProducer`** / consumer attach.
+4. In **Video Chat** mode, **`share_state: started`** does **not** attach host-screen consumers — layout remains participant-grid primary.
+
 ### Participant video tile lifecycle (`producerClosed`)
 
 1. **Camera off (local or remote):** On video **`producerClosed`** for **`participant_av`**, remove the strip/grid tile **promptly** for that **`sessionId`**. A **frozen last frame** after camera-off is a **contract violation**.
