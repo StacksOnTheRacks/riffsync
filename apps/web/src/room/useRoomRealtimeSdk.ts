@@ -209,8 +209,6 @@ export function useRoomRealtimeSdk(options: {
       },
     })
 
-    setRealtimeDiagnostics(sdk.getDiagnostics())
-
     sdk.subscribe({
       hostScreen: {
         onRemoteStream: (stream) => {
