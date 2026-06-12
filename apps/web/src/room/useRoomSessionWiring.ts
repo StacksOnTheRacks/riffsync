@@ -203,6 +203,7 @@ export function useRoomSessionWiring(options: {
       }),
       chatSession.onShareState((event) => {
         if (event.state !== 'stopped') return
+        // Same host_screen-only policy as RoomRealtimeSdk.wireMediaPolicyCallbacks.
         sfuMediaSession.handleShareStateStopped(isPublisher)
       }),
       chatSession.onRoomMode((event) => {

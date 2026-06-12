@@ -4,6 +4,7 @@ import {
   routeInboundChatMessage,
   type ChatSessionStatus,
 } from './ChatSession'
+import { SfuMediaSession } from './SfuMediaSession'
 import * as realtimeDiagnostics from '../realtimeDiagnostics'
 
 vi.mock('../realtimeDiagnostics', () => ({
@@ -264,5 +265,30 @@ describe('ChatSession subscriptions', () => {
     expect(chatLines).toEqual(['ping'])
     expect(shareStates).toEqual(['stopped'])
     expect(statuses).toEqual([])
+  })
+
+  it('keeps status open when share-stop media policy runs', () => {
+    const session = new ChatSession()
+    const sfu = new SfuMediaSession()
+    session.onShareState((event) => {
+      if (event.state !== 'stopped') return
+      sfu.handleShareStateStopped(false)
+    })
+    ;(session as unknown as { setStatus: (status: ChatSessionStatus) => void }).setStatus('open')
+    ;(session as unknown as { setLifecycleState: (state: string) => void }).setLifecycleState(
+      'connected',
+    )
+
+    const dispatch = (
+      session as unknown as { dispatchInbound: (d: Record<string, unknown>) => void }
+    ).dispatchInbound.bind(session)
+    ;(session as unknown as { connectOptions: { roomId: string } }).connectOptions = {
+      roomId: ROOM,
+    }
+
+    dispatch({ type: 'share_state', roomId: ROOM, state: 'stopped' })
+
+    expect(session.getStatus()).toBe('open')
+    expect(session.getLifecycleState()).toBe('connected')
   })
 })

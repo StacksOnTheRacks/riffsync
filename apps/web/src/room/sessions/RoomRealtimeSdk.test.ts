@@ -17,6 +17,7 @@ import {
   assertSiblingDrawerStaysConnected,
   emitShareStateStopped,
   emitSfuDrawerError,
+  getChatSession,
   joinHealthySdk,
   mockChatConnectOpensImmediately,
   mockSfuConnectOpensImmediately,
@@ -667,6 +668,11 @@ describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
 
   it('share_state stopped leaves all drawers non-torn-down and does not disconnect chat', async () => {
     const chatDisconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
+    const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+    const handleAvDisabledKillSwitch = vi.spyOn(
+      SfuMediaSession.prototype,
+      'handleAvDisabledKillSwitch',
+    )
     const handleShareStateStopped = vi.spyOn(SfuMediaSession.prototype, 'handleShareStateStopped')
     const sdk = await joinHealthySdk({ sessionId: 'sess-share-stop-isolation', isHost: false })
 
@@ -674,6 +680,9 @@ describe('RoomRealtimeSdk drawer isolation (harness steps 5-6)', () => {
 
     expect(handleShareStateStopped).toHaveBeenCalledWith(false)
     expect(chatDisconnect).not.toHaveBeenCalled()
+    expect(sfuDisconnect).not.toHaveBeenCalled()
+    expect(handleAvDisabledKillSwitch).not.toHaveBeenCalled()
+    expect(getChatSession(sdk).getStatus()).toBe('open')
     assertNoDrawerTornDown(sdk.getDiagnostics())
   })
 
