@@ -114,11 +114,22 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Server-side theater audio mixing? | **Deferred** — client-side equal-gain Web Audio mix remains default; document fragility and mitigations in contracts. |
 | CI conformance harness? | **PR-blocking** when web or SFU service paths change; runs against **isolated** ephemeral SFU + TURN; **no** prod footprint touch. |
 
+## Decisions (partial teardown publish path — #143)
+
+| Question | Decision |
+| --- | --- |
+| Camera off, mic on — publisher path? | **`participantAvSession.disableCamera`** closes the **video** producer only via **`unpublishProducerKind('participant_av', 'video')`** (or equivalent). **Must not** call **`unpublishProducerClass('participant_av')`** or **`publishStream`** paths that class-wide unpublish first. |
+| Mic off, camera on — publisher path? | **`disableMic`** closes the **audio** producer only; video producer and remote tile remain. |
+| Mic mute, camera on? | **`toggleMicMute`** uses **`pauseProducerKind` / `resumeProducerKind`** on audio only — already implemented; out of #143 scope except regression guard. |
+| Both axes off? | Class-wide **`unpublishProducerClass('participant_av')`**, stop local **`getUserMedia`**, clear publish intent — unchanged (kill switch, room leave, **`syncPublish`** idle). |
+| **`syncPublish` after partial disable? | **Kind-aware incremental sync:** produce tracks for enabled axes only; unpublish kinds no longer desired; **never** class-wide unpublish when one axis stays enabled. |
+| Dependency on **#144**? | **`mediasoupSharing`** exposes **`unpublishProducerKind`** and incremental produce; **#143** wires **`participantAvSession`** only. Same **`feature/issue-143`** branch may carry both. |
+
 ## Open implementation decisions
 
 - **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
-- **`share_state` behavior matrix:** per-role (**host** / **guest**) and **`roomMode`** detail for **`started`** vs **`stopped`** — which consumer classes attach, detach, or stay idle beyond the normative **`host_screen`-only** guest detach on **`stopped`**.
-- **Partial teardown acceptance criteria (peers #143–#145):** mic-mute-with-camera-on (**pause/resume**), concurrent **`newProducer`** / **`producerClosed`**, **Video Chat** ↔ **Theater** transitions with active participant tiles, and per-kind publish/unpublish paths — owned by peer M17 issues.
+- **`share_state` behavior matrix:** per-role (**host** / **guest**) and **`roomMode`** detail for **`started`** vs **`stopped`** — which consumer classes attach, detach, or stay idle beyond the normative **`host_screen`-only** guest detach on **`stopped`** (**#146** / M18).
+- **Partial teardown — remaining M17 peers:** concurrent **`newProducer`** / **`producerClosed`** consumer attach (**#142**); **`mediasoupSharing`** per-kind API surface (**#144**); theater mic mix when **`host_screen`** closes (**#145**).
 
 ### Partial teardown QA matrix — camera-off tile removal (#142)
 

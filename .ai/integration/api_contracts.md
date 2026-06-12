@@ -142,6 +142,8 @@ Entering **`videoChat`** still fully stops host tab-capture and **`host_screen`*
 | **Both off** | Close all **`participant_av`** producers for the session; full **`producerClosed`** sequence. |
 | **Re-publish after partial close** | May **`produce`** new tracks on the existing send transport without full SFU session rebuild when **`supportsPublish`** is true. |
 
+**Client publish orchestration (#143):** **`participantAvSession.syncPublish`** and **`disableCamera` / `disableMic`** implement the table above. **`disableCamera`** with mic on **must** call **`unpublishProducerKind('participant_av', 'video')`** (or close the live video producer directly) — **not** **`publishStream`**, which historically called **`unpublishProducerClass`** first (**#144** removes that coupling). **`disableMic`** with camera on closes audio only. **`toggleMicMute`** uses **`pauseProducerKind` / `resumeProducerKind`** only.
+
 **SFU service:** **`upsertProducer`** replaces the prior producer for the same **`(sessionId, producerClass, kind)`** tuple. When replace occurs, consumers observe **`producerClosed`** for the old **`producerId`** before **`newProducer`** for the replacement.
 
 ### Typed error catalog (by drawer)
@@ -218,4 +220,6 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 ## Primary code pointers (optional)
 
 - When added: `openapi.yaml` or CDK route definitions.
+- **`apps/web/src/room/sfu/participantAvSession.ts`** — **`syncPublish`**, **`disableCamera`**, **`disableMic`** per-kind teardown (**#143**).
+- **`apps/web/src/room/sfu/mediasoupSharing.ts`** — **`unpublishProducerKind`**, incremental **`publishStream`** (**#144**).
 - **WebSocket route keys (post-#135):** **`$connect`**, **`$disconnect`**, **`ping`**, **`presence_request`**, **`chat`**, **`chat_gif`**, **`react`**, **`share_state`**, **`leave`**, **`$default`** — defined in **`infra/cdk/lib/api-catalog-stack.ts`**; handlers in **`infra/cdk/lambda/ws-route.ts`** (no **`signaling`** route).
