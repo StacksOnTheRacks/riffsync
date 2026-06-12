@@ -21,6 +21,7 @@ import {
   type RoomModeEvent,
 } from './ChatSession'
 import { SfuMediaSession, type SfuMediaSessionStatus } from './SfuMediaSession'
+import { collectActiveErrorCodes } from '../realtimeDrawerErrors'
 import { TheaterPlayback, type TheaterPlaybackSnapshot } from './TheaterPlayback'
 
 export type { TheaterPlaybackSnapshot }
@@ -142,19 +143,6 @@ export function mapSfuMediaSessionStatusToDrawerState(
   }
 }
 
-function collectActiveErrorCodes(
-  drawers: RoomRealtimeDiagnostics['drawers'],
-): string[] {
-  const codes: string[] = []
-  const maybePush = (code: string | undefined) => {
-    if (code && !codes.includes(code)) codes.push(code)
-  }
-  maybePush(drawers.chat.lastErrorCode)
-  maybePush(drawers.sfuSignaling.lastErrorCode)
-  maybePush(drawers.theaterPlayback.lastErrorCode)
-  return codes
-}
-
 /**
  * Framework-agnostic facade over ChatSession, SfuMediaSession, and TheaterPlayback.
  */
@@ -188,6 +176,7 @@ export class RoomRealtimeSdk {
   private sfuStatusUnsub: (() => void) | null = null
   private sfuLifecycleUnsub: (() => void) | null = null
   private sfuErrorUnsub: (() => void) | null = null
+  private sfuDrawerErrorUnsub: (() => void) | null = null
   private mediaPolicyUnsubs: Array<() => void> = []
   private hostScreenStreamUnsub: (() => void) | null = null
   private participantAvTrackUnsub: (() => void) | null = null
@@ -307,7 +296,11 @@ export class RoomRealtimeSdk {
       sessionId: this.sessionId,
       asOf: new Date().toISOString(),
       drawers,
-      activeErrorCodes: collectActiveErrorCodes(drawers),
+      activeErrorCodes: collectActiveErrorCodes([
+        drawers.chat.lastErrorCode,
+        drawers.sfuSignaling.lastErrorCode,
+        drawers.theaterPlayback.lastErrorCode,
+      ]),
     }
   }
 
@@ -407,8 +400,8 @@ export class RoomRealtimeSdk {
       this.emitDiagnosticsChange()
     })
 
-    this.chatSendDroppedUnsub = chat.onSendDropped(() => {
-      this.chatLastErrorCode = 'CHAT_SEND_DROPPED'
+    this.chatSendDroppedUnsub = chat.onSendDropped((error) => {
+      this.chatLastErrorCode = error.code
       this.emitDiagnosticsChange()
     })
 
@@ -431,9 +424,11 @@ export class RoomRealtimeSdk {
 
     this.sfuErrorUnsub = sfu.onError((message) => {
       this.sfuRelayErrorMessage = message
-      if (message) {
-        this.sfuLastErrorCode = 'SIGNALING_TIMEOUT'
-      }
+      this.emitDiagnosticsChange()
+    })
+
+    this.sfuDrawerErrorUnsub = sfu.onDrawerError((error) => {
+      this.sfuLastErrorCode = error?.code
       this.emitDiagnosticsChange()
     })
 
@@ -623,6 +618,7 @@ export class RoomRealtimeSdk {
     this.sfuStatusUnsub?.()
     this.sfuLifecycleUnsub?.()
     this.sfuErrorUnsub?.()
+    this.sfuDrawerErrorUnsub?.()
     for (const unsub of this.mediaPolicyUnsubs) unsub()
     for (const unsub of this.roomControlUnsubs) unsub()
     this.theaterSnapshotUnsub?.()
@@ -637,6 +633,7 @@ export class RoomRealtimeSdk {
     this.sfuStatusUnsub = null
     this.sfuLifecycleUnsub = null
     this.sfuErrorUnsub = null
+    this.sfuDrawerErrorUnsub = null
     this.mediaPolicyUnsubs = []
     this.roomControlUnsubs = []
     this.theaterSnapshotUnsub = null

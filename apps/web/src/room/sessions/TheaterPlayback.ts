@@ -5,6 +5,11 @@ import {
 } from '../audio/theaterAudioMix'
 import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
 import type { GuestHostScreenFsm } from '../sfu/sfuRelayStatusCopy'
+import {
+  playbackAudioBlockedError,
+  theaterAudioSuspendedError,
+  type RealtimeDrawerErrorCode,
+} from '../realtimeDrawerErrors'
 import type { SfuMediaSession } from './SfuMediaSession'
 
 /** Normative drawer lifecycle for diagnostics (`execution_model.md`). */
@@ -41,7 +46,7 @@ function mapSfuConsumerToMixEvent(event: SfuConsumerTrackEvent): TheaterAudioCon
 export class TheaterPlayback {
   private enabled = false
   private lifecycleState: TheaterPlaybackLifecycleState = 'torn-down'
-  private lastErrorCode: string | undefined
+  private lastErrorCode: RealtimeDrawerErrorCode | undefined
   private signalingSiblingDegraded = false
   private sfuSignalingWasConnected = false
   private isPublisher = false
@@ -70,7 +75,7 @@ export class TheaterPlayback {
     return this.lifecycleState
   }
 
-  getLastErrorCode(): string | undefined {
+  getLastErrorCode(): RealtimeDrawerErrorCode | undefined {
     return this.lastErrorCode
   }
 
@@ -277,7 +282,12 @@ export class TheaterPlayback {
 
     const audioSuspended = this.getAudioContextState() === 'suspended'
     if (audioSuspended) {
-      this.setLifecycleState('degraded', 'THEATER_AUDIO_SUSPENDED')
+      this.setLifecycleState('degraded', theaterAudioSuspendedError().code)
+      return
+    }
+
+    if (this.guestPlayHint || this.hostCapturePlayHint) {
+      this.setLifecycleState('degraded', playbackAudioBlockedError().code)
       return
     }
 
@@ -291,7 +301,7 @@ export class TheaterPlayback {
 
   private setLifecycleState(
     next: TheaterPlaybackLifecycleState,
-    errorCode: string | undefined,
+    errorCode: RealtimeDrawerErrorCode | undefined,
   ): void {
     this.lastErrorCode = errorCode
     if (this.lifecycleState === next) return
@@ -428,12 +438,14 @@ export class TheaterPlayback {
     if (this.guestPlayHint === next) return
     this.guestPlayHint = next
     this.emitSnapshot()
+    this.syncLifecycleState()
   }
 
   private setHostCapturePlayHint(next: boolean): void {
     if (this.hostCapturePlayHint === next) return
     this.hostCapturePlayHint = next
     this.emitSnapshot()
+    this.syncLifecycleState()
   }
 
   private emitSnapshot(): void {

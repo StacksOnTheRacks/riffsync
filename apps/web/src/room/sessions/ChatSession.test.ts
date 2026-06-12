@@ -136,12 +136,17 @@ describe('ChatSession send', () => {
     expect(session.getLastErrorCode()).toBe('CHAT_SEND_DROPPED')
   })
 
-  it('notifies send-dropped listeners without queueing', () => {
+  it('notifies send-dropped listeners with typed drawer errors without queueing', () => {
     const session = new ChatSession()
     const dropped = vi.fn()
     session.onSendDropped(dropped)
     session.send({ action: 'ping' })
     expect(dropped).toHaveBeenCalledTimes(1)
+    expect(dropped).toHaveBeenCalledWith({
+      code: 'CHAT_SEND_DROPPED',
+      drawer: 'chat',
+      cause: { readyState: -1 },
+    })
   })
 })
 
