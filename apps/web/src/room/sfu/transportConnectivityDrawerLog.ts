@@ -1,16 +1,16 @@
-import type { Transport } from 'mediasoup-client/lib/types'
+import type { Transport } from 'mediasoup-client/types'
 import { emitClientDrawerLog } from '../clientDrawerLog'
 import { ICE_DISCONNECTED_FAILURE_MS } from '../realtimeDrawerErrors'
 import { webrtcDebugEnabled, webrtcLog } from '../webrtcDebug'
 
-type MediasoupTransport = Transport & {
+type TransportWithHandler = {
   _handler?: { _pc?: RTCPeerConnection }
 }
 
 export function resolvePeerConnectionFromTransport(
   transport: Transport,
 ): RTCPeerConnection | null {
-  const handler = (transport as MediasoupTransport)._handler
+  const handler = (transport as unknown as TransportWithHandler)._handler
   return handler?._pc ?? null
 }
 
