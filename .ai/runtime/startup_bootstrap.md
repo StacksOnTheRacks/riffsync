@@ -73,11 +73,18 @@ Developers **cannot** exercise watch-party media without a running SFU (+ TURN w
 | Local dev misconfiguration signal? | When **`VITE_PUBLIC_SFU_WS_URL`** targets local disposable host and SFU is not listening, show **`LOCAL_SFU_UNREACHABLE`** copy (see **`configuration.md`**) — not generic infinite "Connecting…" with cleared banners. |
 | Per-module reconnect backoff? | **Shared policy** in **`apps/web/src/room/sessions/drawerReconnectPolicy.ts`** — chat 1000ms→60000ms exponential; SFU per **`sfuReconnectPolicy.ts`**; degraded thresholds per **`execution_model.md`** transition tables (**#140**). |
 
+## Decisions (harness credential bootstrap — #155)
+
+| Topic | Decision |
+| --- | --- |
+| **SFU join secret** | **`SFU_JWT_SECRET`** from **`infra/local-media/.env`** (fixture copy via **#154** bootstrap) — harness **`signSfuJoinToken`** reads same env var name as disposable SFU container. |
+| **Fan access token** | Harness scenarios **omit** Cognito fan JWT — room WS stub does not enforce JWT authorizer semantics in MVP. |
+| **SPA env for reconnect suite** | Vitest reconnect steps set **`VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000`** and ICE JSON via harness env — no prod **`VITE_PUBLIC_API_BASE_URL`** required for drawer tests. |
+
 ## Open implementation decisions
 
 - **`webrtc-sfu-token`** branches for participant producer grant and **`avDisabled`** check at mint time (**#102** / **`integration/api_contracts.md`**).
 - Rate limits on participant producer token mint per **`sub`** (**#102** / **`operations/security.md`**).
-- **Harness credential bootstrap:** test fan JWT mint strategy without prod Cognito secrets in CI — **`.ai/operations/build_packaging.md`** (harness milestone).
 
 ## Primary code pointers (optional)
 

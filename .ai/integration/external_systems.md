@@ -96,9 +96,13 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | --- | --- |
 | Harness container image? | Compose **`build`** from **`services/riffsync-sfu/Dockerfile`** at PR checkout — same context as local **`media:local`**; **no** separate pinned harness image for MVP. |
 
-## Open implementation decisions
+## Decisions (harness join credentials — #155)
 
-- Whether harness mints real **`sfu-token`** via mocked Lambda or in-process JWT signer (must match **`SfuJoinClaims`** shape) — **#155** harness runner.
+| Topic | Decision |
+| --- | --- |
+| **SFU join JWT** | Harness mints join tokens **in-process** via **`signSfuJoinToken`** (**`infra/cdk/lambda/sfu-join-token-sign.ts`**) using bootstrap **`SFU_JWT_SECRET`** — payload shape matches prod **`SfuJoinClaims`**. |
+| **Fan Cognito JWT** | **Not required** for MVP harness scenarios — room WS stub accepts connections without API Gateway authorizer emulation. |
+| **ICE credentials** | Static-auth coturn credentials from **`infra/local-media/`** fixture config — **no** prod **`GET /v1/webrtc/ice`** call in CI. |
 
 ## Primary code pointers (optional)
 

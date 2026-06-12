@@ -65,11 +65,19 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | SFU everywhere? | **Yes** — remove mesh; dev/CI use disposable SFU + TURN. |
 | CI conformance harness? | **PR-blocking** on web/SFU path changes; isolated ephemeral stack; no prod touch. |
 
+## Decisions (conformance harness scenarios — #155)
+
+| Story | Harness coverage |
+| --- | --- |
+| **US-P0-11e** (PR-blocking conformance) | All six ordered steps in **`build_packaging.md`** implemented in **`tests/realtime-conformance/run.sh`**. |
+| **Partial unpublish** | Step **4**: camera-off / mic-on — video producer closes, audio continues, no full SFU session rebuild (**2s** consumer detach window). |
+| **Drawer-independent reconnect** | Steps **5–6**: chat WS drop with SFU up, then SFU WS drop with chat up — sibling drawer stays **`connected`** per **`getDiagnostics()`** (**#140**). |
+| **`share_state` matrix** | **Out of MVP harness** — manual checklist only per **`build_packaging.md`** SFU deploy checklist table. |
+
 ## Open implementation decisions
 
 - **Video Chat empty grid:** copy and layout when **no participant has camera on** (placeholder vs audio-only affordance).
 - **Kill switch control affordance:** participant camera/mic toggles **visible but disabled** with short explanation vs hidden when **`avDisabled`** is true (accessibility vs minimal chrome).
-- **Conformance harness scenarios:** story-level acceptance criteria for partial teardown permutations, drawer-independent reconnect, and **`share_state`** started/stopped matrix (**`operations`** peer owns runner wiring).
 
 ## Primary code pointers (optional)
 

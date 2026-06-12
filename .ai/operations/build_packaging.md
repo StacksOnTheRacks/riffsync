@@ -107,11 +107,21 @@ Harness failures must name the **drawer** (chat, signaling, connectivity, produc
 | **Job wiring owner** | **#153** adds **`realtime-conformance`** steps that call bootstrap; **#154** ships the script + **`tests/realtime-conformance/README.md`** operator notes. |
 | **Incremental ship** | Bootstrap runs even when **`run.sh`** is absent — job passes after **`wait`** succeeds post-SFU compile (**#153** interim gate). |
 
-## Open implementation decisions
+## Decisions (realtime-conformance harness runner — #155)
 
-- **Harness driver** — Node dual-peer **`mediasoup-client`** script is the PR gate (**#155**); Playwright browser **`getUserMedia`** fidelity deferred post-MVP unless a scenario requires UI tile assertions.
-- **Timeouts and flake policy** — Per-step wall clocks, retry budget, and supplemental artifact capture (HAR) — **#155** runner; job-level **`timeout-minutes`** on **`realtime-conformance`** set when runner lands.
-- **Room WS stub** — Minimal in-process mock in **`tests/realtime-conformance/`** (**#155**); not testcontainers for MVP.
+| Topic | Decision |
+| --- | --- |
+| **Package root** | **`tests/realtime-conformance/`** — own **`package.json`**, **`README.md`**, **`run.sh`** entry invoked by **#153** job after **#154** bootstrap. |
+| **Harness driver** | **Node** dual-peer **`mediasoup-client`** with **`@koush/wrtc`** WebRTC polyfill for steps **1–4** (join / publish / consume / partial unpublish). Playwright browser **`getUserMedia`** fidelity **deferred** post-MVP. |
+| **Drawer reconnect steps** | Steps **5–6** run as **vitest** + **`happy-dom`** suite under **`tests/realtime-conformance/`** importing **`RoomRealtimeSdk`** from **`apps/web`** — asserts normative **`getDiagnostics()`** drawer independence against live loopback SFU + room WS stub. |
+| **Join JWT mint** | In-process **`signSfuJoinToken`** from **`infra/cdk/lambda/sfu-join-token-sign.ts`**; read **`SFU_JWT_SECRET`** from bootstrap fixture env — **no** mocked **`POST /v1/webrtc/sfu-token`** Lambda and **no** prod Cognito material. |
+| **Room WS stub** | Minimal in-process **`ws`** server at **`tests/realtime-conformance/lib/room-ws-stub.ts`** — ack connect, **`ping`/`pong`**, **`chat`** fan-out, canned **`presence_request`** response; **not** testcontainers or API Gateway emulation. |
+| **ICE / TURN** | Harness peers use coturn static credentials from bootstrap fixture **`turnserver.conf`**; ICE servers JSON injected via env — same loopback posture as **#154**. |
+| **Partial unpublish assertion** | Publisher closes **video** producer only; consumer observes video consumer count **0** within **2s** wall clock; **audio** consumer remains attached; SFU signaling session stays **`open`** — no full session rebuild. |
+| **Step timeouts** | **90s** wall clock per ordered scenario step; **0** automatic retries per step in MVP (fail fast). |
+| **Job timeout** | **`realtime-conformance`** job sets **`timeout-minutes: 12`** when **`run.sh`** is present (**#153** integrator). |
+| **Failure artifacts** | Runner writes **`harness-summary.json`** at repo root on failure (drawer/code/step/outcome rows per **#153**); optional tail of SFU container logs (**last 200** lines) appended when step **≥ 1** fails. HAR capture **deferred**. |
+| **`run.sh` contract** | Bash, **`set -euo pipefail`**; exit **0** only when all six steps pass; prints **`[drawer=…] code=… step=…`** to stderr on failure for step summary ingestion. |
 
 ## Release and delivery
 
