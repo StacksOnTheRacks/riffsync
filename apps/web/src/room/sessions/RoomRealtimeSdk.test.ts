@@ -15,6 +15,7 @@ import {
   assertDrawerReconnectCycle,
   assertNoDrawerTornDown,
   assertSiblingDrawerStaysConnected,
+  emitShareStateStarted,
   emitShareStateStopped,
   emitSfuDrawerError,
   getChatSession,
@@ -315,6 +316,35 @@ describe('RoomRealtimeSdk media policy wiring', () => {
     }
 
     expect(handleShareStateStopped).toHaveBeenCalledWith(false)
+  })
+
+  it('share_state started does not forward to handleShareStateStopped (#146 Guest theater started)', () => {
+    const handleShareStateStopped = vi.spyOn(SfuMediaSession.prototype, 'handleShareStateStopped')
+    const detachConsumerClass = vi.fn()
+    vi.spyOn(SfuMediaSession.prototype, 'connect').mockImplementation(function (this: SfuMediaSession) {
+      ;(this as unknown as { setStatus: (status: string) => void }).setStatus('open')
+      ;(this as unknown as { setLifecycleState: (status: string) => void }).setLifecycleState(
+        'connected',
+      )
+      ;(
+        this as unknown as {
+          sessionHandle: { detachConsumerClass: ReturnType<typeof vi.fn> }
+        }
+      ).sessionHandle = { detachConsumerClass }
+    })
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-share-started',
+      wsUrl: 'wss://ws.test',
+      isHost: false,
+    })
+
+    emitShareStateStarted(sdk)
+
+    expect(handleShareStateStopped).not.toHaveBeenCalled()
+    expect(detachConsumerClass).not.toHaveBeenCalled()
   })
 
   it('forwards av_disabled kill switch to SfuMediaSession', () => {
@@ -849,6 +879,93 @@ describe('RoomRealtimeSdk theater playback lifecycle', () => {
     }
 
     expect(sdk.getDiagnostics().drawers.theaterPlayback.state).toBe('connected')
+  })
+
+  it('theater guest share_state started keeps SFU open and re-attaches on newProducer stream (#146 Guest theater started)', async () => {
+    mockChatConnectOpensImmediately()
+    mockSfuConnectOpensImmediately()
+    const sfuDisconnect = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+    const remoteStreamListeners: Array<(stream: MediaStream | null) => void> = []
+    vi.spyOn(SfuMediaSession.prototype, 'onRemoteStream').mockImplementation(function (
+      listener: (stream: MediaStream | null) => void,
+    ) {
+      remoteStreamListeners.push(listener)
+      return () => {
+        const idx = remoteStreamListeners.indexOf(listener)
+        if (idx >= 0) remoteStreamListeners.splice(idx, 1)
+      }
+    })
+    const setGuestRemote = vi.spyOn(TheaterPlayback.prototype, 'setGuestRemote')
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-share-started-theater',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+      isHost: false,
+    })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+
+    sdk.subscribe({ hostScreen: { onRemoteStream: vi.fn() } })
+    setGuestRemote.mockClear()
+
+    emitShareStateStarted(sdk)
+
+    expect(sfuDisconnect).not.toHaveBeenCalled()
+    expect(getSfuSession(sdk).getStatus()).toBe('open')
+    expect(setGuestRemote).not.toHaveBeenCalled()
+
+    const pendingStream = {
+      getTracks: () => [{ kind: 'video', readyState: 'live' }],
+      getVideoTracks: () => [{ kind: 'video', readyState: 'live' }],
+    } as MediaStream
+    remoteStreamListeners[0]?.(pendingStream)
+
+    expect(setGuestRemote).toHaveBeenCalledWith(pendingStream)
+  })
+
+  it('videoChat guest share_state started leaves guestRemote null (#146 Guest videoChat started)', async () => {
+    mockChatConnectOpensImmediately()
+    mockSfuConnectOpensImmediately()
+    const remoteStreamListeners: Array<(stream: MediaStream | null) => void> = []
+    vi.spyOn(SfuMediaSession.prototype, 'onRemoteStream').mockImplementation(function (
+      listener: (stream: MediaStream | null) => void,
+    ) {
+      remoteStreamListeners.push(listener)
+      return () => {
+        const idx = remoteStreamListeners.indexOf(listener)
+        if (idx >= 0) remoteStreamListeners.splice(idx, 1)
+      }
+    })
+    const setGuestRemote = vi.spyOn(TheaterPlayback.prototype, 'setGuestRemote')
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: { ...baseSnapshot, roomMode: 'videoChat' },
+      sessionId: 'sess-share-started-videochat',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+      isHost: false,
+    })
+
+    sdk.subscribe({ hostScreen: { onRemoteStream: vi.fn() } })
+
+    emitShareStateStarted(sdk)
+
+    const hostScreenStream = {
+      getTracks: () => [{ kind: 'video', readyState: 'live' }],
+      getVideoTracks: () => [{ kind: 'video', readyState: 'live' }],
+    } as MediaStream
+    remoteStreamListeners[0]?.(hostScreenStream)
+
+    expect(setGuestRemote).not.toHaveBeenCalled()
+    expect((sdk as unknown as { theaterLayoutActive: boolean }).theaterLayoutActive).toBe(false)
   })
 
   it('routes emitRemoteStream(null) to TheaterPlayback.setGuestRemote for theater guests', async () => {

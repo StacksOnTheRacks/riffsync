@@ -283,6 +283,27 @@ describe('SfuMediaSession media policy', () => {
     expect(remoteListener).toHaveBeenCalledWith(null)
   })
 
+  it('share_state started has no symmetric detach — guest theater re-attaches via onRemoteStream (#146)', () => {
+    const session = new SfuMediaSession()
+    const detach = vi.fn()
+    attachMockSessionHandle(session, { detachConsumerClass: detach })
+
+    const remoteListener = vi.fn()
+    session.onRemoteStream(remoteListener)
+
+    const hostScreenStream = {
+      getTracks: () => [{ kind: 'video', readyState: 'live' }],
+      getVideoTracks: () => [{ kind: 'video', readyState: 'live' }],
+    } as MediaStream
+    ;(
+      session as unknown as { emitRemoteStream: (stream: MediaStream | null) => void }
+    ).emitRemoteStream(hostScreenStream)
+
+    expect(detach).not.toHaveBeenCalled()
+    expect(remoteListener).toHaveBeenCalledWith(hostScreenStream)
+    expect(session.getStatus()).not.toBe('closed')
+  })
+
   it('regression: guest share-stop never tears down SFU session or participant AV', () => {
     const session = new SfuMediaSession()
     const detach = vi.fn()
