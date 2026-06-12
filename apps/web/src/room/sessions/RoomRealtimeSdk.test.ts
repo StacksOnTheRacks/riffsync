@@ -476,6 +476,37 @@ describe('RoomRealtimeSdk.publishAv', () => {
     expect(disableCamera).toHaveBeenCalledTimes(1)
     expect(enableMic).toHaveBeenCalledTimes(1)
   })
+
+  it('does not double-toggle when { camera: false, mic: true } already matches state', () => {
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-publish-partial-idempotent',
+    })
+
+    const av = (sdk as unknown as { sfu: SfuMediaSession }).sfu.participantAv
+    const enableCamera = vi.spyOn(av, 'enableCamera')
+    const disableCamera = vi.spyOn(av, 'disableCamera')
+    const enableMic = vi.spyOn(av, 'enableMic')
+    const disableMic = vi.spyOn(av, 'disableMic')
+    vi.spyOn(av, 'getState').mockReturnValue({
+      cameraEnabled: false,
+      micEnabled: true,
+      micMuted: false,
+      canPublish: true,
+      needsProducerToken: true,
+      error: null,
+      busy: false,
+    })
+
+    sdk.publishAv({ camera: false, mic: true })
+    sdk.publishAv({ camera: false, mic: true })
+
+    expect(enableCamera).not.toHaveBeenCalled()
+    expect(disableCamera).not.toHaveBeenCalled()
+    expect(enableMic).not.toHaveBeenCalled()
+    expect(disableMic).not.toHaveBeenCalled()
+  })
 })
 
 describe('RoomRealtimeSdk.subscribe', () => {

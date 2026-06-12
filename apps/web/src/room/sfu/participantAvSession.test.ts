@@ -296,6 +296,64 @@ describe('createParticipantAvController', () => {
     vi.unstubAllGlobals()
   })
 
+  it('sequential disable from both on ends with class-wide unpublish', async () => {
+    const unpublishProducerKind = vi.fn()
+    const unpublishProducerClass = vi.fn()
+    const publishStream = vi.fn().mockResolvedValue(undefined)
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }
+    const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }
+    const stream = {
+      getVideoTracks: () => [videoTrack],
+      getAudioTracks: () => [audioTrack],
+      getTracks: () => [videoTrack, audioTrack],
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue(stream),
+      },
+    })
+
+    const controller = createParticipantAvController({ canPublish: () => true })
+    const session = {
+      supportsPublish: true,
+      ready: Promise.resolve(),
+      publishStream,
+      unpublishProducerKind,
+      unpublishProducerClass,
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+    } as unknown as import('./mediasoupSharing').SfuUnifiedSessionHandle
+
+    await controller.enableCamera()
+    await controller.enableMic()
+    controller.attachSession(session)
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalled()
+    })
+
+    unpublishProducerKind.mockClear()
+    unpublishProducerClass.mockClear()
+
+    controller.disableCamera()
+    expect(unpublishProducerKind).toHaveBeenCalledWith('participant_av', 'video')
+    expect(unpublishProducerClass).not.toHaveBeenCalled()
+
+    unpublishProducerKind.mockClear()
+    unpublishProducerClass.mockClear()
+
+    controller.disableMic()
+    expect(unpublishProducerClass).toHaveBeenCalledWith('participant_av')
+    expect(unpublishProducerKind).not.toHaveBeenCalled()
+    expect(controller.getState()).toMatchObject({
+      cameraEnabled: false,
+      micEnabled: false,
+    })
+
+    vi.unstubAllGlobals()
+  })
+
   it('disableCamera with mic off uses class-wide unpublish', async () => {
     const unpublishProducerClass = vi.fn()
     const unpublishProducerKind = vi.fn()
