@@ -206,6 +206,11 @@ export class MediaServerStack extends cdk.Stack {
       securityGroup: turnSg,
       role: turnRole,
       userData: turnUserData,
+      // UserData provisions coturn AND the 443->3478 TCP redirect, which only runs on first
+      // boot. Without replacement, CloudFormation updates the UserData property silently and the
+      // running box never picks up changes (e.g. the TURN 443 fallback). The TurnEip re-associates
+      // to the replacement instance, so PROD_TURN_HOST keeps the same public address.
+      userDataCausesReplacement: true,
       associatePublicIpAddress: true,
       detailedMonitoring: false,
       sourceDestCheck: true,
