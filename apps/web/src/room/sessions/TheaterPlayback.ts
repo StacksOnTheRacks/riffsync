@@ -332,6 +332,16 @@ export class TheaterPlayback {
       if (v && !this.isPublisher) {
         v.srcObject = null
       }
+      // We hold a host_screen stream but cannot bind it yet. Surface why so a blank guest
+      // theater is diagnosable from the console (no <video> bound vs theater not enabled).
+      if (this.guestRemote && !this.isPublisher) {
+        emitClientDrawerLog({
+          drawer: 'produce_consume',
+          event: 'guest_screen_bind_deferred',
+          outcome: 'retry',
+          code: !v ? 'no_element' : !this.enabled ? 'theater_disabled' : 'publisher',
+        })
+      }
       return
     }
     if (!this.guestRemote) {
