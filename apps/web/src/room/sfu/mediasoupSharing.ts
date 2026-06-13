@@ -7,6 +7,7 @@ import type {
 } from 'mediasoup-client/types'
 import { getPublicSfuWsUrl } from '../../config/sfuWsUrl'
 import { attachTransportConnectivityDrawerLog } from './transportConnectivityDrawerLog'
+import { emitClientDrawerLog } from '../clientDrawerLog'
 
 export type SfuTokenResponse = {
   token: string
@@ -454,6 +455,12 @@ export async function connectSfuUnifiedSession(options: {
           appData: { producerClass },
         })
         liveProducers.push({ producer, producerClass, kind })
+        emitClientDrawerLog({
+          drawer: 'produce_consume',
+          event: 'sfu_produced',
+          outcome: 'recovered',
+          code: `${producerClass}:${kind}`,
+        })
       }
     }
     const next = publishChain.then(run, run)
@@ -607,6 +614,12 @@ export async function connectSfuUnifiedSession(options: {
       if (summary.producerClass) {
         consumerProducerClassById.set(producerId, summary.producerClass)
       }
+      emitClientDrawerLog({
+        drawer: 'produce_consume',
+        event: 'sfu_consumed',
+        outcome: 'recovered',
+        code: `${summary.producerClass ?? 'unknown'}:${kind}`,
+      })
       const { track } = consumer
       // The theater "view screen" stream must carry host_screen media only.
       // participant_av (camera/mic) reaches the UI exclusively via onConsumerTrack

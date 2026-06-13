@@ -570,7 +570,15 @@ export class SfuMediaSession {
     const { stream, roomMode, isPublisher } = opts
     if (!this.enabled || !isPublisher) return () => undefined
     const session = this.sessionHandle
-    if (!session) return () => undefined
+    if (!session) {
+      emitClientDrawerLog({
+        drawer: 'produce_consume',
+        event: 'host_screen_publish_skipped',
+        outcome: 'retry',
+        code: 'no_session',
+      })
+      return () => undefined
+    }
 
     if (roomMode === 'videoChat') {
       session.unpublishProducerClass('host_screen')
@@ -579,18 +587,34 @@ export class SfuMediaSession {
 
     const live = stream?.getTracks().some((track) => track.readyState === 'live') ?? false
     if (!live || !stream) {
+      emitClientDrawerLog({
+        drawer: 'produce_consume',
+        event: 'host_screen_publish_skipped',
+        outcome: 'retry',
+        code: 'no_live_track',
+      })
       session.unpublishProducerClass('host_screen')
       return () => undefined
     }
 
+    emitClientDrawerLog({
+      drawer: 'produce_consume',
+      event: 'host_screen_publish_attempt',
+      outcome: 'recovered',
+    })
     let cancelled = false
     void (async () => {
       try {
         await session.ready
         if (cancelled) return
         await session.publishStream(stream, 'host_screen')
-      } catch {
-        /* session closed or reconnecting */
+      } catch (e) {
+        emitClientDrawerLog({
+          drawer: 'produce_consume',
+          event: 'host_screen_publish_failed',
+          outcome: 'failed',
+          code: e instanceof Error ? e.name : 'error',
+        })
       }
     })()
     return () => {
