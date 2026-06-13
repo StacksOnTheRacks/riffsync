@@ -17,6 +17,8 @@ The CDK app **no longer defines** `RiffSyncFanAuth-staging`, `RiffSyncApi-stagin
 | `lib/static-site-stack.ts` | Private **S3** origin + **CloudFront** with **origin access control (OAC)** |
 | `lib/api-catalog-stack.ts` | **Catalog** + **Rooms** + **Connections** Dynamo tables, **HTTP API** (catalog, rooms, lobby), **JWT** (**fan pool**), **WebSocket API** (ping, presence_request, chat, chat_gif, react, share_state, leave), **TMDB reconcile** + schedules |
 | `lib/media-server-stack.ts` | **Singleton** **`RiffSyncTurn`** — **one VPC**, **coturn** (**`t3.small`**) + **mediasoup SFU** (**`t3.medium`**), two EIPs, **`riffsync/turn-static-auth-secret`**, S3 bundle deploy for **`services/riffsync-sfu`**, **`riffsync/sfu-join-hmac-secret`** (reference by name) |
+| `lib/observability-stack.ts` | **`RiffSyncObservability-prod`** — CloudWatch dashboard **`RiffSync-prod-operations`** (HTTP/WS, Lambda, DynamoDB, chat EMF, SFU EC2) |
+| `lib/observability-dashboard.ts` | Dashboard widget definitions (used by **`observability-stack.ts`**) |
 | `lib/fan-auth-stack.ts` | **Fan** Cognito **User Pool** + **Hosted UI** domain + SPA app client (**local** email/password sign-up & sign-in, OAuth code + PKCE) |
 | `lib/staff-auth-stack.ts` | **Staff** Cognito **User Pool** (invite-only) + **Hosted UI** + SPA app client (**`/admin/*`** OAuth callbacks, **`admin`** / **`curator`** groups) |
 | `lib/ses-inbound-stack.ts` | Shared **SES inbound** receipt rule → **SNS** (+ optional Route 53 **MX**) |
@@ -200,6 +202,20 @@ One account, **one CloudFormation stack** **`RiffSyncTurn`** ([`lib/media-server
 **Session Manager:** no inbound **SSH**; use **SSM** for troubleshooting (**`/var/log/cloud-init-output.log`** if UserData fails).
 
 **SFU producer / transport caps:** UserData writes **`/etc/riffsync-sfu.env`** with **`SFU_MAX_PRODUCERS_PER_SESSION=3`**, **`SFU_MAX_PRODUCERS_PER_ROOM=24`**, **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION=8`**, **`SFU_MAX_CONSUMERS_PER_SESSION=64`** (defaults in [`lib/sfu-env-lines.ts`](lib/sfu-env-lines.ts); **`riffsync-sfu`** reads them at startup). Optional CloudWatch alarm **`riffsync-sfu-high-cpu`** fires when SFU EC2 **CPUUtilization** exceeds **80%** for **5** minutes (no SNS in OSS default — attach a topic in IaC if desired).
+
+### CloudWatch operations dashboard
+
+Stack **`RiffSyncObservability-prod`** creates dashboard **`RiffSync-prod-operations`**: HTTP + WebSocket API Gateway volume/errors, critical Lambda errors/throttles/duration, DynamoDB throttles on Connections/Rooms/RoomPresence/RoomChat, **`RiffSync/Realtime`** chat EMF, **`RiffSync/Media`** **`SfuTokenDenied`**, SFU/TURN EC2 CPU and network, and **`RiffSync/Reconcile`** background metrics.
+
+**Deploy (after API + media stacks exist):**
+
+```bash
+cd infra/cdk
+npm ci
+npx cdk deploy RiffSyncObservability-prod --context environment=prod --require-approval never
+```
+
+Stack output **`OperationsDashboardUrl`** opens the console deep link. **Note:** SFU process EMF (transport/consumer limit counters) is stdout on EC2 only until a CloudWatch agent or scrape Lambda ships — use EC2 CPU/network and Lambda **`SfuTokenDenied`** on the dashboard for launch day.
 
 **Worker failure runbook (mediasoup `worker.on('died')`):**
 

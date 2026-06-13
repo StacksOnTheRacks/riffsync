@@ -175,6 +175,10 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly fanAvatarsPublicBaseUrl: string;
   public readonly httpApi: apigwv2.HttpApi;
   public readonly webSocketApi: apigwv2.WebSocketApi;
+  /** WebSocket stage name (same as prod environment label). */
+  public readonly webSocketStageName: string;
+  /** Launch-critical Lambdas wired to the operations dashboard. */
+  public readonly criticalObservabilityFunctions: lambda.IFunction[];
   public readonly tmdbApiTokenSecret: secretsmanager.ISecret;
   public readonly giphyApiKeySecret: secretsmanager.ISecret;
   public readonly turnSharedSecret: secretsmanager.ISecret;
@@ -1225,5 +1229,14 @@ export class ApiCatalogStack extends cdk.Stack {
       value: lobbySweeperFn.functionName,
       description: 'Scheduled lobby index cleanup — invoke manually: aws lambda invoke --function-name … out.json',
     });
+
+    this.webSocketStageName = environment;
+    this.criticalObservabilityFunctions = [
+      wsConnectFn,
+      wsRouteFn,
+      lobbyGetFn,
+      roomCreateFn,
+      webrtcSfuTokenFn,
+    ];
   }
 }

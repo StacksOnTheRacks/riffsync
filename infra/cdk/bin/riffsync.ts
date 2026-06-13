@@ -7,6 +7,7 @@ import { StaffAuthStack } from '../lib/staff-auth-stack';
 import { SesInboundStack, sesInboundReceiptRulesActivated } from '../lib/ses-inbound-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
 import { MediaServerStack } from '../lib/media-server-stack';
+import { ObservabilityStack } from '../lib/observability-stack';
 
 function trimContext(app: cdk.App, key: string): string | undefined {
   const v = app.node.tryGetContext(key);
@@ -130,6 +131,29 @@ const apiCatalog = new ApiCatalogStack(app, 'RiffSyncApi-prod', {
 apiCatalog.addDependency(fanAuth);
 apiCatalog.addDependency(staffAuth);
 apiCatalog.addDependency(mediaServer);
+
+const observability = new ObservabilityStack(app, 'RiffSyncObservability-prod', {
+  description: 'RiffSync CloudWatch operations dashboard (prod)',
+  environment: 'prod',
+  httpApi: apiCatalog.httpApi,
+  webSocketApi: apiCatalog.webSocketApi,
+  webSocketStageName: apiCatalog.webSocketStageName,
+  tables: [
+    { label: 'Connections', table: apiCatalog.connectionsTable },
+    { label: 'Rooms', table: apiCatalog.roomsTable },
+    { label: 'RoomPresence', table: apiCatalog.roomPresenceTable },
+    { label: 'RoomChat', table: apiCatalog.roomChatTable },
+  ],
+  criticalLambdas: apiCatalog.criticalObservabilityFunctions,
+  sfuInstanceId: mediaServer.sfuInstanceId,
+  turnInstanceId: mediaServer.turnInstanceId,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+});
+observability.addDependency(apiCatalog);
+observability.addDependency(mediaServer);
 
 new StaticSiteStack(app, 'RiffSyncStatic-prod', {
   description: 'RiffSync static SPA hosting (prod) — S3 (private) + CloudFront OAC',

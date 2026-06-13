@@ -75,6 +75,10 @@ export class MediaServerStack extends cdk.Stack {
   public readonly sfuElasticIp: string;
   public readonly sfuCodeBucket: s3.IBucket;
   public readonly defaultSignalingWsUrl: string;
+  /** EC2 instance id for CloudWatch dashboard / alarms. */
+  public readonly sfuInstanceId: string;
+  /** EC2 instance id for CloudWatch dashboard / alarms. */
+  public readonly turnInstanceId: string;
 
   constructor(scope: Construct, id: string, props: MediaServerStackProps) {
     const {
@@ -215,6 +219,7 @@ export class MediaServerStack extends cdk.Stack {
       detailedMonitoring: false,
       sourceDestCheck: true,
     });
+    this.turnInstanceId = turnInstance.instanceId;
 
     const turnEip = new ec2.CfnEIP(this, 'TurnEip', {
       domain: 'vpc',
@@ -408,6 +413,7 @@ SVCEOF`,
       sourceDestCheck: true,
     });
     sfuInstance.node.addDependency(codeDeploy);
+    this.sfuInstanceId = sfuInstance.instanceId;
 
     new cloudwatch.Alarm(this, 'SfuHighCpuAlarm', {
       alarmName: 'riffsync-sfu-high-cpu',

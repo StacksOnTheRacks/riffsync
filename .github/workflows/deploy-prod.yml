@@ -109,6 +109,29 @@ jobs:
           mapfile -t CDK_CTX < <(bash scripts/cdk-prod-context-args.sh)
           npx cdk deploy RiffSyncApi-prod --exclusively "${CDK_CTX[@]}" --require-approval never
 
+  cdk-observability:
+    name: CDK prod – CloudWatch operations dashboard
+    needs:
+      - cdk-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
+      - uses: ./.github/actions/riffsync-cdk-prod-setup
+        with:
+          git_ref: ${{ github.event.inputs.git_ref }}
+          aws_role_arn: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
+          aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy RiffSyncObservability-prod
+        working-directory: infra/cdk
+        run: |
+          set -euo pipefail
+          mapfile -t CDK_CTX < <(bash scripts/cdk-prod-context-args.sh)
+          npx cdk deploy RiffSyncObservability-prod --exclusively "${CDK_CTX[@]}" --require-approval never
+
   cdk-oauth-cors:
     name: CDK prod – Cognito OAuth + API CORS from CloudFront URL
     needs:
