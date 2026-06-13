@@ -1060,6 +1060,9 @@ describe('RoomRealtimeSdk theater playback lifecycle', () => {
       sessionId: 'sess-theater-degraded',
       wsUrl: 'wss://ws.test',
       apiBaseUrl: 'https://api.test',
+      // Suspended-AudioContext degradation only applies to the experimental participant mix; the
+      // default tab-share path plays host_screen audio through the element with no mix.
+      mixEnabled: true,
       getIceServers: async () => [],
     })
 

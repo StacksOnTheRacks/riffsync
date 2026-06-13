@@ -43,6 +43,7 @@ export function AppRoutes() {
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/privacy/data-removal" element={<DataRemovalRequestPage />} />
         <Route path="/room/:roomId" element={<RoomPage />} />
+        <Route path="/room/:roomId/experimental/:experimental" element={<RoomPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

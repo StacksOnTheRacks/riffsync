@@ -57,6 +57,7 @@ function makeStream(tracks: MediaStreamTrack[]): MediaStream {
   return {
     getTracks: () => tracks,
     getVideoTracks: () => tracks.filter((t) => t.kind === 'video'),
+    getAudioTracks: () => tracks.filter((t) => t.kind === 'audio'),
   } as MediaStream
 }
 
@@ -171,18 +172,18 @@ describe('TheaterPlayback', () => {
     playback.dispose()
   })
 
-  it('binds guest video with muted playback for theater mix', async () => {
+  it('binds guest video unmuted so host_screen audio plays through the element', async () => {
     const mix = makeMixMock()
     vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
     const video = makeVideoElement()
     const playback = new TheaterPlayback()
     playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
     playback.setGuestVideoElement(video)
-    playback.setGuestRemote(makeStream([makeTrack('video')]))
+    playback.setGuestRemote(makeStream([makeTrack('video'), makeTrack('audio')]))
 
     await Promise.resolve()
     expect(video.srcObject).not.toBeNull()
-    expect(video.muted).toBe(true)
+    expect(video.muted).toBe(false)
     expect(video.play).toHaveBeenCalled()
     playback.dispose()
   })
@@ -304,48 +305,30 @@ describe('TheaterPlayback', () => {
     playback.dispose()
   })
 
-  it('prompts the guest to enable sound when host_screen audio is autoplay-suspended', async () => {
-    const mix = makeMixMock({
-      getAudioContextState: vi.fn().mockReturnValue('suspended' as AudioContextState),
-    })
-    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+  it('binds the full host_screen stream (audio+video) unmuted to the guest element', async () => {
+    vi.mocked(createTheaterAudioMix).mockReturnValue(makeMixMock())
     const playback = new TheaterPlayback()
+    playback.setMixEnabled(false)
     playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
 
-    playback.setGuestVideoElement(makeVideoElement())
-    // Muted video autoplay succeeds, but host_screen audio plays via the suspended mix, so the
-    // guest must be offered a gesture to unlock sound.
+    const video = makeVideoElement()
+    playback.setGuestVideoElement(video)
     playback.setGuestRemote(makeStream([makeTrack('video'), makeTrack('audio')]))
 
-    await vi.waitFor(() => expect(playback.getSnapshot().guestPlayHint).toBe(true))
-    playback.dispose()
+    await Promise.resolve()
+    const bound = video.srcObject as unknown as { tracks: MediaStreamTrack[] }
+    expect(bound.tracks).toHaveLength(2)
+    expect(video.muted).toBe(false)
   })
 
-  it('attempts to resume the mix on any document gesture while audio is suspended', async () => {
-    const docTarget = new EventTarget()
-    const globalRef = globalThis as { document?: unknown }
-    const originalDocument = globalRef.document
-    globalRef.document = docTarget
-    try {
-      const mix = makeMixMock({
-        getAudioContextState: vi.fn().mockReturnValue('suspended' as AudioContextState),
-      })
-      vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
-      const playback = new TheaterPlayback()
-      playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
-      playback.setGuestVideoElement(makeVideoElement())
-      playback.setGuestRemote(makeStream([makeTrack('video'), makeTrack('audio')]))
-      await vi.waitFor(() => expect(playback.getSnapshot().guestPlayHint).toBe(true))
-
-      const before = vi.mocked(mix.resumeIfSuspended).mock.calls.length
-      docTarget.dispatchEvent(new Event('pointerdown'))
-      await vi.waitFor(() =>
-        expect(vi.mocked(mix.resumeIfSuspended).mock.calls.length).toBeGreaterThan(before),
-      )
-      playback.dispose()
-    } finally {
-      globalRef.document = originalDocument
-    }
+  it('does not build the Web Audio mix when mix is disabled (tab-share default)', () => {
+    vi.mocked(createTheaterAudioMix).mockReturnValue(makeMixMock())
+    const playback = new TheaterPlayback()
+    playback.setMixEnabled(false)
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+    expect(createTheaterAudioMix).not.toHaveBeenCalled()
+    expect(playback.getLifecycleState()).toBe('connected')
+    playback.dispose()
   })
 
   it('reports degraded lifecycle when SFU signaling sibling reconnects after connect', () => {

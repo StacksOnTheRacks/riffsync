@@ -83,6 +83,12 @@ export type JoinOptions = {
   wsUrl?: string
   apiBaseUrl?: string
   isHost?: boolean
+  /**
+   * Enables the Web Audio participant mix (experimental camera/mic). When false (default for the
+   * primary tab-sharing experience), host_screen audio plays directly through the <video> element
+   * and the mix is never constructed, so the mic wiring cannot interfere with tab-share audio.
+   */
+  mixEnabled?: boolean
   getIceServers?: () => Promise<RTCIceServer[]>
   getHostScreenStream?: () => MediaStream | null
   youtubeVideoId?: string | null
@@ -209,6 +215,8 @@ export class RoomRealtimeSdk {
     this.chat = new ChatSession()
     this.sfu = new SfuMediaSession()
     this.theater = new TheaterPlayback()
+    // Default off: tab-share audio plays through the <video> element, no Web Audio mix.
+    this.theater.setMixEnabled(options.mixEnabled === true)
     // Re-apply any video elements bound before this theater existed (initial mount or reconnect).
     this.theater.setGuestVideoElement(this.guestVideoEl)
     this.theater.setHostCaptureVideoElement(this.hostCaptureVideoEl)

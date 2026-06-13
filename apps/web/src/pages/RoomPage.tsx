@@ -19,6 +19,7 @@ import {
 import { StageParticipantLayout } from '../room/stage/StageParticipantLayout'
 import { enteredVideoChatMode } from '../room/roomMediaLifecycle'
 import { useRoomSnapshot } from '../room/useRoomSnapshot'
+import { detectExperimentalRoomFeatures } from '../room/experimentalRoomFeatures'
 import { useRoomMediaEngine } from '../room/useRoomMediaEngine'
 import { useHostScreenCapture } from '../room/useHostScreenCapture'
 import { useRoomProfileTab } from '../room/useRoomProfileTab'
@@ -31,6 +32,8 @@ import type { RoomSidebarTab } from '../room/roomPageTypes'
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
   const roomId = roomIdParam ? decodeURIComponent(roomIdParam) : ''
+
+  const [experimentalFeatures] = useState(() => detectExperimentalRoomFeatures())
 
   const guestInitial = ensureGuestSession('room')
   const [sessionId] = useState(guestInitial.sessionId)
@@ -146,6 +149,7 @@ export function RoomPage() {
     announceRoomA11y,
     hostPatchSuppressAnnounceUntilRef,
     setRoom,
+    experimentalFeatures,
   })
 
   const { captureErr, startCapture, stopCapture } = useHostScreenCapture({
@@ -400,6 +404,7 @@ export function RoomPage() {
             toggleChatReaction={toggleChatReaction}
             peopleShown={peopleShown}
             isPublisher={isPublisher}
+            experimentalFeatures={experimentalFeatures}
             shareHint={shareHint}
             onCopyShare={() => void copyShare()}
             onOpenRenameModal={openRenameModal}
@@ -419,7 +424,7 @@ export function RoomPage() {
             onProfileAvatarSelected={profile.onProfileAvatarSelected}
           />
         </div>
-        {isPublisher ? (
+        {isPublisher && experimentalFeatures ? (
           <HostControlBar
             roomMode={roomMode}
             avDisabled={avDisabled}

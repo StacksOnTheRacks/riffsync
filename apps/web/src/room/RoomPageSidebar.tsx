@@ -44,6 +44,7 @@ type RoomPageSidebarProps = {
   toggleChatReaction: (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => void
   peopleShown: PresenceMember[]
   isPublisher: boolean
+  experimentalFeatures: boolean
   shareHint: string | null
   onCopyShare: () => void
   onOpenRenameModal: () => void
@@ -89,6 +90,7 @@ export function RoomPageSidebar({
   toggleChatReaction,
   peopleShown,
   isPublisher,
+  experimentalFeatures,
   shareHint,
   onCopyShare,
   onOpenRenameModal,
@@ -368,7 +370,7 @@ export function RoomPageSidebar({
         ) : null}
 
         <div className="riffsync-room-page__sidebar-footer">
-          {fanToken ? (
+          {fanToken && experimentalFeatures ? (
             <ParticipantAvToggles
               controller={participantAvController}
               avDisabled={avDisabled}

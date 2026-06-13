@@ -53,6 +53,9 @@ export class TheaterPlayback {
   private sfuSignalingWasConnected = false
   private isPublisher = false
   private avDisabled = false
+  // When false, host_screen audio plays through the <video> element and no Web Audio mix is
+  // built. The mix exists only to combine participant (camera/mic) audio, which is experimental.
+  private mixEnabled = true
   private mix: TheaterAudioMix | null = null
   private guestRemote: MediaStream | null = null
   private captureStream: MediaStream | null = null
@@ -173,6 +176,20 @@ export class TheaterPlayback {
     this.syncGuestShareFsm()
   }
 
+  /** Toggle the experimental Web Audio participant mix. Off keeps tab-share audio on the element. */
+  setMixEnabled(enabled: boolean): void {
+    if (this.mixEnabled === enabled) return
+    this.mixEnabled = enabled
+    if (!enabled) {
+      this.teardownMix()
+    } else if (this.enabled) {
+      this.ensureMix()
+      this.mix?.setAvDisabled(this.avDisabled)
+      this.syncHostVideoElement()
+    }
+    this.syncLifecycleState()
+  }
+
   setCaptureStream(stream: MediaStream | null): void {
     this.captureStream = stream
     this.syncHostCaptureVideoBinding()
@@ -208,15 +225,12 @@ export class TheaterPlayback {
     const v = this.guestVideoEl
     if (!v || !this.enabled) return
     try {
+      // Runs from a user gesture: unmute and play so host_screen audio comes through the element.
+      v.muted = false
       await v.play()
-      // This runs from a user gesture, so resuming the AudioContext is allowed here.
+      this.setGuestPlayHint(false)
+      // Resume the participant mix too, if one exists (experimental camera/mic audio).
       await this.mix?.resumeIfSuspended()
-      // Keep prompting if audio is still gated; otherwise sound is flowing and the hint clears.
-      if (this.getAudioContextState() === 'suspended') {
-        this.setGuestPlayHint(true)
-      } else {
-        this.setGuestPlayHint(false)
-      }
       this.syncLifecycleState()
     } catch {
       this.setGuestPlayHint(true)
@@ -262,29 +276,12 @@ export class TheaterPlayback {
   private onSfuConsumerEvent(event: SfuConsumerTrackEvent): void {
     if (!this.enabled || !this.mix) return
     this.mix.onConsumerEvent(mapSfuConsumerToMixEvent(event))
-    void this.mix.resumeIfSuspended().then(() => {
-      // A host_screen/participant audio track just attached. Without a prior user gesture the
-      // AudioContext stays suspended, so prompt the guest to enable sound.
-      this.syncGuestAudioGate()
-      this.syncLifecycleState()
-    })
+    void this.mix.resumeIfSuspended().then(() => this.syncLifecycleState())
     this.syncLifecycleState()
   }
 
-  /**
-   * Guests hear host_screen (and participant) audio through the Web Audio mix, never the muted
-   * <video> element. When the AudioContext is suspended by autoplay policy there is no native
-   * control to unlock it, so raise the guest play hint to expose a user-gesture button that
-   * resumes the mix.
-   */
-  private syncGuestAudioGate(): void {
-    if (this.isPublisher || !this.enabled || !this.guestRemote) return
-    if (this.getAudioContextState() === 'suspended') {
-      this.setGuestPlayHint(true)
-    }
-  }
-
   private ensureMix(): void {
+    if (!this.mixEnabled) return
     if (this.mix) return
     this.mix = createTheaterAudioMix()
     this.mix.setAvDisabled(this.avDisabled)
@@ -335,7 +332,27 @@ export class TheaterPlayback {
   }
 
   private syncLifecycleState(): void {
-    if (!this.enabled || !this.mix) {
+    if (!this.enabled) {
+      this.setLifecycleState('torn-down', undefined)
+      return
+    }
+
+    // Default (tab-share) path: audio plays through the <video> element, no Web Audio mix. The
+    // only audio-health signal is whether the element needed a user gesture to start.
+    if (!this.mixEnabled) {
+      if (this.guestPlayHint || this.hostCapturePlayHint) {
+        this.setLifecycleState('degraded', playbackAudioBlockedError().code)
+        return
+      }
+      if (this.signalingSiblingDegraded) {
+        this.setLifecycleState('degraded', undefined)
+        return
+      }
+      this.setLifecycleState('connected', undefined)
+      return
+    }
+
+    if (!this.mix) {
       this.setLifecycleState('torn-down', undefined)
       return
     }
@@ -380,7 +397,11 @@ export class TheaterPlayback {
 
   private syncHostVideoElement(): void {
     if (!this.enabled || !this.mix) return
-    const el = this.isPublisher ? this.hostCaptureVideoEl : this.guestVideoEl
+    // Only the publisher's capture element feeds the mix. A guest must never have its element
+    // tapped via createMediaElementSource: that reroutes the tab audio into the Web Audio graph
+    // (suspended / MediaStreamSource-buggy in Chromium) and silences the speakers. Guests play
+    // host_screen audio directly through their <video> element instead.
+    const el = this.isPublisher ? this.hostCaptureVideoEl : null
     this.mix.setHostVideoElement(el)
   }
 
@@ -406,30 +427,33 @@ export class TheaterPlayback {
       v.srcObject = null
       return
     }
-    const videoTracks = this.guestRemote.getVideoTracks()
-    const playbackStream = new MediaStream(videoTracks)
+    // Bind the full host_screen stream (audio + video). The element plays the audio natively,
+    // which is the reliable path for remote WebRTC audio; the Web Audio mix is reserved for
+    // experimental participant (camera/mic) audio only.
+    const tracks = this.guestRemote.getTracks()
+    const playbackStream = new MediaStream(tracks)
     v.srcObject = playbackStream
+    const audioTrackCount = this.guestRemote.getAudioTracks().length
+    const videoTrackCount = this.guestRemote.getVideoTracks().length
     emitClientDrawerLog({
       drawer: 'produce_consume',
       event: 'guest_screen_bound',
       outcome: 'recovered',
-      code: `tracks:${videoTracks.length}`,
+      code: `a${audioTrackCount}:v${videoTrackCount}`,
     })
     const token = ++this.guestVideoPlayToken
     void (async () => {
-      v.muted = true
+      // Try to play with sound. Many browsers allow autoplay of a stream assigned via srcObject;
+      // when they don't, play() rejects and we surface the "Enable sound" gesture button, which
+      // plays the element from a real user gesture.
+      v.muted = false
       try {
         await v.play()
         if (token !== this.guestVideoPlayToken) return
         this.setGuestPlayHint(false)
-        await this.mix?.resumeIfSuspended()
-        // The <video> plays muted and host_screen audio is routed through the Web Audio mix,
-        // so a successful muted play does not mean the guest can hear anything. If the mix's
-        // AudioContext is still suspended (autoplay policy), surface the gesture button.
-        this.syncGuestAudioGate()
         return
       } catch {
-        /* autoplay policy often blocks unmuted remote playback */
+        /* autoplay policy can block unmuted remote playback until a user gesture */
       }
       if (token !== this.guestVideoPlayToken) return
       emitClientDrawerLog({
