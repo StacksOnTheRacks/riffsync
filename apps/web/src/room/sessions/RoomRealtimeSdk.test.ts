@@ -666,7 +666,11 @@ describe('RoomRealtimeSdk.subscribe', () => {
     sdk.subscribe({ hostScreen: { onRemoteStream: onRemoteStreamB } })
 
     expect(remoteStreamListeners).toHaveLength(1)
-    const stream = { id: 'remote' } as MediaStream
+    const stream = {
+      id: 'remote',
+      getTracks: () => [],
+      getVideoTracks: () => [],
+    } as unknown as MediaStream
     remoteStreamListeners[0]?.(stream)
     expect(onRemoteStreamA).not.toHaveBeenCalled()
     expect(onRemoteStreamB).toHaveBeenCalledWith(stream)

@@ -646,7 +646,13 @@ export class RoomRealtimeSdk {
       this.theaterLayoutActive && this.theaterBootstrapped && this.theater !== null
 
     this.hostScreenStreamUnsub = sfu.onRemoteStream((stream) => {
-      if (shouldRouteTheaterMix() && !this.isHost) {
+      // Route a guest's host_screen stream to the theater whenever the room is in theater
+      // layout, but do NOT also require theaterBootstrapped. That async flag flips after
+      // initTheaterPlayback, so gating on it dropped streams that arrived during the bootstrap
+      // window: the engine's separate guestRemote un-hid the <video> while srcObject stayed null
+      // (empty 0:00 player even though the stream was consumed). TheaterPlayback buffers the
+      // stream and binds srcObject once it is enabled, so layout alone is the correct gate.
+      if (this.theaterLayoutActive && !this.isHost) {
         this.theater?.setGuestRemote(stream)
       }
       handlers.hostScreen?.onRemoteStream?.(stream)

@@ -11,6 +11,7 @@ import {
   type RealtimeDrawerErrorCode,
 } from '../realtimeDrawerErrors'
 import { emitMixErrorDrawerLog } from '../sfu/produceConsumeDrawerLog'
+import { emitClientDrawerLog } from '../clientDrawerLog'
 import type { SfuMediaSession } from './SfuMediaSession'
 
 /** Normative drawer lifecycle for diagnostics (`execution_model.md`). */
@@ -337,8 +338,15 @@ export class TheaterPlayback {
       v.srcObject = null
       return
     }
-    const playbackStream = new MediaStream(this.guestRemote.getVideoTracks())
+    const videoTracks = this.guestRemote.getVideoTracks()
+    const playbackStream = new MediaStream(videoTracks)
     v.srcObject = playbackStream
+    emitClientDrawerLog({
+      drawer: 'produce_consume',
+      event: 'guest_screen_bound',
+      outcome: 'recovered',
+      code: `tracks:${videoTracks.length}`,
+    })
     const token = ++this.guestVideoPlayToken
     void (async () => {
       v.muted = true
@@ -352,6 +360,11 @@ export class TheaterPlayback {
         /* autoplay policy often blocks unmuted remote playback */
       }
       if (token !== this.guestVideoPlayToken) return
+      emitClientDrawerLog({
+        drawer: 'produce_consume',
+        event: 'guest_screen_play_blocked',
+        outcome: 'failed',
+      })
       this.setGuestPlayHint(true)
     })()
   }
