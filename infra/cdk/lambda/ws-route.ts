@@ -12,6 +12,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { TextEncoder } from 'node:util';
 import { isHttpsGiphyCdnUrl } from './giphy-search-shared';
+import { markLobbyCleanupPendingIfLastHostGone } from './room-lobby-cleanup';
 import { lobbySortKey, LOBBY_PARTITION } from './room-shared';
 import {
   parseChatHistoryLimit,
@@ -230,6 +231,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
   }
 
   if (routeKey === 'leave') {
+    const departingWasHost = typeof conn.hostSub === 'string' && conn.hostSub.length > 0;
     await doc.send(
       new DeleteCommand({
         TableName: connTable,
@@ -247,6 +249,13 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     await broadcastRoomPresenceNow({ doc, connectionsTable: connTable, roomPresenceTable: presenceTable, roomId }).catch(
       () => undefined,
     );
+    await markLobbyCleanupPendingIfLastHostGone({
+      doc,
+      roomsTable,
+      roomPresenceTable: presenceTable,
+      roomId,
+      departingWasHost,
+    }).catch(() => undefined);
     return { statusCode: 200, body: 'OK' };
   }
 

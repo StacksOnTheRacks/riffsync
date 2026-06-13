@@ -2,6 +2,7 @@ import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyAccessToken } from './cognito-jwt';
+import { clearLobbyCleanupPending } from './room-lobby-cleanup';
 import { broadcastRoomPresenceNow } from './ws-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -124,6 +125,10 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
       dynamoStoresPublisherRole: Boolean(hostSub),
     }),
   );
+
+  if (hostSub) {
+    await clearLobbyCleanupPending({ doc: client, roomsTable, roomId }).catch(() => undefined);
+  }
 
   await broadcastRoomPresenceNow({ doc: client, connectionsTable: connTable, roomPresenceTable: presenceTable, roomId }).catch(
     () => undefined,

@@ -1,6 +1,7 @@
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { shouldExcludeFromLobby } from './room-lobby-cleanup';
 import { defaultStaleRoomMs, LOBBY_PARTITION } from './room-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -28,7 +29,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
   }
 
   const staleMs = defaultStaleRoomMs();
-  const cutoff = Date.now() - staleMs;
+  const nowMs = Date.now();
+  const cutoff = nowMs - staleMs;
 
   const q = await client.send(
     new QueryCommand({
@@ -45,7 +47,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
     }),
   );
 
-  const rows = (q.Items ?? []) as Record<string, unknown>[];
+  const rows = ((q.Items ?? []) as Record<string, unknown>[]).filter(
+    (row) => !shouldExcludeFromLobby(row, nowMs),
+  );
 
   const counts = await Promise.all(
     rows.map((r) => countConnectionsForRoom(presenceTable, String(r.roomId ?? ''))),

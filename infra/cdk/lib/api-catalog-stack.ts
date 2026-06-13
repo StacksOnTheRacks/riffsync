@@ -94,6 +94,17 @@ function staleRoomMsFromContext(scope: Construct): number {
   return Number.isFinite(n) && n > 0 ? n : 45 * 60 * 1000;
 }
 
+function hostDisconnectGraceMsFromContext(scope: Construct): number {
+  const raw = scope.node.tryGetContext('hostDisconnectGraceMs');
+  const n =
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string'
+        ? Number.parseInt(raw, 10)
+        : Number.NaN;
+  return Number.isFinite(n) && n > 0 ? n : 90 * 1000;
+}
+
 function turnHostFromContext(scope: Construct): string {
   const raw = scope.node.tryGetContext('turnHost');
   return typeof raw === 'string' ? raw.trim() : '';
@@ -185,6 +196,7 @@ export class ApiCatalogStack extends cdk.Stack {
     const contextExtras = parseOriginsFromContext(this);
     const allowOrigins = corsAllowOrigins([...extraCorsOrigins, ...contextExtras], this);
     const staleRoomMs = staleRoomMsFromContext(this);
+    const hostDisconnectGraceMs = hostDisconnectGraceMsFromContext(this);
 
     cdk.Tags.of(this).add('Project', 'RiffSync');
     cdk.Tags.of(this).add('Environment', 'prod');
@@ -484,6 +496,33 @@ export class ApiCatalogStack extends cdk.Stack {
     this.connectionsTable.grantReadData(lobbyGetFn);
     this.roomPresenceTable.grantReadData(lobbyGetFn);
 
+    const lobbySweeperFn = new lambdaNodejs.NodejsFunction(this, 'LobbySweeperFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/lobby-sweeper.ts'),
+      handler: 'handler',
+      environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        STALE_ROOM_MS: String(staleRoomMs),
+        HOST_DISCONNECT_GRACE_MS: String(hostDisconnectGraceMs),
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.roomsTable.grantReadWriteData(lobbySweeperFn);
+
+    const lobbySweeperScheduleOff =
+      this.node.tryGetContext('lobbySweeperScheduleEnabled') === false ||
+      this.node.tryGetContext('lobbySweeperScheduleEnabled') === 'false';
+    if (!lobbySweeperScheduleOff) {
+      const lobbySweeperRule = new events.Rule(this, 'LobbySweeperSchedule', {
+        description: `Remove stale public lobby index rows (${environment}) — disable: context lobbySweeperScheduleEnabled=false`,
+        schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      });
+      lobbySweeperRule.addTarget(new eventsTargets.LambdaFunction(lobbySweeperFn));
+    }
+
     const privacyRemovalFn = new lambdaNodejs.NodejsFunction(this, 'PrivacyRemovalRequestFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(10),
@@ -771,6 +810,7 @@ export class ApiCatalogStack extends cdk.Stack {
       CHAT_HISTORY_LIMIT: '50',
       CHAT_HISTORY_TTL_SECONDS: '86400',
       RIFFSYNC_ENVIRONMENT: environment,
+      HOST_DISCONNECT_GRACE_MS: String(hostDisconnectGraceMs),
       NODE_OPTIONS: '--enable-source-maps',
     };
 
@@ -791,8 +831,10 @@ export class ApiCatalogStack extends cdk.Stack {
       entry: path.join(__dirname, '../lambda/ws-disconnect.ts'),
       handler: 'handler',
       environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
         ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
+        HOST_DISCONNECT_GRACE_MS: String(hostDisconnectGraceMs),
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
@@ -807,13 +849,14 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     this.catalogTable.grantReadData(wsConnectFn);
-    this.roomsTable.grantReadData(wsConnectFn);
+    this.roomsTable.grantReadWriteData(wsConnectFn);
     this.connectionsTable.grantReadWriteData(wsConnectFn);
     this.roomPresenceTable.grantReadWriteData(wsConnectFn);
     this.fanProfilesTable.grantReadData(wsConnectFn);
 
     this.connectionsTable.grantReadWriteData(wsDisconnectFn);
     this.roomPresenceTable.grantReadWriteData(wsDisconnectFn);
+    this.roomsTable.grantReadWriteData(wsDisconnectFn);
 
     this.roomsTable.grantReadWriteData(wsRouteFn);
     this.connectionsTable.grantReadWriteData(wsRouteFn);
@@ -1170,6 +1213,17 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'StaleRoomMs', {
       value: String(staleRoomMs),
       description: '`GET /v1/lobby` excludes rows with `lastActivityAt` older than this (ms). Override: `--context staleRoomMs=…`.',
+    });
+
+    new cdk.CfnOutput(this, 'HostDisconnectGraceMs', {
+      value: String(hostDisconnectGraceMs),
+      description:
+        'Public lobby rows stay visible this long (ms) after the last host socket leaves. Override: `--context hostDisconnectGraceMs=…`.',
+    });
+
+    new cdk.CfnOutput(this, 'LobbySweeperFnName', {
+      value: lobbySweeperFn.functionName,
+      description: 'Scheduled lobby index cleanup — invoke manually: aws lambda invoke --function-name … out.json',
     });
   }
 }
