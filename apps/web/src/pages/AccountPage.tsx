@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   startFanHostedUiForgotPassword,
   startFanHostedUiSignIn,
@@ -11,6 +11,8 @@ import { FAN_DISPLAY_NAME_MAX_LEN } from '../session/guestSession'
 import { useAccountProfile } from './useAccountProfile'
 
 export function AccountPage() {
+  const [searchParams] = useSearchParams()
+  const passwordResetComplete = searchParams.get('passwordReset') === '1'
   const { fanToken } = useFanSession()
   const {
     profileDraft,
@@ -61,6 +63,11 @@ export function AccountPage() {
     <div className="container riffsync-account">
       <header className="riffsync-account__header">
         <h1>Account</h1>
+        {passwordResetComplete ? (
+          <p className="riffsync-account__success" role="status">
+            Your password was updated successfully.
+          </p>
+        ) : null}
         <p className="riffsync-muted riffsync-account__lede">
           Update how you appear in chat and rooms. Password changes use secure email verification through
           Cognito.
@@ -164,7 +171,7 @@ export function AccountPage() {
           <button
             type="button"
             className="gen-button gen-button--ghost"
-            onClick={() => startFanHostedUiForgotPassword('/account')}
+            onClick={() => void startFanHostedUiForgotPassword('/account').catch(console.error)}
           >
             Reset password
           </button>

@@ -9,6 +9,13 @@ import {
 const PKCE_VERIFIER = 'riffsync.pkceVerifier'
 const OAUTH_STATE = 'riffsync.oauthState'
 const RETURN = 'riffsync.returnTo'
+const PASSWORD_RESET_FLOW = 'riffsync.passwordResetFlow'
+
+function clearAuthCallbackSession(): void {
+  sessionStorage.removeItem(OAUTH_STATE)
+  sessionStorage.removeItem(PKCE_VERIFIER)
+  sessionStorage.removeItem(PASSWORD_RESET_FLOW)
+}
 
 function randomString(len: number): string {
   const bytes = new Uint8Array(len)
@@ -80,14 +87,27 @@ export async function startFanHostedUiSignIn(returnPath: string): Promise<void> 
 /**
  * Cognito Hosted UI forgot-password flow. After reset, the user returns through
  * `/auth/callback` and is sent to `returnPath` (default `/account`).
+ *
+ * PKCE + state are stored like sign-in. Cognito may omit `state` on the callback even
+ * when it was sent; `/auth/callback` handles code-only returns for this flow.
  */
-export function startFanHostedUiForgotPassword(returnPath = '/account'): void {
+export async function startFanHostedUiForgotPassword(returnPath = '/account'): Promise<void> {
+  const verifier = randomString(64)
+  const challenge = await base64urlSha256(verifier)
+  const state = randomString(32)
+  sessionStorage.setItem(PKCE_VERIFIER, verifier)
+  sessionStorage.setItem(OAUTH_STATE, state)
   sessionStorage.setItem(RETURN, returnPath)
+  sessionStorage.setItem(PASSWORD_RESET_FLOW, '1')
+
   const params = new URLSearchParams({
     client_id: clientId(),
     redirect_uri: redirectUri(),
     response_type: 'code',
     scope: 'openid email profile',
+    state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
   })
   window.location.assign(`https://${hostedDomain()}/forgotPassword?${params.toString()}`)
 }
@@ -108,14 +128,58 @@ export function popReturnPath(): string {
   return p
 }
 
+function appendPasswordResetQuery(path: string): string {
+  const url = new URL(path, window.location.origin)
+  url.searchParams.set('passwordReset', '1')
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
+/**
+ * Finish Hosted UI redirect at `/auth/callback` for sign-in or forgot-password.
+ * Password reset may return `code` without `state`; exchange uses PKCE when present.
+ */
+export async function completeFanAuthCallback(
+  code: string,
+  state?: string | null,
+): Promise<{ nextPath: string }> {
+  const verifier = sessionStorage.getItem(PKCE_VERIFIER)
+  const passwordResetFlow = sessionStorage.getItem(PASSWORD_RESET_FLOW) === '1'
+  const storedReturn = sessionStorage.getItem(RETURN)
+
+  if (verifier) {
+    await exchangeFanAuthorizationCode(code, state)
+    clearAuthCallbackSession()
+    const nextPath = popReturnPath()
+    return {
+      nextPath: passwordResetFlow ? appendPasswordResetQuery(nextPath) : nextPath,
+    }
+  }
+
+  if (passwordResetFlow || (!state && storedReturn)) {
+    const nextPath = popReturnPath()
+    clearAuthCallbackSession()
+    return { nextPath: appendPasswordResetQuery(nextPath) }
+  }
+
+  if (!state) {
+    throw new Error('Missing OAuth state — try signing in again.')
+  }
+
+  await exchangeFanAuthorizationCode(code, state)
+  clearAuthCallbackSession()
+  return { nextPath: popReturnPath() }
+}
+
 export async function exchangeFanAuthorizationCode(
   code: string,
-  state: string,
+  state?: string | null,
 ): Promise<void> {
   const expectedState = sessionStorage.getItem(OAUTH_STATE)
   const verifier = sessionStorage.getItem(PKCE_VERIFIER)
-  if (!expectedState || state !== expectedState) {
-    throw new Error('OAuth state mismatch — try signing in again.')
+  if (state != null && state !== '') {
+    if (!expectedState || state !== expectedState) {
+      throw new Error('OAuth state mismatch — try signing in again.')
+    }
   }
   if (!verifier) {
     throw new Error('Missing PKCE verifier — try signing in again.')
@@ -134,9 +198,6 @@ export async function exchangeFanAuthorizationCode(
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   })
-
-  sessionStorage.removeItem(OAUTH_STATE)
-  sessionStorage.removeItem(PKCE_VERIFIER)
 
   if (!res.ok) {
     const t = await res.text()

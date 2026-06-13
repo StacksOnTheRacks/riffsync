@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { exchangeFanAuthorizationCode, popReturnPath } from '../auth/fanHostedUiPkce'
+import { completeFanAuthCallback } from '../auth/fanHostedUiPkce'
 
 export function AuthCallbackPage() {
   const [params] = useSearchParams()
@@ -9,18 +9,17 @@ export function AuthCallbackPage() {
   const state = params.get('state')
   const oauthErr = params.get('error')
   const oauthErrDesc = params.get('error_description')
-  const missing = !code || !state
+  const missing = !code && !oauthErr
 
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!code || !state) return undefined
+    if (!code) return undefined
     let cancelled = false
-    void exchangeFanAuthorizationCode(code, state)
-      .then(() => {
+    void completeFanAuthCallback(code, state)
+      .then(({ nextPath }) => {
         if (cancelled) return
-        const next = popReturnPath()
-        navigate(next, { replace: true })
+        navigate(nextPath, { replace: true })
       })
       .catch((e: unknown) => {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Sign-in failed')

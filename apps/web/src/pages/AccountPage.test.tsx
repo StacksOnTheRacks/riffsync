@@ -7,7 +7,7 @@ import type { FanProfilePayload } from '../api/fanProfileApi'
 import { AccountPage } from './AccountPage'
 
 const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
-const startFanHostedUiForgotPassword = vi.fn<(returnPath?: string) => void>()
+const startFanHostedUiForgotPassword = vi.fn<(returnPath?: string) => Promise<void>>()
 const startFanHostedUiSignOut = vi.fn<(logoutUri?: string) => void>()
 const useFanSession = vi.fn()
 const fetchFanProfile = vi.fn<(token: string) => Promise<FanProfilePayload>>()
@@ -58,6 +58,7 @@ describe('AccountPage', () => {
     fetchFanProfile.mockReset()
     patchFanProfileDisplayName.mockReset()
     startFanHostedUiSignIn.mockResolvedValue(undefined)
+    startFanHostedUiForgotPassword.mockResolvedValue(undefined)
     fetchFanProfile.mockResolvedValue(payload())
     patchFanProfileDisplayName.mockResolvedValue(payload({ displayName: 'New Name' }))
     container = document.createElement('div')

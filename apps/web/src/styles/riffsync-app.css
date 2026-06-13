@@ -3001,6 +3001,11 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   margin: 0 0 1rem;
 }
 
+.riffsync-account__success {
+  color: rgb(144 238 144 / 0.95);
+  margin: 0 0 1rem;
+}
+
 .riffsync-account--signed-out h1 {
   margin-bottom: 0.75rem;
 }
