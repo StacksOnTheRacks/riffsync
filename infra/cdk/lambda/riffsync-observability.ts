@@ -1,4 +1,4 @@
-export type WsRealtimeRoute = 'chat' | 'chat_gif' | 'react';
+export type WsRealtimeRoute = 'chat' | 'chat_gif' | 'react' | 'rename';
 
 export type WsRealtimeOutcome =
   | 'success'

@@ -186,6 +186,61 @@ describe('ChatSession send', () => {
   })
 })
 
+describe('ChatSession.updateDisplayName', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('pushes a rename frame on the open socket and updates stored options', () => {
+    class MockWebSocket {
+      static OPEN = 1
+      readyState = MockWebSocket.OPEN
+      send = vi.fn()
+    }
+    vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+
+    const session = new ChatSession()
+    ;(session as unknown as { connectOptions: Record<string, unknown> | null }).connectOptions = {
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-1',
+      displayName: 'Old',
+      accessToken: 'tok',
+    }
+    const ws = new WebSocket('wss://ws.test')
+    ;(session as unknown as { ws: WebSocket | null }).ws = ws
+
+    session.updateDisplayName('Fresh Name')
+
+    expect((ws as unknown as { send: ReturnType<typeof vi.fn> }).send).toHaveBeenCalledWith(
+      JSON.stringify({ action: 'rename', displayName: 'Fresh Name' }),
+    )
+    expect(
+      (session as unknown as { connectOptions: { displayName?: string } }).connectOptions.displayName,
+    ).toBe('Fresh Name')
+  })
+
+  it('updates stored options without sending when the socket is not open', () => {
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
+    const session = new ChatSession()
+    ;(session as unknown as { connectOptions: Record<string, unknown> | null }).connectOptions = {
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-1',
+      displayName: 'Old',
+      accessToken: null,
+    }
+
+    // No socket assigned: a rename must not throw and must not raise a send-dropped error.
+    session.updateDisplayName('Reconnect Name')
+
+    expect(
+      (session as unknown as { connectOptions: { displayName?: string } }).connectOptions.displayName,
+    ).toBe('Reconnect Name')
+    expect(clientDrawerLog.emitClientDrawerLog).not.toHaveBeenCalled()
+  })
+})
+
 describe('ChatSession lifecycle FSM', () => {
   class MockWebSocket {
     static OPEN = 1

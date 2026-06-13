@@ -1287,19 +1287,20 @@ describe('RoomRealtimeSdk.updateDisplayName', () => {
     vi.restoreAllMocks()
   })
 
-  it('reconnects only the chat plane and leaves the SFU session untouched', async () => {
+  it('renames in place via the chat plane without reconnecting chat or SFU', async () => {
     const sdk = await joinHealthySdk({ isHost: true })
     const chatConnect = vi.mocked(ChatSession.prototype.connect)
     const sfuConnect = vi.mocked(SfuMediaSession.prototype.connect)
-    const chatCallsAfterJoin = chatConnect.mock.calls.length
-    const sfuCallsAfterJoin = sfuConnect.mock.calls.length
+    const chatRename = vi.spyOn(ChatSession.prototype, 'updateDisplayName')
+    const chatConnectsAfterJoin = chatConnect.mock.calls.length
+    const sfuConnectsAfterJoin = sfuConnect.mock.calls.length
 
     sdk.updateDisplayName('Fresh Name')
 
-    expect(chatConnect.mock.calls.length).toBe(chatCallsAfterJoin + 1)
-    expect(chatConnect.mock.calls.at(-1)?.[0]?.displayName).toBe('Fresh Name')
-    // The media plane must not reconnect; renaming cannot interrupt anyone's video/audio.
-    expect(sfuConnect.mock.calls.length).toBe(sfuCallsAfterJoin)
+    expect(chatRename).toHaveBeenCalledWith('Fresh Name')
+    // Neither plane reconnects: rename keeps chat continuity and never touches media.
+    expect(chatConnect.mock.calls.length).toBe(chatConnectsAfterJoin)
+    expect(sfuConnect.mock.calls.length).toBe(sfuConnectsAfterJoin)
 
     const diag = sdk.getDiagnostics()
     expect(diag.drawers.sfuSignaling.state).toBe('connected')
@@ -1308,13 +1309,12 @@ describe('RoomRealtimeSdk.updateDisplayName', () => {
 
   it('is a no-op when the display name is unchanged', async () => {
     const sdk = await joinHealthySdk()
-    const chatConnect = vi.mocked(ChatSession.prototype.connect)
+    const chatRename = vi.spyOn(ChatSession.prototype, 'updateDisplayName')
 
     sdk.updateDisplayName('Stable Name')
-    const callsAfterFirst = chatConnect.mock.calls.length
+    expect(chatRename).toHaveBeenCalledTimes(1)
 
     sdk.updateDisplayName('Stable Name')
-
-    expect(chatConnect.mock.calls.length).toBe(callsAfterFirst)
+    expect(chatRename).toHaveBeenCalledTimes(1)
   })
 })

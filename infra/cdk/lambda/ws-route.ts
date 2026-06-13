@@ -392,6 +392,50 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     return { statusCode: 200, body: 'OK' };
   }
 
+  if (routeKey === 'rename') {
+    const fanSubDenied = requireFanSub(conn, 'rename');
+    if (fanSubDenied) {
+      recordWsRealtimeRoute('rename', 403, connectionId, roomId);
+      return fanSubDenied;
+    }
+    const displayName = typeof body.displayName === 'string' ? body.displayName.trim().slice(0, 48) : '';
+    if (displayName === '') {
+      recordWsRealtimeRoute('rename', 400, connectionId, roomId);
+      return { statusCode: 400, body: 'displayName required, max 48 chars' };
+    }
+    // Display name lives on both the connections row (chat/gif/react author) and the
+    // presence row (roster). Update both so the rename is consistent, then re-broadcast
+    // presence. Media planes are untouched, so renaming never disrupts video/audio.
+    await Promise.all([
+      doc.send(
+        new UpdateCommand({
+          TableName: connTable,
+          Key: { connectionId },
+          UpdateExpression: 'SET #dn = :dn',
+          ExpressionAttributeNames: { '#dn': 'displayName' },
+          ExpressionAttributeValues: { ':dn': displayName },
+        }),
+      ),
+      doc.send(
+        new UpdateCommand({
+          TableName: presenceTable,
+          Key: { roomId, presenceKey },
+          UpdateExpression: 'SET #dn = :dn',
+          ExpressionAttributeNames: { '#dn': 'displayName' },
+          ExpressionAttributeValues: { ':dn': displayName },
+        }),
+      ),
+    ]);
+    await broadcastRoomPresenceNow({
+      doc,
+      connectionsTable: connTable,
+      roomPresenceTable: presenceTable,
+      roomId,
+    }).catch(() => undefined);
+    recordWsRealtimeRoute('rename', 200, connectionId, roomId);
+    return { statusCode: 200, body: 'OK' };
+  }
+
   return { statusCode: 400, body: `Unknown route ${routeKey}` };
 }
 

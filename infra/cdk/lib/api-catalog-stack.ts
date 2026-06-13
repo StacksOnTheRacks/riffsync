@@ -836,6 +836,7 @@ export class ApiCatalogStack extends cdk.Stack {
       'chat',
       'chat_gif',
       'react',
+      'rename',
       'share_state',
       'leave',
     ] as const) {

@@ -307,6 +307,23 @@ export class ChatSession {
     this.openSocket()
   }
 
+  /**
+   * Apply a presence display-name change without reconnecting. Persists the new name onto
+   * the stored connect options so any later reconnect carries it as a query param, and pushes
+   * a `rename` control frame on the live socket so the server updates presence immediately.
+   * Skipped silently when the socket is not open (the next reconnect query param carries it),
+   * so a rename never raises a send-dropped error.
+   */
+  updateDisplayName(displayName: string): void {
+    if (this.connectOptions) {
+      this.connectOptions = { ...this.connectOptions, displayName }
+    }
+    const ws = this.ws
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'rename', displayName }))
+    }
+  }
+
   disconnect(): void {
     this.cancelled = true
     this.enabled = false

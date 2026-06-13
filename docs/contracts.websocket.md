@@ -17,7 +17,7 @@ On **`$connect`**, the server stores **`expiresAt`** on the connections row (**a
 
 ## Route selection (`$request.body.action`)
 
-Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, **`chat_gif`**, **`react`**, **`share_state`**, **`leave`**). **`$default`** maps **`body.action`** when the route selector misses.
+Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gateway**](https://docs.aws.amazon.com/apigateway/latest/developerguide/websocket-api-develop-routes.html) route (`ping`, `presence_request`, `chat`, **`chat_gif`**, **`react`**, **`rename`**, **`share_state`**, **`leave`**). **`$default`** maps **`body.action`** when the route selector misses.
 
 | **`action`** | Purpose | Auth |
 | --- | --- | --- |
@@ -28,6 +28,7 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 | **`chat`** | Fan-out text to sockets in **`roomId`**. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`text`** (**required**, ≤ 2000 chars), **`messageId`** (**required**, UUID RFC 4122 string). |
 | **`chat_gif`** | Fan-out Giphy GIF post to sockets in **`roomId`**. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`messageId`** (**required**, UUID), **`giphyId`** (**required**, non-empty), **`renditionUrl`** (**required**, HTTPS URL on Giphy CDN, e.g. **`media*.giphy.com`**, **`i.giphy.com`**), optional **`title`** (≤ 200 chars), **`width`** / **`height`** (positive integers, ≤ 4096). Clients MUST NOT upload GIF bytes or supply arbitrary image URLs. |
 | **`react`** | Fan-out ephemeral emoji reaction toggle on a chat line. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`messageId`** (**required**, non-empty, ≤ 64 chars), **`emoji`** (**required**, trimmed non-empty, ≤ 32 chars), **`reactionAction`**: **`add`** \| **`remove`** (not the route **`action`** field). No Dynamo persistence. |
+| **`rename`** | Update this socket's presence display name **in place** (no reconnect) and fan out a fresh **`presence`** roster. The server writes the trimmed name to both the connections row (chat/gif/react author label) and the presence row (roster), then broadcasts. Media planes are untouched, so a rename never disrupts video/audio. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`displayName`** (**required**, trimmed non-empty, ≤ 48 chars). |
 
 **WebRTC media** (SDP / ICE, mediasoup produce/consume) uses the **SFU signaling WebSocket** on **`RiffSyncTurn`**, not this API Gateway room WebSocket. See **`.ai/integration/api_contracts.md`** and **`.ai/integration/external_systems.md`**.
 
@@ -98,9 +99,9 @@ Broadcast to **every** connection in **`roomId`** when a client sends **`react`*
 
 ### Presence (roster snapshot)
 
-Broadcast to **every** connection in **`roomId`** whenever the connection roster changes (**`$connect`** / **`$disconnect`**) or when any client sends **`presence_request`**. Clients should **replace** local roster UI with **`members`**.
+Broadcast to **every** connection in **`roomId`** whenever the connection roster changes (**`$connect`** / **`$disconnect`**), when any client sends **`presence_request`**, or when a signed-in fan sends **`rename`**. Clients should **replace** local roster UI with **`members`**.
 
-Optional **`displayName`** on **`$connect`** exists only on the WebSocket connections row until disconnect.
+Optional **`displayName`** on **`$connect`** exists only on the WebSocket connections row until disconnect, and is updated in place by **`rename`**.
 
 ```json
 {
