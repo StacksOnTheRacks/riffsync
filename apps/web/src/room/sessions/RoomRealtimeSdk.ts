@@ -170,6 +170,12 @@ export class RoomRealtimeSdk {
   private sfu: SfuMediaSession | null = null
   private theater: TheaterPlayback | null = null
 
+  // The React <video> refs fire on mount, which happens before join() constructs the theater
+  // (and again after a reconnect rebuilds it). Cache the latest elements so a freshly created
+  // theater always receives them, instead of the bind being silently dropped by `theater?.`.
+  private guestVideoEl: HTMLVideoElement | null = null
+  private hostCaptureVideoEl: HTMLVideoElement | null = null
+
   private chatStatusUnsub: (() => void) | null = null
   private chatLifecycleUnsub: (() => void) | null = null
   private chatSendDroppedUnsub: (() => void) | null = null
@@ -203,6 +209,9 @@ export class RoomRealtimeSdk {
     this.chat = new ChatSession()
     this.sfu = new SfuMediaSession()
     this.theater = new TheaterPlayback()
+    // Re-apply any video elements bound before this theater existed (initial mount or reconnect).
+    this.theater.setGuestVideoElement(this.guestVideoEl)
+    this.theater.setHostCaptureVideoElement(this.hostCaptureVideoEl)
 
     this.wireDrawerStatusListeners()
     this.wireMediaPolicyCallbacks()
@@ -418,10 +427,12 @@ export class RoomRealtimeSdk {
   }
 
   bindGuestVideo(element: HTMLVideoElement | null): void {
+    this.guestVideoEl = element
     this.theater?.setGuestVideoElement(element)
   }
 
   bindHostCaptureVideo(element: HTMLVideoElement | null): void {
+    this.hostCaptureVideoEl = element
     this.theater?.setHostCaptureVideoElement(element)
   }
 

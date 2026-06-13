@@ -676,6 +676,35 @@ describe('RoomRealtimeSdk.subscribe', () => {
     expect(onRemoteStreamB).toHaveBeenCalledWith(stream)
   })
 
+  it('applies a guest video element bound before join to the theater (no_element regression)', () => {
+    const setGuestVideoElement = vi.spyOn(TheaterPlayback.prototype, 'setGuestVideoElement')
+
+    const sdk = new RoomRealtimeSdk()
+    const element = { srcObject: null } as unknown as HTMLVideoElement
+    // React's <video> ref fires on mount, before join() constructs the theater.
+    sdk.bindGuestVideo(element)
+
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-bind-before-join',
+    })
+
+    expect(setGuestVideoElement).toHaveBeenCalledWith(element)
+  })
+
+  it('re-applies the cached guest video element when join rebuilds the theater on reconnect', () => {
+    const sdk = new RoomRealtimeSdk()
+    const element = { srcObject: null } as unknown as HTMLVideoElement
+    sdk.bindGuestVideo(element)
+    sdk.join('room-abc', { roomSnapshot: baseSnapshot, sessionId: 'sess-reconnect-1' })
+
+    const setGuestVideoElement = vi.spyOn(TheaterPlayback.prototype, 'setGuestVideoElement')
+    // A reconnect calls join() again and constructs a fresh theater; the element must follow.
+    sdk.join('room-abc', { roomSnapshot: baseSnapshot, sessionId: 'sess-reconnect-2' })
+
+    expect(setGuestVideoElement).toHaveBeenCalledWith(element)
+  })
+
   it('does not tear down chat when subscribe handlers detach', () => {
     const disconnect = vi.spyOn(ChatSession.prototype, 'disconnect')
 
