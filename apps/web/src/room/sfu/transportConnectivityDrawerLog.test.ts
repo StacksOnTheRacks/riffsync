@@ -129,7 +129,7 @@ describe('attachTransportConnectivityDrawerLog', () => {
     })
   })
 
-  it('emits turn_relay_required when TURN is configured but no relay candidate gathered', () => {
+  it('emits turn_relay_required only when ICE fails without a relay candidate', () => {
     const pc = new MockPeerConnection()
     pc.localDescription = { sdp: 'a=candidate:1 host', type: 'offer' } as RTCSessionDescription
     attachTransportConnectivityDrawerLog(mockTransport(pc) as never, [
@@ -137,12 +137,31 @@ describe('attachTransportConnectivityDrawerLog', () => {
     ])
 
     pc.setIceGatheringState('complete')
+    expect(clientDrawerLog.emitClientDrawerLog).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'turn_relay_required' }),
+    )
 
+    pc.setIceConnectionState('failed')
     expect(clientDrawerLog.emitClientDrawerLog).toHaveBeenCalledWith({
       drawer: 'connectivity',
       event: 'turn_relay_required',
       code: 'TURN_RELAY_REQUIRED',
       outcome: 'failed',
     })
+  })
+
+  it('stays quiet when a direct connection succeeds without a relay candidate', () => {
+    const pc = new MockPeerConnection()
+    pc.localDescription = { sdp: 'a=candidate:1 host', type: 'offer' } as RTCSessionDescription
+    attachTransportConnectivityDrawerLog(mockTransport(pc) as never, [
+      { urls: 'turn:turn.test:3478' },
+    ])
+
+    pc.setIceGatheringState('complete')
+    pc.setIceConnectionState('connected')
+
+    expect(clientDrawerLog.emitClientDrawerLog).not.toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'turn_relay_required' }),
+    )
   })
 })

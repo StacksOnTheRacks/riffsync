@@ -44,6 +44,8 @@ export function attachTransportConnectivityDrawerLog(
   let disconnectedTimer: ReturnType<typeof setTimeout> | null = null
   let connectivityDegraded = false
   let turnRelayLogged = false
+  let gatheredRelayCandidate = false
+  let gatheringCompletedWithoutRelay = false
 
   const clearDisconnectedTimer = () => {
     if (disconnectedTimer !== null) {
@@ -60,6 +62,12 @@ export function attachTransportConnectivityDrawerLog(
       code: 'ICE_FAILED',
       outcome: 'failed',
     })
+    // Only now is a missing relay candidate actionable: ICE failed and there was no relay to
+    // fall back on. Emitting at gather-complete instead cried wolf on every healthy client that
+    // connected directly (host/srflx) to the public SFU and never needed a relay candidate.
+    if (turnRequired && gatheringCompletedWithoutRelay && !gatheredRelayCandidate) {
+      emitTurnRelayRequired()
+    }
     if (webrtcDebugEnabled()) {
       webrtcLog(
         'transport',
@@ -118,6 +126,7 @@ export function attachTransportConnectivityDrawerLog(
     logIceCandidateSummary(pc)
     const summary = summarizeLocalIceCandidates(pc.localDescription?.sdp ?? '')
     if (summary.hasRelay) {
+      gatheredRelayCandidate = true
       emitClientDrawerLog({
         drawer: 'connectivity',
         event: 'ice_relay_candidate',
@@ -125,8 +134,10 @@ export function attachTransportConnectivityDrawerLog(
       })
     }
     if (!turnRequired) return
+    // Record (do not log) that gathering finished without a relay candidate. Whether this is a
+    // problem depends on the eventual ICE result, handled in emitIceFailed.
     if (!localDescriptionHasRelayCandidate(pc)) {
-      emitTurnRelayRequired()
+      gatheringCompletedWithoutRelay = true
     }
   }
 
