@@ -636,21 +636,26 @@ export class RoomRealtimeSdk {
       return
     }
 
-    const theater = this.theater
-    const routeTheaterMix =
-      this.theaterLayoutActive && this.theaterBootstrapped && theater !== null
+    // Read theater routing state live on each event rather than capturing it once. The engine
+    // wires these subscriptions synchronously right after join(), before the async
+    // bootstrapMediaPlanes() flips theaterBootstrapped to true. Capturing the boolean here left
+    // the guest's host_screen stream permanently unrouted (camera still showed because its
+    // consumer events route through handlers unconditionally), so the guest saw the camera but
+    // never the shared tab.
+    const shouldRouteTheaterMix = (): boolean =>
+      this.theaterLayoutActive && this.theaterBootstrapped && this.theater !== null
 
     this.hostScreenStreamUnsub = sfu.onRemoteStream((stream) => {
-      if (routeTheaterMix && !this.isHost) {
-        theater.setGuestRemote(stream)
+      if (shouldRouteTheaterMix() && !this.isHost) {
+        this.theater?.setGuestRemote(stream)
       }
       handlers.hostScreen?.onRemoteStream?.(stream)
       this.emitDiagnosticsChange()
     })
 
     this.participantAvTrackUnsub = sfu.onConsumerTrack((event) => {
-      if (routeTheaterMix) {
-        theater.routeSfuConsumerEvent(event)
+      if (shouldRouteTheaterMix()) {
+        this.theater?.routeSfuConsumerEvent(event)
       }
       handlers.participantAv?.onConsumerTrack?.(event)
       this.emitDiagnosticsChange()
