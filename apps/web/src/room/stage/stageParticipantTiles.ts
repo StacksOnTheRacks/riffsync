@@ -44,6 +44,9 @@ export function sortRosterForStage(members: RosterMember[]): RosterMember[] {
   })
 }
 
+/** Fallback label for a live remote camera whose owner is not (yet) in the presence roster. */
+export const UNKNOWN_PARTICIPANT_LABEL = 'Guest'
+
 function videoConsumersBySession(
   consumers: Iterable<ParticipantAvVideoConsumer>,
 ): Map<string, ParticipantAvVideoConsumer> {
@@ -56,18 +59,22 @@ function videoConsumersBySession(
   return bySession
 }
 
-function memberHasVideoOn(opts: {
-  member: RosterMember
-  ownSessionId: string
-  localCameraOn: boolean
-  remoteBySession: Map<string, ParticipantAvVideoConsumer>
-}): boolean {
-  if (opts.member.sessionId === opts.ownSessionId) {
-    return opts.localCameraOn
-  }
-  return opts.remoteBySession.has(opts.member.sessionId)
+type StageTileDraft = {
+  sessionId: string
+  isHost: boolean
+  label: string
+  isSelf: boolean
+  stream: MediaStream
 }
 
+/**
+ * Build the camera tiles for the stage. Remote tiles are driven by live
+ * `participant_av` video consumers, NOT by a presence-roster join: if we are
+ * actively consuming someone's camera we must render it even when the roster is
+ * momentarily out of sync (e.g. during a guest's consumer->producer reconnect,
+ * which otherwise left the host consuming the guest yet showing only itself).
+ * The roster still supplies display name and host ordering when available.
+ */
 export function buildStageParticipantTiles(opts: {
   roster: RosterMember[]
   videoConsumers: Map<string, ParticipantAvVideoConsumer>
@@ -76,43 +83,51 @@ export function buildStageParticipantTiles(opts: {
   localPreviewStream: MediaStream | null
 }): StageParticipantTile[] {
   const remoteBySession = videoConsumersBySession(opts.videoConsumers.values())
-  const ordered = sortRosterForStage(opts.roster)
-  const tiles: StageParticipantTile[] = []
+  const rosterBySession = new Map<string, RosterMember>()
+  for (const member of opts.roster) rosterBySession.set(member.sessionId, member)
 
-  for (const member of ordered) {
-    if (
-      !memberHasVideoOn({
-        member,
-        ownSessionId: opts.ownSessionId,
-        localCameraOn: opts.localCameraOn,
-        remoteBySession,
-      })
-    ) {
-      continue
-    }
+  const drafts: StageTileDraft[] = []
 
-    const isSelf = member.sessionId === opts.ownSessionId
-    let stream: MediaStream | null = null
-    if (isSelf) {
-      stream = opts.localPreviewStream
-    } else {
-      const remote = remoteBySession.get(member.sessionId)
-      if (remote) {
-        stream = streamForTrack(remote.track)
-      }
-    }
-    if (!stream || stream.getVideoTracks().length === 0) continue
+  if (
+    opts.localCameraOn &&
+    opts.localPreviewStream &&
+    opts.localPreviewStream.getVideoTracks().length > 0
+  ) {
+    drafts.push({
+      sessionId: opts.ownSessionId,
+      isHost: rosterBySession.get(opts.ownSessionId)?.isHost ?? false,
+      label: 'You',
+      isSelf: true,
+      stream: opts.localPreviewStream,
+    })
+  }
 
-    tiles.push({
-      key: isSelf ? 'self' : member.sessionId,
-      sessionId: member.sessionId,
-      label: isSelf ? 'You' : member.displayName,
-      isSelf,
+  for (const [sessionId, remote] of remoteBySession) {
+    if (sessionId === opts.ownSessionId) continue
+    const stream = streamForTrack(remote.track)
+    if (stream.getVideoTracks().length === 0) continue
+    const member = rosterBySession.get(sessionId)
+    drafts.push({
+      sessionId,
+      isHost: member?.isHost ?? false,
+      label: member?.displayName ?? UNKNOWN_PARTICIPANT_LABEL,
+      isSelf: false,
       stream,
     })
   }
 
-  return tiles
+  drafts.sort((a, b) => {
+    if (a.isHost !== b.isHost) return a.isHost ? -1 : 1
+    return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+  })
+
+  return drafts.map((draft) => ({
+    key: draft.isSelf ? 'self' : draft.sessionId,
+    sessionId: draft.sessionId,
+    label: draft.label,
+    isSelf: draft.isSelf,
+    stream: draft.stream,
+  }))
 }
 
 export function stageLayoutSurfaceClass(roomMode: 'theater' | 'videoChat'): string {

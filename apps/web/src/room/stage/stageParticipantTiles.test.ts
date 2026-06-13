@@ -111,6 +111,18 @@ describe('stageParticipantTiles', () => {
     })
   })
 
+  it('renders a live remote camera even when the roster has not caught up', () => {
+    const tiles = buildStageParticipantTiles({
+      roster: [{ sessionId: 'host-1', displayName: 'Host', isHost: true }],
+      videoConsumers: new Map([['p-late', consumer('p-late', 'fan-late')]]),
+      ownSessionId: 'host-1',
+      localCameraOn: false,
+      localPreviewStream: null,
+    })
+    expect(tiles.map((t) => t.sessionId)).toEqual(['fan-late'])
+    expect(tiles[0]?.label).toBe('Guest')
+  })
+
   it('orders tiles by roster join order', () => {
     const tiles = buildStageParticipantTiles({
       roster,
