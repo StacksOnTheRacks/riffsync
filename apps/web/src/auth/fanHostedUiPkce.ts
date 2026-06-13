@@ -48,6 +48,10 @@ function redirectUri(): string {
   return `${window.location.origin}/auth/callback`
 }
 
+function defaultLogoutUri(): string {
+  return `${window.location.origin}/`
+}
+
 /**
  * PKCE + Cognito Hosted UI (local user pool sign-in / sign-up). Redirects the browser.
  */
@@ -71,6 +75,31 @@ export async function startFanHostedUiSignIn(returnPath: string): Promise<void> 
 
   const url = `https://${hostedDomain()}/oauth2/authorize?${params.toString()}`
   window.location.assign(url)
+}
+
+/**
+ * Cognito Hosted UI forgot-password flow. After reset, the user returns through
+ * `/auth/callback` and is sent to `returnPath` (default `/account`).
+ */
+export function startFanHostedUiForgotPassword(returnPath = '/account'): void {
+  sessionStorage.setItem(RETURN, returnPath)
+  const params = new URLSearchParams({
+    client_id: clientId(),
+    redirect_uri: redirectUri(),
+    response_type: 'code',
+    scope: 'openid email profile',
+  })
+  window.location.assign(`https://${hostedDomain()}/forgotPassword?${params.toString()}`)
+}
+
+/** Clears local fan tokens and ends the Cognito Hosted UI browser session. */
+export function startFanHostedUiSignOut(logoutUri = defaultLogoutUri()): void {
+  clearFanTokens()
+  const params = new URLSearchParams({
+    client_id: clientId(),
+    logout_uri: logoutUri,
+  })
+  window.location.assign(`https://${hostedDomain()}/logout?${params.toString()}`)
 }
 
 export function popReturnPath(): string {

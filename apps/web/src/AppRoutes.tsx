@@ -3,6 +3,7 @@ import { SiteLayout } from './layouts/SiteLayout'
 import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
 import { LobbyPage } from './pages/LobbyPage'
+import { AccountPage } from './pages/AccountPage'
 import { RoomPage } from './pages/RoomPage'
 import { SoloWatchPage } from './pages/SoloWatchPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
@@ -38,6 +39,7 @@ export function AppRoutes() {
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/account" element={<AccountPage />} />
         <Route path="/how-to-host-a-watchparty" element={<HowToHostWatchPartyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />

@@ -1,5 +1,9 @@
 import { useState } from 'react'
-import { NavLink, useMatch } from 'react-router-dom'
+import { NavLink, useLocation, useMatch } from 'react-router-dom'
+import {
+  startFanHostedUiSignIn,
+} from '../../auth/fanHostedUiPkce'
+import { useFanSession } from '../../auth/useFanSession'
 import { useRoomChromeOptional } from '../../room/useRoomChrome'
 
 function PrimaryNavItem({
@@ -27,6 +31,13 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const roomChrome = useRoomChromeOptional()
   const nowPlayingLabel = roomChrome?.nowPlayingLabel ?? null
+  const { fanToken } = useFanSession()
+  const location = useLocation()
+  const returnPath = `${location.pathname}${location.search}` || '/'
+
+  const onSignIn = () => {
+    void startFanHostedUiSignIn(returnPath).catch(console.error)
+  }
 
   if (compact) {
     return (
@@ -77,6 +88,19 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
                       </PrimaryNavItem>
                       <PrimaryNavItem to="/catalog">Catalog</PrimaryNavItem>
                       <PrimaryNavItem to="/lobby">Lobby</PrimaryNavItem>
+                      {fanToken ? (
+                        <PrimaryNavItem to="/account">Account</PrimaryNavItem>
+                      ) : (
+                        <li className="menu-item">
+                          <button
+                            type="button"
+                            className="riffsync-site-nav-sign-in"
+                            onClick={onSignIn}
+                          >
+                            Sign In
+                          </button>
+                        </li>
+                      )}
                     </ul>
                   </div>
                 </div>
