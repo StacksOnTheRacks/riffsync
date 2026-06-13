@@ -295,6 +295,9 @@ export function RoomPageSidebar({
                 Hosting Guide
               </Link>
             ) : null}
+            <Link className="gen-button gen-button-wide" to="/">
+              Leave Party
+            </Link>
             {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
           </div>
         ) : null}
