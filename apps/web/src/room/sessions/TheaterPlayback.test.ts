@@ -304,6 +304,23 @@ describe('TheaterPlayback', () => {
     playback.dispose()
   })
 
+  it('prompts the guest to enable sound when host_screen audio is autoplay-suspended', async () => {
+    const mix = makeMixMock({
+      getAudioContextState: vi.fn().mockReturnValue('suspended' as AudioContextState),
+    })
+    vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+    const playback = new TheaterPlayback()
+    playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+
+    playback.setGuestVideoElement(makeVideoElement())
+    // Muted video autoplay succeeds, but host_screen audio plays via the suspended mix, so the
+    // guest must be offered a gesture to unlock sound.
+    playback.setGuestRemote(makeStream([makeTrack('video'), makeTrack('audio')]))
+
+    await vi.waitFor(() => expect(playback.getSnapshot().guestPlayHint).toBe(true))
+    playback.dispose()
+  })
+
   it('reports degraded lifecycle when SFU signaling sibling reconnects after connect', () => {
     vi.mocked(createTheaterAudioMix).mockReturnValue(makeMixMock())
     const playback = new TheaterPlayback()

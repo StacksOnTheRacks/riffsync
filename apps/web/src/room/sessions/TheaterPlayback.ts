@@ -208,8 +208,14 @@ export class TheaterPlayback {
     if (!v || !this.enabled) return
     try {
       await v.play()
-      this.setGuestPlayHint(false)
+      // This runs from a user gesture, so resuming the AudioContext is allowed here.
       await this.mix?.resumeIfSuspended()
+      // Keep prompting if audio is still gated; otherwise sound is flowing and the hint clears.
+      if (this.getAudioContextState() === 'suspended') {
+        this.setGuestPlayHint(true)
+      } else {
+        this.setGuestPlayHint(false)
+      }
       this.syncLifecycleState()
     } catch {
       this.setGuestPlayHint(true)
@@ -255,8 +261,26 @@ export class TheaterPlayback {
   private onSfuConsumerEvent(event: SfuConsumerTrackEvent): void {
     if (!this.enabled || !this.mix) return
     this.mix.onConsumerEvent(mapSfuConsumerToMixEvent(event))
-    void this.mix.resumeIfSuspended().then(() => this.syncLifecycleState())
+    void this.mix.resumeIfSuspended().then(() => {
+      // A host_screen/participant audio track just attached. Without a prior user gesture the
+      // AudioContext stays suspended, so prompt the guest to enable sound.
+      this.syncGuestAudioGate()
+      this.syncLifecycleState()
+    })
     this.syncLifecycleState()
+  }
+
+  /**
+   * Guests hear host_screen (and participant) audio through the Web Audio mix, never the muted
+   * <video> element. When the AudioContext is suspended by autoplay policy there is no native
+   * control to unlock it, so raise the guest play hint to expose a user-gesture button that
+   * resumes the mix.
+   */
+  private syncGuestAudioGate(): void {
+    if (this.isPublisher || !this.enabled || !this.guestRemote) return
+    if (this.getAudioContextState() === 'suspended') {
+      this.setGuestPlayHint(true)
+    }
   }
 
   private ensureMix(): void {
@@ -365,6 +389,10 @@ export class TheaterPlayback {
         if (token !== this.guestVideoPlayToken) return
         this.setGuestPlayHint(false)
         await this.mix?.resumeIfSuspended()
+        // The <video> plays muted and host_screen audio is routed through the Web Audio mix,
+        // so a successful muted play does not mean the guest can hear anything. If the mix's
+        // AudioContext is still suspended (autoplay policy), surface the gesture button.
+        this.syncGuestAudioGate()
         return
       } catch {
         /* autoplay policy often blocks unmuted remote playback */

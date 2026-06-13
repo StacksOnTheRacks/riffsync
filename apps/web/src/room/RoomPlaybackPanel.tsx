@@ -158,7 +158,7 @@ export function RoomPlaybackPanel({
       {theaterPlaybackSnapshot.guestPlayHint ? (
         <p className="riffsync-room-page__guest-actions">
           <button type="button" className="gen-button" onClick={() => void playGuestVideo()}>
-            Play video
+            Enable sound
           </button>
         </p>
       ) : null}
