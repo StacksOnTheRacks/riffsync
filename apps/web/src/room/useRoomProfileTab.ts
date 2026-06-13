@@ -85,8 +85,12 @@ export function useRoomProfileTab(options: {
         const applied = setGuestDisplayName(trimmed)
         setDisplayName(applied)
         setProfileDraft(applied)
-        setProfileAvatarUrl(p.avatarUrl)
-        setMyAvatarUrl(p.avatarUrl)
+        // A display-name update must never clear the avatar. If the PATCH response omits
+        // the avatar URL, keep the one already loaded instead of blanking the preview.
+        if (p.avatarUrl) {
+          setProfileAvatarUrl(p.avatarUrl)
+          setMyAvatarUrl(p.avatarUrl)
+        }
       })
       .catch((e) => {
         setProfileSaveErr(e instanceof Error ? e.message : 'Could not save profile.')

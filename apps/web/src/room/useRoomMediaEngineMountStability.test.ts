@@ -37,6 +37,19 @@ describe('useRoomMediaEngine mount stability', () => {
   it('keeps post-mount room updates on the diffed applyRoomSnapshot effect', () => {
     expect(src).toContain('engine.applyRoomSnapshot(room)')
   })
+
+  it('reads the display name from a ref at mount and applies renames via setDisplayName', () => {
+    expect(src).toContain('const displayNameRef = useRef(displayName)')
+    expect(src).toContain('displayName: displayNameRef.current,')
+    expect(src).toContain('engine.setDisplayName(displayName)')
+  })
+
+  it('does not list displayName in the mount effect dependency array', () => {
+    const mountEffect = extractMountEffect(src)
+    const deps = extractDependencyArray(mountEffect)
+    expect(deps.split(/\s+/)).not.toContain('displayName,')
+    expect(deps).not.toContain('displayName,')
+  })
 })
 
 /** The mount effect is the one that calls engine.mount; slice from it to its dependency array. */

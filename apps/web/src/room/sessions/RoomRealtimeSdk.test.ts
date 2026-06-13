@@ -1281,3 +1281,40 @@ describe('RoomRealtimeSdk.getDiagnostics SFU counts', () => {
     expect(diag.drawers.sfuSignaling.consumerCount).toBe(2)
   })
 })
+
+describe('RoomRealtimeSdk.updateDisplayName', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('reconnects only the chat plane and leaves the SFU session untouched', async () => {
+    const sdk = await joinHealthySdk({ isHost: true })
+    const chatConnect = vi.mocked(ChatSession.prototype.connect)
+    const sfuConnect = vi.mocked(SfuMediaSession.prototype.connect)
+    const chatCallsAfterJoin = chatConnect.mock.calls.length
+    const sfuCallsAfterJoin = sfuConnect.mock.calls.length
+
+    sdk.updateDisplayName('Fresh Name')
+
+    expect(chatConnect.mock.calls.length).toBe(chatCallsAfterJoin + 1)
+    expect(chatConnect.mock.calls.at(-1)?.[0]?.displayName).toBe('Fresh Name')
+    // The media plane must not reconnect; renaming cannot interrupt anyone's video/audio.
+    expect(sfuConnect.mock.calls.length).toBe(sfuCallsAfterJoin)
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.sfuSignaling.state).toBe('connected')
+    expect(diag.drawers.chat.state).toBe('connected')
+  })
+
+  it('is a no-op when the display name is unchanged', async () => {
+    const sdk = await joinHealthySdk()
+    const chatConnect = vi.mocked(ChatSession.prototype.connect)
+
+    sdk.updateDisplayName('Stable Name')
+    const callsAfterFirst = chatConnect.mock.calls.length
+
+    sdk.updateDisplayName('Stable Name')
+
+    expect(chatConnect.mock.calls.length).toBe(callsAfterFirst)
+  })
+})

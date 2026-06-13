@@ -116,6 +116,15 @@ export function useRoomMediaEngine(options: {
     roomRef.current = room
   }, [room])
 
+  // Display name follows the same ref-at-mount discipline as `room`/`fanToken`: the
+  // initial join reads the latest value here, and later renames flow through
+  // engine.setDisplayName below. Including it in the mount deps would tear down and
+  // rebuild the entire SFU/WS session on every rename, dropping media for everyone.
+  const displayNameRef = useRef(displayName)
+  useEffect(() => {
+    displayNameRef.current = displayName
+  }, [displayName])
+
   const roomAvailable = Boolean(room) && Boolean(canonicalRoomId)
 
   useEffect(() => {
@@ -128,7 +137,7 @@ export function useRoomMediaEngine(options: {
       roomId,
       canonicalRoomId,
       sessionId,
-      displayName,
+      displayName: displayNameRef.current,
       fanToken,
       isPublisher,
       experimentalFeatures,
@@ -155,13 +164,13 @@ export function useRoomMediaEngine(options: {
       sessionMountedRef.current = false
       engine.teardown()
     }
-  // `room` and `fanToken` are intentionally omitted: the initial room is read from a ref,
-  // post-mount room updates flow through engine.applyRoomSnapshot, and fanToken refreshes
-  // go through engine.setFanToken. Including either here would churn the SFU/WS session.
+  // `room`, `fanToken`, and `displayName` are intentionally omitted: the initial room and
+  // display name are read from refs, post-mount room updates flow through
+  // engine.applyRoomSnapshot, fanToken refreshes go through engine.setFanToken, and renames
+  // go through engine.setDisplayName. Including any of them here would churn the SFU/WS session.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     canonicalRoomId,
-    displayName,
     engine,
     hostPatchSuppressAnnounceUntilRef,
     isPublisher,
@@ -207,6 +216,10 @@ export function useRoomMediaEngine(options: {
   useEffect(() => {
     engine.setFanToken(fanToken)
   }, [engine, fanToken])
+
+  useEffect(() => {
+    engine.setDisplayName(displayName)
+  }, [engine, displayName])
 
   const sendJson = useCallback(
     (payload: Record<string, unknown>) => engine.sendControl(payload),

@@ -408,6 +408,29 @@ export class RoomRealtimeSdk {
     this.sfu?.updatePublishGate({ fanToken: accessToken })
   }
 
+  /**
+   * Apply a display-name change without disturbing media. The chat WS carries the
+   * display name as a connection query param, so presence only refreshes by
+   * reconnecting that socket. The SFU and theater planes are intentionally left
+   * untouched, so renaming never interrupts anyone's video or audio.
+   */
+  updateDisplayName(displayName: string): void {
+    const options = this.joinOptions
+    if (!options) return
+    if (options.displayName === displayName) return
+    options.displayName = displayName
+    const chat = this.chat
+    if (!chat || !options.wsUrl) return
+    chat.connect({
+      url: options.wsUrl,
+      roomId: this.roomId,
+      sessionId: this.sessionId,
+      displayName,
+      accessToken: options.accessToken ?? null,
+      enabled: true,
+    })
+  }
+
   getSfuStatus(): SfuMediaSessionStatus {
     return this.sfu?.getStatus() ?? 'idle'
   }

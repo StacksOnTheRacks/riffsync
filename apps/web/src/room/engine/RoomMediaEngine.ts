@@ -351,6 +351,19 @@ export class RoomMediaEngine {
     this.sdk.updateFanToken(fanToken)
   }
 
+  /**
+   * Update the local participant's display name in place. Refreshes presence via the
+   * chat plane only (see `RoomRealtimeSdk.updateDisplayName`) and re-renders the local
+   * People entry without tearing down the SFU/WS session.
+   */
+  setDisplayName(displayName: string): void {
+    if (!this.mountOptions) return
+    if (this.mountOptions.displayName === displayName) return
+    this.mountOptions = { ...this.mountOptions, displayName }
+    this.sdk.updateDisplayName(displayName)
+    this.notify()
+  }
+
   getChatDraft(): string {
     return this.chatDraft
   }
