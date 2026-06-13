@@ -14,6 +14,7 @@ import {
   ChatSession,
   type AvDisabledEvent,
   type ChatGifLine,
+  type ChatHistoryEvent,
   type ChatReactionEvent,
   type ChatSessionStatus,
   type ChatTextLine,
@@ -70,6 +71,7 @@ export type RoomControlHandlers = {
   onChatText?: (line: ChatTextLine) => void
   onChatGif?: (line: ChatGifLine) => void
   onChatReaction?: (event: ChatReactionEvent) => void
+  onChatHistory?: (event: ChatHistoryEvent) => void
   onPresence?: (event: PresenceEvent) => void
   onRoomModeUi?: (event: RoomModeEvent) => void
   onAvDisabledUi?: (event: AvDisabledEvent) => void
@@ -597,6 +599,7 @@ export class RoomRealtimeSdk {
     if (handlers.onChatText) maybePush(chat.onChatText(handlers.onChatText))
     if (handlers.onChatGif) maybePush(chat.onChatGif(handlers.onChatGif))
     if (handlers.onChatReaction) maybePush(chat.onChatReaction(handlers.onChatReaction))
+    if (handlers.onChatHistory) maybePush(chat.onChatHistory(handlers.onChatHistory))
     if (handlers.onPresence) maybePush(chat.onPresence(handlers.onPresence))
   }
 

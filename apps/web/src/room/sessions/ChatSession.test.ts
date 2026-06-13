@@ -97,6 +97,51 @@ describe('routeInboundChatMessage', () => {
     })
   })
 
+  it('routes chat_history with messages and reactions for the canonical room', () => {
+    const routed = routeInboundChatMessage(
+      {
+        type: 'chat_history',
+        roomId: ROOM,
+        messages: [
+          {
+            kind: 'text',
+            sessionId: 'sess-1',
+            text: 'older',
+            messageId: '550e8400-e29b-41d4-a716-446655440000',
+            ts: 1000,
+          },
+          {
+            kind: 'gif',
+            sessionId: 'sess-2',
+            messageId: '550e8400-e29b-41d4-a716-446655440001',
+            giphyId: 'gif1',
+            renditionUrl: 'https://media.giphy.com/x.gif',
+            ts: 2000,
+          },
+        ],
+        reactions: {
+          '550e8400-e29b-41d4-a716-446655440000': {
+            '👍': { count: 2, reactedByMe: true },
+          },
+        },
+      },
+      ROOM,
+    )
+    expect(routed?.type).toBe('chat_history')
+    if (routed?.type === 'chat_history') {
+      expect(routed.event.messages).toHaveLength(2)
+      expect(routed.event.reactions['550e8400-e29b-41d4-a716-446655440000']).toEqual({
+        '👍': { count: 2, reactedByMe: true },
+      })
+    }
+  })
+
+  it('filters chat_history to canonical room id', () => {
+    expect(
+      routeInboundChatMessage({ type: 'chat_history', roomId: 'other', messages: [], reactions: {} }, ROOM),
+    ).toBeNull()
+  })
+
   it('filters presence to canonical room id', () => {
     const ok = routeInboundChatMessage(
       {

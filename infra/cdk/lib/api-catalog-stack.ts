@@ -156,6 +156,7 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly roomsTable: dynamodb.Table;
   public readonly connectionsTable: dynamodb.Table;
   public readonly roomPresenceTable: dynamodb.Table;
+  public readonly roomChatTable: dynamodb.Table;
   public readonly fanProfilesTable: dynamodb.Table;
   public readonly fanAvatarsBucket: s3.Bucket;
   public readonly fanAvatarsDistribution: cloudfront.Distribution;
@@ -218,6 +219,14 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomPresenceTable = new dynamodb.Table(this, 'RoomPresenceTable', {
       partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'presenceKey', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      timeToLiveAttribute: 'expiresAt',
+    });
+
+    this.roomChatTable = new dynamodb.Table(this, 'RoomChatTable', {
+      partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       timeToLiveAttribute: 'expiresAt',
@@ -754,10 +763,13 @@ export class ApiCatalogStack extends cdk.Stack {
       ROOMS_TABLE_NAME: this.roomsTable.tableName,
       CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
       ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
+      ROOM_CHAT_TABLE_NAME: this.roomChatTable.tableName,
       FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
       COGNITO_USER_POOL_ID: fanUserPool.userPoolId,
       COGNITO_CLIENT_ID: fanUserPoolClient.userPoolClientId,
       WS_MANAGEMENT_API_ENDPOINT: wsMgmtEndpoint,
+      CHAT_HISTORY_LIMIT: '50',
+      CHAT_HISTORY_TTL_SECONDS: '86400',
       RIFFSYNC_ENVIRONMENT: environment,
       NODE_OPTIONS: '--enable-source-maps',
     };
@@ -806,6 +818,7 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomsTable.grantReadWriteData(wsRouteFn);
     this.connectionsTable.grantReadWriteData(wsRouteFn);
     this.roomPresenceTable.grantReadWriteData(wsRouteFn);
+    this.roomChatTable.grantReadWriteData(wsRouteFn);
     this.fanProfilesTable.grantReadData(wsRouteFn);
     this.webSocketApi.grantManageConnections(wsRouteFn);
 
@@ -1074,6 +1087,12 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'RoomPresenceTableName', {
       value: this.roomPresenceTable.tableName,
       description: 'DynamoDB room presence table - partition key `roomId`, sort key `presenceKey`.',
+    });
+
+    new cdk.CfnOutput(this, 'RoomChatTableName', {
+      value: this.roomChatTable.tableName,
+      description:
+        'DynamoDB bounded room chat retention - partition key `roomId`, sort key `sk` (`m#…` messages, `r#…` reactions).',
     });
 
     new cdk.CfnOutput(this, 'FanProfilesTableName', {

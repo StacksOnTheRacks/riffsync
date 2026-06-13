@@ -8,6 +8,7 @@ import {
   canAcceptReactionAdd,
   type ReactionsByMessage,
 } from '../chatReactions'
+import { mergeChatHistory } from '../chatHistoryMerge'
 import { createChatMessageId } from '../chatMessageId'
 import { avDisabledAnnounceCopy, roomModeAnnounceCopy } from '../hostRoomControls'
 import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
@@ -211,6 +212,12 @@ export class RoomMediaEngine {
           event.sessionId,
           options.sessionId,
         )
+        this.notify()
+      },
+      onChatHistory: (event) => {
+        const merged = mergeChatHistory(this.chat, this.chatReactions, event)
+        this.chat = merged.chat
+        this.chatReactions = merged.chatReactions
         this.notify()
       },
       onPresence: (event) => {

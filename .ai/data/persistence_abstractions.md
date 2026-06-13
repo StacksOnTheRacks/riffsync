@@ -12,6 +12,7 @@ Storage responsibilities; physical layout is IaC (**`architecture.server.md`**).
 | **Rooms** | One authoritative item per **`roomId`** (playback, **`hostSub`**, **`lastActivityAt`**, visibility, advisory **`playbackExpectation`**, host admin AV/layout: **`roomMode`**, **`avDisabled`**, **`broadcastCaptureActive`**, **`version`**). |
 | **Connections** | Ephemeral **`connectionId`** primary key → **`roomId`** (+ **`sessionId`** metadata) for **`PostToConnection`** reverse lookup on **`$disconnect`**. |
 | **RoomPresence** | Ephemeral roster rows keyed **`roomId`** + **`presenceKey`** (**`sessionId#connectionId`**); **`fanSub`** / **`hostSub`**, display metadata, **TTL** **`expiresAt`**. Queried by **`roomId`** for roster broadcast and **consistent-read** SFU token presence checks. |
+| **RoomChat** | Bounded room chat retention keyed **`roomId`** + **`sk`**. Message rows use **`m#<ts>#<messageId>`**; active reaction rows use **`r#<messageId>#<emoji>#<sessionId>`**. **TTL** **`expiresAt`**. Queried on **`presence_request`** to post requester-only **`chat_history`**. |
 | **Lists** *(when shipped)* | Curated list meta + membership rows (**`docs/architecture.admin.md`**). |
 | **FanProfiles** | **`sub`** → **`displayName`**, optional **`avatarUrl`** / timestamps (signed-in fan continuity). |
 | **Events** *(optional)* | Append-only audit per admin docs—add when needed. |
@@ -22,7 +23,7 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 
 | Store | Holds |
 | --- | --- |
-| **DynamoDB** | Tables above — **catalog**, **rooms**, **websocket connections**, **room presence**, **fan profiles**, optional **lists**, **append-only events**. |
+| **DynamoDB** | Tables above — **catalog**, **rooms**, **websocket connections**, **room presence**, **room chat**, **fan profiles**, optional **lists**, **append-only events**. |
 | **SFU process memory** | **mediasoup** routers, transports, producers/consumers per room — **not** Dynamo or S3; authoritative for **active media tracks** until disconnect or kill-switch tear-down. |
 | **Secrets Manager** | TMDB credential, **Giphy API key**, Cognito-independent secrets only where needed. |
 | **S3** | **Fan avatar** objects (public HTTPS via CDN); catalog/asset buckets per **`docs/architecture.catalog-images.md`**. |

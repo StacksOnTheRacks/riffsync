@@ -22,7 +22,7 @@ Each routed message SHOULD be JSON with **`"action"`** matching the [**API Gatew
 | **`action`** | Purpose | Auth |
 | --- | --- | --- |
 | **`ping`** | Heartbeat — bumps **`lastActivityAt`** (and **`lobbySk`** when room is **`public`**); also refreshes this socket's connections-row **`lastSeenAt`** and **`expiresAt`** (**about 90 minutes**, sliding) so stale rows age out when **`$disconnect`** never runs. | **Guest OK** once connected. |
-| **`presence_request`** | Ask the server to fan out a fresh **`presence`** roster snapshot to **all** connections in this room (no body). Use after connect/reconnect or when the UI suspects a stale roster; idempotent. | **Guest OK** once connected. |
+| **`presence_request`** | Ask the server to fan out a fresh **`presence`** roster snapshot to **all** connections in this room (no body). Use after connect/reconnect or when the UI suspects a stale roster; idempotent. The server also posts a requester-only **`chat_history`** snapshot to this socket when room chat retention is configured. | **Guest OK** once connected. |
 | **`leave`** | Best-effort client goodbye — deletes this **`connectionId`** from the connections table and fan-outs **`presence`** (same pattern as **`$disconnect`**). Clients may send on **`pagehide`** when teardown is uncertain; safe if the row is already gone. | **Guest OK** once connected. |
 | **`share_state`** | Host announces screen-share lifecycle so guests can reset the guest **video** surface without inferring teardown only from SFU media. Body: **`state`**: **`started`** \| **`stopped`**; optional **`shareGeneration`** (non-negative int, monotonic host share session id). | **Host (publisher JWT)** only. Fan-out shape below. |
 | **`chat`** | Fan-out text to sockets in **`roomId`**. | **Signed-in fan only** (**`fanSub`** on connection from **`$connect`**). **403** when absent. Body: **`text`** (**required**, ≤ 2000 chars), **`messageId`** (**required**, UUID RFC 4122 string). |
@@ -80,7 +80,7 @@ For compatibility during rollout, treat **`messageId`** as required for new clie
 
 ### Chat reaction (ephemeral fan-out)
 
-Broadcast to **every** connection in **`roomId`** when a client sends **`react`**. Reactions are **not** stored in Dynamo.
+Broadcast to **every** connection in **`roomId`** when a client sends **`react`**. Active reaction rows are stored in **RoomChat** for bounded history replay; live fan-out remains immediate.
 
 ```json
 {
@@ -96,6 +96,50 @@ Broadcast to **every** connection in **`roomId`** when a client sends **`react`*
 ```
 
 **`displayName`** uses the same rules as **`chat`** (connections-row nickname from **`$connect`**, else **`Guest (…)`**). **`action`** is **`add`** or **`remove`** (from inbound **`reactionAction`**).
+
+### Chat history (bounded replay on join)
+
+Posted **only to the requesting socket** when that client sends **`presence_request`** (including the SPA's automatic post-connect request). Guests and signed-in fans may receive history after a valid room WebSocket connect.
+
+```json
+{
+  "type": "chat_history",
+  "roomId": "<id>",
+  "messages": [
+    {
+      "kind": "text",
+      "messageId": "<client uuid>",
+      "sessionId": "<sender>",
+      "displayName": "…",
+      "text": "…",
+      "ts": 0,
+      "avatarUrl": "https://…"
+    },
+    {
+      "kind": "gif",
+      "messageId": "<client uuid>",
+      "sessionId": "<sender>",
+      "displayName": "…",
+      "giphyId": "<giphy id>",
+      "renditionUrl": "https://…",
+      "title": "…",
+      "width": 480,
+      "height": 270,
+      "ts": 0,
+      "avatarUrl": "https://…"
+    }
+  ],
+  "reactions": {
+    "<messageId>": {
+      "👍": { "count": 2, "reactedByMe": true }
+    }
+  }
+}
+```
+
+- **`messages`**: newest retained lines capped server-side (**`CHAT_HISTORY_LIMIT`**, default **50**, max **100**), returned oldest-first for UI rendering.
+- **`reactions`**: aggregated active reaction chips for the returned message ids only. **`reactedByMe`** is computed for the requesting socket's **`sessionId`**.
+- Retention is **bounded** and **TTL-backed** on the **RoomChat** Dynamo table (**`CHAT_HISTORY_TTL_SECONDS`**, default **86400**). Messages older than the cap or past TTL are not replayed.
 
 ### Presence (roster snapshot)
 

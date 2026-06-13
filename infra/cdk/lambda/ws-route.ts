@@ -13,6 +13,15 @@ import {
 import { TextEncoder } from 'node:util';
 import { isHttpsGiphyCdnUrl } from './giphy-search-shared';
 import { lobbySortKey, LOBBY_PARTITION } from './room-shared';
+import {
+  parseChatHistoryLimit,
+  parseChatHistoryTtlSeconds,
+  persistChatGifMessage,
+  persistChatTextMessage,
+  persistReactionAdd,
+  persistReactionRemove,
+  queryChatHistory,
+} from './room-chat-shared';
 import { recordWsRealtimeRoute } from './riffsync-observability';
 import {
   broadcastRoomPresence,
@@ -176,9 +185,47 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
   }
 
   if (routeKey === 'presence_request') {
+    const roomChatTable = process.env.ROOM_CHAT_TABLE_NAME;
+    const historyLimit = parseChatHistoryLimit(process.env.CHAT_HISTORY_LIMIT);
+    const historyTtlSeconds = parseChatHistoryTtlSeconds(process.env.CHAT_HISTORY_TTL_SECONDS);
+
     await broadcastRoomPresence({ doc, connectionsTable: connTable, roomPresenceTable: presenceTable, roomId }).catch(
       () => undefined,
     );
+
+    if (roomChatTable) {
+      try {
+        const { messages, reactions } = await queryChatHistory(
+          doc,
+          roomChatTable,
+          roomId,
+          sessionId,
+          historyLimit,
+        );
+        const mgmt = wsManagementClient();
+        const historyPayload = encoder.encode(
+          JSON.stringify({
+            type: 'chat_history',
+            roomId,
+            messages,
+            reactions,
+          }),
+        );
+        await postToConnections(mgmt, doc, connTable, [connectionId], historyPayload, undefined, presenceTable);
+      } catch (err: unknown) {
+        const { errorType, errorMessage } = summarizeCaughtErr(err);
+        console.warn(
+          JSON.stringify({
+            riffsyncDiag: 'chat_history_snapshot_failed',
+            roomId,
+            connectionId,
+            errorType,
+            errorMessage,
+          }),
+        );
+      }
+    }
+
     return { statusCode: 200, body: 'OK' };
   }
 
@@ -255,6 +302,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
     const fanSub = fanSubFromConn(conn);
     const avatarUrl = await resolveChatOutboundAvatarUrl(doc, process.env.FAN_PROFILES_TABLE_NAME, fanSub);
+    const ts = Date.now();
     const out: Record<string, unknown> = {
       type: 'chat',
       roomId,
@@ -262,11 +310,31 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       displayName,
       text,
       messageId,
-      ts: Date.now(),
+      ts,
     };
     if (avatarUrl) {
       out.avatarUrl = avatarUrl;
     }
+
+    const roomChatTable = process.env.ROOM_CHAT_TABLE_NAME;
+    if (roomChatTable) {
+      const historyTtlSeconds = parseChatHistoryTtlSeconds(process.env.CHAT_HISTORY_TTL_SECONDS);
+      await persistChatTextMessage(
+        doc,
+        roomChatTable,
+        {
+          roomId,
+          sessionId,
+          displayName,
+          text,
+          messageId,
+          ts,
+          ...(avatarUrl ? { avatarUrl } : {}),
+        },
+        historyTtlSeconds,
+      ).catch(() => undefined);
+    }
+
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     recordWsRealtimeRoute('chat', 200, connectionId, roomId, { textLength: text.length });
@@ -324,6 +392,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
     const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
     const avatarUrl = await resolveChatOutboundAvatarUrl(doc, process.env.FAN_PROFILES_TABLE_NAME, fanSub);
+    const ts = Date.now();
     const out: Record<string, unknown> = {
       type: 'chat_gif',
       roomId,
@@ -332,7 +401,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       messageId,
       giphyId,
       renditionUrl,
-      ts: Date.now(),
+      ts,
     };
     if (title !== undefined) {
       out.title = title;
@@ -346,6 +415,30 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     if (avatarUrl) {
       out.avatarUrl = avatarUrl;
     }
+
+    const roomChatTable = process.env.ROOM_CHAT_TABLE_NAME;
+    if (roomChatTable) {
+      const historyTtlSeconds = parseChatHistoryTtlSeconds(process.env.CHAT_HISTORY_TTL_SECONDS);
+      await persistChatGifMessage(
+        doc,
+        roomChatTable,
+        {
+          roomId,
+          sessionId,
+          displayName,
+          messageId,
+          giphyId,
+          renditionUrl,
+          ts,
+          ...(title !== undefined ? { title } : {}),
+          ...(width !== undefined ? { width } : {}),
+          ...(height !== undefined ? { height } : {}),
+          ...(avatarUrl ? { avatarUrl } : {}),
+        },
+        historyTtlSeconds,
+      ).catch(() => undefined);
+    }
+
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     recordWsRealtimeRoute('chat_gif', 200, connectionId, roomId, { hasGiphyId: true });
@@ -376,6 +469,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     const mgmt = wsManagementClient();
     const ids = await queryConnectionsForRoom(doc, presenceTable, roomId);
     const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
+    const ts = Date.now();
     const out: Record<string, unknown> = {
       type: 'chat_reaction',
       roomId,
@@ -384,8 +478,21 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       action: reactionAction,
       sessionId,
       displayName,
-      ts: Date.now(),
+      ts,
     };
+
+    const roomChatTable = process.env.ROOM_CHAT_TABLE_NAME;
+    if (roomChatTable) {
+      const historyTtlSeconds = parseChatHistoryTtlSeconds(process.env.CHAT_HISTORY_TTL_SECONDS);
+      if (reactionAction === 'add') {
+        await persistReactionAdd(doc, roomChatTable, roomId, messageId, emoji, sessionId, historyTtlSeconds).catch(
+          () => undefined,
+        );
+      } else {
+        await persistReactionRemove(doc, roomChatTable, roomId, messageId, emoji, sessionId).catch(() => undefined);
+      }
+    }
+
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     recordWsRealtimeRoute('react', 200, connectionId, roomId);

@@ -2,6 +2,7 @@ import type { RoomMode } from '../../api/roomsApi'
 import { emitClientDrawerLog } from '../clientDrawerLog'
 import { parseInboundChatGifMessage, type InboundChatGifLine } from '../chatGifMessage'
 import { parseInboundChatMessageId } from '../chatMessageId'
+import { parseHistoryReactions, type ChatHistorySnapshot } from '../chatHistoryMerge'
 import { parseInboundRoomMode } from '../roomMediaLifecycle'
 import {
   chatSendDroppedError,
@@ -79,10 +80,15 @@ export type AvDisabledEvent = {
   avDisabled: boolean
 }
 
+export type ChatHistoryEvent = ChatHistorySnapshot & {
+  roomId: string
+}
+
 export type ChatInboundRouted =
   | { type: 'chat_text'; line: ChatTextLine }
   | { type: 'chat_gif'; line: ChatGifLine }
   | { type: 'chat_reaction'; event: ChatReactionEvent }
+  | { type: 'chat_history'; event: ChatHistoryEvent }
   | { type: 'presence'; event: PresenceEvent }
   | { type: 'share_state'; event: ShareStateEvent }
   | { type: 'room_mode'; event: RoomModeEvent }
@@ -104,6 +110,48 @@ function parseInboundAvatarUrl(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined
   const trimmed = raw.trim()
   return trimmed !== '' ? trimmed : undefined
+}
+
+function parseHistoryTextLine(raw: Record<string, unknown>): ChatTextLine | null {
+  if (raw.kind !== 'text') return null
+  const messageId = parseInboundChatMessageId(raw.messageId)
+  if (messageId === null) return null
+  if (typeof raw.sessionId !== 'string' || typeof raw.text !== 'string') return null
+  const ts = typeof raw.ts === 'number' ? raw.ts : Date.now()
+  const displayName = typeof raw.displayName === 'string' ? raw.displayName : undefined
+  const avatarUrl = parseInboundAvatarUrl(raw.avatarUrl)
+  return {
+    kind: 'text',
+    messageId,
+    sessionId: raw.sessionId,
+    text: String(raw.text),
+    ts,
+    ...(displayName !== undefined && displayName !== '' ? { displayName } : {}),
+    ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+  }
+}
+
+function parseHistoryGifLine(raw: Record<string, unknown>): ChatGifLine | null {
+  if (raw.kind !== 'gif') return null
+  const gifLine = parseInboundChatGifMessage(raw)
+  if (gifLine === null) return null
+  return { kind: 'gif', ...gifLine }
+}
+
+function parseHistoryMessages(raw: unknown): Array<ChatTextLine | ChatGifLine> {
+  if (!Array.isArray(raw)) return []
+  const lines: Array<ChatTextLine | ChatGifLine> = []
+  for (const entry of raw) {
+    if (!isRecord(entry)) continue
+    const textLine = parseHistoryTextLine(entry)
+    if (textLine) {
+      lines.push(textLine)
+      continue
+    }
+    const gifLine = parseHistoryGifLine(entry)
+    if (gifLine) lines.push(gifLine)
+  }
+  return lines
 }
 
 /** Pure inbound demux for chat control-plane frames (unit-tested without a live socket). */
@@ -136,8 +184,7 @@ export function routeInboundChatMessage(
     if (gifLine === null) return null
     return { type: 'chat_gif', line: { kind: 'gif', ...gifLine } }
   }
-  if (
-    t === 'chat_reaction' &&
+  if (t === 'chat_reaction' &&
     typeof data.messageId === 'string' &&
     typeof data.emoji === 'string' &&
     (data.action === 'add' || data.action === 'remove') &&
@@ -153,6 +200,17 @@ export function routeInboundChatMessage(
         emoji,
         action: data.action,
         sessionId: data.sessionId,
+      },
+    }
+  }
+  if (t === 'chat_history' && typeof data.roomId === 'string') {
+    if (data.roomId !== canonicalRoomId) return null
+    return {
+      type: 'chat_history',
+      event: {
+        roomId: data.roomId,
+        messages: parseHistoryMessages(data.messages),
+        reactions: parseHistoryReactions(data.reactions),
       },
     }
   }
@@ -210,6 +268,7 @@ export class ChatSession {
   private chatTextListeners = new Set<Listener<ChatTextLine>>()
   private chatGifListeners = new Set<Listener<ChatGifLine>>()
   private chatReactionListeners = new Set<Listener<ChatReactionEvent>>()
+  private chatHistoryListeners = new Set<Listener<ChatHistoryEvent>>()
   private presenceListeners = new Set<Listener<PresenceEvent>>()
   private shareStateListeners = new Set<Listener<ShareStateEvent>>()
   private roomModeListeners = new Set<Listener<RoomModeEvent>>()
@@ -243,6 +302,11 @@ export class ChatSession {
   onChatReaction(listener: Listener<ChatReactionEvent>): () => void {
     this.chatReactionListeners.add(listener)
     return () => this.chatReactionListeners.delete(listener)
+  }
+
+  onChatHistory(listener: Listener<ChatHistoryEvent>): () => void {
+    this.chatHistoryListeners.add(listener)
+    return () => this.chatHistoryListeners.delete(listener)
   }
 
   onPresence(listener: Listener<PresenceEvent>): () => void {
@@ -430,6 +494,9 @@ export class ChatSession {
         break
       case 'chat_reaction':
         for (const listener of this.chatReactionListeners) listener(routed.event)
+        break
+      case 'chat_history':
+        for (const listener of this.chatHistoryListeners) listener(routed.event)
         break
       case 'presence':
         for (const listener of this.presenceListeners) listener(routed.event)

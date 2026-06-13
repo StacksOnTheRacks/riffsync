@@ -14,6 +14,7 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 ## Realtime fan-out (WebSocket)
 
 - Not "async messaging" in the Kafka sense: **Lambda** completes **`PostToConnection`** after **Dynamo** write on **chat / durability-required paths** as implemented. **Mesh WebRTC signaling relay is removed** — SFU signaling is direct to **`RiffSyncTurn`** EC2.
+- **Bounded chat retention:** **`chat`**, **`chat_gif`**, and active **`react`** rows write to **RoomChat** before fan-out. **`presence_request`** also posts requester-only **`chat_history`** (capped messages + aggregated reactions) while broadcasting **`presence`**.
 - **Room layout and AV control:** **`roomMode`** and **`avDisabled`** are **durable on the room item** via host **`PATCH`**, then **`room-patch` Lambda** **`PostToConnection`** to all connections in **`roomId`** (#103). **No inbound WebSocket routes** for these fields (contrast **`share_state`**, which is ephemeral fan-out over WS). Late joiners read authoritative values from room snapshot/join; realtime events cover connected clients.
 - **`share_state: stopped` side effects:** ephemeral fan-out only. **Guests detach `host_screen` consumers**; **must not** trigger full SFU session teardown or participant A/V consumer removal. Host unpublishes **`host_screen`** locally. See **`api_contracts.md`** (Realtime hardening).
 - **Chat vs SFU lifecycle decoupling:** room WS reconnect, disconnect, and **`share_state`** handlers **must not** call SFU session **`close()`** without explicit media policy. Chat send failures (**`CHAT_SEND_DROPPED`**) are independent of SFU health when room WS is up. SFU signaling outage **must not** block outbound **`chat`**, **`chat_gif`**, or **`react`** when room WS is **`open`** (**#149**). Each drawer reconnects independently (**`api_contracts.md`**).
@@ -39,7 +40,7 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 ## Open implementation decisions
 
 - Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
-- Presence re-hydration message shape after room WS reconnect (reuse existing **`presence`** broadcast vs incremental delta).
+- Presence re-hydration message shape after room WS reconnect: reuse existing **`presence`** broadcast plus requester-only **`chat_history`** on **`presence_request`**.
 
 ## Kill-switch side-effect ordering (#102 / #103 split)
 
