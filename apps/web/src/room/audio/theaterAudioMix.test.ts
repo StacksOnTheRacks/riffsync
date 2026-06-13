@@ -176,6 +176,21 @@ describe('createTheaterAudioMix', () => {
     mix.dispose()
   })
 
+  it('reuses the source node when the same host video element is set again', () => {
+    const { ctx, elementSources } = makeMockAudioContext()
+    const mix = createTheaterAudioMix({ createContext: () => ctx })
+    const video = {} as HTMLVideoElement
+
+    mix.setHostVideoElement(video)
+    mix.setHostVideoElement(null)
+    mix.setHostVideoElement(video)
+
+    // createMediaElementSource may run only once per element for its lifetime; a second call
+    // throws InvalidStateError. The same element must reuse its cached source node.
+    expect(elementSources).toHaveLength(1)
+    mix.dispose()
+  })
+
   it('prefers host_screen consumer audio over video element source', () => {
     const { ctx, elementSources, streamSources } = makeMockAudioContext()
     const mix = createTheaterAudioMix({ createContext: () => ctx })

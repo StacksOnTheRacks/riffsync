@@ -315,6 +315,9 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
       try {
         await session.ready
       } catch {
+        // Release the half-open session's transports/peer connections before retrying;
+        // otherwise every failed connect leaks an RTCPeerConnection.
+        session.close()
         await sleepBackoffMs(nextSfuReconnectDelayMs(attempt++), signal)
         continue
       }
@@ -330,6 +333,10 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
       await publishHostScreenIfNeeded(session, opts.getHostScreenStream, opts.onMediaError)
 
       const reason = await session.sessionEnded
+      // Fully close the ended session (transports, consumers, signaling) before reconnecting.
+      // sessionEnded only signals the end; without an explicit close the peer connections leak,
+      // eventually tripping the browser cap ("Cannot create so many PeerConnections").
+      session.close()
       activeClose = null
       participantAv.attachSession(null)
       assignSession(null)

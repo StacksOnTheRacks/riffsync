@@ -50,6 +50,10 @@ export function createTheaterAudioMix(options: CreateTheaterAudioMixOptions = {}
   let hostVideoEl: HTMLVideoElement | null = null
   let hostElementSource: MediaElementAudioSourceNode | null = null
   let hostElementGain: GainNode | null = null
+  // A media element can be passed to createMediaElementSource only once for its entire lifetime;
+  // a second call throws InvalidStateError. Reuse the node we already created for an element when
+  // setHostVideoElement is invoked again (e.g. on capture-stream changes).
+  const elementSourceCache = new WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>()
   const hostScreenConsumers = new Map<string, AudioNodeBundle>()
   const participantConsumers = new Map<string, AudioNodeBundle>()
 
@@ -137,7 +141,12 @@ export function createTheaterAudioMix(options: CreateTheaterAudioMixOptions = {}
     clearHostElementSource()
     if (!hostVideoEl || hostScreenConsumers.size > 0) return
     const audioCtx = ensureContext()
-    hostElementSource = audioCtx.createMediaElementSource(hostVideoEl)
+    let source = elementSourceCache.get(hostVideoEl)
+    if (!source) {
+      source = audioCtx.createMediaElementSource(hostVideoEl)
+      elementSourceCache.set(hostVideoEl, source)
+    }
+    hostElementSource = source
     hostElementGain = audioCtx.createGain()
     hostElementSource.connect(hostElementGain)
     connectGain(hostElementGain)

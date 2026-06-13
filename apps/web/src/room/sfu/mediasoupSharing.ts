@@ -803,6 +803,21 @@ export async function connectSfuUnifiedSession(options: {
         }
       })
       onRemoteStream(null)
+      // Close the mediasoup transports so their underlying RTCPeerConnections are released.
+      // Without this, every reconnect leaks a peer connection until the browser hits its cap
+      // ("Cannot create so many PeerConnections"), which broke repeated host-screen publishing.
+      try {
+        sendTransport?.close()
+      } catch {
+        /* ignore */
+      }
+      sendTransport = null
+      try {
+        recvTransport?.close()
+      } catch {
+        /* ignore */
+      }
+      recvTransport = null
       try {
         signaling.close()
       } catch {
