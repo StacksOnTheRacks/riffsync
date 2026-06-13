@@ -67,6 +67,7 @@ export class TheaterPlayback {
   private pollInterval: ReturnType<typeof setInterval> | null = null
   private pollCancelled = false
   private audioContextWatchUnsub: (() => void) | null = null
+  private audioUnlockGestureCleanup: (() => void) | null = null
   private sfuConsumerUnsub: (() => void) | null = null
   private guestVideoPlayToken = 0
   private hostCapturePlayToken = 0
@@ -291,11 +292,44 @@ export class TheaterPlayback {
     this.audioContextWatchUnsub = this.mix.watchAudioContextState(() => {
       this.syncLifecycleState()
     })
+    this.installAudioUnlockGesture()
+  }
+
+  /**
+   * Browsers only let us resume a suspended AudioContext from a user gesture. The "interact with
+   * the page to resume sound" status is only truthful if any interaction actually unlocks audio,
+   * so listen for the first pointer/key/touch anywhere and resume the mix, then self-remove.
+   */
+  private installAudioUnlockGesture(): void {
+    if (this.audioUnlockGestureCleanup) return
+    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return
+    const events: Array<keyof DocumentEventMap> = ['pointerdown', 'keydown', 'touchstart']
+    const onGesture = (): void => {
+      void this.mix?.resumeIfSuspended().then(() => {
+        if (this.getAudioContextState() !== 'suspended') {
+          this.setGuestPlayHint(false)
+          this.removeAudioUnlockGesture()
+        }
+        this.syncLifecycleState()
+      })
+    }
+    for (const name of events) {
+      document.addEventListener(name, onGesture, { passive: true })
+    }
+    this.audioUnlockGestureCleanup = () => {
+      for (const name of events) document.removeEventListener(name, onGesture)
+    }
+  }
+
+  private removeAudioUnlockGesture(): void {
+    this.audioUnlockGestureCleanup?.()
+    this.audioUnlockGestureCleanup = null
   }
 
   private teardownMix(): void {
     this.audioContextWatchUnsub?.()
     this.audioContextWatchUnsub = null
+    this.removeAudioUnlockGesture()
     this.mix?.dispose()
     this.mix = null
   }

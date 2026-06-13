@@ -47,7 +47,7 @@ const DRAWER_ERROR_COPY: Record<RealtimeDrawerErrorCode, string> = {
   PLAYBACK_AUDIO_BLOCKED:
     'Party audio is blocked. Tap to enable sound or check browser autoplay settings.',
   THEATER_AUDIO_SUSPENDED:
-    'Party audio is paused. Interact with the page to resume sound.',
+    'Party audio is paused. Click anywhere or press Enable sound to resume audio.',
   SFU_RELAY_URL_MISSING:
     'Video relay URL is missing. Set VITE_PUBLIC_SFU_WS_URL at build time or redeploy API so POST /v1/webrtc/sfu-token returns wsUrl.',
   LOCAL_SFU_UNREACHABLE:

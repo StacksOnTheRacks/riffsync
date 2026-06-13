@@ -321,6 +321,33 @@ describe('TheaterPlayback', () => {
     playback.dispose()
   })
 
+  it('attempts to resume the mix on any document gesture while audio is suspended', async () => {
+    const docTarget = new EventTarget()
+    const globalRef = globalThis as { document?: unknown }
+    const originalDocument = globalRef.document
+    globalRef.document = docTarget
+    try {
+      const mix = makeMixMock({
+        getAudioContextState: vi.fn().mockReturnValue('suspended' as AudioContextState),
+      })
+      vi.mocked(createTheaterAudioMix).mockReturnValue(mix)
+      const playback = new TheaterPlayback()
+      playback.configure({ enabled: true, isPublisher: false, avDisabled: false })
+      playback.setGuestVideoElement(makeVideoElement())
+      playback.setGuestRemote(makeStream([makeTrack('video'), makeTrack('audio')]))
+      await vi.waitFor(() => expect(playback.getSnapshot().guestPlayHint).toBe(true))
+
+      const before = vi.mocked(mix.resumeIfSuspended).mock.calls.length
+      docTarget.dispatchEvent(new Event('pointerdown'))
+      await vi.waitFor(() =>
+        expect(vi.mocked(mix.resumeIfSuspended).mock.calls.length).toBeGreaterThan(before),
+      )
+      playback.dispose()
+    } finally {
+      globalRef.document = originalDocument
+    }
+  })
+
   it('reports degraded lifecycle when SFU signaling sibling reconnects after connect', () => {
     vi.mocked(createTheaterAudioMix).mockReturnValue(makeMixMock())
     const playback = new TheaterPlayback()
