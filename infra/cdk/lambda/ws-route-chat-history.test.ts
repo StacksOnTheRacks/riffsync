@@ -158,6 +158,19 @@ describe('ws-route chat history', () => {
       reactedByMe: true,
     });
 
+    const rehydratedEmf = logSpy.mock.calls
+      .map((call) => {
+        try {
+          return JSON.parse(call[0] as string) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .find((parsed) => parsed?.PresenceRequestRehydrated === 1);
+    expect(rehydratedEmf?.PresenceRequestRehydrated).toBe(1);
+    expect(rehydratedEmf?.roomId).toBeUndefined();
+    expect(rehydratedEmf?.sessionId).toBeUndefined();
+
     logSpy.mockRestore();
     infoSpy.mockRestore();
   });

@@ -110,7 +110,7 @@ describe('ws-route typing', () => {
     mocks.postToConnections.mockResolvedValue(undefined);
     mocks.tryConsumeTypingRateLimit.mockResolvedValue(true);
     mocks.shouldCoalesceTypingStart.mockReturnValue(false);
-    mocks.updateRoomPresenceLastActiveAt.mockResolvedValue(undefined);
+    mocks.updateRoomPresenceLastActiveAt.mockResolvedValue(true);
     mocks.fanOutTyping.mockResolvedValue(undefined);
     stubConnectedRoom();
   });
@@ -123,6 +123,7 @@ describe('ws-route typing', () => {
   });
 
   it('fans out typing_start after lastActiveAt update', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const result = await handler(baseEvent({ routeKey: 'typing_start' }), {} as never, () => undefined);
     expect(result).toEqual({ statusCode: 200, body: 'OK' });
     expect(mocks.updateRoomPresenceLastActiveAt).toHaveBeenCalledWith(
@@ -130,6 +131,7 @@ describe('ws-route typing', () => {
       'presence',
       'room-1',
       'sess-1#conn-abc',
+      undefined,
     );
     expect(mocks.fanOutTyping).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -142,6 +144,28 @@ describe('ws-route typing', () => {
     const updateOrder = mocks.updateRoomPresenceLastActiveAt.mock.invocationCallOrder[0];
     const fanOutOrder = mocks.fanOutTyping.mock.invocationCallOrder[0];
     expect(updateOrder).toBeLessThan(fanOutOrder!);
+
+    const acceptedEmf = logSpy.mock.calls
+      .map((call) => {
+        try {
+          return JSON.parse(call[0] as string) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .find((parsed) => parsed?.TypingRouteAccepted === 1);
+    expect(acceptedEmf?.Route).toBe('typing_start');
+
+    const qualifyingEmf = logSpy.mock.calls
+      .map((call) => {
+        try {
+          return JSON.parse(call[0] as string) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .find((parsed) => parsed?.QualifyingActiveWrite === 1);
+    expect(qualifyingEmf?.Route).toBe('typing_start');
   });
 
   it('silently drops typing_start when rate limit is exceeded', async () => {
@@ -162,6 +186,26 @@ describe('ws-route typing', () => {
       })
       .find((parsed) => parsed?.TypingRouteThrottled === 1);
     expect(throttledEmf?.Route).toBe('typing_start');
+  });
+
+  it('silently drops typing_stop when rate limit is exceeded', async () => {
+    mocks.tryConsumeTypingRateLimit.mockResolvedValue(false);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+    const result = await handler(baseEvent({ routeKey: 'typing_stop' }), {} as never, () => undefined);
+    expect(result).toEqual({ statusCode: 200, body: 'OK' });
+    expect(mocks.fanOutTyping).not.toHaveBeenCalled();
+
+    const throttledEmf = logSpy.mock.calls
+      .map((call) => {
+        try {
+          return JSON.parse(call[0] as string) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .find((parsed) => parsed?.TypingRouteThrottled === 1);
+    expect(throttledEmf?.Route).toBe('typing_stop');
   });
 
   it('coalesces duplicate typing_start within 1s without fan-out', async () => {

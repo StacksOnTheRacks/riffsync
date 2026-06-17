@@ -97,7 +97,7 @@ describe('ws-route lastActiveAt updates', () => {
     mocks.wsManagementClient.mockReturnValue({ client: true });
     mocks.queryConnectionsForRoom.mockResolvedValue(['conn-abc']);
     mocks.postToConnections.mockResolvedValue(undefined);
-    mocks.updateRoomPresenceLastActiveAt.mockResolvedValue(undefined);
+    mocks.updateRoomPresenceLastActiveAt.mockResolvedValue(true);
     stubConnectedRoom();
   });
 
@@ -125,6 +125,7 @@ describe('ws-route lastActiveAt updates', () => {
       'presence',
       'room-1',
       'sess-1#conn-abc',
+      undefined,
     );
     expect(mocks.postToConnections).toHaveBeenCalled();
     const updateOrder = mocks.updateRoomPresenceLastActiveAt.mock.invocationCallOrder[0];

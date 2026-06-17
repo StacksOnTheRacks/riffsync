@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   emitApiEmf,
+  emitPresenceActiveFanOut,
+  emitPresenceRequestRehydrated,
+  emitQualifyingActiveWrite,
+  emitTypingRouteAccepted,
+  emitTypingRouteThrottled,
   emitWsRealtimeEmf,
   logAdminCatalogAudit,
   logApiAction,
@@ -12,6 +17,27 @@ import {
   riffsyncEnvironment,
   wsRealtimeOutcomeFromStatus,
 } from './riffsync-observability';
+
+const FORBIDDEN_EMF_PROPERTY_KEYS = ['roomId', 'sessionId', 'sub', 'fanSub', 'connectionId'] as const;
+const FORBIDDEN_EMF_DIMENSIONS = ['roomId', 'sessionId', 'sub', 'fanSub', 'connectionId'] as const;
+
+function parseEmfLine(line: string): Record<string, unknown> {
+  return JSON.parse(line) as Record<string, unknown>;
+}
+
+function assertLowCardinalityEmf(parsed: Record<string, unknown>): void {
+  for (const key of FORBIDDEN_EMF_PROPERTY_KEYS) {
+    expect(parsed[key]).toBeUndefined();
+  }
+  const aws = parsed._aws as {
+    CloudWatchMetrics: Array<{ Dimensions: string[][] }>;
+  };
+  for (const group of aws.CloudWatchMetrics[0].Dimensions) {
+    for (const dim of group) {
+      expect(FORBIDDEN_EMF_DIMENSIONS).not.toContain(dim);
+    }
+  }
+}
 
 describe('riffsync-observability', () => {
   beforeEach(() => {
@@ -233,5 +259,43 @@ describe('riffsync-observability', () => {
 
     expect(console.log).toHaveBeenCalledTimes(1);
     expect(console.info).toHaveBeenCalledTimes(2);
+  });
+
+  it('emits typing route EMF without high-cardinality dimensions', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'dev';
+    emitTypingRouteAccepted('typing_start');
+    emitTypingRouteThrottled('typing_stop');
+
+    expect(console.log).toHaveBeenCalledTimes(2);
+    for (const call of (console.log as ReturnType<typeof vi.fn>).mock.calls) {
+      const parsed = parseEmfLine(call[0] as string);
+      assertLowCardinalityEmf(parsed);
+    }
+    const accepted = parseEmfLine((console.log as ReturnType<typeof vi.fn>).mock.calls[0][0] as string);
+    expect(accepted.TypingRouteAccepted).toBe(1);
+    expect(accepted.Route).toBe('typing_start');
+    const throttled = parseEmfLine((console.log as ReturnType<typeof vi.fn>).mock.calls[1][0] as string);
+    expect(throttled.TypingRouteThrottled).toBe(1);
+    expect(throttled.Route).toBe('typing_stop');
+  });
+
+  it('emits presence and qualifying active EMF without high-cardinality dimensions', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'staging';
+    emitQualifyingActiveWrite('chat');
+    emitPresenceActiveFanOut();
+    emitPresenceRequestRehydrated();
+
+    expect(console.log).toHaveBeenCalledTimes(3);
+    for (const call of (console.log as ReturnType<typeof vi.fn>).mock.calls) {
+      assertLowCardinalityEmf(parseEmfLine(call[0] as string));
+    }
+    const qualifying = parseEmfLine((console.log as ReturnType<typeof vi.fn>).mock.calls[0][0] as string);
+    expect(qualifying.QualifyingActiveWrite).toBe(1);
+    expect(qualifying.Route).toBe('chat');
+    const fanOut = parseEmfLine((console.log as ReturnType<typeof vi.fn>).mock.calls[1][0] as string);
+    expect(fanOut.PresenceActiveFanOut).toBe(1);
+    expect(fanOut.Route).toBeUndefined();
+    const rehydrated = parseEmfLine((console.log as ReturnType<typeof vi.fn>).mock.calls[2][0] as string);
+    expect(rehydrated.PresenceRequestRehydrated).toBe(1);
   });
 });

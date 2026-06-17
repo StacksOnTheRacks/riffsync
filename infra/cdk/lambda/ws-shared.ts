@@ -2,6 +2,7 @@ import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk
 import { DynamoDBDocumentClient, DeleteCommand, GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { TextEncoder } from 'node:util';
 import { batchAvatarUrlsByFanSub } from './fan-profile-shared';
+import { emitPresenceActiveFanOut } from './riffsync-observability';
 
 const encoder = new TextEncoder();
 
@@ -195,7 +196,7 @@ export async function updateRoomPresenceLastActiveAt(
   roomId: string,
   presenceKey: string,
   nowSec?: number,
-): Promise<void> {
+): Promise<boolean> {
   const ts = nowSec ?? Math.floor(Date.now() / 1000);
   try {
     await doc.send(
@@ -207,9 +208,10 @@ export async function updateRoomPresenceLastActiveAt(
         ConditionExpression: 'attribute_not_exists(lastActiveAt) OR lastActiveAt <= :ts',
       }),
     );
+    return true;
   } catch (err: unknown) {
     if (isConditionalCheckFailed(err)) {
-      return;
+      return false;
     }
     throw err;
   }
@@ -332,6 +334,10 @@ export async function broadcastRoomPresence(params: {
       profilesTable && fanSubBySessionId.size > 0
         ? await enrichRosterMembersWithAvatarUrls(doc, profilesTable, rosterMembers, fanSubBySessionId)
         : rosterMembers;
+    if (members.some((member) => member.active)) {
+      emitPresenceActiveFanOut();
+    }
+
     const buf = encoder.encode(JSON.stringify({ type: 'presence', roomId, members }));
     const mgmt = wsManagementClient();
 
