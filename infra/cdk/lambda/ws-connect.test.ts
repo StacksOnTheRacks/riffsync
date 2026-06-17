@@ -29,6 +29,15 @@ vi.mock('./room-lobby-cleanup', () => ({
 
 vi.mock('./ws-shared', () => ({
   broadcastRoomPresenceNow: mocks.broadcastRoomPresenceNow,
+  presenceDisplayNameForSession: (sessionId: string, displayNameAttr: unknown) =>
+    typeof displayNameAttr === 'string' && displayNameAttr.trim() !== ''
+      ? displayNameAttr.trim()
+      : `Guest-${sessionId}`,
+}));
+
+vi.mock('./ws-chat-system-shared', () => ({
+  isWithinJoinReconnectCooldown: vi.fn(async () => false),
+  fanOutChatSystem: vi.fn(async () => undefined),
 }));
 
 import { handler } from './ws-connect';
@@ -66,6 +75,13 @@ describe('ws-connect handler', () => {
     expect(mocks.clearLobbyCleanupPending).toHaveBeenCalledWith(
       expect.objectContaining({ roomsTable: 'rooms', roomId: 'room-1' }),
     );
+
+    const transact = mocks.docSend.mock.calls.find(
+      (call) => (call[0] as { kind?: string }).kind === 'TransactWrite',
+    )?.[0] as { input?: { TransactItems?: Array<{ Put?: { Item?: Record<string, unknown> } }> } };
+    const presencePut = transact?.input?.TransactItems?.[1]?.Put?.Item;
+    expect(presencePut?.lastActiveAt).toEqual(expect.any(Number));
+    expect(presencePut?.fanSub).toBe('host-sub-1');
   });
 
   it('does not clear pending cleanup for guest connections', async () => {
@@ -87,5 +103,12 @@ describe('ws-connect handler', () => {
     );
 
     expect(mocks.clearLobbyCleanupPending).not.toHaveBeenCalled();
+
+    const transact = mocks.docSend.mock.calls.find(
+      (call) => (call[0] as { kind?: string }).kind === 'TransactWrite',
+    )?.[0] as { input?: { TransactItems?: Array<{ Put?: { Item?: Record<string, unknown> } }> } };
+    const presencePut = transact?.input?.TransactItems?.[1]?.Put?.Item;
+    expect(presencePut?.lastActiveAt).toBeUndefined();
+    expect(presencePut?.fanSub).toBeUndefined();
   });
 });

@@ -10,7 +10,8 @@ import { isEmojiOnlyChatMessage } from './chatEmojiDisplay'
 import { isContinuedChatLine } from './chatMessageGrouping'
 import type { ReactionsByMessage } from './chatReactions'
 import type { ParticipantAvController } from './sfu/participantAvSession'
-import type { ChatLine, PresenceMember, RoomSidebarTab } from './roomPageTypes'
+import type { ChatLine, PresenceMember, RemoteTypingEntry, RoomSidebarTab } from './roomPageTypes'
+import { formatChatSystemText } from './chatSystemLine'
 import { resolveMemberAvatarUrl } from './roomPageTypes'
 import type { GiphySearchResult } from '../api/giphySearchApi'
 import {
@@ -29,9 +30,11 @@ type RoomPageSidebarProps = {
   viewerCount: number
   chat: ChatLine[]
   chatReactions: ReactionsByMessage
+  remoteTyping: RemoteTypingEntry[]
   chatMemberLabels: Map<string, string>
   chatDraft: string
   setChatDraft: (draft: string) => void
+  notifyComposeBlur: () => void
   chatLogRef: RefObject<HTMLUListElement | null>
   chatInputRef: RefObject<HTMLInputElement | null>
   showJumpToLatest: boolean
@@ -75,9 +78,11 @@ export function RoomPageSidebar({
   viewerCount,
   chat,
   chatReactions,
+  remoteTyping,
   chatMemberLabels,
   chatDraft,
   setChatDraft,
+  notifyComposeBlur,
   chatLogRef,
   chatInputRef,
   showJumpToLatest,
@@ -172,6 +177,18 @@ export function RoomPageSidebar({
           <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
             <ul ref={chatLogRef} className="riffsync-room-chat-log">
               {chat.map((m, index) => {
+                if (m.kind === 'system') {
+                  return (
+                    <li
+                      key={m.messageId}
+                      className="riffsync-room-chat-log__row riffsync-room-chat-log__row--system"
+                    >
+                      <p className="riffsync-room-chat-log__system-line" role="status">
+                        {formatChatSystemText(m.displayName, m.systemEvent)}
+                      </p>
+                    </li>
+                  )
+                }
                 const chatDisplayName =
                   (m.displayName && m.displayName.trim() !== ''
                     ? m.displayName
@@ -233,6 +250,20 @@ export function RoomPageSidebar({
                   </li>
                 )
               })}
+              {remoteTyping.map((entry) => (
+                <li
+                  key={`typing-${entry.sessionId}`}
+                  className="riffsync-room-chat-log__row riffsync-room-chat-log__row--typing"
+                >
+                  <p className="riffsync-room-chat-log__typing-line" role="status" aria-live="polite">
+                    <span className="riffsync-room-chat-log__typing-name">{entry.displayName}</span>
+                    <span aria-hidden="true"> is typing</span>
+                    <span className="riffsync-room-chat-log__typing-ellipsis" aria-hidden="true">
+                      …
+                    </span>
+                  </p>
+                </li>
+              ))}
             </ul>
           </div>
         ) : null}
@@ -266,6 +297,12 @@ export function RoomPageSidebar({
                           p.displayName
                         )}
                         {p.sessionId === sessionId ? <span className="riffsync-muted"> · you</span> : null}
+                        {p.active ? (
+                          <span className="riffsync-room-page__active-badge" aria-label="Active">
+                            <span className="riffsync-room-page__active-dot" aria-hidden="true" />
+                            Active
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                   </li>
@@ -413,6 +450,9 @@ export function RoomPageSidebar({
                   disabled={!fanToken}
                   onChange={(e) => {
                     if (fanToken) setChatDraft(e.target.value)
+                  }}
+                  onBlur={() => {
+                    if (fanToken) notifyComposeBlur()
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && fanToken && !chatComposeStatus.disableSubmit) sendChat()

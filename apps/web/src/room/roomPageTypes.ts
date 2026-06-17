@@ -1,13 +1,19 @@
 import type { ChatGifLine, ChatTextLine } from './sessions/ChatSession'
+import type { ChatSystemLine } from './chatSystemLine'
+import type { RemoteTypingEntry } from './chatTypingIndicators'
 
-export type ChatLine = ChatTextLine | ChatGifLine
+export type ChatLine = ChatTextLine | ChatGifLine | ChatSystemLine
 
 export type PresenceMember = {
   sessionId: string
   displayName: string
   isHost: boolean
+  active?: boolean
+  lastActiveAt?: number
   avatarUrl?: string
 }
+
+export type { RemoteTypingEntry }
 
 export type RoomSidebarTab = 'chat' | 'people' | 'room' | 'profile'
 

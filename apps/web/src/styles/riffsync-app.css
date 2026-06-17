@@ -1510,6 +1510,75 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   vertical-align: middle;
 }
 
+.riffsync-room-page__active-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin-left: 0.4rem;
+  padding: 0.12rem 0.42rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  color: rgb(120 190 130);
+  border: 1px solid rgb(120 190 130 / 0.35);
+  vertical-align: middle;
+}
+
+.riffsync-room-page__active-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: rgb(100 175 110);
+  flex-shrink: 0;
+}
+
+.riffsync-room-chat-log__row--system {
+  justify-content: center;
+}
+
+.riffsync-room-chat-log__system-line {
+  margin: 0.15rem 0;
+  font-size: 0.78rem;
+  color: rgb(255 255 255 / 0.45);
+  text-align: center;
+}
+
+.riffsync-room-chat-log__row--typing {
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
+}
+
+.riffsync-room-chat-log__typing-line {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.riffsync-room-chat-log__typing-name {
+  font-weight: 600;
+}
+
+.riffsync-room-chat-log__typing-ellipsis {
+  display: inline-block;
+  margin-left: 0.15rem;
+  letter-spacing: 0.12em;
+  animation: riffsync-typing-ellipsis 1.2s steps(3, end) infinite;
+}
+
+@keyframes riffsync-typing-ellipsis {
+  0% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
 .riffsync-room-page__person-label strong {
   font-weight: 700;
 }

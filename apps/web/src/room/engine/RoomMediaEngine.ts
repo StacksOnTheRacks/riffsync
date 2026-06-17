@@ -9,6 +9,13 @@ import {
   type ReactionsByMessage,
 } from '../chatReactions'
 import { mergeChatHistory } from '../chatHistoryMerge'
+import { buildChatSystemLine } from '../chatSystemLine'
+import {
+  applyInboundTyping,
+  listRemoteTyping,
+  pruneExpiredTyping,
+  type RemoteTypingEntry,
+} from '../chatTypingIndicators'
 import { createChatMessageId } from '../chatMessageId'
 import { avDisabledAnnounceCopy, roomModeAnnounceCopy } from '../hostRoomControls'
 import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
@@ -51,6 +58,7 @@ export type RoomMediaEngineSnapshot = {
   chat: ChatLine[]
   chatReactions: ReactionsByMessage
   chatDraft: string
+  remoteTyping: RemoteTypingEntry[]
   peopleShown: PresenceMember[]
   participantAvController: ParticipantAvController | null
   drawerPresentation: ReturnType<RoomMediaEngine['getDrawerPresentation']>
@@ -127,6 +135,8 @@ export class RoomMediaEngine {
   private theaterPlaybackSnapshot: TheaterPlaybackSnapshot = this.sdk.getTheaterSnapshot()
   private chat: ChatLine[] = []
   private chatReactions: ReactionsByMessage = {}
+  private remoteTypingBySession = new Map<string, RemoteTypingEntry>()
+  private typingPruneTimer: ReturnType<typeof setInterval> | null = null
   private participantAvVideoConsumers = new Map<string, ParticipantAvVideoConsumer>()
   private presenceRoster: { roomId: string; members: PresenceMember[] } = {
     roomId: '',
@@ -172,6 +182,10 @@ export class RoomMediaEngine {
       chat: this.chat,
       chatReactions: this.chatReactions,
       chatDraft: this.chatDraft,
+      remoteTyping: listRemoteTyping(
+        this.remoteTypingBySession,
+        opts?.sessionId ?? '',
+      ),
       peopleShown,
       participantAvController: participantAvController ?? null,
       drawerPresentation: this.getDrawerPresentation(opts?.isPublisher === true),
@@ -215,13 +229,45 @@ export class RoomMediaEngine {
         this.notify()
       },
       onChatHistory: (event) => {
-        const merged = mergeChatHistory(this.chat, this.chatReactions, event)
+        const durableOnly = this.chat.filter((line) => line.kind !== 'system')
+        const merged = mergeChatHistory(durableOnly, this.chatReactions, event)
         this.chat = merged.chat
         this.chatReactions = merged.chatReactions
         this.notify()
       },
       onPresence: (event) => {
-        this.presenceRoster = event
+        this.presenceRoster = {
+          roomId: event.roomId,
+          members: event.members.map((member) => ({
+            sessionId: member.sessionId,
+            displayName: member.displayName,
+            isHost: member.isHost,
+            ...(member.active === true ? { active: true } : member.active === false ? { active: false } : {}),
+            ...(member.lastActiveAt !== undefined ? { lastActiveAt: member.lastActiveAt } : {}),
+            ...(member.avatarUrl !== undefined ? { avatarUrl: member.avatarUrl } : {}),
+          })),
+        }
+        this.notify()
+      },
+      onTyping: (event) => {
+        this.remoteTypingBySession = applyInboundTyping(this.remoteTypingBySession, {
+          sessionId: event.sessionId,
+          displayName: event.displayName,
+          action: event.action,
+        })
+        this.ensureTypingPruneTimer()
+        this.notify()
+      },
+      onChatSystem: (event) => {
+        this.chat = [
+          ...this.chat,
+          buildChatSystemLine({
+            sessionId: event.sessionId,
+            displayName: event.displayName,
+            systemEvent: event.event,
+            ts: event.ts,
+          }),
+        ]
         this.notify()
       },
       onRoomModeUi: (event) => {
@@ -253,7 +299,12 @@ export class RoomMediaEngine {
       roomControlHandlers,
       onDiagnosticsChange: (next) => {
         this.diagnostics = next
-        this.wsStatus = this.sdk.getChatStatus()
+        const nextWsStatus = this.sdk.getChatStatus()
+        if (nextWsStatus !== 'open' && this.remoteTypingBySession.size > 0) {
+          this.remoteTypingBySession = new Map()
+          this.clearTypingPruneTimer()
+        }
+        this.wsStatus = nextWsStatus
         this.updateConnectionFromDiagnostics()
         this.notify()
       },
@@ -377,7 +428,12 @@ export class RoomMediaEngine {
 
   setChatDraft(draft: string): void {
     this.chatDraft = draft
+    this.sdk.notifyComposeDraftChange(draft)
     this.notify()
+  }
+
+  notifyComposeBlur(): void {
+    this.sdk.notifyComposeBlur()
   }
 
   sendControl(payload: Record<string, unknown>): boolean {
@@ -390,6 +446,7 @@ export class RoomMediaEngine {
     if (!txt) return
     const sent = this.sendControl({ action: 'chat', text: txt, messageId: createChatMessageId() })
     if (sent) {
+      this.sdk.notifyComposeSent()
       this.chatDraft = ''
       this.notify()
     }
@@ -512,6 +569,8 @@ export class RoomMediaEngine {
   }
 
   private resetSession(): void {
+    this.clearTypingPruneTimer()
+    this.remoteTypingBySession = new Map()
     this.hostScreenCleanup?.()
     this.hostScreenCleanup = null
     this.participantAvUnsub?.()
@@ -525,6 +584,27 @@ export class RoomMediaEngine {
     this.connection = transitionRoomMediaConnection(this.connection, 'tornDown')
     this.wsStatus = 'idle'
     this.diagnostics = null
+    this.chat = []
+    this.chatReactions = {}
+  }
+
+  private ensureTypingPruneTimer(): void {
+    if (this.typingPruneTimer) return
+    this.typingPruneTimer = setInterval(() => {
+      const pruned = pruneExpiredTyping(this.remoteTypingBySession)
+      if (pruned.size === this.remoteTypingBySession.size) return
+      this.remoteTypingBySession = pruned
+      if (pruned.size === 0) {
+        this.clearTypingPruneTimer()
+      }
+      this.notify()
+    }, 500)
+  }
+
+  private clearTypingPruneTimer(): void {
+    if (!this.typingPruneTimer) return
+    clearInterval(this.typingPruneTimer)
+    this.typingPruneTimer = null
   }
 
   private getIceServers(): Promise<RTCIceServer[]> {

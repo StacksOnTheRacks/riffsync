@@ -2,7 +2,9 @@ import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { markLobbyCleanupPendingIfLastHostGone } from './room-lobby-cleanup';
-import { broadcastRoomPresenceNow } from './ws-shared';
+import { fanOutChatSystem, recordFanDisconnectJoinCooldown } from './ws-chat-system-shared';
+import { fanOutTyping } from './ws-typing-shared';
+import { broadcastRoomPresenceNow, presenceDisplayNameForSession } from './ws-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -24,6 +26,9 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   );
   const roomId = typeof prior.Item?.roomId === 'string' ? prior.Item.roomId : undefined;
   const presenceKey = typeof prior.Item?.presenceKey === 'string' ? prior.Item.presenceKey : undefined;
+  const sessionId = typeof prior.Item?.sessionId === 'string' ? prior.Item.sessionId : undefined;
+  const fanSub = typeof prior.Item?.fanSub === 'string' ? prior.Item.fanSub : undefined;
+  const displayNameAttr = prior.Item?.displayName;
   const departingWasHost =
     typeof prior.Item?.hostSub === 'string' && (prior.Item.hostSub as string).length > 0;
 
@@ -35,6 +40,34 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   );
 
   if (roomId) {
+    if (fanSub) {
+      await recordFanDisconnectJoinCooldown(client, presenceTable, roomId, fanSub).catch(() => undefined);
+    }
+
+    if (sessionId) {
+      const displayName = presenceDisplayNameForSession(sessionId, displayNameAttr);
+      if (fanSub) {
+        await fanOutChatSystem({
+          doc: client,
+          connectionsTable: connTable,
+          presenceTable,
+          roomId,
+          sessionId,
+          displayName,
+          event: 'leave',
+        }).catch(() => undefined);
+      }
+      await fanOutTyping({
+        doc: client,
+        connectionsTable: connTable,
+        presenceTable,
+        roomId,
+        sessionId,
+        displayName,
+        action: 'stop',
+      }).catch(() => undefined);
+    }
+
     await client
       .send(
         new DeleteCommand({

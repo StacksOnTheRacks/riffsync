@@ -18,8 +18,10 @@ import {
   type ChatReactionEvent,
   type ChatSessionStatus,
   type ChatTextLine,
+  type ChatSystemEvent,
   type PresenceEvent,
   type RoomModeEvent,
+  type TypingEvent,
 } from './ChatSession'
 import { SfuMediaSession, type SfuMediaSessionStatus } from './SfuMediaSession'
 import { collectActiveErrorCodes } from '../realtimeDrawerErrors'
@@ -73,6 +75,8 @@ export type RoomControlHandlers = {
   onChatReaction?: (event: ChatReactionEvent) => void
   onChatHistory?: (event: ChatHistoryEvent) => void
   onPresence?: (event: PresenceEvent) => void
+  onTyping?: (event: TypingEvent) => void
+  onChatSystem?: (event: ChatSystemEvent) => void
   onRoomModeUi?: (event: RoomModeEvent) => void
   onAvDisabledUi?: (event: AvDisabledEvent) => void
 }
@@ -341,6 +345,18 @@ export class RoomRealtimeSdk {
     return sent
   }
 
+  notifyComposeDraftChange(draft: string): void {
+    this.chat?.onComposeDraftChange(draft)
+  }
+
+  notifyComposeBlur(): void {
+    this.chat?.onComposeBlur()
+  }
+
+  notifyComposeSent(): void {
+    this.chat?.onComposeSent()
+  }
+
   getChatStatus(): ChatSessionStatus {
     return this.chat?.getStatus() ?? 'idle'
   }
@@ -601,6 +617,8 @@ export class RoomRealtimeSdk {
     if (handlers.onChatReaction) maybePush(chat.onChatReaction(handlers.onChatReaction))
     if (handlers.onChatHistory) maybePush(chat.onChatHistory(handlers.onChatHistory))
     if (handlers.onPresence) maybePush(chat.onPresence(handlers.onPresence))
+    if (handlers.onTyping) maybePush(chat.onTyping(handlers.onTyping))
+    if (handlers.onChatSystem) maybePush(chat.onChatSystem(handlers.onChatSystem))
   }
 
   private async bootstrapMediaPlanes(): Promise<void> {

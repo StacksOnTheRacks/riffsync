@@ -790,7 +790,7 @@ export class ApiCatalogStack extends cdk.Stack {
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
-      description: `RiffSync WebSocket (${environment}) — ping, presence_request, chat, chat_gif, react, share_state, leave`,
+      description: `RiffSync WebSocket (${environment}) — ping, presence_request, chat, chat_gif, react, typing_start, typing_stop, share_state, leave`,
       routeSelectionExpression: '$request.body.action',
     });
 
@@ -838,6 +838,7 @@ export class ApiCatalogStack extends cdk.Stack {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
         ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
+        WS_MANAGEMENT_API_ENDPOINT: wsMgmtEndpoint,
         HOST_DISCONNECT_GRACE_MS: String(hostDisconnectGraceMs),
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -868,6 +869,8 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomChatTable.grantReadWriteData(wsRouteFn);
     this.fanProfilesTable.grantReadData(wsRouteFn);
     this.webSocketApi.grantManageConnections(wsRouteFn);
+    this.webSocketApi.grantManageConnections(wsConnectFn);
+    this.webSocketApi.grantManageConnections(wsDisconnectFn);
 
     roomPatchFn.addEnvironment('WS_MANAGEMENT_API_ENDPOINT', wsMgmtEndpoint);
     roomPatchFn.addEnvironment('CONNECTIONS_TABLE_NAME', this.connectionsTable.tableName);
@@ -897,6 +900,8 @@ export class ApiCatalogStack extends cdk.Stack {
       'chat_gif',
       'react',
       'rename',
+      'typing_start',
+      'typing_stop',
       'share_state',
       'leave',
     ] as const) {

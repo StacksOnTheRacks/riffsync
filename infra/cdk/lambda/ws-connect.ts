@@ -3,7 +3,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyAccessToken } from './cognito-jwt';
 import { clearLobbyCleanupPending } from './room-lobby-cleanup';
-import { broadcastRoomPresenceNow } from './ws-shared';
+import { fanOutChatSystem, isWithinJoinReconnectCooldown } from './ws-chat-system-shared';
+import { broadcastRoomPresenceNow, presenceDisplayNameForSession } from './ws-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -85,7 +86,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     presenceKey,
     sessionId,
     ...(displayName ? { displayName } : {}),
-    ...(fanSub ? { fanSub } : {}),
+    ...(fanSub ? { fanSub, lastActiveAt: nowSec } : {}),
     ...(hostSub ? { hostSub } : {}),
     connectedAt: nowSec,
     lastSeenAt: nowSec,
@@ -133,6 +134,25 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   await broadcastRoomPresenceNow({ doc: client, connectionsTable: connTable, roomPresenceTable: presenceTable, roomId }).catch(
     () => undefined,
   );
+
+  if (fanSub) {
+    const inCooldown = await isWithinJoinReconnectCooldown(client, presenceTable, roomId, fanSub, nowSec).catch(
+      () => false,
+    );
+    if (!inCooldown) {
+      const rosterDisplayName = presenceDisplayNameForSession(sessionId, displayName);
+      await fanOutChatSystem({
+        doc: client,
+        connectionsTable: connTable,
+        presenceTable,
+        roomId,
+        sessionId,
+        displayName: rosterDisplayName,
+        event: 'join',
+        except: connectionId,
+      }).catch(() => undefined);
+    }
+  }
 
   return { statusCode: 200, body: 'Connected' };
 };

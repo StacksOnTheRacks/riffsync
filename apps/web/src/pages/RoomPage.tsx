@@ -111,8 +111,10 @@ export function RoomPage() {
     sendJson,
     chat,
     chatReactions,
+    remoteTyping,
     chatDraft,
     setChatDraft,
+    notifyComposeBlur,
     sendChat,
     sendChatGif,
     toggleChatReaction,
@@ -389,9 +391,11 @@ export function RoomPage() {
             viewerCount={viewerCount}
             chat={chat}
             chatReactions={chatReactions}
+            remoteTyping={remoteTyping}
             chatMemberLabels={chatMemberLabels}
             chatDraft={chatDraft}
             setChatDraft={setChatDraft}
+            notifyComposeBlur={notifyComposeBlur}
             chatLogRef={chatLogRef}
             chatInputRef={chatInputRef}
             showJumpToLatest={showJumpToLatest}
