@@ -24,6 +24,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 - **Typing indicator:** When a signed-in fan sends **`typing_start`** on the room WebSocket, other participants see an **ellipsis** affordance associated with that sender in the chat log (e.g. **"DisplayName is typing…"** or inline ellipsis row). **Typing start** also marks the sender **active** on the **People** tab. Indicator clears on send, **`typing_stop`**, disconnect, or TTL expiry (exact TTL tier TW). **Do not** imply message archive — typing is ephemeral like chat scrollback.
 - **Join/leave system lines:** When a **signed-in fan** connects or disconnects, other participants see a muted **system line** in the chat log (e.g. **"DisplayName joined"** / **"DisplayName left"**). **Anonymous guests** produce **no** system line. Lines are **ephemeral** (in-memory scrollback only) and **not** replayed from server on refresh or **`presence_request`**.
 - **People tab presence:** Each roster row shows **online** (connected) by default. Rows also show an **active** badge when server **`active`** is true (derived from **`lastActiveAt`** within the **2-minute** window). **Host** row follows the same badge rules. **Active badge visual:** muted green dot plus **Active** text chip (same visual weight as **Host** badge); **`aria-label`** includes active state. Badges are **visual only** on **People** — not duplicated as stage chrome for mic-only participants except **speaking** (below).
+- **People tab producer state (M23):** Each roster row shows **camera** and **microphone** affordances derived from live SFU producer lifecycle per **`sessionId`**: cam **on** when video producer live; mic **on** when audio producer live; mic **muted** when audio producer **`paused`**; mic **off** when no audio producer. Updates within one React commit of **`newProducer`** / **`producerClosed`**. Not persisted server-side.
 
 ## Watch party participant AV (`/room/:roomId`)
 
@@ -105,7 +106,7 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 - Visible only when **`JWT.sub === hostSub`**.
 - Flex row directly below the stage: **room layout** segmented control (**Theater** default, **Video Chat** alternate) on the left; **Disable room A/V** kill switch on the right. Wraps on narrow widths; extension point for future host share controls.
-- When **`avDisabled`** is false, the **Video Chat** segment carries a visible **Beta** or **Experimental** label adjacent to the control text (host-only; not a guest-facing mode pill). When **AV kill switch** is on, **Video Chat** selection is unavailable or inert until AV is re-enabled.
+- When **`avDisabled`** is false, the **Video Chat** segment carries visible **Beta** text adjacent to the control label (host-only; not a guest-facing mode pill). **`aria-describedby`** / tooltip: **`Video Chat layout is experimental. Participant video quality and reliability are still improving.`** When **AV kill switch** is on, **Video Chat** selection is unavailable or inert until AV is re-enabled (Beta chrome hidden with inert segment).
 
 ### Participant camera/microphone toggles
 
@@ -120,7 +121,7 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 - Shared movie player (host tab-capture / guest inbound screen-share stream) stays **primary**.
 - On viewports **≥ 992px**, a **vertical participant strip** sits **immediately right of the video** within the stage region (not in the chat column).
 - Strip lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab).
-- **Speaking affordance:** when a participant's mic is unmuted and energy crosses threshold, show a **speaking border or glow** on that participant's strip tile. **Mic-only** participants **do not** get strip tiles; their speaking state appears on **People** roster rows only.
+- **Speaking affordance:** when a participant's mic is unmuted and client VAD crosses threshold (**`execution_model.md`** M23 params), show a **speaking border or glow** on that participant's strip tile. **Mic-only** participants **do not** get strip tiles; their speaking state appears on **People** roster rows only. Under **`prefers-reduced-motion: reduce`**, use a static high-contrast border instead of animated glow.
 - **Mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat). **No** avatar chips or audible-only tile badges.
 - The **local publisher** appears in the strip when their camera is on, labeled **You** (live preview tile).
 - The **host** appears in the strip when their camera is on, same as other signed-in fans.
@@ -201,13 +202,22 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | People badges? | **Online** (connected) + **active** (2-minute window) on roster rows; host row included. |
 | Speaking on tiles? | **Yes** — border/glow on Theater strip and Video Chat grid when video on and mic unmuted. |
 | Mic-only speaking? | **People tab rows only** — no stage tile or audible-only chrome. |
-| Video Chat label? | **Beta** / **Experimental** on host control bar segment when **`avDisabled`** is false. |
+| Video Chat label? | **Beta** on host control bar segment when **`avDisabled`** is false; tooltip per host control bar section. |
+| People cam/mic icons? | **Yes** — live SFU producer state per **`sessionId`**; mic muted vs off distinct. |
+| Speaking VAD? | **`fftSize` 512**, RMS **≥ 0.02**, **150ms** attack, **300ms** hang — **`execution_model.md`**. |
 | Separate chat vs video-relay drawers? | **Unchanged** — independent banners per **`getDiagnostics().drawers`**; no combined copy. |
+
+## Decisions (answered — M23 layout polish #242)
+
+| Topic | Decision |
+| --- | --- |
+| **Layout timeout copy** | After **3s** without consumers attached, keep direction-neutral sparse state — **do not** append alternate **Updating room layout…** variants. |
+| **Video Chat empty grid** | **`No cameras on yet. Mic-only participants are still audible.`** |
+| **Theater before capture** | Host **Share Source Tab** prompt in existing stage status region. |
 
 ## Open implementation decisions
 
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
-- **Mode-transition copy variants:** whether **"Updating room layout…"** varies by Theater ↔ Video Chat direction or sparse-state follow-up when **3s** elapses without consumers attached.
 - **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions (#157); not #150.
 
 ## Primary code pointers (optional)

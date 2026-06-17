@@ -208,11 +208,19 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | **`active` at broadcast** | Server precomputes **`active`** on each **`presence`** member and includes **`lastActiveAt`** when set; clients use server **`active`** for People badges. |
 | **Typing indicator TTL** | Client clears ellipsis **5s** after last inbound **`typing_start`** without **`typing_stop`**; server does not persist typing state. |
 
+## Decisions (answered — M23 participant A/V reliability #242)
+
+| Topic | Decision |
+| --- | --- |
+| **Per-class send transport isolation** | **`host_screen`** and **`participant_av`** each own a send transport on the same SFU signaling socket; class-scoped failure or partial unpublish **must not** session **`close()`** or tear down the sibling class. |
+| **`host_screen` survival** | Participant camera/mic toggle, partial unpublish, or recoverable device errors **must not** stop host tab-capture or unpublish **`host_screen`** unless explicit media policy applies (**`room_mode`**, **`avDisabled`**, room leave). |
+| **People cam/mic state** | Client derives per-**`sessionId`** cam on, mic on, mic muted (**audio `paused`**) from live SFU producer registry — not persisted on **RoomPresence**. |
+| **Speaking VAD** | Client **`AnalyserNode`**: **`fftSize` 512**, normalized RMS **≥ 0.02** enter, **150ms** attack smoothing, **300ms** hang before clear; no speaking when audio producer **`paused`**. |
+| **Mode transition empty-state** | **Video Chat** zero cameras: **`No cameras on yet. Mic-only participants are still audible.`** **Theater** before capture: host **Share Source Tab** prompt in stage chrome. After **3s** layout timeout: keep sparse copy — **do not** vary **Updating room layout…** by direction. |
+
 ## Open implementation decisions
 
-- **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
-- **Mode transition empty-state UX:** copy and layout when switching to **Video Chat** with zero video-on participants, or **Theater** before host has started tab-capture (**`interface/presentation.md`**).
-- **Speaking threshold calibration:** mic energy / VAD sensitivity and debounce for tile vs People row affordance — **M23** (#242).
+_(None for M23 #242 scope.)_
 
 ## Decisions (theater mic mix on host_screen close — #145)
 

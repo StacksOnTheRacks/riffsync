@@ -177,9 +177,17 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 | **`typing_stop` triggers** | Message send, compose blur, or **3s** without keystroke. |
 | **Ellipsis expiry** | **5s** after last inbound **`typing_start`** without **`typing_stop`**. |
 
+## Decisions (answered — M23 speaking flows #242)
+
+| Topic | Decision |
+| --- | --- |
+| **VAD params** | Same as **`runtime/execution_model.md`** M23 table — **150ms** attack, **300ms** hang, RMS **≥ 0.02**. |
+| **Tile vs People** | Tiles: speaking only when video consumer attached. People: speaking for mic-only and video-on when VAD active and mic not **`paused`**. |
+| **Clear triggers** | **`producerClosed`**, kill switch, mic mute (**`pause`**), camera-off (tile speaking only). |
+
 ## Open implementation decisions
 
-- **Speaking VAD debounce:** threshold and hold time before border/glow clears — **M23** (#242).
+_(None for M23 #242 scope.)_
 
 ## Primary code pointers (optional)
 

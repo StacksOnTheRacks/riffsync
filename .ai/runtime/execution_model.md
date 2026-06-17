@@ -380,9 +380,19 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 | **Compose debounce** | **300ms** trailing debounce before first **`typing_start`** in a burst; **`typing_stop`** on send, blur, or **3s** idle without keystroke. |
 | **Inbound typing TTL** | Clear local typing UI **5s** after last **`typing_start`** without **`typing_stop`**. |
 
+## Decisions (answered — M23 speaking VAD #242)
+
+| Topic | Decision |
+| --- | --- |
+| **Analyser config** | **`fftSize` 512**; time-domain RMS normalized to **0–1** against full-scale int16. |
+| **Enter speaking** | RMS **≥ 0.02** for **150ms** consecutive samples (attack smoothing). |
+| **Exit speaking** | RMS below threshold for **300ms** (hang) before clearing affordance. |
+| **Local vs remote** | Local: attach analyser to **`getUserMedia`** audio track when mic publishing and not **`paused`**. Remote: attach to inbound **`participant_av`** audio **`MediaStreamTrack`** when consumer live and producer not **`paused`**. |
+| **Muted mic** | Audio producer **`pause()`** — VAD **off**; no speaking affordance on tile or People row. |
+| **Implementation owner** | **`apps/web/src/room/audio/speakingVad.ts`** (or colocated helper); sub-issue **#249**. |
+
 ## Open implementation decisions
 
-- **Speaking VAD tuning** — analyser threshold, hang time, and remote-track attach policy (implementation; **M23** #242).
 - **Harness extension (M24)** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`** (**#243**).
 
 ## Primary code pointers (optional)
