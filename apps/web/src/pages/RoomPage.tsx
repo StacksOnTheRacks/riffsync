@@ -119,6 +119,7 @@ export function RoomPage() {
     sendChatGif,
     toggleChatReaction,
     peopleShown,
+    participantProducerBySessionId,
     chatMemberLabels,
     sfuConfigAlert,
     chatDrawerBanner,
@@ -407,6 +408,7 @@ export function RoomPage() {
             sendChatGif={sendChatGif}
             toggleChatReaction={toggleChatReaction}
             peopleShown={peopleShown}
+            participantProducerBySessionId={participantProducerBySessionId}
             isPublisher={isPublisher}
             experimentalFeatures={experimentalFeatures}
             shareHint={shareHint}

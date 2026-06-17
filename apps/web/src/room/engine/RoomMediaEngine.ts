@@ -27,6 +27,7 @@ import {
 import { buildStageParticipantTiles } from '../stage/stageParticipantTiles'
 import { selectDrawerPresentation } from '../drawerErrorPresentation'
 import type { ChatLine, PresenceMember } from '../roomPageTypes'
+import type { ParticipantProducerSnapshot } from '../participantProducerRegistry'
 import {
   RoomRealtimeSdk,
   type RoomControlHandlers,
@@ -65,6 +66,7 @@ export type RoomMediaEngineSnapshot = {
   participantAvVideoConsumers: Map<string, ParticipantAvVideoConsumer>
   presenceRoster: { roomId: string; members: PresenceMember[] }
   participantAvPublishTick: number
+  participantProducerBySessionId: Map<string, ParticipantProducerSnapshot>
   stageParticipantTiles: ReturnType<typeof buildStageParticipantTiles>
 }
 
@@ -144,6 +146,7 @@ export class RoomMediaEngine {
   }
   private participantAvPublishTick = 0
   private participantAvUnsub: (() => void) | null = null
+  private participantProducerRegistryUnsub: (() => void) | null = null
   private cachedSnapshot: RoomMediaEngineSnapshot | null = null
 
   constructor(roomId: string) {
@@ -192,6 +195,9 @@ export class RoomMediaEngine {
       participantAvVideoConsumers: this.participantAvVideoConsumers,
       presenceRoster: this.presenceRoster,
       participantAvPublishTick: this.participantAvPublishTick,
+      participantProducerBySessionId: this.sdk.buildParticipantProducerSnapshots(
+        peopleShown.map((member) => member.sessionId),
+      ),
       stageParticipantTiles: buildStageParticipantTiles({
         roster: peopleShown,
         videoConsumers: this.participantAvVideoConsumers,
@@ -347,6 +353,11 @@ export class RoomMediaEngine {
         this.notify()
       })
     }
+
+    this.participantProducerRegistryUnsub?.()
+    this.participantProducerRegistryUnsub = this.sdk.onParticipantProducerRegistryChange(() => {
+      this.notify()
+    })
 
     emitClientDrawerLog({
       drawer: 'signaling',

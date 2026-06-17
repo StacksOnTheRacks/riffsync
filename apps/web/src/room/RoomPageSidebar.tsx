@@ -13,6 +13,10 @@ import type { ParticipantAvController } from './sfu/participantAvSession'
 import type { ChatLine, PresenceMember, RemoteTypingEntry, RoomSidebarTab } from './roomPageTypes'
 import { formatChatSystemText } from './chatSystemLine'
 import { resolveMemberAvatarUrl } from './roomPageTypes'
+import type { ParticipantProducerSnapshot } from './participantProducerRegistry'
+import { EMPTY_PARTICIPANT_PRODUCER_SNAPSHOT } from './participantProducerRegistry'
+import { PeopleRowAvIndicators } from './PeopleRowAvIndicators'
+import { shouldShowPeopleAvIndicators } from './peoplePresentation'
 import type { GiphySearchResult } from '../api/giphySearchApi'
 import {
   RIFFSYNC_CHAT_COMPOSE_STATUS_ID,
@@ -46,6 +50,7 @@ type RoomPageSidebarProps = {
   sendChatGif: (result: GiphySearchResult) => void
   toggleChatReaction: (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => void
   peopleShown: PresenceMember[]
+  participantProducerBySessionId: Map<string, ParticipantProducerSnapshot>
   isPublisher: boolean
   experimentalFeatures: boolean
   shareHint: string | null
@@ -94,6 +99,7 @@ export function RoomPageSidebar({
   sendChatGif,
   toggleChatReaction,
   peopleShown,
+  participantProducerBySessionId,
   isPublisher,
   experimentalFeatures,
   shareHint,
@@ -278,6 +284,14 @@ export function RoomPageSidebar({
                   sessionId,
                   myAvatarUrl,
                 )
+                const producerSnapshot =
+                  participantProducerBySessionId.get(p.sessionId) ??
+                  EMPTY_PARTICIPANT_PRODUCER_SNAPSHOT
+                const showAvIndicators = shouldShowPeopleAvIndicators(
+                  p.sessionId,
+                  sessionId,
+                  fanToken,
+                )
                 return (
                   <li
                     key={p.sessionId}
@@ -304,6 +318,9 @@ export function RoomPageSidebar({
                           </span>
                         ) : null}
                       </span>
+                      {showAvIndicators ? (
+                        <PeopleRowAvIndicators snapshot={producerSnapshot} />
+                      ) : null}
                     </span>
                   </li>
                 )

@@ -16,6 +16,7 @@ export function applyParticipantAvConsumerEvent(
     next.delete(event.producerId)
     return next
   }
+  if (event.action !== 'attach') return state
   if (event.producerClass !== 'participant_av' || event.kind !== 'video') {
     return state
   }

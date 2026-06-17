@@ -10,6 +10,7 @@ import type { RoomMode, RoomSnapshot } from '../../api/roomsApi'
 import { fetchRtcIceServers } from '../../config/fetchRtcIceServers'
 import type { ParticipantAvController } from '../sfu/participantAvSession'
 import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
+import type { ParticipantProducerSnapshot } from '../participantProducerRegistry'
 import {
   ChatSession,
   type AvDisabledEvent,
@@ -367,6 +368,16 @@ export class RoomRealtimeSdk {
 
   getParticipantAvController(): ParticipantAvController | null {
     return this.sfu?.participantAv ?? null
+  }
+
+  buildParticipantProducerSnapshots(
+    sessionIds: readonly string[],
+  ): Map<string, ParticipantProducerSnapshot> {
+    return this.sfu?.buildParticipantProducerSnapshots(sessionIds) ?? new Map()
+  }
+
+  onParticipantProducerRegistryChange(listener: () => void): () => void {
+    return this.sfu?.onParticipantProducerRegistryChange(listener) ?? (() => undefined)
   }
 
   unpublishHostScreen(): void {

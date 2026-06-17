@@ -248,6 +248,29 @@ export type SfuConsumerTrackEvent =
       track: MediaStreamTrack
     }
   | { action: 'detach'; producerId: string }
+  | {
+      action: 'pause' | 'resume'
+      producerId: string
+      sessionId?: string
+      producerClass: SfuProducerClass | undefined
+      kind: 'audio' | 'video'
+    }
+
+export type SignalingProducerLifecycleEvent =
+  | {
+      action: 'opened'
+      producerId: string
+      sessionId: string
+      producerClass: SfuProducerClass
+      kind: 'audio' | 'video'
+    }
+  | {
+      action: 'closed'
+      producerId: string
+      sessionId?: string
+      producerClass?: SfuProducerClass
+      kind?: 'audio' | 'video'
+    }
 
 export type SfuUnifiedSessionHandle = {
   close: (reason?: SfuSessionEndReason) => void
@@ -280,6 +303,7 @@ export async function connectSfuUnifiedSession(options: {
   getIceServers: () => Promise<RTCIceServer[]>
   onRemoteStream: (stream: MediaStream | null) => void
   onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
+  onSignalingProducerLifecycle?: (event: SignalingProducerLifecycleEvent) => void
   ownSessionId?: string
   onMediaError?: (code: SfuMediaErrorCode, message: string) => void
 }): Promise<SfuUnifiedSessionHandle> {
@@ -290,6 +314,7 @@ export async function connectSfuUnifiedSession(options: {
     getIceServers,
     onRemoteStream,
     onConsumerTrack,
+    onSignalingProducerLifecycle,
     ownSessionId,
     onMediaError,
   } = options
@@ -720,6 +745,19 @@ export async function connectSfuUnifiedSession(options: {
         code: `${summary.producerClass ?? 'unknown'}:${kind}`,
       })
       const { track } = consumer
+      if (summary.producerClass === 'participant_av' && kind === 'audio' && track) {
+        const emitPauseResume = (action: 'pause' | 'resume') => {
+          onConsumerTrack?.({
+            action,
+            producerId,
+            sessionId: summary.sessionId,
+            producerClass: summary.producerClass,
+            kind: 'audio',
+          })
+        }
+        track.addEventListener('mute', () => emitPauseResume('pause'))
+        track.addEventListener('unmute', () => emitPauseResume('resume'))
+      }
       // The theater "view screen" stream must carry host_screen media only.
       // participant_av (camera/mic) reaches the UI exclusively via onConsumerTrack
       // (stage tiles for video, theaterAudioMix for audio); adding it here would
@@ -739,8 +777,34 @@ export async function connectSfuUnifiedSession(options: {
       })
     }
 
+    const emitSignalingProducerLifecycle = (summary: ProducerSummary, action: 'opened' | 'closed') => {
+      const producerClass = summary.producerClass
+      if (!producerClass) return
+      const kind =
+        summary.kind === 'audio' || summary.kind === 'video' ? summary.kind : undefined
+      if (action === 'opened') {
+        if (!summary.sessionId || !kind) return
+        onSignalingProducerLifecycle?.({
+          action: 'opened',
+          producerId: summary.producerId,
+          sessionId: summary.sessionId,
+          producerClass,
+          kind,
+        })
+        return
+      }
+      onSignalingProducerLifecycle?.({
+        action: 'closed',
+        producerId: summary.producerId,
+        sessionId: summary.sessionId,
+        producerClass,
+        kind,
+      })
+    }
+
     const syncFromList = async (list: ProducerSummary[]): Promise<void> => {
       for (const row of list) {
+        emitSignalingProducerLifecycle(row, 'opened')
         await consumeProducer(row)
       }
       emitRemote()
@@ -751,6 +815,15 @@ export async function connectSfuUnifiedSession(options: {
         if (!isRecord(data)) return
         const producerId = typeof data.producerId === 'string' ? data.producerId : ''
         if (!producerId) return
+        emitSignalingProducerLifecycle(
+          {
+            producerId,
+            kind: typeof data.kind === 'string' ? data.kind : '',
+            sessionId: typeof data.sessionId === 'string' ? data.sessionId : undefined,
+            producerClass: parseProducerClass(data.producerClass) ?? undefined,
+          },
+          'closed',
+        )
         detachConsumerByProducerId(producerId)
         emitRemote()
         return
@@ -762,7 +835,9 @@ export async function connectSfuUnifiedSession(options: {
       const sessionId = typeof data.sessionId === 'string' ? data.sessionId : undefined
       const producerClass = parseProducerClass(data.producerClass) ?? undefined
       if (!producerId) return
-      void consumeProducer({ producerId, kind, sessionId, producerClass }).then(() => emitRemote())
+      const summary: ProducerSummary = { producerId, kind, sessionId, producerClass }
+      emitSignalingProducerLifecycle(summary, 'opened')
+      void consumeProducer(summary).then(() => emitRemote())
     }
 
     if (!(await setupRecvTransport())) {
