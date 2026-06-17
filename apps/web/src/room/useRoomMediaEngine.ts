@@ -43,8 +43,10 @@ export function useRoomMediaEngine(options: {
   sendJson: (payload: Record<string, unknown>) => boolean
   chat: ReturnType<RoomMediaEngine['getSnapshot']>['chat']
   chatReactions: ReturnType<RoomMediaEngine['getSnapshot']>['chatReactions']
+  remoteTyping: ReturnType<RoomMediaEngine['getSnapshot']>['remoteTyping']
   chatDraft: string
   setChatDraft: (draft: string) => void
+  notifyComposeBlur: () => void
   sendChat: () => void
   sendChatGif: (result: GiphySearchResult) => void
   toggleChatReaction: (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => void
@@ -227,6 +229,7 @@ export function useRoomMediaEngine(options: {
   )
 
   const setChatDraft = useCallback((draft: string) => engine.setChatDraft(draft), [engine])
+  const notifyComposeBlur = useCallback(() => engine.notifyComposeBlur(), [engine])
   const sendChat = useCallback(() => engine.sendChat(fanToken), [engine, fanToken])
   const sendChatGif = useCallback(
     (result: GiphySearchResult) => engine.sendChatGif(fanToken, result),
@@ -291,8 +294,10 @@ export function useRoomMediaEngine(options: {
     sendJson,
     chat: snapshot.chat,
     chatReactions: snapshot.chatReactions,
+    remoteTyping: snapshot.remoteTyping,
     chatDraft: snapshot.chatDraft,
     setChatDraft,
+    notifyComposeBlur,
     sendChat,
     sendChatGif,
     toggleChatReaction,

@@ -26,6 +26,8 @@ import {
 } from './drawerReconnectPolicy'
 
 const PING_MS = 25_000
+const TYPING_START_DEBOUNCE_MS = 300
+const TYPING_COMPOSE_IDLE_MS = 3_000
 
 export type ChatSessionStatus = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
 
@@ -59,7 +61,25 @@ export type ChatPresenceMember = {
   sessionId: string
   displayName: string
   isHost: boolean
+  active?: boolean
+  lastActiveAt?: number
   avatarUrl?: string
+}
+
+export type TypingEvent = {
+  roomId: string
+  sessionId: string
+  displayName: string
+  action: 'start' | 'stop'
+  ts: number
+}
+
+export type ChatSystemEvent = {
+  roomId: string
+  sessionId: string
+  displayName: string
+  event: 'join' | 'leave'
+  ts: number
 }
 
 export type PresenceEvent = {
@@ -90,6 +110,8 @@ export type ChatInboundRouted =
   | { type: 'chat_reaction'; event: ChatReactionEvent }
   | { type: 'chat_history'; event: ChatHistoryEvent }
   | { type: 'presence'; event: PresenceEvent }
+  | { type: 'typing'; event: TypingEvent }
+  | { type: 'chat_system'; event: ChatSystemEvent }
   | { type: 'share_state'; event: ShareStateEvent }
   | { type: 'room_mode'; event: RoomModeEvent }
   | { type: 'av_disabled'; event: AvDisabledEvent }
@@ -110,6 +132,11 @@ function parseInboundAvatarUrl(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined
   const trimmed = raw.trim()
   return trimmed !== '' ? trimmed : undefined
+}
+
+function parseInboundLastActiveAt(raw: unknown): number | undefined {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return undefined
+  return Math.floor(raw)
 }
 
 function parseHistoryTextLine(raw: Record<string, unknown>): ChatTextLine | null {
@@ -225,14 +252,55 @@ export function routeInboundChatMessage(
       const dn = m.displayName
       if (typeof sid !== 'string' || typeof dn !== 'string') continue
       const avatarUrl = parseInboundAvatarUrl(m.avatarUrl)
+      const lastActiveAt = parseInboundLastActiveAt(m.lastActiveAt)
       members.push({
         sessionId: sid,
         displayName: dn,
         isHost: Boolean(m.isHost),
+        ...(m.active === true ? { active: true } : m.active === false ? { active: false } : {}),
+        ...(lastActiveAt !== undefined ? { lastActiveAt } : {}),
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
       })
     }
     return { type: 'presence', event: { roomId: data.roomId, members } }
+  }
+  if (t === 'typing' && typeof data.roomId === 'string') {
+    if (data.roomId !== canonicalRoomId) return null
+    const sessionId = data.sessionId
+    const displayName = data.displayName
+    const action = data.action
+    if (typeof sessionId !== 'string' || typeof displayName !== 'string') return null
+    if (action !== 'start' && action !== 'stop') return null
+    const ts = typeof data.ts === 'number' ? data.ts : Date.now()
+    return {
+      type: 'typing',
+      event: {
+        roomId: data.roomId,
+        sessionId,
+        displayName,
+        action,
+        ts,
+      },
+    }
+  }
+  if (t === 'chat_system' && typeof data.roomId === 'string') {
+    if (data.roomId !== canonicalRoomId) return null
+    const sessionId = data.sessionId
+    const displayName = data.displayName
+    const systemEvent = data.event
+    if (typeof sessionId !== 'string' || typeof displayName !== 'string') return null
+    if (systemEvent !== 'join' && systemEvent !== 'leave') return null
+    const ts = typeof data.ts === 'number' ? data.ts : Date.now()
+    return {
+      type: 'chat_system',
+      event: {
+        roomId: data.roomId,
+        sessionId,
+        displayName,
+        event: systemEvent,
+        ts,
+      },
+    }
   }
   if (t === 'share_state' && typeof data.roomId === 'string') {
     if (data.roomId !== canonicalRoomId) return null
@@ -264,12 +332,17 @@ export class ChatSession {
   private enabled = false
   private connectOptions: ChatSessionConnectOptions | null = null
   private pageHideListener: (() => void) | null = null
+  private composeTypingStarted = false
+  private typingStartDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  private typingIdleTimer: ReturnType<typeof setTimeout> | null = null
 
   private chatTextListeners = new Set<Listener<ChatTextLine>>()
   private chatGifListeners = new Set<Listener<ChatGifLine>>()
   private chatReactionListeners = new Set<Listener<ChatReactionEvent>>()
   private chatHistoryListeners = new Set<Listener<ChatHistoryEvent>>()
   private presenceListeners = new Set<Listener<PresenceEvent>>()
+  private typingListeners = new Set<Listener<TypingEvent>>()
+  private chatSystemListeners = new Set<Listener<ChatSystemEvent>>()
   private shareStateListeners = new Set<Listener<ShareStateEvent>>()
   private roomModeListeners = new Set<Listener<RoomModeEvent>>()
   private avDisabledListeners = new Set<Listener<AvDisabledEvent>>()
@@ -312,6 +385,56 @@ export class ChatSession {
   onPresence(listener: Listener<PresenceEvent>): () => void {
     this.presenceListeners.add(listener)
     return () => this.presenceListeners.delete(listener)
+  }
+
+  onTyping(listener: Listener<TypingEvent>): () => void {
+    this.typingListeners.add(listener)
+    return () => this.typingListeners.delete(listener)
+  }
+
+  onChatSystem(listener: Listener<ChatSystemEvent>): () => void {
+    this.chatSystemListeners.add(listener)
+    return () => this.chatSystemListeners.delete(listener)
+  }
+
+  /** Signed-in fans only: debounced typing_start / typing_stop on compose changes. */
+  onComposeDraftChange(draft: string): void {
+    this.clearTypingIdleTimer()
+    if (!this.connectOptions?.accessToken) return
+
+    const trimmed = draft.trim()
+    if (trimmed === '') {
+      this.clearTypingStartDebounce()
+      this.emitTypingStopIfNeeded()
+      return
+    }
+
+    this.scheduleTypingIdleStop()
+    if (this.composeTypingStarted || this.typingStartDebounceTimer) return
+
+    this.typingStartDebounceTimer = setTimeout(() => {
+      this.typingStartDebounceTimer = null
+      if (!this.connectOptions?.accessToken || this.composeTypingStarted) return
+      const sent = this.send({ action: 'typing_start' })
+      if (sent) {
+        this.composeTypingStarted = true
+        emitClientDrawerLog({
+          drawer: 'chat',
+          event: 'typing_start_sent',
+          outcome: 'retry',
+        })
+      }
+    }, TYPING_START_DEBOUNCE_MS)
+  }
+
+  onComposeBlur(): void {
+    this.clearTypingTimers()
+    this.emitTypingStopIfNeeded()
+  }
+
+  onComposeSent(): void {
+    this.clearTypingTimers()
+    this.emitTypingStopIfNeeded()
   }
 
   /** Media policy: share_state fan-out (handlers own SFU / playback reactions). */
@@ -392,6 +515,8 @@ export class ChatSession {
     this.cancelled = true
     this.enabled = false
     this.detachPageHide()
+    this.clearTypingTimers()
+    this.emitTypingStopIfNeeded()
     this.clearPing()
     this.clearReconnectTimer()
     this.ws?.close()
@@ -437,6 +562,47 @@ export class ChatSession {
       })
     }
     for (const listener of this.lifecycleListeners) listener(next)
+  }
+
+  private clearTypingStartDebounce(): void {
+    if (this.typingStartDebounceTimer) {
+      clearTimeout(this.typingStartDebounceTimer)
+      this.typingStartDebounceTimer = null
+    }
+  }
+
+  private clearTypingIdleTimer(): void {
+    if (this.typingIdleTimer) {
+      clearTimeout(this.typingIdleTimer)
+      this.typingIdleTimer = null
+    }
+  }
+
+  private clearTypingTimers(): void {
+    this.clearTypingStartDebounce()
+    this.clearTypingIdleTimer()
+  }
+
+  private scheduleTypingIdleStop(): void {
+    this.clearTypingIdleTimer()
+    this.typingIdleTimer = setTimeout(() => {
+      this.typingIdleTimer = null
+      this.emitTypingStopIfNeeded()
+    }, TYPING_COMPOSE_IDLE_MS)
+  }
+
+  private emitTypingStopIfNeeded(): void {
+    if (!this.composeTypingStarted) return
+    this.composeTypingStarted = false
+    if (!this.connectOptions?.accessToken) return
+    const sent = this.send({ action: 'typing_stop' })
+    if (sent) {
+      emitClientDrawerLog({
+        drawer: 'chat',
+        event: 'typing_stop_sent',
+        outcome: 'retry',
+      })
+    }
   }
 
   private clearPing(): void {
@@ -500,6 +666,22 @@ export class ChatSession {
         break
       case 'presence':
         for (const listener of this.presenceListeners) listener(routed.event)
+        break
+      case 'typing':
+        emitClientDrawerLog({
+          drawer: 'chat',
+          event: 'typing_fanout',
+          outcome: 'retry',
+        })
+        for (const listener of this.typingListeners) listener(routed.event)
+        break
+      case 'chat_system':
+        emitClientDrawerLog({
+          drawer: 'chat',
+          event: 'chat_system_fanout',
+          outcome: 'retry',
+        })
+        for (const listener of this.chatSystemListeners) listener(routed.event)
         break
       case 'share_state':
         for (const listener of this.shareStateListeners) listener(routed.event)

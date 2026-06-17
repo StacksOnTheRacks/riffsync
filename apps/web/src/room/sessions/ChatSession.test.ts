@@ -157,6 +157,109 @@ describe('routeInboundChatMessage', () => {
     ).toBeNull()
   })
 
+  it('routes presence with active and lastActiveAt', () => {
+    const routed = routeInboundChatMessage(
+      {
+        type: 'presence',
+        roomId: ROOM,
+        members: [
+          {
+            sessionId: 'sess-a',
+            displayName: 'Alice',
+            isHost: false,
+            active: true,
+            lastActiveAt: 1_700_000_000,
+          },
+        ],
+      },
+      ROOM,
+    )
+    expect(routed).toEqual({
+      type: 'presence',
+      event: {
+        roomId: ROOM,
+        members: [
+          {
+            sessionId: 'sess-a',
+            displayName: 'Alice',
+            isHost: false,
+            active: true,
+            lastActiveAt: 1_700_000_000,
+          },
+        ],
+      },
+    })
+  })
+
+  it('routes inbound typing start/stop', () => {
+    const start = routeInboundChatMessage(
+      {
+        type: 'typing',
+        roomId: ROOM,
+        sessionId: 'sess-1',
+        displayName: 'Fan',
+        action: 'start',
+        ts: 5000,
+      },
+      ROOM,
+    )
+    expect(start).toEqual({
+      type: 'typing',
+      event: {
+        roomId: ROOM,
+        sessionId: 'sess-1',
+        displayName: 'Fan',
+        action: 'start',
+        ts: 5000,
+      },
+    })
+    const stop = routeInboundChatMessage(
+      {
+        type: 'typing',
+        roomId: ROOM,
+        sessionId: 'sess-1',
+        displayName: 'Fan',
+        action: 'stop',
+        ts: 6000,
+      },
+      ROOM,
+    )
+    expect(stop?.type).toBe('typing')
+    if (stop?.type === 'typing') {
+      expect(stop.event.action).toBe('stop')
+    }
+  })
+
+  it('routes chat_system join/leave for canonical room', () => {
+    const join = routeInboundChatMessage(
+      {
+        type: 'chat_system',
+        roomId: ROOM,
+        sessionId: 'sess-2',
+        displayName: 'Bob',
+        event: 'join',
+        ts: 7000,
+      },
+      ROOM,
+    )
+    expect(join).toEqual({
+      type: 'chat_system',
+      event: {
+        roomId: ROOM,
+        sessionId: 'sess-2',
+        displayName: 'Bob',
+        event: 'join',
+        ts: 7000,
+      },
+    })
+    expect(
+      routeInboundChatMessage(
+        { type: 'chat_system', roomId: 'other', sessionId: 's', displayName: 'X', event: 'leave' },
+        ROOM,
+      ),
+    ).toBeNull()
+  })
+
   it('routes share_state started per #146 api_contracts matrix', () => {
     expect(
       routeInboundChatMessage({ type: 'share_state', roomId: ROOM, state: 'started' }, ROOM),
@@ -403,6 +506,87 @@ describe('ChatSession lifecycle FSM', () => {
       event: 'reconnect_success',
       outcome: 'recovered',
     })
+  })
+})
+
+describe('ChatSession compose typing', () => {
+  class MockWebSocket {
+    static OPEN = 1
+    readyState = MockWebSocket.OPEN
+    send = vi.fn()
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.mocked(clientDrawerLog.emitClientDrawerLog).mockClear()
+    vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('debounces typing_start by 300ms and emits typing_stop on send', () => {
+    const session = new ChatSession()
+    ;(session as unknown as { connectOptions: Record<string, unknown> | null }).connectOptions = {
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-1',
+      accessToken: 'tok',
+    }
+    const ws = new WebSocket('wss://ws.test')
+    ;(session as unknown as { ws: WebSocket | null }).ws = ws
+
+    session.onComposeDraftChange('hello')
+    expect((ws as unknown as { send: ReturnType<typeof vi.fn> }).send).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(300)
+    expect((ws as unknown as { send: ReturnType<typeof vi.fn> }).send).toHaveBeenCalledWith(
+      JSON.stringify({ action: 'typing_start' }),
+    )
+
+    session.onComposeSent()
+    expect((ws as unknown as { send: ReturnType<typeof vi.fn> }).send).toHaveBeenCalledWith(
+      JSON.stringify({ action: 'typing_stop' }),
+    )
+  })
+
+  it('does not emit typing_start without fan JWT', () => {
+    const session = new ChatSession()
+    ;(session as unknown as { connectOptions: Record<string, unknown> | null }).connectOptions = {
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-guest',
+      accessToken: null,
+    }
+    const ws = new WebSocket('wss://ws.test')
+    ;(session as unknown as { ws: WebSocket | null }).ws = ws
+
+    session.onComposeDraftChange('hello')
+    vi.advanceTimersByTime(300)
+    expect((ws as unknown as { send: ReturnType<typeof vi.fn> }).send).not.toHaveBeenCalled()
+  })
+
+  it('emits typing_stop after 3s compose idle', () => {
+    const session = new ChatSession()
+    ;(session as unknown as { connectOptions: Record<string, unknown> | null }).connectOptions = {
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-1',
+      accessToken: 'tok',
+    }
+    const ws = new WebSocket('wss://ws.test')
+    ;(session as unknown as { ws: WebSocket | null }).ws = ws
+
+    session.onComposeDraftChange('typing')
+    vi.advanceTimersByTime(300)
+    vi.mocked((ws as unknown as { send: ReturnType<typeof vi.fn> }).send).mockClear()
+
+    vi.advanceTimersByTime(3000)
+    expect((ws as unknown as { send: ReturnType<typeof vi.fn> }).send).toHaveBeenCalledWith(
+      JSON.stringify({ action: 'typing_stop' }),
+    )
   })
 })
 
