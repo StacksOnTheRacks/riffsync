@@ -14,6 +14,9 @@ PR CI runs **`realtime-conformance`** on isolated loopback SFU + TURN when **`ap
 | **4 Partial unpublish** | **H1** (**Hardening verification**) |
 | **5 Chat WS reconnect** | **3**, **H2** |
 | **6 SFU WS reconnect** | **4**, **15**, **H2** |
+| **7 Typing fan-out** | **H3** |
+| **8 Presence active rehydrate** | **H3** |
+| **9 `host_screen` survival** | **H4** |
 
 ## Legend
 
@@ -54,6 +57,12 @@ Fan disables camera with mic on; remote video tile clears within **2s**; mic rem
 
 **H2. Drawer-independent reconnect** — **`[PR: steps 5–6]`**  
 Cross-ref checklist steps **3** (chat WS drop with SFU up) and **4** (SFU WS drop with chat up). Harness asserts normative drawer independence; prod still runs abbreviated ~5s offline throttle smoke when PR green.
+
+**H3. Typing / active rehydrate** — **`[PR: steps 7–8]`**  
+Harness peer sends **`typing_start`**; stub asserts **`typing`** fan-out and clear on **`typing_stop`** or disconnect. Qualifying **`ping`** then **`presence_request`** returns roster **`lastActiveAt`** and **`active`** per M22 contract.
+
+**H4. `host_screen` survival** — **`[PR: step 9]`**  
+Dual-peer mediasoup scenario with **`host_screen`** + **`participant_av`**; close **`participant_av`** video producer only; **`host_screen`** video consumer remains within **2s**; signaling stays **`open`** (M23 #247).
 
 ## Multi-publisher participant AV (#106)
 
