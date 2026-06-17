@@ -163,6 +163,18 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 - **Desktop (≥ 992px):** vertical Theater strip beside movie; Video Chat uses full-stage grid; host control bar uses full flex row.
 - **Narrow (< 992px):** honest **reduced** layout — participant video surfaces render as a **single horizontal scroll row** of tiles positioned **below** the movie primary region (Theater) or **below** the grid primary region (Video Chat). Toggles and host bar remain usable; do not imply desktop layout parity.
 
+### iOS virtual keyboard (stacked room layout, #240)
+
+When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/room/:roomId`**, the **movie player must remain fully visible** within the **visual viewport** — the complete **16:9** player shell stays on screen, scaling down if needed to fit the space above the keyboard. **Pushing the stage entirely off-screen** is a **contract violation**.
+
+| Concern | Contract |
+| --- | --- |
+| **Scope** | All **iOS Safari** room surfaces where a native text control triggers the OS keyboard: **chat compose**, **Profile** tab fields, **room rename modal**, and any other room text input added later. |
+| **Layout authority** | **`riffsync-room-page__stage`** (video + participant row) stays **pinned** in the visible area above the keyboard; **`riffsync-room-page__chat-column`** and in-column scroll regions **compress** and scroll internally — the room shell does **not** document-scroll to bring compose into view at the expense of the player. |
+| **Wide layout (≥ 992px)** | Side-by-side desktop/tablet landscape layout was **not reported** for #240; apply the same **player-visible** rule if keyboard focus reproduces displacement there (regression check). |
+| **Keyboard dismiss** | Layout may use a **brief transition** (~**200ms**) when returning to full viewport height; honor **`prefers-reduced-motion: reduce`** with **instant** restore. |
+| **Implementation hints** | Prefer **`visualViewport`** height/offset to drive room shell CSS variables; consider **`interactive-widget=resizes-content`** on the document viewport meta where supported. Automated CI cannot simulate iOS keyboard — **manual iOS Safari QA** is required for acceptance. |
+
 ### Theater fullscreen with participant AV
 
 - When participant AV surfaces are active, custom fullscreen **includes stage participant strip or grid** alongside the shared movie or grid primary region.

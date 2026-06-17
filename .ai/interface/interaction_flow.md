@@ -125,6 +125,7 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 | Media path (all envs)? | **SFU mandatory**; mesh WebRTC UI removed. |
 | Chat send while chat **`reconnecting`**? | **Drop** send; show **sidebar chat status** **and** **inline compose feedback** (honest copy per **`error_state.md`** **`CHAT_SEND_DROPPED`**). |
 | Chat send while SFU **`reconnecting`** / **`degraded`**? | **Allow** when room WS is **`open`** — compose stays enabled for signed-in fans; send proceeds; **no** SFU status on chat compose (**#149**). Retain draft on chat-plane drop only. |
+| iOS software keyboard on room text focus? | **Player stays fully visible** (16:9 shell scales if needed); chat column compresses; all room text inputs that open the keyboard share this behavior (**#240**, **`presentation.md`**). |
 
 ## Guest host-screen status (SFU-only, #134)
 

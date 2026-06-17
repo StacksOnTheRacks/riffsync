@@ -44,6 +44,13 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - **Jump to latest** control remains keyboard-activatable above compose when scrollback is not at bottom.
 - **Chat plane unhealthy:** disable compose **keyboard submit** (**Enter** in textarea) **and** show inline compose **`role="status"`** at **`#riffsync-chat-compose-status`** with **`CHAT_SEND_DROPPED`** copy in addition to the chat drawer banner (**`presentation.md`**).
 
+### iOS software keyboard (text focus, #240)
+
+- Focusing any room **text input** that opens the **iOS software keyboard** must **not** displace the **video stage** off the visual viewport (**`presentation.md`** iOS virtual keyboard table).
+- **In scope:** chat compose **`<input>`**, **Profile** tab text fields, **room rename modal** input, and equivalent native text controls on the room page.
+- **Focus scroll-into-view:** browser default document scroll that hides the player is **disallowed** — contain scroll to chat-column internals and adjust layout from **`visualViewport`** when the keyboard is visible.
+- **Physical keyboard** (iPad with hardware keyboard, no software keyboard) follows baseline focus order; no special viewport shrink applies.
+
 ## Theater fullscreen
 
 - Fullscreen enter/exit control remains keyboard-accessible.
