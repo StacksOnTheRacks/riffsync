@@ -215,14 +215,36 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 | --- | --- |
 | **`presence.active` at broadcast** | Server precomputes **`active`**; harness and EMF assert **`lastActiveAt`** on rehydrate and typing fan-out behavior — not which side computed **`active`** on the client. |
 
+## Decisions (M24 presence/typing EMF — #251)
+
+| Topic | Decision |
+| --- | --- |
+| **Emit path** | Lambda stdout EMF via existing **`RiffSync/Realtime`** helper — same **`Environment`**, **`Route`**, **`Outcome`** dimensions as **`chat`** / **`ping`**. |
+| **`TypingRouteAccepted`** | Increment on successful **`typing_start`** / **`typing_stop`** handler completion; **`Route`** dimension = route name. |
+| **`TypingRouteThrottled`** | Increment when per-**`sessionId`** typing rate limit fires on **`typing_start`** or **`typing_stop`** — **no** **`sessionId`** dimension. |
+| **`PresenceActiveFanOut`** | One increment per **`presence`** broadcast wave where at least one member has **`active: true`** or fresh **`lastActiveAt`**. |
+| **`QualifyingActiveWrite`** | Increment when a handler updates **`lastActiveAt`** (**`typing_start`**, **`chat`**, **`chat_gif`**, **`react`**, qualifying **`ping`**). Optional **`Route`** dimension — **no** **`fanSub`**. |
+| **`PresenceRequestRehydrated`** | Increment when **`presence_request`** completes with roster (+ optional requester-only **`chat_history`**). |
+| **Throttle client logs** | Throttled **`typing_stop`** emits **`TypingRouteThrottled`** only — **no** client **`typing_stop_failed`** drawer log in MVP. |
+| **Ship gate** | Wire after M22 #244–#245 handlers land; unit tests assert EMF JSON shape without high-cardinality dimensions. |
+
+## Decisions (M24 harness telemetry — #252)
+
+| Topic | Decision |
+| --- | --- |
+| **Step 7 — typing** | Harness peer sends **`typing_start`**; stub asserts room-wide **`typing`** fan-out; peer disconnect or **`typing_stop`** clears typing flag for that **`sessionId`**. Optional: signed-in fan stub emits **`chat_system`** **`join`** once — not required for job green. |
+| **Step 8 — active rehydrate** | After qualifying **`ping`** inside active window, **`presence_request`** response includes sender **`lastActiveAt`** and expected **`active`** on roster members; assert via stub roster snapshot. |
+| **Step 9 — `host_screen` survival** | With active **`host_screen`** and **`participant_av`** video+audio, close **video** producer only; assert **`host_screen`** consumer remains attached within **2s**; **`participant_av`** audio consumer may remain; SFU signaling session stays **`open`**. |
+| **Speaking VAD** | Excluded from automated harness — client-only debug. |
+| **`DrawerIsolationViolation`** | CI failure / structured log when step 5–6 or 9 detects sibling drawer **`torn-down`** — **not** production CloudWatch. |
+| **Failure output** | Same **`[drawer=…] code=… step=N`** stderr contract as steps 1–6; **`harness-summary.json`** rows include steps **7–9**. |
+| **Checklist tags** | **`docs/sfu-deploy-checklist.md`** rows gain **`PR: step 7`**, **`PR: step 8`**, **`PR: step 9`** per **`build_packaging.md`** mapping table. |
+
 ## Open implementation decisions
 
 - **StatusCheckFailed EC2 alarm** — Optional IaC alarm in **`media-server-stack.ts`** with maintainer SNS — tracked as **#220**; not blocking M21 doc ship.
 - **Health probe scrape Lambda** — Periodic **`/healthz`** scrape emitting **`HealthProbeSuccess`** / gauge metrics — deferred past M21 (cost and IAM guardrails).
 - **Optional aggregate client counters** — **`IceGatheringFailed`**, **`ProducerLifecycleEvent`**, **`ChatSendDropped`** — design only in runbook until a server-side aggregation path exists (no browser **`PutMetricData`**).
-- **Presence/typing EMF wiring (M24 #243)** — Ship **`TypingRouteAccepted`**, **`TypingRouteThrottled`**, **`PresenceActiveFanOut`**, **`QualifyingActiveWrite`**, and **`PresenceRequestRehydrated`** when WS handlers update **`lastActiveAt`**.
-- **Harness extension (M24 #243)** — Add **`realtime-conformance`** steps: **`typing_start`** fan-out + **`typing_stop`** on disconnect; **`presence_request`** returns **`lastActiveAt`** and expected **active** after qualifying **`ping`**; optional **`chat_system`** join line for signed-in fan stub. Speaking VAD excluded from automated harness.
-- **`typing_stop` throttle observability (M24 #243)** — Throttled stops increment **`TypingRouteThrottled`** only (no client **`typing_stop_failed`** log in MVP).
 
 ## Primary code pointers (optional)
 

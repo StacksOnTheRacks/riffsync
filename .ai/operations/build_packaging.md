@@ -80,6 +80,9 @@ Normative automated substitute for manual checklist steps that exercise client +
 4. **Partial unpublish** — camera off while mic on: video **`producerClosed`** propagates; remote video tile detaches promptly (**no** frozen last frame); audio continues without full SFU session rebuild.
 5. **Reconnect — chat WS** — force room WebSocket drop while SFU signaling stays open; chat plane recovers independently; media session persists per drawer-independent contract. Assert **`getDiagnostics().drawers.chat`** transitions **`connected` → `reconnecting` → `connected`** while **`drawers.sfuSignaling.state`** and **`drawers.sfuSignaling.health.connectivity.state`** stay **`connected`**.
 6. **Reconnect — SFU WS** — force SFU signaling drop while room WebSocket stays open; token refetch + SFU reconnect recovers media; chat plane unaffected. Assert **`drawers.sfuSignaling`** (and health sub-fields) recover while **`drawers.chat.state`** stays **`connected`**.
+7. **Typing fan-out** — harness peer sends **`typing_start`**; room WS stub observes **`typing`** fan-out to peers; **`typing_stop`** or peer disconnect clears typing for that **`sessionId`**. Optional signed-in fan stub **`chat_system`** **`join`** line — not required for pass.
+8. **Active rehydrate** — qualifying **`ping`** inside active window; **`presence_request`** returns roster with expected **`lastActiveAt`** and **`active`** badges per M22 contract.
+9. **`host_screen` survival** — with **`host_screen`** and **`participant_av`** publishing, close **`participant_av`** video producer only; **`host_screen`** consumer remains attached within **2s**; audio consumer may remain; SFU signaling stays **`open`** (M23 #247).
 
 Harness failures must name the **drawer** (chat, signaling, connectivity, produce/consume) in CI output. See **[`observability.md`](observability.md)** and operator runbook **[`docs/observability-drawer-mapping.md`](../../docs/observability-drawer-mapping.md)**.
 
@@ -121,7 +124,19 @@ Harness failures must name the **drawer** (chat, signaling, connectivity, produc
 | **Step timeouts** | **90s** wall clock per ordered scenario step; **0** automatic retries per step in MVP (fail fast). |
 | **Job timeout** | **`realtime-conformance`** job sets **`timeout-minutes: 12`** when **`run.sh`** is present (**#153** integrator). |
 | **Failure artifacts** | Runner writes **`harness-summary.json`** at repo root on failure (drawer/code/step/outcome rows per **#153**); optional tail of SFU container logs (**last 200** lines) appended when step **≥ 1** fails. HAR capture **deferred**. |
-| **`run.sh` contract** | Bash, **`set -euo pipefail`**; exit **0** only when all six steps pass; prints **`[drawer=…] code=… step=…`** to stderr on failure for step summary ingestion. |
+| **`run.sh` contract** | Bash, **`set -euo pipefail`**; exit **0** only when all **nine** steps pass when M24 #252 is merged; **six** steps until then. Prints **`[drawer=…] code=… step=…`** to stderr on failure for step summary ingestion. |
+
+## Decisions (M24 harness steps 7–9 — #252)
+
+| Topic | Decision |
+| --- | --- |
+| **Package owner** | Extend **`tests/realtime-conformance/`** **`run.sh`** and vitest drawer suite from **#155** — same Node + **`happy-dom`** posture as steps 5–6. |
+| **Step 7 driver** | Room WS stub records **`typing`** envelopes; assert fan-out count and **`typing_stop`** / **`$disconnect`** clear. |
+| **Step 8 driver** | Send qualifying **`ping`** then **`presence_request`**; assert stub roster JSON includes **`lastActiveAt`** + **`active`**. |
+| **Step 9 driver** | Dual-peer mediasoup scenario: active **`host_screen`** + **`participant_av`**; close video producer only; assert **`host_screen`** consumer count **≥ 1** within **2s**. |
+| **Job timeout** | Increase **`realtime-conformance`** **`timeout-minutes`** to **15** when steps 7–9 ship (was **12** for six steps). |
+| **Incremental ship** | Steps 7–9 may land after steps 1–6; job fails only on steps present in **`run.sh`** manifest. |
+| **Checklist mapping** | Add **`PR: step 7`**, **`PR: step 8`**, **`PR: step 9`** tags to **`docs/sfu-deploy-checklist.md`**; update summary table linking steps **1–9**. |
 
 ## Release and delivery
 
@@ -159,7 +174,7 @@ Superseded by **Decisions (SFU deploy checklist harness mapping — #156)** belo
 
 | Tag | Meaning |
 | --- | --- |
-| **`PR: step N`** | Scenario **N** in the six-step harness (**#155** **`run.sh`**) exercises the same drawer/produce contract on **isolated loopback** SFU + TURN. |
+| **`PR: step N`** | Scenario **N** in the harness (**#155** steps **1–6**, **#252** steps **7–9**) exercises the same drawer/produce contract on **isolated loopback** SFU + TURN. |
 | **`Abbreviated`** | When the **merged PR** had a green **`realtime-conformance`** run, operator runs a **short prod smoke** (minutes) instead of a full multi-window soak for that row. |
 | **`Manual only`** | Always requires **full prod** verification — harness does not cover prod UX, API Gateway room WS, Cognito-signed flows, or operator drills. |
 
@@ -179,6 +194,8 @@ Harness **complements** checklist — it never mutates prod **`RiffSyncTurn`**.
 | **8 Local SFU down** | **Manual only** | **`LOCAL_SFU_UNREACHABLE`** against **local** disposable profile (**#137**). |
 | **H1 Partial unpublish** (new hardening row) | **PR: step 4** | Fan camera off, mic on; remote video tile clears within **2s**; mic audible — insert in checklist **Hardening verification** subsection. |
 | **H2 Drawer reconnect** (new hardening row) | **PR: steps 5–6** | Cross-ref checklist steps **3–4**; single subsection avoids duplicate prose. |
+| **H3 Typing / active rehydrate** (M24 row) | **PR: steps 7–8** | Typing fan-out + **`presence_request`** **`lastActiveAt`** / **`active`** — insert in **Hardening verification** subsection. |
+| **H4 `host_screen` survival** (M24 row) | **PR: step 9** | **`participant_av`** video off while **`host_screen`** consumer attached — complements **H1** partial unpublish. |
 | **9 N fans publish** | **Manual only** | Harness uses **dual-peer** fixture, not three signed-in fans + strip UI. |
 | **10 Theater mixed audio** | **Manual only** | Client Web Audio mix; server-side mix deferred. |
 | **11 Video Chat grid** | **Manual only** | **`roomMode: videoChat`** layout — not in MVP harness. |
@@ -194,8 +211,8 @@ Harness **complements** checklist — it never mutates prod **`RiffSyncTurn`**.
 1. Intro paragraph: PR harness vs post-deploy bands (**`.ai/operations/build_packaging.md`** CI vs prod table).
 2. **Legend** block defining **`PR: step N`**, **`Abbreviated`**, **`Manual only`** (same vocabulary as above).
 3. Inline tag on **each** numbered step **1–17** (prefix or suffix, e.g. **`[Abbreviated · PR: 1–3]`**).
-4. New **`## Hardening verification`** section after step **8** with rows **H1–H2** (partial unpublish, drawer reconnect cross-ref).
-5. Summary table at top of checklist linking harness step **1–6** → checklist rows (mirror this decisions table).
+4. New **`## Hardening verification`** section after step **8** with rows **H1–H4** (partial unpublish, drawer reconnect, typing/active rehydrate, **`host_screen`** survival).
+5. Summary table at top of checklist linking harness steps **1–9** → checklist rows (mirror this decisions table).
 
 The informal **SFU deploy checklist — hardening deltas** table above is superseded — this **Decisions (#156)** block is authoritative.
 
