@@ -12,7 +12,9 @@ if ! curl -sSf http://127.0.0.1:3000/healthz >/dev/null 2>&1; then
   exit 1
 fi
 
-npm ci --prefix "${HARNESS_DIR}" >/dev/null 2>&1
+if [[ -z "${GITHUB_ACTIONS:-}" ]] && [[ ! -d "${HARNESS_DIR}/node_modules" ]]; then
+  npm ci --prefix "${HARNESS_DIR}" >/dev/null 2>&1
+fi
 
 run_step() {
   local step="$1"
