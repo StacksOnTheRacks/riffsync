@@ -56,8 +56,8 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 | Field | Contract |
 | --- | --- |
-| **`active`** | Boolean — participant engaged within the active window. Server **may** precompute at broadcast time or clients **may** derive from **`lastActiveAt`** (see **Open implementation decisions**). |
-| **`lastActiveAt`** | Optional epoch seconds — durable engagement timestamp on **RoomPresence**; omitted only when never engaged this session. |
+| **`active`** | Boolean — participant engaged within the **2-minute** active window. Server **precomputes** at broadcast time from roster **`lastActiveAt`** (max per **`sessionId`** when multiple tabs). Clients treat server **`active`** as authoritative; may verify with **`now - lastActiveAt < 120`**. |
+| **`lastActiveAt`** | Optional epoch **seconds** — durable engagement timestamp on **RoomPresence** (max across tabs sharing **`sessionId`** on roster collapse); omitted when never engaged this session. |
 
 **Typing routes:**
 
@@ -84,7 +84,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | **Participants per room** | **50** hard cap (reject join / WS connect with clear error). |
 | **Lobby listing** | **50** rows per page; clients paginate (caps total listed rooms if needed for cost). |
 | **Chat** | **20** chat actions per **minute** per **`sessionId`** (text, GIF post, and reaction add/remove each count; HTTP/WS enforced); ephemeral only (**no durable chat log** in Dynamo—see **`operations/security.md`**). |
-| **Typing indicators** | **30** **`typing_start`** + **`typing_stop`** pairs per **minute** per **`sessionId`** (WS enforced; **`typing_stop`** after throttle **drops silently** or returns a business **`error`** envelope — tier TW). Counts toward the same abuse posture as chat compose; does **not** bypass chat send limits. |
+| **Typing indicators** | **30** **`typing_start`** + **`typing_stop`** pairs per **minute** per **`sessionId`** (WS enforced; over-cap **`typing_start`** / **`typing_stop`** **drops silently** — no business **`error`** envelope to client). Counts toward the same abuse posture as chat compose; does **not** bypass chat send limits. |
 | **Giphy search** | **30** search requests per **minute** per **`sub`** (HTTP; tune in IaC). |
 | **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
 | **WebSocket** | Subject to **API Gateway** account/service quotas; design for **≤50 concurrent connections per room** under normal use (matches participant cap). |
@@ -305,13 +305,17 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 - Concrete **OpenAPI** / generated types land with first implementation.
 - **Rate limits:** start with **API Gateway throttles** + optional **WAF rate-based rules** on hot public routes; **no fixed commercial SLA**—operators tune for **cost vs abuse** (see **`operations/observability.md`**).
 
-## Open implementation decisions
+## Decisions (answered — M22 presence routes)
 
-- **`typing`** / **`chat_system`** outbound **`type`** discriminator strings and minimal payload fields (**`sessionId`**, **`displayName`**, optional **`avatarUrl`**, monotonic **`ts`**).
-- Whether **`presence`** broadcasts include server-precomputed **`active`** boolean only, **`lastActiveAt`** only, or both — clients today may derive **`active`** as **`now - lastActiveAt < 120s`**.
-- Client **`typing_stop`** debounce on blur/send vs explicit stop-only; server-side coalescing window for duplicate **`typing_start`** from one **`sessionId`**.
-- Exact API Gateway route registration keys for **`typing_start`** and **`typing_stop`** alongside existing post-**#135** route table (**`infra/cdk/lib/api-catalog-stack.ts`**).
-- Throttle behavior when **`typing_start`** exceeds per-minute cap — silent drop vs business **`error`** envelope.
+| Topic | Decision |
+| --- | --- |
+| **`typing` outbound envelope** | **`type: typing`** with **`action`**: **`start`** \| **`stop`**, **`sessionId`**, optional **`displayName`**, **`ts`** (epoch ms). One sender per event — not a full-room typing set snapshot. |
+| **`chat_system` outbound envelope** | **`type: chat_system`** with **`event`**: **`join`** \| **`leave`**, **`sessionId`**, **`displayName`**, **`ts`** (epoch ms). No **`avatarUrl`** on system lines in MVP. |
+| **`presence` member fields** | Include **both** server-precomputed **`active`** and optional **`lastActiveAt`** (epoch seconds) on each roster member after M22. |
+| **API Gateway route keys** | **`typing_start`**, **`typing_stop`** registered in **`api-catalog-stack.ts`** with **`ws-route.ts`** handler (same integration as **`chat`** / **`react`**). |
+| **Server typing coalesce** | Ignore duplicate **`typing_start`** from the same **`sessionId`** within **1s** before **`PostToConnection`**. |
+| **Client typing stop triggers** | **`typing_stop`** on message send, compose blur, or **3s** compose idle without keystroke; **300ms** trailing debounce before emitting **`typing_start`**. |
+| **Reconnect join line** | **No** duplicate **`join`** when the same **`fanSub`** reconnects within **30s** of prior disconnect (connect-handler cooldown). |
 
 ## Primary code pointers (optional)
 

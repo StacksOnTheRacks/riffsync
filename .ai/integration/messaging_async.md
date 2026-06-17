@@ -50,13 +50,19 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | **`lastActiveAt` write timing?** | Update on qualifying control-plane routes **before** **`presence`** / typing fan-out (same Lambda turn as inbound handler). |
 | **`ping`** and idle viewers? | Heartbeats inside the **2-minute** window count toward **active** — watching without chatting can remain **active** while heartbeats continue. |
 
+## Decisions (answered — M22 messaging)
+
+| Topic | Decision |
+| --- | --- |
+| Re-hydration after reconnect | Reuse existing **`presence`** broadcast (with **`active`** + **`lastActiveAt`**) plus requester-only **`chat_history`** on **`presence_request`** — unchanged shape, enriched member fields. |
+| **`typing` fan-out shape** | Per-event **`type: typing`** envelope with **`action`**, **`sessionId`**, optional **`displayName`**, **`ts`** — not a full-room typing set. |
+| Server coalesce | Drop duplicate **`typing_start`** from same **`sessionId`** within **1s** before fan-out. |
+| Join/leave copy | **`{displayName} joined`** / **`{displayName} left`** — muted system-line styling in chat log. |
+| Reconnect join | **No** **`join`** line when same **`fanSub`** reconnects within **30s** of prior disconnect. |
+
 ## Open implementation decisions
 
 - Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
-- Presence re-hydration message shape after room WS reconnect: reuse existing **`presence`** broadcast plus requester-only **`chat_history`** on **`presence_request`**.
-- **`typing`** broadcast payload shape — set of **`sessionId`** values vs per-event single-sender envelope; whether to include **`displayName`** on every **`typing_start`**.
-- Server-side debounce/coalesce for rapid **`typing_start`** / **`typing_stop`** from one tab before **`PostToConnection`**.
-- Join/leave **`chat_system`** line copy template and whether host connections emit **`join`** on reconnect within the same **`fanSub`**.
 
 ## Kill-switch side-effect ordering (#102 / #103 split)
 

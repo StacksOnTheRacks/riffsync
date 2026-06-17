@@ -108,11 +108,18 @@ Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-imag
 | Typing in Dynamo? | **No** — ephemeral fan-out only. |
 | Join/leave in **RoomChat**? | **No** — signed-in fan join/leave lines are WS-only ephemera. |
 
+## Decisions (answered — M22 `lastActiveAt`)
+
+| Topic | Decision |
+| --- | --- |
+| Wire unit | Epoch **seconds** on Dynamo **RoomPresence** and **`presence`** broadcast JSON **`lastActiveAt`**. |
+| Multi-tab roster | When collapsing multiple **`presenceKey`** rows per **`sessionId`**, roster uses **max(`lastActiveAt`)** for that session's badge. |
+| Update expression | **`SET lastActiveAt = :ts`** where **`:ts = max(if_not_exists(lastActiveAt, 0), nowSec)`** on qualifying inbound routes; **`rename`** and **`lastActiveAt`** updates are independent fields on the same row. |
+| Disconnect | Row delete on **`$disconnect`** — no tombstone **`lastActiveAt`**; late joiners read remaining connections only. |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
-- Dynamo conditional write pattern when **`lastActiveAt`** updates race with **`rename`** or disconnect on the same **`presenceKey`**.
-- Whether **`lastActiveAt`** uses epoch seconds vs epoch ms on the wire — pick one and align **`presence`** broadcast JSON.
 
 ## Primary code pointers (optional)
 

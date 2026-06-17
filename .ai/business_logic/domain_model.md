@@ -201,13 +201,18 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | SFU decoupling depth? | **Single SFU signaling WebSocket per tab** with mandatory per-class send transport isolation, per-kind unpublish, and prohibition of session-level **`close()`** for class-scoped failures. |
 | Server-side theater audio mix? | **Later phase** — decoupling, presence, typing, and speaking ship first; client Web Audio equal-gain mix remains normative. |
 
+## Decisions (answered — M22 presence)
+
+| Topic | Decision |
+| --- | --- |
+| **`active` at broadcast** | Server precomputes **`active`** on each **`presence`** member and includes **`lastActiveAt`** when set; clients use server **`active`** for People badges. |
+| **Typing indicator TTL** | Client clears ellipsis **5s** after last inbound **`typing_start`** without **`typing_stop`**; server does not persist typing state. |
+
 ## Open implementation decisions
 
 - **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
 - **Mode transition empty-state UX:** copy and layout when switching to **Video Chat** with zero video-on participants, or **Theater** before host has started tab-capture (**`interface/presentation.md`**).
-- **`active` boolean at broadcast:** server precomputes **`active`** on **`presence`** fan-out vs client derives from **`lastActiveAt`** — tier TW in Phase D.
-- **Speaking threshold calibration:** mic energy / VAD sensitivity and debounce for tile vs People row affordance — tier TW.
-- **Typing indicator TTL:** how long **typing** ellipsis persists after last **`typing_start`** without **`typing_stop`** — tier TW.
+- **Speaking threshold calibration:** mic energy / VAD sensitivity and debounce for tile vs People row affordance — **M23** (#242).
 
 ## Decisions (theater mic mix on host_screen close — #145)
 

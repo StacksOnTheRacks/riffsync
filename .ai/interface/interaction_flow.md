@@ -169,10 +169,17 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 | Video Chat Beta? | Host control bar label when **`avDisabled`** false; layout fan-out unchanged. |
 | AV decoupling UX? | Chat vs SFU reconnect and status **unchanged** from hardening — separate drawers. |
 
+## Decisions (answered — M22 typing UX)
+
+| Topic | Decision |
+| --- | --- |
+| **`typing_start` debounce** | **300ms** trailing debounce before emitting **`typing_start`** while composing. |
+| **`typing_stop` triggers** | Message send, compose blur, or **3s** without keystroke. |
+| **Ellipsis expiry** | **5s** after last inbound **`typing_start`** without **`typing_stop`**. |
+
 ## Open implementation decisions
 
-- **Typing TTL and client throttle:** debounce **`typing_start`** emissions and ellipsis expiry when composer idle — tier TW.
-- **Speaking VAD debounce:** threshold and hold time before border/glow clears — tier TW.
+- **Speaking VAD debounce:** threshold and hold time before border/glow clears — **M23** (#242).
 
 ## Primary code pointers (optional)
 

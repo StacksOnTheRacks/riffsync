@@ -77,10 +77,11 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 | **`lastActiveAt` on disconnect** | **Preserve** on **RoomPresence** until row TTL — disconnect does not force **active** false for historical accuracy on late **`presence_request`**. |
 | **Drawer isolation** | Typing/active teardown is **`ChatSession`** only — SFU or theater modules **must not** clear typing maps or **`active`** roster fields. |
 
-## Open implementation decisions
+## Decisions (answered — M22 typing shutdown)
 
-- Page Visibility battery policy for participant producers while tab backgrounded (**MVP:** leave running per **`execution_model.md`**).
-- **Typing stop on abrupt tab close** — browser **`beforeunload`** **`typing_stop`** is best-effort only; rely on server **`$disconnect`** as authoritative (**tier TW**).
+| Topic | Decision |
+| --- | --- |
+| **`typing_stop` on tab close** | Browser **`beforeunload`** may emit **`typing_stop`** best-effort only; authoritative clear is server **`$disconnect`** (removes typing fan-out state) plus client teardown. |
 
 ## Primary code pointers (optional)
 

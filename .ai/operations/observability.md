@@ -209,15 +209,20 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 | **Speaking VAD telemetry** | Client-only — excluded from CloudWatch and SFU logs in MVP. |
 | **Server mix deferral** | No **`RiffSync/Media`** signals for server-side theater mix until follow-on initiative. |
 
+## Decisions (answered — M22 observability)
+
+| Topic | Decision |
+| --- | --- |
+| **`presence.active` at broadcast** | Server precomputes **`active`**; harness and EMF assert **`lastActiveAt`** on rehydrate and typing fan-out behavior — not which side computed **`active`** on the client. |
+
 ## Open implementation decisions
 
 - **StatusCheckFailed EC2 alarm** — Optional IaC alarm in **`media-server-stack.ts`** with maintainer SNS — tracked as **#220**; not blocking M21 doc ship.
 - **Health probe scrape Lambda** — Periodic **`/healthz`** scrape emitting **`HealthProbeSuccess`** / gauge metrics — deferred past M21 (cost and IAM guardrails).
 - **Optional aggregate client counters** — **`IceGatheringFailed`**, **`ProducerLifecycleEvent`**, **`ChatSendDropped`** — design only in runbook until a server-side aggregation path exists (no browser **`PutMetricData`**).
-- **Presence/typing EMF wiring (tier TW)** — Ship **`TypingRouteAccepted`**, **`TypingRouteThrottled`**, **`PresenceActiveFanOut`**, **`QualifyingActiveWrite`**, and **`PresenceRequestRehydrated`** when WS handlers update **`lastActiveAt`**.
-- **`presence.active` at broadcast (tier TW)** — Observability docs assume both server-precomputed and client-derived modes are valid; harness asserts **`lastActiveAt`** presence on rehydrate, not which side computed **`active`**.
-- **Harness extension (tier TW)** — Add **`realtime-conformance`** steps: **`typing_start`** fan-out + **`typing_stop`** on disconnect; **`presence_request`** returns **`lastActiveAt`** and expected **active** after qualifying **`ping`**; optional **`chat_system`** join line for signed-in fan stub. Speaking VAD excluded from automated harness.
-- **`typing_stop` throttle observability (tier TW)** — Whether throttled stops increment **`TypingRouteThrottled`** only or also emit client **`typing_stop_failed`** log event.
+- **Presence/typing EMF wiring (M24 #243)** — Ship **`TypingRouteAccepted`**, **`TypingRouteThrottled`**, **`PresenceActiveFanOut`**, **`QualifyingActiveWrite`**, and **`PresenceRequestRehydrated`** when WS handlers update **`lastActiveAt`**.
+- **Harness extension (M24 #243)** — Add **`realtime-conformance`** steps: **`typing_start`** fan-out + **`typing_stop`** on disconnect; **`presence_request`** returns **`lastActiveAt`** and expected **active** after qualifying **`ping`**; optional **`chat_system`** join line for signed-in fan stub. Speaking VAD excluded from automated harness.
+- **`typing_stop` throttle observability (M24 #243)** — Throttled stops increment **`TypingRouteThrottled`** only (no client **`typing_stop_failed`** log in MVP).
 
 ## Primary code pointers (optional)
 

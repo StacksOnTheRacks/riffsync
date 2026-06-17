@@ -61,7 +61,7 @@ Implementation may colocate helpers; **module boundaries and lifecycle rules abo
 | **Reconnect rehydration** | **`lastActiveAt`** persists on **RoomPresence** so **`presence_request`** and roster fan-out rehydrate accurate **active** badges for late joiners and refresh. |
 | **Join / leave lines** | Signed-in fans (**`fanSub`**) receive ephemeral **`chat_system`** join/leave lines on the room WebSocket; anonymous guests connect silently. Not persisted in **RoomChat**. |
 
-**Active boolean at broadcast time:** server **may** precompute **`active`** on each **`presence`** member or clients **may** derive **`now - lastActiveAt < 120s`** — tier TW (**`.ai/operations/observability.md`** open decisions).
+**Active boolean at broadcast:** server **precomputes** **`active`** on each **`presence`** member and includes **`lastActiveAt`** (epoch seconds) when set. Clients treat server **`active`** as authoritative for People badges.
 
 ### Speaking indicator (client VAD)
 
@@ -372,12 +372,18 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 | **Typing vs active** | Typing contributes to **active** badge — not display-only. |
 | **Idle viewers** | **`ping`** within the 2-minute window counts toward **active**; heartbeats alone keep idle watchers **active**. |
 
+## Decisions (answered — M22 ChatSession typing)
+
+| Topic | Decision |
+| --- | --- |
+| **`typing_stop` throttle UX** | Silent drop when per-minute typing pair cap exceeded — no inbound **`error`** envelope to client. |
+| **Compose debounce** | **300ms** trailing debounce before first **`typing_start`** in a burst; **`typing_stop`** on send, blur, or **3s** idle without keystroke. |
+| **Inbound typing TTL** | Clear local typing UI **5s** after last **`typing_start`** without **`typing_stop`**. |
+
 ## Open implementation decisions
 
-- **`presence.active` computation** — server precomputes boolean on each **`presence`** broadcast vs clients derive from **`lastActiveAt`** at receive time (tier TW; **`api_contracts.md`**).
-- **`typing_stop` throttle UX** — silent drop vs business **`error`** envelope when **`typing_start`** / **`typing_stop`** rate limit exceeded (tier TW).
-- **Speaking VAD tuning** — analyser threshold, hang time, and remote-track attach policy (implementation; not harness-gated in MVP).
-- **Harness extension (tier TW)** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`**.
+- **Speaking VAD tuning** — analyser threshold, hang time, and remote-track attach policy (implementation; **M23** #242).
+- **Harness extension (M24)** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`** (**#243**).
 
 ## Primary code pointers (optional)
 
