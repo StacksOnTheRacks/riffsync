@@ -47,7 +47,7 @@ describe('harness step 6: SFU WS reconnect', () => {
       () => {
         expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('reconnecting')
       },
-      { timeout: 30_000 },
+      { timeout: 15_000 },
     )
 
     const duringOutage = sdk.getDiagnostics()
@@ -58,7 +58,7 @@ describe('harness step 6: SFU WS reconnect', () => {
       () => {
         expect(sdk.getDiagnostics().drawers.sfuSignaling.state).toBe('connected')
       },
-      { timeout: 60_000 },
+      { timeout: 30_000 },
     )
 
     const afterRecovery = sdk.getDiagnostics()

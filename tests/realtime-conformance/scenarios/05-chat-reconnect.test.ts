@@ -25,15 +25,12 @@ describe('harness step 5: chat WS reconnect', () => {
   })
 
   afterEach(async () => {
-    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     if (stub) await stub.close()
   })
 
   it('chat reconnects while sfuSignaling stays connected', async () => {
-    vi.useFakeTimers()
-
     const sdk = new RoomRealtimeSdk()
     sdk.join('room-abc', harnessJoinOptions(stub!.url, 'sess-harness-chat-reconnect'))
 
@@ -55,12 +52,11 @@ describe('harness step 5: chat WS reconnect', () => {
     const duringOutage = sdk.getDiagnostics()
     assertSiblingDrawerStaysConnected(duringOutage, 'sfuSignaling')
 
-    await vi.advanceTimersByTimeAsync(1_100)
     await vi.waitFor(
       () => {
         expect(sdk.getDiagnostics().drawers.chat.state).toBe('connected')
       },
-      { timeout: 60_000 },
+      { timeout: 15_000 },
     )
 
     const afterRecovery = sdk.getDiagnostics()

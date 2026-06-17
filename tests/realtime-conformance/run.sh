@@ -38,10 +38,11 @@ run_step "1-join" "${HARNESS_DIR}/scenarios/01-join.mts"
 run_step "2-publish" "${HARNESS_DIR}/scenarios/02-publish.mts"
 run_step "3-consume" "${HARNESS_DIR}/scenarios/03-consume.mts"
 run_step "4-partial-unpublish" "${HARNESS_DIR}/scenarios/04-partial-unpublish.mts"
-run_vitest "5-chat-reconnect" "${HARNESS_DIR}/scenarios/05-chat-reconnect.test.ts"
-run_vitest "6-sfu-reconnect" "${HARNESS_DIR}/scenarios/06-sfu-reconnect.test.ts"
-run_vitest "7-typing" "${HARNESS_DIR}/scenarios/07-typing.test.ts"
-run_vitest "8-presence-active" "${HARNESS_DIR}/scenarios/08-presence-active.test.ts"
+run_vitest "5-8-ws-drawer" \
+  "${HARNESS_DIR}/scenarios/05-chat-reconnect.test.ts" \
+  "${HARNESS_DIR}/scenarios/06-sfu-reconnect.test.ts" \
+  "${HARNESS_DIR}/scenarios/07-typing.test.ts" \
+  "${HARNESS_DIR}/scenarios/08-presence-active.test.ts"
 run_step "9-host-screen-survival" "${HARNESS_DIR}/scenarios/09-host-screen-survival.mts"
 
 echo "realtime-conformance: all nine steps passed"
