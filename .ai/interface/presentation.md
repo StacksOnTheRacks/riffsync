@@ -21,7 +21,9 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 - **Ephemeral** chat: **in-memory / UI scrollback** capped (~**100** recent messages in client; align with **`docs/architecture.frontend.md`**). **No durable transcript** from server—reload clears messages, reactions, and GIF posts (**storage cost**).
 - **Rich content (signed-in send):** **Unicode emoji** via compose picker; **Giphy GIF** posts (inline render, bounded dimensions); **emoji reactions** aggregated per message. **Anonymous guests** may **view** all rich content but **cannot** send or react (**`authorization.md`**).
 - **Avatars:** Signed-in fans may upload **one** profile image (server-retained). Chat rows show a **thumbnail beside display name** using a **public HTTPS** avatar URL when set; guests without avatars use a neutral fallback glyph.
-- Optionally **typing** / **presence** later—do not imply message archive.
+- **Typing indicator:** When a signed-in fan sends **`typing_start`** on the room WebSocket, other participants see an **ellipsis** affordance associated with that sender in the chat log (e.g. **"DisplayName is typing…"** or inline ellipsis row). **Typing start** also marks the sender **active** on the **People** tab. Indicator clears on send, **`typing_stop`**, disconnect, or TTL expiry (exact TTL tier TW). **Do not** imply message archive — typing is ephemeral like chat scrollback.
+- **Join/leave system lines:** When a **signed-in fan** connects or disconnects, other participants see a muted **system line** in the chat log (e.g. **"DisplayName joined"** / **"DisplayName left"**). **Anonymous guests** produce **no** system line. Lines are **ephemeral** (in-memory scrollback only) and **not** replayed from server on refresh or **`presence_request`**.
+- **People tab presence:** Each roster row shows **online** (connected) by default. Rows also show an **active** badge when **`lastActiveAt`** is within the **2-minute** window (server boolean or client-derived). **Host** row follows the same badge rules. Badges are **visual only** on **People** — not duplicated as stage chrome for mic-only participants except **speaking** (below).
 
 ## Watch party participant AV (`/room/:roomId`)
 
@@ -103,7 +105,7 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 - Visible only when **`JWT.sub === hostSub`**.
 - Flex row directly below the stage: **room layout** segmented control (**Theater** default, **Video Chat** alternate) on the left; **Disable room A/V** kill switch on the right. Wraps on narrow widths; extension point for future host share controls.
-- When **AV kill switch** is on, **Video Chat** selection is unavailable or inert until AV is re-enabled.
+- When **`avDisabled`** is false, the **Video Chat** segment carries a visible **Beta** or **Experimental** label adjacent to the control text (host-only; not a guest-facing mode pill). When **AV kill switch** is on, **Video Chat** selection is unavailable or inert until AV is re-enabled.
 
 ### Participant camera/microphone toggles
 
@@ -117,8 +119,9 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 - Shared movie player (host tab-capture / guest inbound screen-share stream) stays **primary**.
 - On viewports **≥ 992px**, a **vertical participant strip** sits **immediately right of the video** within the stage region (not in the chat column).
-- Strip lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab); **no speaking/active border hints** in MVP.
-- **Mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat). **No** avatar chips, audible-only badges, or speaking-border chrome this milestone.
+- Strip lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab).
+- **Speaking affordance:** when a participant's mic is unmuted and energy crosses threshold, show a **speaking border or glow** on that participant's strip tile. **Mic-only** participants **do not** get strip tiles; their speaking state appears on **People** roster rows only.
+- **Mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat). **No** avatar chips or audible-only tile badges.
 - The **local publisher** appears in the strip when their camera is on, labeled **You** (live preview tile).
 - The **host** appears in the strip when their camera is on, same as other signed-in fans.
 - When zero video-on participants, the strip container is **not rendered** (no empty chrome).
@@ -127,7 +130,8 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 ### Video Chat room mode
 
 - The movie player region is **replaced** by a **grid** of **video-on** participants on viewports **≥ 992px** (`auto-fill` tiles, **16:9**, scroll when overflow).
-- **Mic-only** participants are **excluded** from the grid; audio is still heard; identity via **People** tab and chat. **No** supplementary stage chrome for mic-only this milestone.
+- **Speaking affordance** on grid tiles matches Theater strip rules (border/glow when talking and video is on).
+- **Mic-only** participants are **excluded** from the grid; audio is still heard; speaking state on **People** tab rows only. **No** supplementary stage chrome for mic-only.
 - The **local publisher** appears in the grid when their camera is on, labeled **You**.
 - The **host** appears in the grid when their camera is on.
 - When zero video-on participants, show centered copy: **"No cameras on yet. Mic-only participants are still audible."**
@@ -188,6 +192,17 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 ## Operator framing
 
 - **Charts / health:** direct maintainers to **AWS CloudWatch** dashboards—**no in-app uptime SLA** promises for the OSS deployment.
+
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| Typing in chat? | **In scope** — ellipsis indicator; typing start marks **active**; ephemeral (not archived). |
+| People badges? | **Online** (connected) + **active** (2-minute window) on roster rows; host row included. |
+| Speaking on tiles? | **Yes** — border/glow on Theater strip and Video Chat grid when video on and mic unmuted. |
+| Mic-only speaking? | **People tab rows only** — no stage tile or audible-only chrome. |
+| Video Chat label? | **Beta** / **Experimental** on host control bar segment when **`avDisabled`** is false. |
+| Separate chat vs video-relay drawers? | **Unchanged** — independent banners per **`getDiagnostics().drawers`**; no combined copy. |
 
 ## Open implementation decisions
 

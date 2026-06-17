@@ -32,8 +32,8 @@ Extract three runtime modules with **explicit lifecycle APIs** and **no cross-dr
 
 | Module | Owns | Must not |
 | --- | --- | --- |
-| **`ChatSession`** | API Gateway **room WebSocket**: chat send/receive, reactions, presence-adjacent control events consumed by chat UI, room-mode and kill-switch fan-out handling that affects **chat/composability only**. | Close SFU signaling, stop **`getUserMedia`** / **`getDisplayMedia`**, or tear down mediasoup producers/consumers. |
-| **`SfuMediaSession`** | Direct **SFU signaling WebSocket** per tab: ICE/TURN attach, mediasoup transports, **`host_screen`** and **`participant_av`** produce/consume, **`newProducer`** / **`producerClosed`** dispatch to subscribers. | Close room WebSocket or block chat send on SFU failure. |
+| **`ChatSession`** | API Gateway **room WebSocket**: chat send/receive, reactions, **`typing_start`** / **`typing_stop`** and inbound **`typing`** fan-out, **`ping`**, presence roster updates (**`presence`**, **`lastActiveAt`**, **`active`** badges for People tab), join/leave **`chat_system`** lines (signed-in fans only), room-mode and kill-switch fan-out handling that affects **chat/composability only**. Qualifying control-plane sends (**`typing_start`**, **`chat`**, **`chat_gif`**, **`react`**, **`ping`** within the active window) mark the sender **active** — typing is **not** display-only. | Close SFU signaling, stop **`getUserMedia`** / **`getDisplayMedia`**, or tear down mediasoup producers/consumers. |
+| **`SfuMediaSession`** | Direct **SFU signaling WebSocket** per tab (**one session per tab**): ICE/TURN attach, **mandatory per-`producerClass` send transport isolation** (**`host_screen`** and **`participant_av`** each own a send transport within the same signaling socket), mediasoup produce/consume, per-kind unpublish (**#143** / **#144**), **`newProducer`** / **`producerClosed`** dispatch to subscribers. **No** session-level **`close()`** for class-scoped failures — partial unpublish and transport recovery only. | Close room WebSocket or block chat send on SFU failure. |
 | **`TheaterPlayback`** | YouTube iframe lifecycle, **client-side Web Audio** mix graph (host movie audio + **`participant_av`** audio consumers at equal gain **1.0**), **`AudioContext`** suspend/resume policy. | Own SFU signaling socket; must subscribe to **`SfuMediaSession`** for consumer attach/detach. |
 
 ### Application SDK surface (narrow public API)
@@ -48,6 +48,31 @@ Room code outside these modules calls only:
 | **`getDiagnostics()`** | Drawer-tagged status for UI and logs: chat plane, SFU signaling, ICE/TURN, theater audio graph — see **Typed runtime errors** and **`.ai/interface/presentation.md`** (separate status surfaces). |
 
 Implementation may colocate helpers; **module boundaries and lifecycle rules above are normative**.
+
+### Presence, typing, and active (control plane)
+
+**`ChatSession`** owns all room WebSocket presence-adjacent behavior. SFU signaling **must not** carry typing, **`active`**, or speaking state.
+
+| Topic | Contract |
+| --- | --- |
+| **Online vs active** | **Online** = open **RoomPresence** row. **Active** = engaged within a **2-minute** idle window after the last qualifying signal — **not** SFU publish, sidebar tab focus, or profile telemetry. |
+| **Qualifying active signals (union)** | **`typing_start`**, outbound **`chat`** / **`chat_gif`**, **`react`** (add or remove), and **`ping`** when the heartbeat falls inside the active window. Each qualifying inbound route updates durable **`lastActiveAt`** on the sender's **RoomPresence** row before fan-out. |
+| **Typing** | **`typing_start`** / **`typing_stop`** are fan-JWT-gated, ephemeral fan-out only (**no** **RoomChat** write). **`typing_start`** also marks **active**. Inbound **`typing`** envelopes update compose UI and People-adjacent indicators. |
+| **Reconnect rehydration** | **`lastActiveAt`** persists on **RoomPresence** so **`presence_request`** and roster fan-out rehydrate accurate **active** badges for late joiners and refresh. |
+| **Join / leave lines** | Signed-in fans (**`fanSub`**) receive ephemeral **`chat_system`** join/leave lines on the room WebSocket; anonymous guests connect silently. Not persisted in **RoomChat**. |
+
+**Active boolean at broadcast time:** server **may** precompute **`active`** on each **`presence`** member or clients **may** derive **`now - lastActiveAt < 120s`** — tier TW (**`.ai/operations/observability.md`** open decisions).
+
+### Speaking indicator (client VAD)
+
+Speaking affordance is **client-side only** — local mic **`AnalyserNode`** and remote audio tracks where the client subscribes. **No** SFU signaling or server mix input.
+
+| Surface | Contract |
+| --- | --- |
+| **Theater strip + Video Chat grid** | Speaking border or equivalent affordance on **video-on** tiles when VAD detects speech on that participant's audio path. |
+| **People tab** | Speaking state on roster rows for **all** participants, including **mic-only** (no video tile). |
+| **Mic-only on stage** | **No** new stage chrome — mic-only participants remain off strip/grid; speaking shows on **People** tab only. |
+| **Out of scope** | Avatar chips, audible-only stage badges, server-side theater audio mix scheduling (**deferred** follow-on). |
 
 ### Session state machines (per module)
 
@@ -178,13 +203,14 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 
 | Topic | Contract |
 | --- | --- |
-| **Single session per tab** | One SFU WebSocket + one mediasoup send/receive transport pair per browser tab (**`SfuMediaSession`**). Host may publish **`host_screen`** and **`participant_av`** concurrently; all participants attach multiple remote consumers via **`newProducer`** / **`producerClosed`** events on that session. |
+| **Single session per tab** | One SFU WebSocket per browser tab (**`SfuMediaSession`**). Within that session: **separate send transports per `producerClass`** (**`host_screen`**, **`participant_av`**) plus shared receive transport(s) as implementation requires. Host may publish both classes concurrently; participants attach multiple remote consumers via **`newProducer`** / **`producerClosed`** on the same signaling socket. |
+| **Per-class transport isolation** | Class-scoped ICE/transport failure, per-kind unpublish, or partial produce errors **must not** invoke session-level **`close()`** — recover or tear down **that class's send transport** only. Session **`close()`** is reserved for tab leave, kill switch, or unrecoverable whole-session fault. |
 | **Tile routing** | Map strip/grid attachment to **`sessionId`** + **`producerClass`** + **`kind`** from SFU events. No **`fanSub`** dedupe across tabs in MVP — two tabs from one fan appear as two tiles when both cameras are on. |
 | **Camera off, mic on** | **Close the video producer** and emit/consume **`producerClosed`** for video; **remove strip/grid tile immediately** (no frozen last frame). Keep audio producer active (or **`pause()`** / **`resume()`** when mic muted with camera on). **No** full SFU session rebuild when publish already supported. |
 | **Mic-only visibility** | Mic-only participants stay **off** strip/grid (audible via theater mix or Video Chat audio path only) — hardening fixes **tile lifecycle** on camera-off, not new stage chrome. |
 | **Mic mute with camera on** | **`producer.pause()`** / **`resume()`** on the audio producer; camera track and video producer stay live. |
 | **Page Visibility** | Leave participant producers running for MVP; battery policy revisit is out of scope. |
-| **Theater audio mix** | **Client-side default:** **Web Audio API** graph via **`TheaterPlayback`**: host movie audio + each **`participant_av`** audio consumer at equal gain (**1.0**); no automatic ducking in MVP. Server-side mix **deferred**. |
+| **Theater audio mix** | **Client-side default:** **Web Audio API** graph via **`TheaterPlayback`**: host movie audio + each **`participant_av`** audio consumer at equal gain (**1.0**); no automatic ducking in MVP. **Server-side theater audio mix scheduling deferred** to a follow-on initiative — decoupling, presence, typing, and speaking ship first. |
 | **Reconnect privacy** | After refresh or disconnect, local camera and microphone state **default off**; fan must manually re-enable (no sessionStorage persistence of publish intent). |
 
 ## Media path (all environments)
@@ -200,7 +226,7 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 | Topic | Decision |
 | --- | --- |
 | **Module paths** | **`apps/web/src/room/sessions/ChatSession.ts`**, **`SfuMediaSession.ts`**, **`TheaterPlayback.ts`** — framework-agnostic classes with colocated **`*.test.ts`**. RoomPage uses thin hooks/factories that hold module instances; module files do **not** import React. |
-| **`ChatSession` absorbs** | **`useRoomWebSocket.ts`** connect/reconnect/ping/send; inbound demux for **`chat`**, **`chat_gif`**, **`react`**, **`presence`**, **`room_mode`**, **`av_disabled`**, **`share_state`** frames. Chat-owned state: message log helpers, reaction merge, presence roster updates for chat/People UI. |
+| **`ChatSession` absorbs** | **`useRoomWebSocket.ts`** connect/reconnect/ping/send; inbound demux for **`chat`**, **`chat_gif`**, **`react`**, **`typing`**, **`chat_system`**, **`presence`**, **`room_mode`**, **`av_disabled`**, **`share_state`** frames. Chat-owned state: message log helpers, reaction merge, typing map, **`lastActiveAt`** / **`active`** roster fields for People UI, compose typing outbound (**`typing_start`** / **`typing_stop`**). |
 | **`SfuMediaSession` absorbs** | **`sfu/sfuRoomSession.ts`**, **`sfu/mediasoupSharing.ts`** connection lifecycle, **`sfu/participantAvSession.ts`** publish gate binding, ICE fetch, SFU token mint/reconnect policy, **`newProducer`** / **`producerClosed`** dispatch. |
 | **`TheaterPlayback` absorbs** | **`audio/theaterAudioMix.ts`**, YouTube iframe ref lifecycle, host **`host_screen`** audio consumer attach to mix graph. Subscribes to **`SfuMediaSession`** consumer events — does **not** own SFU signaling socket. |
 | **Media policy callbacks** | **`ChatSession`** forwards **`share_state`**, **`room_mode`**, **`av_disabled`** to registered **`SfuMediaSession`** / **`TheaterPlayback`** policy handlers — **no** implicit SFU teardown inside chat WS message handlers. |
@@ -303,7 +329,7 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 
 | Topic | Decision |
 | --- | --- |
-| **Scope** | **Preserve** mic-only off strip/grid rule; **harden** tile attach/detach on video **`producerClosed`** only — no avatar chips, audible-only badges, or speaking-border chrome. |
+| **Scope** | **Preserve** mic-only off strip/grid rule; **harden** tile attach/detach on video **`producerClosed`**. **Speaking affordance** on video tiles (Theater strip, Video Chat grid) and **People** tab roster rows is **in scope** (client VAD). Still **no** avatar chips or audible-only stage badges. |
 | **M19 gate** | Parent **#152** tracks M19 milestone exit when peer **#142** acceptance criteria pass across Theater strip, Video Chat grid, and narrow horizontal row. |
 | **Implementation** | Peer parent **#142** with sub-issues **#188–#190** on **`feature/issue-142`** — consumer detach → **`videoConsumers`** sync, **`ParticipantVideoTile`** **`srcObject`** cleanup, regression tests. |
 | **Timing contract** | Tile leaves strip/grid within **one React commit** after consumer **`detach`**; **`<video>`** **`srcObject = null`** before next paint (**`presentation.md`**). |
@@ -331,9 +357,27 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 | **Compose feedback** | On drop: inline compose **`role="status"`** region with **`error_state.md`** copy; chat drawer banner shows **Reconnecting chat…** or degraded copy per **`presentation.md`**. Draft text **retained** for manual retry. |
 | **Verification** | Unit tests: SFU-only simulated outage leaves chat send callable and does not set **`CHAT_SEND_DROPPED`**; chat-only outage sets drop code and retains draft. Sub-issues under **#149**. |
 
+## Decisions (answered — presence and AV maturity)
+
+| Topic | Decision |
+| --- | --- |
+| **Active signal set** | **Union** — **`typing_start`**, **`chat`** send, **`chat_gif`** post, **`react`** toggle, and qualifying **`ping`** within the active window all mark a participant **active**. |
+| **Active idle window** | **2 minutes** after last qualifying signal. |
+| **Active on reconnect** | **Yes** — persist **`lastActiveAt`** on **RoomPresence** so **`presence_request`** and roster fan-out rehydrate **active** for late joiners and refresh. |
+| **Video Chat mode while A/V matures** | **Keep** in host control bar with explicit **Beta** / **Experimental** label when **`avDisabled`** is false. |
+| **Join/leave system chat lines** | **Signed-in fans only** — guests connect silently; named signed-in fans get ephemeral join/leave system lines on room WebSocket (not persisted in **RoomChat**). |
+| **Server-side theater audio mix** | **Later phase** — client Web Audio equal-gain mix remains normative until a follow-on initiative. |
+| **Speaking indicator scope** | **Video tiles plus People tab** — speaking on Theater strip and Video Chat grid when video is on; **mic-only** participants show speaking on **People** tab roster rows only (no new stage chrome). |
+| **SFU decoupling depth** | **Single SFU signaling WebSocket per tab** with **mandatory per-class send transport isolation**, per-kind unpublish (**#143** / **#144**), and explicit prohibition of session-level **`close()`** for class-scoped failures. |
+| **Typing vs active** | Typing contributes to **active** badge — not display-only. |
+| **Idle viewers** | **`ping`** within the 2-minute window counts toward **active**; heartbeats alone keep idle watchers **active**. |
+
 ## Open implementation decisions
 
-_(None for #140 / #147 / #148 / #149 / #158 scope.)_
+- **`presence.active` computation** — server precomputes boolean on each **`presence`** broadcast vs clients derive from **`lastActiveAt`** at receive time (tier TW; **`api_contracts.md`**).
+- **`typing_stop` throttle UX** — silent drop vs business **`error`** envelope when **`typing_start`** / **`typing_stop`** rate limit exceeded (tier TW).
+- **Speaking VAD tuning** — analyser threshold, hang time, and remote-track attach policy (implementation; not harness-gated in MVP).
+- **Harness extension (tier TW)** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`**.
 
 ## Primary code pointers (optional)
 

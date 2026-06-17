@@ -14,7 +14,10 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 ## Realtime fan-out (WebSocket)
 
 - Not "async messaging" in the Kafka sense: **Lambda** completes **`PostToConnection`** after **Dynamo** write on **chat / durability-required paths** as implemented. **Mesh WebRTC signaling relay is removed** — SFU signaling is direct to **`RiffSyncTurn`** EC2.
-- **Bounded chat retention:** **`chat`**, **`chat_gif`**, and active **`react`** rows write to **RoomChat** before fan-out. **`presence_request`** also posts requester-only **`chat_history`** (capped messages + aggregated reactions) while broadcasting **`presence`**.
+- **Bounded chat retention:** **`chat`**, **`chat_gif`**, and active **`react`** rows write to **RoomChat** before fan-out. **`presence_request`** also posts requester-only **`chat_history`** (capped messages + aggregated reactions) while broadcasting **`presence`**. **Typing** (**`typing_start`** / **`typing_stop`**) and join/leave **`chat_system`** lines fan out **without** **RoomChat** writes — ephemeral control-plane only.
+- **Presence active rehydration:** qualifying inbound routes (**`typing_start`**, **`chat`**, **`chat_gif`**, **`react`**, **`ping`** inside the active window) update **`lastActiveAt`** on the sender's **RoomPresence** row **before** **`presence`** fan-out so late joiners and **`presence_request`** see accurate **`active`** badges after reconnect.
+- **Typing fan-out:** **`typing_start`** broadcasts a room-wide **`typing`** envelope (who is composing); **`typing_stop`** clears that sender's typing flag. Multiple concurrent typers are allowed. Typing state is **not** stored in Dynamo — reconnect clears local typing UI until a new **`typing_start`** arrives.
+- **Join/leave fan-out:** on **RoomPresence** row create/delete for connections with **`fanSub`**, emit ephemeral **`chat_system`** (**`join`** \| **`leave`**) to room members. Guest connections (no **`fanSub`**) produce **no** join/leave line.
 - **Room layout and AV control:** **`roomMode`** and **`avDisabled`** are **durable on the room item** via host **`PATCH`**, then **`room-patch` Lambda** **`PostToConnection`** to all connections in **`roomId`** (#103). **No inbound WebSocket routes** for these fields (contrast **`share_state`**, which is ephemeral fan-out over WS). Late joiners read authoritative values from room snapshot/join; realtime events cover connected clients.
 - **`share_state: stopped` side effects:** ephemeral fan-out only. **Guests detach `host_screen` consumers**; **must not** trigger full SFU session teardown or participant A/V consumer removal. Host unpublishes **`host_screen`** locally. See **`api_contracts.md`** (Realtime hardening).
 - **Chat vs SFU lifecycle decoupling:** room WS reconnect, disconnect, and **`share_state`** handlers **must not** call SFU session **`close()`** without explicit media policy. Chat send failures (**`CHAT_SEND_DROPPED`**) are independent of SFU health when room WS is up. SFU signaling outage **must not** block outbound **`chat`**, **`chat_gif`**, or **`react`** when room WS is **`open`** (**#149**). Each drawer reconnects independently (**`api_contracts.md`**).
@@ -37,10 +40,23 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | `share_state: stopped` tears down SFU for guests? | **No** — **`host_screen` consumer detach only**; preserve SFU session and **`participant_av`**. |
 | Chat outbound retry before **`CHAT_SEND_DROPPED`**? | **No retry queue** — first failed send while chat plane unavailable emits **`CHAT_SEND_DROPPED`** (**#140** / **`api_contracts.md`**). |
 
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| Typing persistence? | **Ephemeral fan-out only** — no **RoomChat** / Dynamo row; lost on disconnect. |
+| Typing vs **active**? | **`typing_start`** contributes to **active** via **`lastActiveAt`** update — not display-only. |
+| Join/leave lines? | **Signed-in fans only**; ephemeral WS fan-out; excluded from **`chat_history`**. |
+| **`lastActiveAt` write timing?** | Update on qualifying control-plane routes **before** **`presence`** / typing fan-out (same Lambda turn as inbound handler). |
+| **`ping`** and idle viewers? | Heartbeats inside the **2-minute** window count toward **active** — watching without chatting can remain **active** while heartbeats continue. |
+
 ## Open implementation decisions
 
 - Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
 - Presence re-hydration message shape after room WS reconnect: reuse existing **`presence`** broadcast plus requester-only **`chat_history`** on **`presence_request`**.
+- **`typing`** broadcast payload shape — set of **`sessionId`** values vs per-event single-sender envelope; whether to include **`displayName`** on every **`typing_start`**.
+- Server-side debounce/coalesce for rapid **`typing_start`** / **`typing_stop`** from one tab before **`PostToConnection`**.
+- Join/leave **`chat_system`** line copy template and whether host connections emit **`join`** on reconnect within the same **`fanSub`**.
 
 ## Kill-switch side-effect ordering (#102 / #103 split)
 

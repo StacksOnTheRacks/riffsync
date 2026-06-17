@@ -26,6 +26,8 @@ User-visible and system-visible failure modes (catalog + room + embed).
 | **Frozen last-frame remote tile** | **Contract violation** — when a participant turns camera off, remote strip/grid tiles **remove promptly**; mic audio may continue. Fix is compliance with partial producer teardown, not a new UX pattern. |
 | **Host share stopped (`share_state: stopped`)** | Guests lose **host movie** picture; participant A/V tiles and mic audio **persist**; video-relay status may show host-not-sharing state without implying full media session loss. |
 | **Chat plane degraded** | **Separate** status surface (e.g. "Chat reconnecting"); SFU/video relay may remain healthy; compose may queue or disable send with honest copy until chat recovers. |
+| **Typing rate limited** | Server drops excess **`typing_start`** frames per **`sessionId`**; client **does not** show an error toast. Local compose continues; remote typing ellipsis may simply not appear until the limit window resets. |
+| **Presence roster stale after reconnect** | Brief **People** tab gap until **`presence_request`** completes; show existing roster or honest loading state — no crash. If roster refresh fails after reconnect, chat drawer shows recoverable status; SFU plane unaffected. |
 | **Video relay plane degraded** | **Separate** status surface (e.g. "Video relay reconnecting"); chat read/send may continue when chat plane is healthy; participant toggles reflect publish/consume errors per taxonomy below. |
 | **Theater playback blocked** | Inline honest copy when **AudioContext** suspend or autoplay blocks movie/mic mix; chat and SFU sessions may still be connected; user action may be required to resume audio (**client-side mix default**). |
 
@@ -74,6 +76,7 @@ Extends participant A/V codes with **drawer-typed** failures. Each maps to **inl
 | **`code`** | Drawer | Surface | Recoverable? | User-facing copy (template) |
 | --- | --- | --- | --- | --- |
 | **`CHAT_SEND_DROPPED`** | Chat WS | Compose / chat status | Yes | Message could not be sent. Check chat connection and try again. |
+| **`TYPING_RATE_LIMITED`** | Chat WS | _(none — silent drop)_ | No | Excess typing signals dropped server-side; no user-facing banner. |
 | **`CHAT_RECONNECTING`** | Chat WS | Chat status only | Yes | Reconnecting chat… |
 | **`SIGNALING_TIMEOUT`** | SFU signaling | Video-relay status | Yes | Video relay is slow to connect. Waiting… |
 | **`sfu_signaling_failed`** | SFU signaling | Video-relay status / toggles | Yes | Video relay connection lost. Refresh or wait for automatic reconnect. |
@@ -136,6 +139,14 @@ When **`import.meta.env.DEV`** (or equivalent Vite dev flag), append **` (code: 
 | **Theater pre-capture / not sharing?** | Guest **`idle`** FSM → **Waiting for host to share…** on **`#riffsync-video-relay-status`** — not a drawer **`code`** row; informational **`role="status"`** only. |
 | **Consumer attach pending?** | Guest **`verifying_media`** FSM → **Connecting to video relay…** on the same surface until live video track or **`running`**. |
 | **Duplicate placeholder?** | Retire **"The host is not sharing video right now."** when FSM idle copy is shown (**`RoomPlaybackPanel`**). |
+
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| Typing rate limit UX? | **Silent drop** — no toast or compose block; **`TYPING_RATE_LIMITED`** excluded from drawer banners and **`activeErrorCodes`**. |
+| Presence reconnect errors? | Roster gap or loading until **`presence_request`** completes; no dedicated presence error code unless chat plane is **`degraded`**. |
+| Join/leave line failures? | Non-blocking — failure to fan-out a system line does not block join; no user-visible error for ephemeral lines. |
 
 ## Open implementation decisions
 

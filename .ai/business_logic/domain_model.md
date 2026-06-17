@@ -8,6 +8,9 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 - **Room:** shared viewing session on **`/room/:id`** with a **mutable current catalog episode** (**`catalogEpisodeId`** / **`videoId`** on the room document — seeded when the **signed-in** host creates the room, then changeable via **in-room picker**); the host (**room admin**) renders **embedded YouTube** for that selection and may **publish** a captured **`MediaStream`** to guests over **WebRTC**; guests consume that stream—**not** parallel iframe timelines kept in sync server-side. The room also carries **host-authoritative layout policy**: **`roomMode`** (**Theater** default | **Video Chat**) and **`avDisabled`** (room-wide participant A/V kill switch), both **durable** on the room document and returned on snapshot/join.
 - **Participant A/V (camera / microphone):** optional **signed-in fan** publish of **`getUserMedia`** streams over the same SFU path as host capture; **default off** until the fan explicitly enables each control. **Anonymous guests** may **subscribe** to participant A/V when **`avDisabled`** is false but **must not publish** participant camera or microphone. Participant A/V is **parallel** to host tab-capture movie broadcast—not a replacement for embed/capture lawful playback.
 - **Participant:** **`sessionId`** + display name (**anonymous**) or **`sub`** (**signed-in optional**) with optional **`avatarUrl`** (public HTTPS, one image per **`sub`**).
+- **Presence (online vs active):** every open room WebSocket connection holds a **RoomPresence** roster row. **Online** means the connection is live on the roster (connected participant). **Active** is a derived engagement signal: the participant had at least one **qualifying control-plane action** within the **active idle window** (**2 minutes**). Qualifying actions (union): **typing start**, **chat send**, **GIF post**, **reaction toggle**, and **qualifying ping** within the window. **Typing start** contributes to **active** (not display-only). Idle viewers who keep heartbeating remain **active** while pings continue inside the window. **`lastActiveAt`** (epoch seconds) is **durable on RoomPresence**, updated on each qualifying route; **`presence_request`** and roster fan-out **rehydrate active** for late joiners and refresh after reconnect. Clients derive **`active`** as **`now - lastActiveAt < 120s`** (or the server precomputes a boolean at broadcast time — tier TW in Phase D).
+- **Room join/leave lines:** ephemeral **system chat lines** on the room WebSocket when a **signed-in fan** joins or leaves. **Anonymous guests** connect and disconnect **silently** (no system line). Lines are **not persisted** in **RoomChat** and do not appear in scrollback replay on **`presence_request`**.
+- **Speaking indicator:** client-side affordance when a participant's microphone energy crosses a threshold while their mic producer is unmuted. **Video-on** participants show speaking state on **Theater strip** and **Video Chat grid** tiles. **Mic-only** participants show speaking state on **People** tab roster rows **only** (no new stage chrome for audible-only participants).
 - **Chat message (bounded retention):** room-scoped broadcast with **`messageId`**, kind **`text`** | **`gif`**, sender identity, timestamp; persisted in **RoomChat** for capped replay on join.
 - **Chat reaction (bounded retention):** emoji on a **`messageId`**; toggle per signed-in sender; active reaction rows persisted in **RoomChat** and replayed as aggregated chips in **`chat_history`**.
 - **Room admin:** signed-in participant whose **fan-pool Cognito `sub`** equals the room’s **`hostSub`** — **exclusive authority** to drive the **embedded player**, **start/stop broadcast capture**, select **`roomMode`**, operate the room-wide **`avDisabled`** kill switch, and mutate durable room playback metadata. **Anonymous users cannot host.** **Guest promotion** and token-based **admin reclaim** beyond normal Cognito re-login for the same user are **out of scope** for MVP. When the room admin enables a **participant camera**, they appear in Theater strip and Video Chat grid **like other signed-in fans** (not as a separate host-only surface).
@@ -34,6 +37,8 @@ Three orthogonal client compartments own distinct realtime concerns. Each has it
 5. **Mic mute vs camera off:** Microphone mute uses **pause/resume** on the audio producer where supported. Camera off **closes** the video producer and detaches video consumers; the behaviors are not interchangeable.
 6. **SFU-only media path:** All environments use SFU topology (disposable SFU + TURN in local dev and CI). Mesh WebRTC is **not** a supported media fallback.
 7. **Publish idempotency:** Camera/mic toggles reuse the existing SFU send transport when publish is already supported; no full session rebuild per toggle that would drop unrelated producers or consumers.
+8. **Single SFU signaling session per tab:** one SFU signaling WebSocket per browser tab with **mandatory per-class send transport isolation**, **per-kind unpublish** for partial teardown, and an explicit **prohibition of session-level `close()`** for class-scoped failures. Reliability is met by operational isolation within one session (one video-relay reconnect surface, lower ICE/TURN friction) — not a second signaling socket that would duplicate reconnect UX and connection setup cost.
+9. **Server-side theater audio mix:** **deferred** to a follow-on initiative. Client Web Audio equal-gain mix remains normative until then.
 
 ## Identity modes and trust boundary
 
@@ -56,7 +61,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 ## Enumerations
 
 - **`playbackExpectation`:** **`premium`** | **`free-ad-supported`** — **advisory**; not verified subscription state.
-- **`roomMode`:** **`theater`** (default on room open) | **`videoChat`** — host-authoritative layout policy; one current value per room; fan-out to all connected participants and late joiners via durable room document + realtime sync.
+- **`roomMode`:** **`theater`** (default on room open) | **`videoChat`** — host-authoritative layout policy; one current value per room; fan-out to all connected participants and late joiners via durable room document + realtime sync. While **`avDisabled`** is false, **Video Chat** remains selectable in the host control bar with an explicit **Beta** / **Experimental** label (A/V maturity disclaimer — not a separate product mode).
 
 ## Invariants
 
@@ -181,10 +186,28 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Local **You** camera off | **You** tile removed | **You** tile removed | **You** tile removed | Preview cleared |
 | Roster member, no video consumer | No tile | No tile | No tile | Mic-only unchanged (off strip/grid) |
 
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| Active signal set? | **Union** — typing start, chat send, GIF post, reaction toggle, and qualifying ping within the active window all mark **active**. |
+| Active idle window? | **2 minutes** after last qualifying signal. |
+| Active on reconnect? | **Yes** — persist **`lastActiveAt`** on **RoomPresence** so **`presence_request`** and roster fan-out rehydrate **active** for late joiners and refresh. |
+| Typing vs active badge? | **Typing start** contributes to **active** (not display-only). |
+| Ping within window? | **Counts toward active** — idle viewers watching without chatting remain **active** while heartbeats continue. |
+| Join/leave system chat lines? | **Signed-in fans only** — guests connect silently; named signed-in fans get ephemeral join/leave lines on room WebSocket (**not** persisted in **RoomChat**). |
+| Speaking indicator scope? | **Video tiles plus People tab** — speaking on Theater strip and Video Chat grid when video is on; **mic-only** speaking state on **People** roster rows only. |
+| Video Chat mode while A/V matures? | **Keep** in host control bar with explicit **Beta** / **Experimental** label when **`avDisabled`** is false. |
+| SFU decoupling depth? | **Single SFU signaling WebSocket per tab** with mandatory per-class send transport isolation, per-kind unpublish, and prohibition of session-level **`close()`** for class-scoped failures. |
+| Server-side theater audio mix? | **Later phase** — decoupling, presence, typing, and speaking ship first; client Web Audio equal-gain mix remains normative. |
+
 ## Open implementation decisions
 
 - **Session state machines:** formal substates and transitions for **ChatSession**, **SfuMediaSession**, and **TheaterPlayback** (connected / reconnecting / degraded / torn-down) and allowed cross-session side effects — **#140** (extraction #138 ships module files with minimal lifecycle flags only).
 - **Mode transition empty-state UX:** copy and layout when switching to **Video Chat** with zero video-on participants, or **Theater** before host has started tab-capture (**`interface/presentation.md`**).
+- **`active` boolean at broadcast:** server precomputes **`active`** on **`presence`** fan-out vs client derives from **`lastActiveAt`** — tier TW in Phase D.
+- **Speaking threshold calibration:** mic energy / VAD sensitivity and debounce for tile vs People row affordance — tier TW.
+- **Typing indicator TTL:** how long **typing** ellipsis persists after last **`typing_start`** without **`typing_stop`** — tier TW.
 
 ## Decisions (theater mic mix on host_screen close — #145)
 

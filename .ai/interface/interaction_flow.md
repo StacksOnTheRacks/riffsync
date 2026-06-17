@@ -100,6 +100,22 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 - Participants receive authoritative **room mode** and **AV kill switch** state on join snapshot and realtime updates.
 - Non-host users cannot change mode; they see layout swap without confirmation.
 
+### Presence, typing, and People badges
+
+1. **Roster on join:** Client sends **`presence_request`** after room WebSocket connect; server returns **`presence`** roster (with **`lastActiveAt`** / **`active`**) and requester-only **`chat_history`** (capped durable messages — **excludes** ephemeral join/leave system lines).
+2. **Online vs active:** **Online** = row present on roster. **Active** = **`lastActiveAt`** within **2 minutes** (union of typing start, chat send, GIF post, reaction toggle, qualifying ping). **People** tab shows both badges per row.
+3. **Qualifying actions update `lastActiveAt`:** Server persists epoch seconds on **RoomPresence** on each qualifying inbound route; rebroadcasts **`presence`** or patches roster entry so late joiners and refresh see accurate **active** state.
+4. **Typing flow (signed-in fan):** On compose input, client sends **`typing_start`** (throttled client-side; server may **`TYPING_RATE_LIMITED`** drop excess — silent, **`error_state.md`**). Remotes render ellipsis in chat. **Typing start** marks sender **active**. Clear on send, blur/stop, disconnect, or TTL.
+5. **Join/leave system lines (signed-in fans only):** On connect/disconnect of a connection with **`fanSub`**, server fans ephemeral **`chat_system`** (or equivalent) line to room WebSocket — e.g. **"DisplayName joined"** / **"DisplayName left"**. **Not** written to **RoomChat**; absent from **`chat_history`** replay. **Anonymous guests:** no line.
+6. **Reconnect:** **`presence_request`** rehydrates roster and **`lastActiveAt`**; **active** badge may persist if engagement was recent. Chat and SFU reconnect **orthogonally** (**US-P0-12f**).
+
+### Speaking indicator flows
+
+1. **Video-on (Theater strip / Video Chat grid):** Client derives speaking from local mic analyser (self) or inbound audio track energy (remote) when producer is unmuted. Apply **speaking border/glow** on tile while above threshold (debounced tier TW).
+2. **Mic-only:** No strip/grid tile. Speaking affordance on **People** roster row for that **`sessionId`** only.
+3. **Muted mic:** No speaking affordance regardless of energy.
+4. **Kill switch / producer closed:** Clear speaking state with tile removal or row update.
+
 ## Decisions (answered)
 
 | Question | Decision |
@@ -121,7 +137,7 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 | Chat vs video relay reconnect? | **Independent** — healthy drawer keeps running; each plane shows its own status surface (**`presentation.md`**). |
 | `share_state: stopped` guest scope? | **`host_screen` detach only** — participant AV and SFU session persist. |
 | Frozen frame on camera-off? | **Contract violation** — tile must leave strip/grid on video **`producerClosed`**. |
-| Mic-only stage chrome? | **Unchanged** — off strip/grid; no avatar chips/badges this milestone. |
+| Mic-only stage chrome? | **Unchanged** for tiles — off strip/grid; **speaking** on **People** rows for mic-only; no avatar chips or audible-only tile badges. |
 | Media path (all envs)? | **SFU mandatory**; mesh WebRTC UI removed. |
 | Chat send while chat **`reconnecting`**? | **Drop** send; show **sidebar chat status** **and** **inline compose feedback** (honest copy per **`error_state.md`** **`CHAT_SEND_DROPPED`**). |
 | Chat send while SFU **`reconnecting`** / **`degraded`**? | **Allow** when room WS is **`open`** — compose stays enabled for signed-in fans; send proceeds; **no** SFU status on chat compose (**#149**). Retain draft on chat-plane drop only. |
@@ -141,9 +157,22 @@ Guests watching host tab-capture in **Theater** mode see status copy in the **pl
 
 Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing encrypted path…`**, **`Verifying video feed…`**) retire with **`room/sharing/shareSessionFsm.ts`**.
 
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| Typing flow? | Signed-in fan **`typing_start`** → remote ellipsis; marks **active**; silent server drop on rate limit. |
+| Active badge source? | **`lastActiveAt`** on **RoomPresence**; 2-minute window; rehydrate on **`presence_request`**. |
+| Join/leave lines? | **Signed-in fans only**; ephemeral WS fan-out; not in **RoomChat** or scrollback replay. |
+| Speaking — video on? | Theater strip + Video Chat grid tile border/glow when mic unmuted. |
+| Speaking — mic-only? | **People** tab row only. |
+| Video Chat Beta? | Host control bar label when **`avDisabled`** false; layout fan-out unchanged. |
+| AV decoupling UX? | Chat vs SFU reconnect and status **unchanged** from hardening — separate drawers. |
+
 ## Open implementation decisions
 
-_(None for #140 — chat send policy resolved in **Decisions (answered)** above.)_
+- **Typing TTL and client throttle:** debounce **`typing_start`** emissions and ellipsis expiry when composer idle — tier TW.
+- **Speaking VAD debounce:** threshold and hold time before border/glow clears — tier TW.
 
 ## Primary code pointers (optional)
 

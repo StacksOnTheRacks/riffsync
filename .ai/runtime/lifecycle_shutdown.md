@@ -12,10 +12,20 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 | **`share_state: stopped`** (guest) | **unchanged** | **Partial:** detach **`host_screen`** consumers only; **keep** session + **`participant_av`** | Remove host-screen audio node from mix; **keep** participant mic nodes |
 | **`avDisabled`** | **unchanged** (chat may continue) | Stop participant AV per kill-switch | Remove participant audio from mix |
 
+## Typing and active teardown (`ChatSession`)
+
+| Trigger | Contract |
+| --- | --- |
+| **Intentional room leave / navigate** | Before **`ChatSession`** reaches **`torn-down`**, emit **`typing_stop`** when local compose was in typing state and room WS is still **`open`**. Clear local typing map for all remote **`sessionId`** keys. |
+| **Room WS drop alone** | Clear **local** inbound typing indicators immediately. **`typing_stop`** outbound is **best-effort** if the socket is already closed — server **`$disconnect`** clears authoritative typing for that connection. **`ChatSession`** reconnect does **not** reset durable **`lastActiveAt`** on self or peers. |
+| **SFU signaling drop alone** | **No** typing or **active** teardown — **`ChatSession`** unchanged. |
+| **Global leave order** | Typing stop and chat teardown occur in step (4) **`ChatSession`** teardown after SFU participant track stop (steps 1–3 unchanged). |
+
 ## API Gateway WebSocket **`$disconnect`**
 
 - Must **eventually** remove **connectionId → room** mappings and adjust presence counts if tracked.
-- **Best-effort only:** clients may disappear without clean close — rely on **`lastActivityAt`** + pings for room liveness (**`README.md`** room lifecycle).
+- **Typing teardown:** clear the disconnecting connection's in-flight typing indicator server-side and fan out **`typing_stop`** semantics to room members (ephemeral — no **RoomChat** write). **`lastActiveAt`** on **RoomPresence** is **not** cleared on disconnect — durable badge history until TTL or stale-row cleanup.
+- **Best-effort only:** clients may disappear without clean close — rely on **`lastActivityAt`** + pings for room liveness (**`README.md`** room lifecycle); stale remote typing entries expire when the sender's row is removed or typing TTL elapses.
 
 ## Lambda
 
@@ -59,9 +69,18 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 | **Theater mode transition** | On **Video Chat → Theater**, **`RoomRealtimeSdk.initTheaterPlayback()`** then **`applySubscribeHandlers()`** reattaches SFU consumers and mix nodes; ordered warmup avoids silent black screen beyond existing **Updating room layout…** copy. |
 | **Harness-visible teardown assertions** | Unit tests and **`realtime-conformance`** steps 5–6 assert **`getDiagnostics()`**: failed drawer **`reconnecting`** during outage, **`connected`** after recovery; sibling drawer **`connected`** throughout. Chat-only drop must **not** set **`sfuSignaling`** or **`sfuSignaling.health.connectivity`** to **`torn-down`**. SFU-only drop must **not** set **`chat`** to **`torn-down`**. Health sub-snapshots (**#158**) follow the same sibling independence rules. M18 wiring enforcement and regression tests: **#147**, sub-issues **#200–#202**. |
 
+## Decisions (answered — presence and AV maturity)
+
+| Topic | Decision |
+| --- | --- |
+| **Typing on disconnect** | Client emits **`typing_stop`** on intentional leave when compose was typing; server clears typing state on **`$disconnect`** and fans ephemeral stop to peers. |
+| **`lastActiveAt` on disconnect** | **Preserve** on **RoomPresence** until row TTL — disconnect does not force **active** false for historical accuracy on late **`presence_request`**. |
+| **Drawer isolation** | Typing/active teardown is **`ChatSession`** only — SFU or theater modules **must not** clear typing maps or **`active`** roster fields. |
+
 ## Open implementation decisions
 
 - Page Visibility battery policy for participant producers while tab backgrounded (**MVP:** leave running per **`execution_model.md`**).
+- **Typing stop on abrupt tab close** — browser **`beforeunload`** **`typing_stop`** is best-effort only; rely on server **`$disconnect`** as authoritative (**tier TW**).
 
 ## Primary code pointers (optional)
 

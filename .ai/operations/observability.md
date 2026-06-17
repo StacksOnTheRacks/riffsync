@@ -24,7 +24,7 @@ Watch-party reliability spans **orthogonal drawers**. Telemetry and structured l
 
 | Drawer | Plane | Primary signal home | Fan-visible status (separate surfaces) |
 | --- | --- | --- | --- |
-| **Chat** | API Gateway room WebSocket | **`RiffSync/Realtime`** (`Route`: **`chat`**, **`chat_gif`**, **`react`**) | "Chat reconnecting" copy |
+| **Chat** | API Gateway room WebSocket | **`RiffSync/Realtime`** (`Route`: **`chat`**, **`chat_gif`**, **`react`**, **`typing_start`**, **`typing_stop`**, **`presence_request`**) | "Chat reconnecting" copy |
 | **Signaling** | SFU WebSocket (join, produce, consume events) | **`RiffSync/Media`** + SFU JSON logs | "Video relay reconnecting" copy |
 | **Connectivity** | ICE / TURN candidate gathering | Client diagnostic logs; optional aggregate counters | Inline toggle / relay errors (`ICE_FAILED`, `TURN_RELAY_REQUIRED`) |
 | **Produce / consume** | mediasoup producer/consumer lifecycle | **`RiffSync/Media`** limit rejections + client logs | Inline AV toggle errors (`PRODUCER_CLOSED`, cap errors) |
@@ -37,8 +37,33 @@ Watch-party reliability spans **orthogonal drawers**. Telemetry and structured l
 
 | Namespace | Routes (dimension **`Route`**) | Notes |
 | --- | --- | --- |
-| **`RiffSync/Realtime`** | **`chat`**, **`chat_gif`**, **`react`** | EMF via Lambda **stdout**; dimensions **`Environment`**, **`Route`**, **`Outcome`** only. Chat drawer only — **not** SFU signaling. |
+| **`RiffSync/Realtime`** | **`chat`**, **`chat_gif`**, **`react`**, **`typing_start`**, **`typing_stop`**, **`presence_request`**, **`ping`** | EMF via Lambda **stdout**; dimensions **`Environment`**, **`Route`**, **`Outcome`** only. Chat drawer only — **not** SFU signaling. **`presence_request`** and **`ping`** include **`Outcome`** for roster rehydration and **active** **`lastActiveAt`** write success — no per-member cardinality. |
 | **`RiffSync/Api`** | **`GiphySearch`**, **`FanAvatarUpload`** | Same dimension set; no raw chat text or upload bytes in **INFO** logs (**`security.md`**). |
+
+## Presence and typing metrics (control plane)
+
+Low-cardinality product signals for **active** engagement and typing — same OSS posture as chat routes.
+
+| **`Signal`** (namespace **`RiffSync/Realtime`**) | Type | Source | Contract |
+| --- | --- | --- | --- |
+| **`TypingRouteAccepted`** | counter | WS route handler **`typing_start`** / **`typing_stop`** success path | Increment per accepted route invocation; dimension **`Route`** = **`typing_start`** \| **`typing_stop`**. |
+| **`TypingRouteThrottled`** | counter | WS route handler when per-**`sessionId`** typing rate limit fires | No **`sessionId`** dimension; optional **`Route`** only. |
+| **`PresenceActiveFanOut`** | counter | Lambda after **`presence`** broadcast where at least one member carries **`active: true`** or fresh **`lastActiveAt`** | One increment per roster fan-out wave — not per member. |
+| **`PresenceRequestRehydrated`** | counter | **`presence_request`** handler completes with roster + optional **`chat_history`** | Tracks reconnect rehydration volume. |
+| **`QualifyingActiveWrite`** | counter | WS handlers that update **`lastActiveAt`** (**`typing_start`**, **`chat`**, **`chat_gif`**, **`react`**, qualifying **`ping`**) | Aggregate **`Signal`** with optional **`Route`** dimension — **no** **`fanSub`**. |
+
+MVP may emit via Lambda stdout EMF alongside existing **`Requests`** metric; wiring is tier TW when handlers land.
+
+## AV decoupling observability (drawer isolation)
+
+Participant A/V maturity depends on **orthogonal drawer health**. Telemetry must prove chat-plane events do not correlate with spurious SFU teardown signals (and vice versa).
+
+| Signal class | Source | Contract |
+| --- | --- | --- |
+| **Harness drawer matrix** | **`realtime-conformance`** steps 5–6 (+ tier TW extensions) | Assert **`getDiagnostics()`** sibling drawer independence on chat-only vs SFU-only simulated outage — see **`lifecycle_shutdown.md`**. |
+| **`DrawerIsolationViolation`** | Harness / unit tests only (log or CI failure) | Emitted when a chat-only WS drop sets **`sfuSignaling`** to **`torn-down`**, or SFU-only drop sets **`chat`** to **`torn-down`**. **Not** a production CloudWatch metric in MVP. |
+| **Client typing logs** | **`ChatSession`** via **`clientDrawerLog`** | **`typing_start_sent`**, **`typing_stop_sent`**, **`typing_fanout`**, **`active_roster_update`** at **INFO** — **`drawer: chat`** only. |
+| **Speaking VAD** | Client-only | **No** CloudWatch or SFU logs — maintainer debug via optional dev flags only. |
 
 ## Media plane (SFU + TURN)
 
@@ -83,7 +108,7 @@ Emit via SFU stdout EMF or **`PutMetricData`** from a lightweight scrape Lambda 
 | Signaling | **`SignalingConnections`**, **`HealthProbeSuccess`**, **`WorkerAlive`** | Typed codes: **`SIGNALING_TIMEOUT`**, **`sfu_signaling_failed`** in logs only until counters wired |
 | Connectivity | (none today) | Log-only **`ICE_FAILED`**, **`TURN_RELAY_REQUIRED`** at client; optional future aggregate **`IceGatheringFailed`** counter |
 | Produce / consume | **`TransportLimitRejected`**, **`ConsumerLimitRejected`**, **`SfuTokenDenied`** | Log-only **`PRODUCER_CLOSED`** at client; optional **`ProducerLifecycleEvent`** counter without room dimension |
-| Chat | **`RiffSync/Realtime`** route outcomes | **`CHAT_SEND_DROPPED`** in client logs; Lambda **`Outcome`** dimension on failed fan-out |
+| Chat | **`RiffSync/Realtime`** route outcomes | **`CHAT_SEND_DROPPED`** in client logs; Lambda **`Outcome`** on failed fan-out; **`TypingRouteAccepted`**, **`TypingRouteThrottled`**, **`PresenceActiveFanOut`**, **`QualifyingActiveWrite`** when wired |
 
 ## EC2 alarms (optional, OSS posture)
 
@@ -135,7 +160,7 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 | **Payload shape** | **`{ drawer, event, code?, outcome }`** serialized as one JSON object per line. **`drawer`** and **`outcome`** required; **`code`** required on WARN/ERROR failure paths. |
 | **Sink** | **`console.info`** (INFO lifecycle), **`console.warn`** (WARN), **`console.error`** (ERROR) — not gated by diag flags. |
 | **Forbidden fields** | No **`roomId`**, **`sessionId`**, **`sub`**, JWT, SDP bodies, or ICE candidate strings. |
-| **Chat drawer** | **`ChatSession`** emits: **`ws_connect_attempt`**, **`ws_open`**, **`ws_close`**, **`ws_error`**, **`reconnect_scheduled`**, **`reconnect_success`**, **`degraded_threshold`**, **`send_dropped`** (**`CHAT_SEND_DROPPED`**, outcome **`failed`**). |
+| **Chat drawer** | **`ChatSession`** emits: **`ws_connect_attempt`**, **`ws_open`**, **`ws_close`**, **`ws_error`**, **`reconnect_scheduled`**, **`reconnect_success`**, **`degraded_threshold`**, **`send_dropped`** (**`CHAT_SEND_DROPPED`**, outcome **`failed`**), **`typing_start_sent`**, **`typing_stop_sent`**, **`typing_fanout`**, **`active_roster_update`**, **`chat_system_fanout`**. |
 | **Signaling drawer** | **`SfuMediaSession`** emits: **`signaling_connect`**, **`signaling_open`**, **`signaling_close`**, **`signaling_reconnect_scheduled`**, **`signaling_reconnect_success`**, **`signaling_degraded`**, **`token_denied`** (typed denial code when known). |
 | **Connectivity drawer** | **`mediasoupSharing`** PC hooks (via **`clientDrawerLog`**): **`ice_failed`** (**`ICE_FAILED`**), **`turn_relay_required`** (**`TURN_RELAY_REQUIRED`**), **`ice_recovered`** (outcome **`recovered`**). Production path replaces ad hoc **`webrtcLog`** ICE-failed copy for **`iceConnectionState === 'failed'`**. |
 | **Produce/consume drawer** | **`SfuMediaSession`** + **`TheaterPlayback`**: **`producer_closed`** (**`PRODUCER_CLOSED`**, INFO), **`consumer_attach_failed`**, **`partial_unpublish`**, **`transport_limit`**, **`consumer_limit`**, **`mix_error`** (theater audio graph). |
@@ -167,18 +192,32 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 | **Operator runbook** | **`docs/observability-drawer-mapping.md`** is the human-facing mapping (tables, investigation steps, Logs Insights examples). **`.ai/operations/observability.md`** (this file) remains the timeless contract; runbook links here and to **`docs/architecture.server.md`**. |
 | **M21 metric posture** | **Client drawer events are log-only** — browser **`clientDrawerLog`** JSON does not emit CloudWatch. Operators correlate fan console lines with AWS signals using the runbook drawer column. |
 | **Deferred client counters** | **`ChatSendDropped`**, **`IceGatheringFailed`**, and **`ProducerLifecycleEvent`** are **not** added in M21. Document as optional future **`RiffSync/Realtime`** / **`RiffSync/Media`** aggregates with **no** `roomId` / `sessionId` / `sub` dimensions. |
-| **`RiffSync/Realtime` (frozen)** | Metric **`Requests`** via Lambda stdout EMF (**`infra/cdk/lambda/riffsync-observability.ts`**). Dimensions **`Environment`**, **`Route`** (`chat` \| `chat_gif` \| `react`), **`Outcome`**. Maps to **chat drawer** only — not SFU signaling. |
+| **`RiffSync/Realtime` (frozen)** | Metric **`Requests`** via Lambda stdout EMF (**`infra/cdk/lambda/riffsync-observability.ts`**). Dimensions **`Environment`**, **`Route`** (`chat` \| `chat_gif` \| `react` \| `typing_start` \| `typing_stop` \| `presence_request` \| `ping`), **`Outcome`**. Maps to **chat drawer** only — not SFU signaling. |
 | **`RiffSync/Media` (frozen)** | Metric names are the **`Signal`** dimension values in the **`RiffSync/Media` metrics (#106)** table. Dimensions **`Environment`**, **`Signal`**; **`SfuTokenDenied`** Lambda may add **`Reason`** (server-side only). |
 | **Limit rejection EMF** | **`TransportLimitRejected`** and **`ConsumerLimitRejected`** emit from SFU stdout via **`services/riffsync-sfu/src/media-observability.ts`** — **shipped**; maps to **produce_consume** drawer. |
 | **Health gauges** | **`HealthProbeSuccess`**, **`WorkerAlive`**, **`SignalingConnections`**, **`RouterRoomCount`** are **contracted** but **not auto-scraped in M21** — operator **`curl /healthz`** per **`docs/sfu-deploy-checklist.md`**; periodic Lambda scrape **deferred**. |
 | **EC2 alarms** | **`riffsync-sfu-high-cpu`** (**`CPUUtilization` > 80%**, 5 min) **shipped** in **`media-server-stack.ts`** — no SNS in OSS default. **`StatusCheckFailed`** alarm **deferred** (**#220** optional). |
 | **Investigation order** | (1) Fan console filter **`drawer`** → (2) matching **`getDiagnostics()`** field per #158 table → (3) **`RiffSync/Realtime`** or **`RiffSync/Media`** dashboard / EMF → (4) SFU **`journalctl`** for signaling / produce_consume server lines. |
 
+## Decisions (answered — presence and AV maturity)
+
+| Topic | Decision |
+| --- | --- |
+| **Typing route metrics** | **`typing_start`** and **`typing_stop`** are first-class **`RiffSync/Realtime`** **`Route`** dimensions with **`Outcome`** — same EMF path as **`chat`**. |
+| **Active fan-out metrics** | **`PresenceActiveFanOut`** and **`QualifyingActiveWrite`** are aggregate counters (per fan-out wave / per qualifying write class) — **no** per-member or **`fanSub`** dimensions. |
+| **AV decoupling verification** | Chat-only vs SFU-only outage matrix remains harness + unit contract; **`DrawerIsolationViolation`** is CI/log-only, not production CloudWatch. |
+| **Speaking VAD telemetry** | Client-only — excluded from CloudWatch and SFU logs in MVP. |
+| **Server mix deferral** | No **`RiffSync/Media`** signals for server-side theater mix until follow-on initiative. |
+
 ## Open implementation decisions
 
 - **StatusCheckFailed EC2 alarm** — Optional IaC alarm in **`media-server-stack.ts`** with maintainer SNS — tracked as **#220**; not blocking M21 doc ship.
 - **Health probe scrape Lambda** — Periodic **`/healthz`** scrape emitting **`HealthProbeSuccess`** / gauge metrics — deferred past M21 (cost and IAM guardrails).
 - **Optional aggregate client counters** — **`IceGatheringFailed`**, **`ProducerLifecycleEvent`**, **`ChatSendDropped`** — design only in runbook until a server-side aggregation path exists (no browser **`PutMetricData`**).
+- **Presence/typing EMF wiring (tier TW)** — Ship **`TypingRouteAccepted`**, **`TypingRouteThrottled`**, **`PresenceActiveFanOut`**, **`QualifyingActiveWrite`**, and **`PresenceRequestRehydrated`** when WS handlers update **`lastActiveAt`**.
+- **`presence.active` at broadcast (tier TW)** — Observability docs assume both server-precomputed and client-derived modes are valid; harness asserts **`lastActiveAt`** presence on rehydrate, not which side computed **`active`**.
+- **Harness extension (tier TW)** — Add **`realtime-conformance`** steps: **`typing_start`** fan-out + **`typing_stop`** on disconnect; **`presence_request`** returns **`lastActiveAt`** and expected **active** after qualifying **`ping`**; optional **`chat_system`** join line for signed-in fan stub. Speaking VAD excluded from automated harness.
+- **`typing_stop` throttle observability (tier TW)** — Whether throttled stops increment **`TypingRouteThrottled`** only or also emit client **`typing_stop_failed`** log event.
 
 ## Primary code pointers (optional)
 

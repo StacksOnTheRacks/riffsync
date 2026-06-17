@@ -43,9 +43,12 @@ Ephemeral **per-connection** rows in **RoomPresence** Dynamo (distinct from **Co
 | **`fanSub`** | Optional Cognito **`sub`** when the connection is a signed-in fan (enables participant producer eligibility checks). |
 | **`hostSub`** | Present when this connection slot is the room admin's signed-in session (host tab-capture producer path today). |
 | **`displayName`** | Optional roster label at connect time. |
+| **`lastActiveAt`** | Epoch seconds — durable last qualifying control-plane engagement for this presence row. Updated on **`typing_start`**, **`chat`** / **`chat_gif`**, **`react`**, and **`ping`** when the signal falls inside the active window. Used to rehydrate **`active`** on **`presence_request`** and roster fan-out after reconnect. |
 | **`connectedAt`**, **`lastSeenAt`**, **`expiresAt`** | Housekeeping; **TTL** on **`expiresAt`** (~90m) for stale row cleanup. |
 
-**Not on RoomPresence:** participant camera/mic toggle intent — **not persisted**; reconnect defaults both **off** (privacy-first). Runtime truth for active publishes lives in **SFU producer lifecycle** plus optional WebSocket fan-out for UI layout.
+**Active derivation (not a stored field):** **`active`** is **true** when **`now - lastActiveAt < 120`** seconds (2-minute idle window). Qualifying signals that refresh **`lastActiveAt`** are the **union** of **`typing_start`**, outbound **`chat`** / **`chat_gif`**, **`react`**, and **`ping`** while the participant remains connected. **Online** without a recent qualifying signal yields **`active: false`**. Server **may** precompute **`active`** at broadcast time; clients **may** derive from **`lastActiveAt`** — see **`integration/api_contracts.md`**.
+
+**Not on RoomPresence:** participant camera/mic toggle intent — **not persisted**; reconnect defaults both **off** (privacy-first). Runtime truth for active publishes lives in **SFU producer lifecycle** plus optional WebSocket fan-out for UI layout. **Typing compose state** is ephemeral fan-out only — **not** on **RoomPresence**.
 
 ## Connection (WebSocket mapping)
 
@@ -94,9 +97,22 @@ Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-imag
 | Lobby exposure? | **`GET /v1/lobby`** rows **omit** **`roomMode`** and **`avDisabled`** — only **`GET /v1/rooms/{roomId}`** (and host **`PATCH`** **`200`**) carry authoritative AV layout fields. |
 | Video Chat + active tab capture? | **Single atomic host `PATCH`** may set **`roomMode: videoChat`** and clear **`broadcastCaptureActive`** in one conditional write (#109); not two sequenced HTTP calls. |
 
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| **`lastActiveAt` on RoomPresence?** | **Yes** — epoch seconds; updated on qualifying WS routes; enables reconnect-accurate **active** badges. |
+| Active signal set? | **Union** — **`typing_start`**, **`chat`** / **`chat_gif`**, **`react`**, **`ping`** (within window). |
+| Active idle window? | **120 seconds** after **`lastActiveAt`**. |
+| Store **active** boolean on row? | **No** — derive at read/broadcast time from **`lastActiveAt`** unless server chooses to denormalize (tier TW). |
+| Typing in Dynamo? | **No** — ephemeral fan-out only. |
+| Join/leave in **RoomChat**? | **No** — signed-in fan join/leave lines are WS-only ephemera. |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
+- Dynamo conditional write pattern when **`lastActiveAt`** updates race with **`rename`** or disconnect on the same **`presenceKey`**.
+- Whether **`lastActiveAt`** uses epoch seconds vs epoch ms on the wire — pick one and align **`presence`** broadcast JSON.
 
 ## Primary code pointers (optional)
 

@@ -38,13 +38,37 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 ## WebSocket (API Gateway WebSocket API)
 
-- **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **`chat`** (text/emoji and **Giphy GIF** posts), **`react`** (emoji reaction add/remove on a **`messageId`**), **`rename`** (signed-in fan updates their presence display name **in place** — writes both connection and presence rows, then re-broadcasts **`presence`**; no reconnect, media untouched), **`ping`** (liveness for **`lastActivityAt`**), **`share_state`** (host screen-share lifecycle). **Mesh WebRTC `signaling` route (SDP / ICE relay over API Gateway) is removed** — media uses **SFU signaling WebSocket only** (see **Realtime hardening** below). **Durable** **`roomMode`** and **`avDisabled`** changes use **HTTP `PATCH` only** — no inbound **`room_mode`** / **`av_disabled`** WebSocket application routes; **`room-patch` Lambda** fans out outbound **`room_mode`** / **`av_disabled`** broadcasts after Dynamo commit (#103).
+- **Routes:** **`$connect`**, **`$disconnect`**, and application routes for **`chat`** (text/emoji and **Giphy GIF** posts), **`react`** (emoji reaction add/remove on a **`messageId`**), **`rename`** (signed-in fan updates their presence display name **in place** — writes both connection and presence rows, then re-broadcasts **`presence`**; no reconnect, media untouched), **`ping`** (liveness for **`lastActivityAt`** and qualifying **active** signal when within the active window), **`typing_start`** / **`typing_stop`** (ephemeral compose indicators — see **Presence and typing** below), **`share_state`** (host screen-share lifecycle). **Mesh WebRTC `signaling` route (SDP / ICE relay over API Gateway) is removed** — media uses **SFU signaling WebSocket only** (see **Realtime hardening** below). **Durable** **`roomMode`** and **`avDisabled`** changes use **HTTP `PATCH` only** — no inbound **`room_mode`** / **`av_disabled`** WebSocket application routes; **`room-patch` Lambda** fans out outbound **`room_mode`** / **`av_disabled`** broadcasts after Dynamo commit (#103).
 - **Chat payloads (broadcast):** discriminated by **`type`** — e.g. **`chat`** (text/unicode emoji), **`chat_gif`** (**`giphyId`**, rendition URL, optional title/dimensions), **`chat_reaction`** (**`messageId`**, emoji, **`action`**: add | remove, **`sessionId`** / sender identity). Each chat line carries client-generated **`messageId`** (UUID) within scrollback. Server enriches with **`displayName`** and optional **`avatarUrl`** for signed-in senders.
 - **Room control fan-out (broadcast):** discriminated by **`type`** — **`share_state`** (**`state`**: **`started`** \| **`stopped`**, optional **`shareGeneration`**); **`room_mode`** (**`roomMode`**: **`theater`** \| **`videoChat`**, **`roomId`**, **`sessionId`**, **`ts`**, optional **`version`**); **`av_disabled`** (**`avDisabled`**: boolean, **`roomId`**, **`sessionId`**, **`ts`**, optional **`version`**). **`share_state`** is host-inbound over WebSocket; **`room_mode`** / **`av_disabled`** are **outbound-only** from **`room-patch`** after host **`PATCH`** succeeds (**`JWT.sub === hostSub`** on HTTP caller).
 - **Send auth:** **`chat`**, **`chat_gif`**, and **`react`** require **fan JWT** on the connection (or per-action validation); anonymous **`sessionId`** connections are **receive-only** for chat fanout.
 - **Connect context:** **`roomId`** required; **`sessionId`** for guest envelope; fan JWT at **`$connect`** (**query `accessToken`** or **`Authorization`**) stores **`fanSub`** and marks host publisher when **`sub === hostSub`**.
 - **Room-admin only:** durable playback-intent updates, **`roomMode`**, **`avDisabled`**, and **host screen-share** signaling; server validates **`JWT.sub === hostSub`** before accepting host control envelopes or mutating authoritative room fields.
 - **Broadcast:** Lambda uses **`execute-api:ManageConnections`** **`PostToConnection`** to room members after durable room write succeeds for persisted fields (**`roomMode`**, **`avDisabled`**, playback); ordering best-effort (see **`messaging_async.md`**).
+
+### Presence and typing (control plane)
+
+**Online vs active:** **Online** = member has an open room WebSocket **RoomPresence** row (existing roster model). **Active** = recently engaged via control-plane signals — **not** SFU publish state, sidebar tab focus, or profile-tab telemetry.
+
+**Qualifying active signals (union):** **`typing_start`**, outbound **`chat`** / **`chat_gif`**, **`react`** (add or remove), and **`ping`** when the heartbeat falls inside the **2-minute** active idle window. Each qualifying inbound route updates durable **`lastActiveAt`** on the sender's **RoomPresence** row (epoch seconds) before fan-out so reconnect and **`presence_request`** rehydrate accurate People badges.
+
+**`presence` broadcast member shape:** each roster entry includes existing identity fields plus:
+
+| Field | Contract |
+| --- | --- |
+| **`active`** | Boolean — participant engaged within the active window. Server **may** precompute at broadcast time or clients **may** derive from **`lastActiveAt`** (see **Open implementation decisions**). |
+| **`lastActiveAt`** | Optional epoch seconds — durable engagement timestamp on **RoomPresence**; omitted only when never engaged this session. |
+
+**Typing routes:**
+
+| Route | Auth | Contract |
+| --- | --- | --- |
+| **`typing_start`** | **Fan JWT** required (same gate as **`chat`** send). | Ephemeral fan-out only — **no** **RoomChat** write. Marks sender **active** (updates **`lastActiveAt`**) and broadcasts a **`typing`** envelope to room members. |
+| **`typing_stop`** | **Fan JWT** required. | Clears sender typing state; **does not** by itself clear **active** (idle window governs badge). Ephemeral fan-out only. |
+
+**Join / leave system lines:** When a **signed-in fan** (**`fanSub`** present) opens or closes a room WebSocket presence slot, the server **may** fan out ephemeral **`chat_system`** lines (**`join`** \| **`leave`**) on the room WebSocket. **Anonymous guests** connect and disconnect **silently** — no system line. These lines are **not** persisted in **RoomChat** and **must not** appear in **`chat_history`** scrollback on **`presence_request`**.
+
+**Prohibited scope:** no fine-grained presence (selected sidebar tab, profile tab, cursor position). Typing and **active** stay on the room WebSocket — never on SFU signaling.
 
 ## HTTP idempotency & abuse (cost-first OSS)
 
@@ -60,6 +84,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | **Participants per room** | **50** hard cap (reject join / WS connect with clear error). |
 | **Lobby listing** | **50** rows per page; clients paginate (caps total listed rooms if needed for cost). |
 | **Chat** | **20** chat actions per **minute** per **`sessionId`** (text, GIF post, and reaction add/remove each count; HTTP/WS enforced); ephemeral only (**no durable chat log** in Dynamo—see **`operations/security.md`**). |
+| **Typing indicators** | **30** **`typing_start`** + **`typing_stop`** pairs per **minute** per **`sessionId`** (WS enforced; **`typing_stop`** after throttle **drops silently** or returns a business **`error`** envelope — tier TW). Counts toward the same abuse posture as chat compose; does **not** bypass chat send limits. |
 | **Giphy search** | **30** search requests per **minute** per **`sub`** (HTTP; tune in IaC). |
 | **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
 | **WebSocket** | Subject to **API Gateway** account/service quotas; design for **≤50 concurrent connections per room** under normal use (matches participant cap). |
@@ -122,6 +147,15 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 - **All environments** (local dev, CI, production) use **mediasoup SFU** + **coturn**. **Mesh WebRTC** signaling over API Gateway WebSocket is **deprecated and removed** this milestone (client mesh branches and **`signaling`** WS route).
 - Local dev and CI spin up **disposable SFU + TURN** profiles matching production topology. **Integration conformance harness** requirements live in **`operations/build_packaging.md`**; integration contract summary in **`external_systems.md`**.
+
+### Single SFU signaling session with per-class transport isolation
+
+| Decision | Contract |
+| --- | --- |
+| **Signaling sockets per tab** | **One** SFU signaling WebSocket per browser tab — **not** dual signaling sockets for **`host_screen`** vs **`participant_av`**. |
+| **Blast-radius isolation** | **Mandatory per-class send transport isolation** within that session: separate mediasoup send transports (or equivalent) per **`producerClass`**. **`host_screen`** producer/consumer failures **must not** tear down **`participant_av`** producers or consumers. |
+| **Partial teardown** | Per-kind **`unpublishProducerKind`** and per-class pause/close rules in **Partial producer teardown** below — **explicit prohibition** of session-level **`close()`** for class-scoped media failures (host screen stop, camera-off-with-mic-on, guest **`share_state: stopped`**). |
+| **Rationale** | One video-relay reconnect surface, lower ICE/TURN friction, faster join; reliability is met by **operational isolation within one session**, not a second signaling socket that duplicates reconnect UX and connection setup cost. |
 
 ### `share_state: stopped` — host vs guest
 
@@ -253,14 +287,35 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 | **`PRODUCER_CLOSED` UX** | **Tile-only** — not listed in **`activeErrorCodes`**; no standalone status chrome (**`error_state.md`**). |
 | **`activeErrorCodes` scope** | User-visible blocking codes only — excludes lifecycle pseudo-codes (**`CHAT_RECONNECTING`**) and informational **`PRODUCER_CLOSED`**. |
 
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| Active signal set? | **Union** — **`typing_start`**, **`chat`** / **`chat_gif`**, **`react`**, and qualifying **`ping`** within the active window all mark a participant **active**. |
+| Active idle window? | **2 minutes** after last qualifying signal. |
+| **`lastActiveAt` durability? | **Yes** — persist on **RoomPresence**; **`presence_request`** and roster fan-out rehydrate **active** for late joiners and refresh after reconnect. |
+| Join/leave chat lines? | **Signed-in fans only** — ephemeral room WebSocket fan-out; **not** **RoomChat**; guests connect silently. |
+| Video Chat mode while A/V matures? | **Keep** in host control bar with explicit **Beta** / **Experimental** label when **`avDisabled`** is false. |
+| Server-side theater audio mix? | **Later phase** — client Web Audio equal-gain mix remains normative until a follow-on initiative. |
+| Speaking indicator scope? | **Video tiles plus People tab** — speaking affordance on Theater strip and Video Chat grid when video is on; **mic-only** participants show speaking state on **People** roster rows only (no new stage chrome). |
+| SFU decoupling depth? | **Single SFU signaling WebSocket per tab** with **mandatory per-class send transport isolation** — not dual signaling WebSockets. |
+
 ## Open implementation details
 
 - Concrete **OpenAPI** / generated types land with first implementation.
 - **Rate limits:** start with **API Gateway throttles** + optional **WAF rate-based rules** on hot public routes; **no fixed commercial SLA**—operators tune for **cost vs abuse** (see **`operations/observability.md`**).
+
+## Open implementation decisions
+
+- **`typing`** / **`chat_system`** outbound **`type`** discriminator strings and minimal payload fields (**`sessionId`**, **`displayName`**, optional **`avatarUrl`**, monotonic **`ts`**).
+- Whether **`presence`** broadcasts include server-precomputed **`active`** boolean only, **`lastActiveAt`** only, or both — clients today may derive **`active`** as **`now - lastActiveAt < 120s`**.
+- Client **`typing_stop`** debounce on blur/send vs explicit stop-only; server-side coalescing window for duplicate **`typing_start`** from one **`sessionId`**.
+- Exact API Gateway route registration keys for **`typing_start`** and **`typing_stop`** alongside existing post-**#135** route table (**`infra/cdk/lib/api-catalog-stack.ts`**).
+- Throttle behavior when **`typing_start`** exceeds per-minute cap — silent drop vs business **`error`** envelope.
 
 ## Primary code pointers (optional)
 
 - When added: `openapi.yaml` or CDK route definitions.
 - **`apps/web/src/room/sfu/participantAvSession.ts`** — **`syncPublish`**, **`disableCamera`**, **`disableMic`** per-kind teardown (**#143**).
 - **`apps/web/src/room/sfu/mediasoupSharing.ts`** — **`unpublishProducerKind`**, incremental **`publishStream`** (**#144**).
-- **WebSocket route keys (post-#135):** **`$connect`**, **`$disconnect`**, **`ping`**, **`presence_request`**, **`chat`**, **`chat_gif`**, **`react`**, **`share_state`**, **`leave`**, **`$default`** — defined in **`infra/cdk/lib/api-catalog-stack.ts`**; handlers in **`infra/cdk/lambda/ws-route.ts`** (no **`signaling`** route).
+- **WebSocket route keys (post-#135):** **`$connect`**, **`$disconnect`**, **`ping`**, **`presence_request`**, **`chat`**, **`chat_gif`**, **`react`**, **`typing_start`**, **`typing_stop`**, **`share_state`**, **`leave`**, **`$default`** — defined in **`infra/cdk/lib/api-catalog-stack.ts`**; handlers in **`infra/cdk/lambda/ws-route.ts`** (no **`signaling`** route).

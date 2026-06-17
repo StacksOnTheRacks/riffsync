@@ -32,6 +32,13 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P0-11c | signed-in fan in room | SFU reconnect without chat teardown when chat is healthy | video relay recovery does not silence the conversation panel unnecessarily |
 | US-P0-11d | anyone in room | separate chat vs video-relay connection status | I know which realtime plane is degraded |
 | US-P0-11e | engineer | PR-blocking conformance tests on web + SFU paths | join → publish → consume → unpublish → reconnect runs against isolated ephemeral SFU + TURN before merge |
+| US-P0-12 | anyone in room | see **online** vs **active** badges on the **People** tab | I can tell who is connected vs who is engaged recently |
+| US-P0-12a | signed-in fan in room | typing in chat to show an ellipsis indicator to others | the room feels live while I compose without sending yet |
+| US-P0-12b | signed-in fan in room | see ephemeral join/leave system lines when other signed-in fans arrive or leave | I notice who joined the party without cluttering durable chat history |
+| US-P0-12c | anyone in room | see speaking affordance on video tiles when a participant is talking | I can follow who has the floor during face-to-face moments |
+| US-P0-12d | anyone in room | see speaking state for mic-only participants on the **People** tab | I know who is talking even when they have no camera tile |
+| US-P0-12e | room admin | **Video Chat** in the host control bar labeled **Beta** when room A/V is enabled | I understand the layout mode is still maturing |
+| US-P0-12f | signed-in fan in room | chat and video relay to reconnect independently | a chat blip does not force full media rebuild and vice versa |
 
 | ID | As a… | I want… | So that… |
 | --- | --- | --- | --- |
@@ -41,6 +48,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P1-02 | operator | CloudWatch dashboards | I see health and reconcile outcomes |
 | US-P1-03 | fan | federated login (e.g. Facebook) | I can **host** rooms and retain continuity across devices |
 | US-P1-04 | operator | admin catalog + lists | I can curate without editing raw JSON in prod (**depends on US-P1-05**) |
+| US-P1-06 | signed-in fan in room | my **active** badge to persist across brief reconnects when I was recently engaged | late joiners and refresh see accurate engagement state on **People** |
 
 ## Out of scope (MVP)
 
@@ -54,8 +62,9 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 - **Per-participant** host mute/remove (distinct from the room-wide **AV kill switch**)
 - **Participant screen-share** as a separate publish type from host tab-capture
 - **Mesh WebRTC** dev fallback paths (SFU mandatory in all environments)
-- **Server-side theater audio mixing** (client-side Web Audio mix remains default)
-- **Supplementary mic-only stage chrome** (avatar chips, audible-only badges)
+- **Server-side theater audio mixing** (client-side Web Audio mix remains default until follow-on initiative)
+- **Supplementary mic-only stage chrome** (avatar chips, audible-only tile badges) — speaking on **People** rows only for mic-only
+- **Guest join/leave system lines** (signed-in fans only; anonymous guests connect silently)
 
 ## Decisions (answered — realtime hardening)
 
@@ -73,6 +82,13 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | **Partial unpublish** | Step **4**: camera-off / mic-on — video producer closes, audio continues, no full SFU session rebuild (**2s** consumer detach window). |
 | **Drawer-independent reconnect** | Steps **5–6**: chat WS drop with SFU up, then SFU WS drop with chat up — sibling drawer stays **`connected`** per **`getDiagnostics()`** (**#140**). |
 | **`share_state` matrix** | **Out of MVP harness** — manual checklist only per **`build_packaging.md`** SFU deploy checklist table. |
+
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| P0 presence stories? | **US-P0-12** roster online/active badges; **US-P0-12a** typing; **US-P0-12b** signed-in join/leave lines; **US-P0-12c/d** speaking on tiles + People mic-only; **US-P0-12e** Video Chat Beta label; **US-P0-12f** AV decoupling (orthogonal reconnect). |
+| P1 presence story? | **US-P1-06** — **`lastActiveAt`** rehydrates **active** after reconnect for accurate People badges. |
 
 ## Open implementation decisions
 

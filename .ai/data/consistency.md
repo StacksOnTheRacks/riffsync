@@ -20,6 +20,8 @@
 | Property | Contract |
 | --- | --- |
 | **Chat / presence** | **Casual ordering**; last-write-wins acceptable for simple MVP. |
+| **`lastActiveAt` on **RoomPresence** | **Last-write-wins** per **`presenceKey`** — concurrent qualifying signals from the same connection coalesce to the newest timestamp; no cross-tab merge for the same **`fanSub`**. Stale writes after disconnect are discarded by TTL / row delete. |
+| **Typing state** | **Ephemeral** — no durable ordering guarantee; fan-out is best-effort per connection. |
 | **Chat reconnect** | **Client-held scrollback only** — drawer-independent **`ChatSession`** reconnect does **not** replay a server transcript. The same tab retains its in-memory message buffer (~**100** cap per **`interface/presentation.md`**) while the room WebSocket recovers; late join and full page reload still receive **no** chat history. No durable queue or stronger delivery ordering is implied. |
 | **Room admin mutations** | **Serial per admin** at server for durable fields (episode selection, visibility, **`roomMode`**, **`avDisabled`**, **`broadcastCaptureActive`**, **`share_state`** if echoed): **reject** concurrent conflicting ops—second writer gets **409** (HTTP) or a **business `error` envelope** on WebSocket (**conditional update** / **`version`** on the room item). WebRTC media is **SFU-mediated** on the media plane; API Gateway room WebSocket carries chat, presence, and **`share_state`** only — **no** mesh SDP/ICE relay (**#135**). **No server-side queue** for MVP. |
 | **AV kill switch** | When **`avDisabled`** becomes true: durable **Rooms** write succeeds first; then deny new participant producer grants, tear down active participant producers, and fan-out authoritative disabled state (exact ordering tier-TW below). |
@@ -46,9 +48,18 @@
 | WS fan-out timing? | **After Dynamo commit only** — no optimistic **`PostToConnection`** before conditional write succeeds. |
 | SFU producer vs **RoomPresence** staleness? | **Out of scope #103** — layout runtime (#104/#105) reconciles SFU events with roster. |
 
+## Decisions (answered — presence and AV maturity)
+
+| Question | Decision |
+| --- | --- |
+| **`lastActiveAt` concurrency? | **Last-write-wins** per **`presenceKey`** — acceptable for engagement badges; no CRDT. |
+| **Active** vs **online** consistency? | **Online** follows open **RoomPresence** row; **active** follows **`lastActiveAt`** within **120s** — may briefly disagree during fan-out lag (casual ordering). |
+| Typing durability? | **None** — typing fan-out has no strong consistency with **RoomPresence**; reconnect clears until new events. |
+
 ## Open implementation decisions
 
-- (none for #103 WebSocket fan-out scope)
+- Whether **`lastActiveAt`** updates use unconditional **`UpdateItem`** or conditional max-timestamp write to reduce clock-skew regressions.
+- Cross-tab **`fanSub`** badge consistency when one tab disconnects while another remains **active** — roster shows multiple **RoomPresence** rows per fan today; **active** is per-row unless product merges (tier TW).
 
 ## Primary code pointers (optional)
 
