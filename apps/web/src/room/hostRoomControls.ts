@@ -40,3 +40,6 @@ export function avDisabledAnnounceCopy(disabled: boolean): string {
     ? 'Room camera and microphone disabled by host'
     : 'Room camera and microphone enabled by host'
 }
+
+export const VIDEO_CHAT_BETA_DESCRIPTION =
+  'Video Chat layout is experimental. Participant video quality and reliability are still improving.'

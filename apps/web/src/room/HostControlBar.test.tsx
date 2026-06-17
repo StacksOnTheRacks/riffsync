@@ -3,6 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HostControlBar } from './HostControlBar'
+import { VIDEO_CHAT_BETA_DESCRIPTION } from './hostRoomControls'
 
 describe('HostControlBar', () => {
   let container: HTMLDivElement
@@ -83,5 +84,26 @@ describe('HostControlBar', () => {
     expect(modeButtons[0]?.getAttribute('aria-checked')).toBe('false')
     expect(modeButtons[1]?.getAttribute('aria-checked')).toBe('true')
     expect(container.querySelector('[role="radiogroup"]')).not.toBeNull()
+  })
+
+  it('renders Video Chat Beta label when room A/V is enabled', () => {
+    renderBar({ avDisabled: false })
+    const modeButtons = container.querySelectorAll('button.riffsync-room-page__host-bar-mode')
+    expect(modeButtons[1]?.querySelector('.riffsync-room-page__host-bar-beta')?.textContent).toBe('Beta')
+    expect(modeButtons[1]?.getAttribute('title')).toBe(VIDEO_CHAT_BETA_DESCRIPTION)
+    const descId = modeButtons[1]?.getAttribute('aria-describedby')
+    expect(descId).toBeTruthy()
+    expect(container.querySelector(`#${CSS.escape(descId ?? '')}`)?.textContent).toBe(
+      VIDEO_CHAT_BETA_DESCRIPTION,
+    )
+  })
+
+  it('hides Video Chat Beta label when avDisabled kill switch is on', () => {
+    renderBar({ avDisabled: true })
+    expect(container.querySelector('.riffsync-room-page__host-bar-beta')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__host-bar-beta-desc')).toBeNull()
+    const modeButtons = container.querySelectorAll('button.riffsync-room-page__host-bar-mode')
+    expect(modeButtons[1]?.getAttribute('title')).toBeNull()
+    expect(modeButtons[1]?.getAttribute('aria-describedby')).toBeNull()
   })
 })

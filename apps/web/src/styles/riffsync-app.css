@@ -825,6 +825,32 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   cursor: not-allowed;
 }
 
+.riffsync-room-page__host-bar-beta {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.08rem 0.35rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  color: rgb(200 170 255);
+  border: 1px solid rgb(170 130 255 / 0.45);
+  vertical-align: middle;
+}
+
+.riffsync-room-page__host-bar-beta-desc {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .riffsync-room-page__host-bar-kill {
   flex: 0 1 auto;
   font-size: 0.75rem;
