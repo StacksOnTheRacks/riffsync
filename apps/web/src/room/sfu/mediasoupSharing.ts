@@ -179,10 +179,11 @@ export type SfuSessionEndReason =
 
 const DISCONNECT_RECOVERY_MS = 8000
 
-function watchTransportUntilUnhealthy(
+type TransportUnhealthyReason = 'transport_failed' | 'transport_disconnected_timeout'
+
+function watchTransportConnectionUntilUnhealthy(
   transport: mediasoupClient.types.Transport,
-  signaling: SfuSignaling,
-  onEnd: (reason: SfuSessionEndReason) => void,
+  onUnhealthy: (reason: TransportUnhealthyReason) => void,
 ): () => void {
   let discTimer: ReturnType<typeof setTimeout> | null = null
   const clearDisc = () => {
@@ -196,7 +197,7 @@ function watchTransportUntilUnhealthy(
     if (s === 'failed') {
       clearDisc()
       transport.removeListener('connectionstatechange', onConn)
-      onEnd('transport_failed')
+      onUnhealthy('transport_failed')
       return
     }
     if (s === 'disconnected') {
@@ -206,7 +207,7 @@ function watchTransportUntilUnhealthy(
         const cur = transport.connectionState
         if (cur === 'disconnected' || cur === 'failed') {
           transport.removeListener('connectionstatechange', onConn)
-          onEnd('transport_disconnected_timeout')
+          onUnhealthy('transport_disconnected_timeout')
         }
       }, DISCONNECT_RECOVERY_MS)
       return
@@ -216,12 +217,6 @@ function watchTransportUntilUnhealthy(
     }
   }
   transport.on('connectionstatechange', onConn)
-  const onSigDone = () => {
-    clearDisc()
-    transport.removeListener('connectionstatechange', onConn)
-    onEnd('signaling_close')
-  }
-  signaling.onLifetimeEnded(onSigDone)
   return () => {
     clearDisc()
     transport.removeListener('connectionstatechange', onConn)
@@ -317,7 +312,14 @@ export async function connectSfuUnifiedSession(options: {
     resolveEnd(userClosed ? 'user_close' : r)
   }
 
-  let sendTransport: mediasoupClient.types.Transport | null = null
+  type SendTransportSlot = {
+    transport: mediasoupClient.types.Transport
+    transportId: string
+    unwatch: () => void
+  }
+  const sendTransportByClass: Partial<Record<SfuProducerClass, SendTransportSlot>> = {}
+  let loadedDevice: mediasoupClient.Device | null = null
+  let sessionIceServers: RTCIceServer[] = []
   let recvTransport: mediasoupClient.types.Transport | null = null
   let recvTransportId = ''
   const liveProducers: LiveProducer[] = []
@@ -426,17 +428,108 @@ export async function connectSfuUnifiedSession(options: {
     }
   }
 
-  // Serialize all produce calls on the shared send transport. Two callers publish
+  const teardownSendTransportClass = (producerClass: SfuProducerClass): void => {
+    unpublishProducerClass(producerClass)
+    const slot = sendTransportByClass[producerClass]
+    if (!slot) return
+    slot.unwatch()
+    try {
+      slot.transport.close()
+    } catch {
+      /* ignore */
+    }
+    delete sendTransportByClass[producerClass]
+  }
+
+  const ensureSendTransport = async (
+    producerClass: SfuProducerClass,
+  ): Promise<mediasoupClient.types.Transport> => {
+    const existing = sendTransportByClass[producerClass]
+    if (existing) return existing.transport
+    if (!loadedDevice) {
+      throw new Error('SFU device not ready')
+    }
+
+    let created: Record<string, unknown>
+    try {
+      created = await signaling.request('createWebRtcTransport', { producer: true, consumer: false })
+    } catch (e) {
+      onMediaError?.(
+        'produce_failed',
+        e instanceof Error ? e.message : 'createWebRtcTransport failed',
+      )
+      throw e instanceof Error ? e : new Error(String(e))
+    }
+
+    const transportId = typeof created.transportId === 'string' ? created.transportId : ''
+    if (
+      !transportId ||
+      !isRecord(created.iceParameters) ||
+      !Array.isArray(created.iceCandidates) ||
+      !isRecord(created.dtlsParameters)
+    ) {
+      const err = new Error('send_transport_invalid')
+      onMediaError?.('produce_failed', 'Invalid transport response from video relay.')
+      throw err
+    }
+
+    const transport = loadedDevice.createSendTransport({
+      id: transportId,
+      iceParameters: created.iceParameters as IceParameters,
+      iceCandidates: created.iceCandidates as IceCandidate[],
+      dtlsParameters: created.dtlsParameters as DtlsParameters,
+      iceServers: sessionIceServers,
+    })
+
+    const unwatch = watchTransportConnectionUntilUnhealthy(transport, () => {
+      onMediaError?.(
+        'transport_failed',
+        `Video relay send transport failed (${producerClass}).`,
+      )
+      teardownSendTransportClass(producerClass)
+    })
+    unwatchFns.push(unwatch)
+    unwatchFns.push(attachTransportConnectivityDrawerLog(transport, sessionIceServers))
+
+    transport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
+      void signaling
+        .request('connectWebRtcTransport', { transportId, dtlsParameters: dtls })
+        .then(() => callback())
+        .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
+    })
+
+    transport.on('produce', ({ kind, rtpParameters, appData }, callback, errback) => {
+      const appProducerClass = isRecord(appData) ? parseProducerClass(appData.producerClass) : null
+      if (!appProducerClass || appProducerClass !== producerClass) {
+        errback(new Error('producerClass required'))
+        return
+      }
+      void signaling
+        .request('produce', { transportId, kind, rtpParameters, producerClass })
+        .then((res) => {
+          const pid = typeof res.producerId === 'string' ? res.producerId : ''
+          if (!pid) throw new Error('no producerId')
+          callback({ id: pid })
+        })
+        .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
+    })
+
+    sendTransportByClass[producerClass] = { transport, transportId, unwatch }
+    return transport
+  }
+
+  // Serialize produce calls per producerClass send transport. Two callers publish
   // host_screen (session connect + capture-change effect); without this lock they
   // can both unpublish-then-produce the same track concurrently, which throws in
   // mediasoup-client and can trip the SFU per-session producer cap.
-  let publishChain: Promise<void> = Promise.resolve()
+  const publishChainByClass: Record<SfuProducerClass, Promise<void>> = {
+    host_screen: Promise.resolve(),
+    participant_av: Promise.resolve(),
+  }
 
   const publishStream = (stream: MediaStream, producerClass: SfuProducerClass): Promise<void> => {
     const run = async (): Promise<void> => {
-      if (!sendTransport) {
-        throw new Error('SFU send transport not ready')
-      }
+      const sendTransport = await ensureSendTransport(producerClass)
       for (const track of stream.getTracks()) {
         const kind = track.kind === 'audio' || track.kind === 'video' ? track.kind : null
         if (!kind) continue
@@ -463,8 +556,8 @@ export async function connectSfuUnifiedSession(options: {
         })
       }
     }
-    const next = publishChain.then(run, run)
-    publishChain = next.then(
+    const next = publishChainByClass[producerClass].then(run, run)
+    publishChainByClass[producerClass] = next.then(
       () => undefined,
       () => undefined,
     )
@@ -487,6 +580,11 @@ export async function connectSfuUnifiedSession(options: {
     }
 
     const iceServers = await getIceServers()
+    sessionIceServers = iceServers
+
+    signaling.onLifetimeEnded(() => {
+      finish('signaling_close')
+    })
 
     let routerRtpCapabilities: Record<string, unknown>
     try {
@@ -509,6 +607,7 @@ export async function connectSfuUnifiedSession(options: {
     }
 
     const device = new mediasoupClient.Device()
+    loadedDevice = device
     try {
       await device.load({
         routerRtpCapabilities: routerRtpCapabilities as unknown as mediasoupClient.types.RtpCapabilities,
@@ -552,7 +651,7 @@ export async function connectSfuUnifiedSession(options: {
       })
 
       unwatchFns.push(
-        watchTransportUntilUnhealthy(recvTransport, signaling, (r) => {
+        watchTransportConnectionUntilUnhealthy(recvTransport, (r) => {
           finish(r)
         }),
       )
@@ -672,72 +771,6 @@ export async function connectSfuUnifiedSession(options: {
       return
     }
 
-    if (tokenRole === 'producer') {
-      let created: Record<string, unknown>
-      try {
-        created = await signaling.request('createWebRtcTransport', { producer: true, consumer: false })
-      } catch (e) {
-        onMediaError?.(
-          'produce_failed',
-          e instanceof Error ? e.message : 'createWebRtcTransport failed',
-        )
-        finish('signaling_close')
-        rejectReady(e instanceof Error ? e : new Error(String(e)))
-        return
-      }
-
-      const transportId = typeof created.transportId === 'string' ? created.transportId : ''
-      if (
-        !transportId ||
-        !isRecord(created.iceParameters) ||
-        !Array.isArray(created.iceCandidates) ||
-        !isRecord(created.dtlsParameters)
-      ) {
-        onMediaError?.('produce_failed', 'Invalid transport response from video relay.')
-        finish('signaling_close')
-        rejectReady(new Error('send_transport_invalid'))
-        return
-      }
-
-      sendTransport = device.createSendTransport({
-        id: transportId,
-        iceParameters: created.iceParameters as IceParameters,
-        iceCandidates: created.iceCandidates as IceCandidate[],
-        dtlsParameters: created.dtlsParameters as DtlsParameters,
-        iceServers,
-      })
-
-      unwatchFns.push(
-        watchTransportUntilUnhealthy(sendTransport, signaling, (r) => {
-          finish(r)
-        }),
-      )
-      unwatchFns.push(attachTransportConnectivityDrawerLog(sendTransport, iceServers))
-
-      sendTransport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
-        void signaling
-          .request('connectWebRtcTransport', { transportId, dtlsParameters: dtls })
-          .then(() => callback())
-          .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
-      })
-
-      sendTransport.on('produce', ({ kind, rtpParameters, appData }, callback, errback) => {
-        const producerClass = isRecord(appData) ? parseProducerClass(appData.producerClass) : null
-        if (!producerClass) {
-          errback(new Error('producerClass required'))
-          return
-        }
-        void signaling
-          .request('produce', { transportId, kind, rtpParameters, producerClass })
-          .then((res) => {
-            const pid = typeof res.producerId === 'string' ? res.producerId : ''
-            if (!pid) throw new Error('no producerId')
-            callback({ id: pid })
-          })
-          .catch((e) => errback(e instanceof Error ? e : new Error(String(e))))
-      })
-    }
-
     try {
       const listRes = await signaling.request('listProducers')
       const producersRaw = listRes.producers
@@ -819,12 +852,17 @@ export async function connectSfuUnifiedSession(options: {
       // Close the mediasoup transports so their underlying RTCPeerConnections are released.
       // Without this, every reconnect leaks a peer connection until the browser hits its cap
       // ("Cannot create so many PeerConnections"), which broke repeated host-screen publishing.
-      try {
-        sendTransport?.close()
-      } catch {
-        /* ignore */
+      // Close per-class send transports so their underlying RTCPeerConnections are released.
+      for (const producerClass of ['host_screen', 'participant_av'] as SfuProducerClass[]) {
+        const slot = sendTransportByClass[producerClass]
+        if (!slot) continue
+        try {
+          slot.transport.close()
+        } catch {
+          /* ignore */
+        }
+        delete sendTransportByClass[producerClass]
       }
-      sendTransport = null
       try {
         recvTransport?.close()
       } catch {
