@@ -2,6 +2,7 @@ import { Outlet, useMatch, useSearchParams } from 'react-router-dom'
 import { SiteHeader } from '../components/site/SiteHeader'
 import { SiteFooter } from '../components/site/SiteFooter'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
+import { useVisualViewportRoomShell } from '../room/useVisualViewportRoomShell'
 
 export function SiteLayout() {
   const roomMatch = useMatch({ path: '/room/:roomId', end: true })
@@ -10,6 +11,7 @@ export function SiteLayout() {
   const partyCaptureBare = Boolean(watchMatch && searchParams.get('partyCapture') === '1')
 
   const compactChrome = Boolean(roomMatch)
+  const viewportShell = useVisualViewportRoomShell(compactChrome)
 
   if (partyCaptureBare) {
     return (
@@ -23,7 +25,10 @@ export function SiteLayout() {
 
   return (
     <RoomChromeProvider>
-      <div className={`riffsync-site${compactChrome ? ' riffsync-site--room' : ''}`}>
+      <div
+        className={`riffsync-site${compactChrome ? ` riffsync-site--room${viewportShell.className}` : ''}`}
+        style={compactChrome ? viewportShell.style : undefined}
+      >
         <SiteHeader compact={compactChrome} />
         <main id="riffsync-main" className={`riffsync-main${compactChrome ? ' riffsync-main--room' : ''}`}>
           <Outlet />
