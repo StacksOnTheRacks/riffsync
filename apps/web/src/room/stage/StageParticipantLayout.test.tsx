@@ -67,6 +67,7 @@ describe('StageParticipantLayout', () => {
           label: 'You',
           isSelf: true,
           stream,
+          speaking: false,
         },
       ],
     })
@@ -81,6 +82,7 @@ describe('StageParticipantLayout', () => {
       label: 'Alice',
       isSelf: false,
       stream: new MediaStream([{ kind: 'video' } as MediaStreamTrack]),
+      speaking: false,
     }
 
     function assertTileRemoved(video: HTMLVideoElement | null) {
@@ -164,6 +166,7 @@ describe('StageParticipantLayout', () => {
           label: 'You',
           isSelf: true,
           stream,
+          speaking: false,
         },
       ],
     })

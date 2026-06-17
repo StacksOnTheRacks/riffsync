@@ -12,6 +12,7 @@ export type StageParticipantTile = {
   label: string
   isSelf: boolean
   stream: MediaStream
+  speaking: boolean
 }
 
 export const VIDEO_CHAT_EMPTY_COPY =
@@ -81,7 +82,9 @@ export function buildStageParticipantTiles(opts: {
   ownSessionId: string
   localCameraOn: boolean
   localPreviewStream: MediaStream | null
+  speakingBySessionId?: ReadonlyMap<string, boolean>
 }): StageParticipantTile[] {
+  const speakingBySessionId = opts.speakingBySessionId ?? new Map<string, boolean>()
   const remoteBySession = videoConsumersBySession(opts.videoConsumers.values())
   const rosterBySession = new Map<string, RosterMember>()
   for (const member of opts.roster) rosterBySession.set(member.sessionId, member)
@@ -127,6 +130,7 @@ export function buildStageParticipantTiles(opts: {
     label: draft.label,
     isSelf: draft.isSelf,
     stream: draft.stream,
+    speaking: speakingBySessionId.get(draft.sessionId) ?? false,
   }))
 }
 

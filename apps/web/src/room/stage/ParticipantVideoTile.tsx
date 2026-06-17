@@ -21,8 +21,8 @@ export function ParticipantVideoTile({ tile }: ParticipantVideoTileProps) {
 
   return (
     <figure
-      className={`riffsync-room-page__participant-tile${tile.isSelf ? ' riffsync-room-page__participant-tile--self' : ''}`}
-      aria-label={tile.label}
+      className={`riffsync-room-page__participant-tile${tile.isSelf ? ' riffsync-room-page__participant-tile--self' : ''}${tile.speaking ? ' riffsync-room-page__participant-tile--speaking' : ''}`}
+      aria-label={tile.speaking ? `${tile.label}, speaking` : tile.label}
     >
       <video
         ref={videoRef}

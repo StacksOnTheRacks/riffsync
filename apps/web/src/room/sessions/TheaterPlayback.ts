@@ -28,10 +28,12 @@ type LifecycleListener = (state: TheaterPlaybackLifecycleState) => void
 
 const GUEST_INBOUND_POLL_MS = 2300
 
-function mapSfuConsumerToMixEvent(event: SfuConsumerTrackEvent): TheaterAudioConsumerEvent {
+function mapSfuConsumerToMixEvent(event: SfuConsumerTrackEvent): TheaterAudioConsumerEvent | null {
+  if (event.action === 'pause' || event.action === 'resume') return null
   if (event.action === 'detach') {
     return { action: 'detach', producerId: event.producerId }
   }
+  if (event.action !== 'attach') return null
   return {
     action: 'attach',
     producerId: event.producerId,
@@ -275,7 +277,9 @@ export class TheaterPlayback {
 
   private onSfuConsumerEvent(event: SfuConsumerTrackEvent): void {
     if (!this.enabled || !this.mix) return
-    this.mix.onConsumerEvent(mapSfuConsumerToMixEvent(event))
+    const mapped = mapSfuConsumerToMixEvent(event)
+    if (!mapped) return
+    this.mix.onConsumerEvent(mapped)
     void this.mix.resumeIfSuspended().then(() => this.syncLifecycleState())
     this.syncLifecycleState()
   }

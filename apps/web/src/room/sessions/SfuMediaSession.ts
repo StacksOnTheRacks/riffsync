@@ -42,6 +42,19 @@ import { emitClientDrawerLog } from '../clientDrawerLog'
 import { sfuLifecycleAfterFailedCycle } from './drawerReconnectPolicy'
 import { resolveJwtRemintDelayMs } from './sfuJwtRemintSchedule'
 import { resolveSfuTokenRequest } from './sfuTokenRequest'
+import {
+  applyAudioProducerPaused,
+  applyProducerClosed,
+  applyProducerOpened,
+  buildParticipantProducerSnapshots,
+  clearParticipantProducerRegistry,
+  createParticipantProducerRegistryState,
+  type ParticipantProducerRegistryState,
+  type ParticipantProducerSnapshot,
+  snapshotForSession,
+  localSnapshotFromParticipantAv,
+} from '../participantProducerRegistry'
+import type { SignalingProducerLifecycleEvent } from '../sfu/mediasoupSharing'
 
 export { resolveSfuTokenProducerClass, resolveSfuTokenRequest } from './sfuTokenRequest'
 
@@ -83,6 +96,7 @@ export type StartSfuRoomSessionOpts = SessionHooks & {
   getIceServers: () => Promise<RTCIceServer[]>
   onRemoteStream: (stream: MediaStream | null) => void
   onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
+  onSignalingProducerLifecycle?: (event: SignalingProducerLifecycleEvent) => void
   getHostScreenStream: () => MediaStream | null
   participantAv: ParticipantAvController
 }
@@ -280,6 +294,7 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
         getIceServers: opts.getIceServers,
         onRemoteStream: opts.onRemoteStream,
         onConsumerTrack: opts.onConsumerTrack,
+        onSignalingProducerLifecycle: opts.onSignalingProducerLifecycle,
         ownSessionId: opts.sessionId,
         onMediaError: (code, message) => {
           if (code !== 'signaling_failed') {
@@ -398,6 +413,11 @@ export class SfuMediaSession {
   private statusListeners = new Set<Listener<SfuMediaSessionStatus>>()
   private lifecycleListeners = new Set<Listener<SfuMediaSessionLifecycleState>>()
   private participantAvConsumerClearListeners = new Set<Listener<void>>()
+  private participantProducerRegistry: ParticipantProducerRegistryState =
+    createParticipantProducerRegistryState()
+  private participantProducerRegistryListeners = new Set<Listener<void>>()
+  private participantAvStateUnsub: (() => void) | null = null
+  private ownSessionId: string | null = null
 
   constructor() {
     this.participantAv = createBoundParticipantAvController(() => this.gate, {
@@ -466,6 +486,29 @@ export class SfuMediaSession {
     return () => this.lifecycleListeners.delete(listener)
   }
 
+  /** Fired when participant_av producer registry changes (People tab cam/mic). */
+  onParticipantProducerRegistryChange(listener: Listener<void>): () => void {
+    this.participantProducerRegistryListeners.add(listener)
+    return () => this.participantProducerRegistryListeners.delete(listener)
+  }
+
+  getParticipantProducerSnapshot(sessionId: string): ParticipantProducerSnapshot {
+    if (!this.ownSessionId || sessionId !== this.ownSessionId) {
+      return snapshotForSession(this.participantProducerRegistry, sessionId)
+    }
+    return localSnapshotFromParticipantAv(this.participantAv.getState())
+  }
+
+  buildParticipantProducerSnapshots(sessionIds: readonly string[]): Map<string, ParticipantProducerSnapshot> {
+    const ownSessionId = this.ownSessionId ?? ''
+    return buildParticipantProducerSnapshots(
+      this.participantProducerRegistry,
+      sessionIds,
+      ownSessionId,
+      this.participantAv.getState(),
+    )
+  }
+
   /** Fired when participant_av consumers should be cleared (kill switch). */
   onParticipantAvConsumersClear(listener: Listener<void>): () => void {
     this.participantAvConsumerClearListeners.add(listener)
@@ -488,7 +531,12 @@ export class SfuMediaSession {
 
   connect(options: SfuMediaSessionConnectOptions): void {
     this.connectOptions = { ...options }
+    this.ownSessionId = options.sessionId
     this.enabled = options.enabled !== false
+    this.participantAvStateUnsub?.()
+    this.participantAvStateUnsub = this.participantAv.subscribe(() => {
+      this.emitParticipantProducerRegistryChange()
+    })
     this.stopReconnectLoop()
     if (!this.enabled || !options.apiBaseUrl || !options.roomId) {
       this.setStatus('idle')
@@ -502,6 +550,10 @@ export class SfuMediaSession {
 
   disconnect(): void {
     this.enabled = false
+    this.participantAvStateUnsub?.()
+    this.participantAvStateUnsub = null
+    this.ownSessionId = null
+    this.resetParticipantProducerRegistry()
     this.clearJwtRemintTimer()
     this.stopReconnectLoop()
     this.participantAv.teardownPublishing()
@@ -542,6 +594,7 @@ export class SfuMediaSession {
   handleAvDisabledKillSwitch(): void {
     this.participantAv.teardownPublishing()
     this.sessionHandle?.detachConsumerClass('participant_av')
+    this.resetParticipantProducerRegistry()
     for (const listener of this.participantAvConsumerClearListeners) listener()
   }
 
@@ -628,14 +681,52 @@ export class SfuMediaSession {
         producerClass: event.producerClass,
         kind: event.kind,
       })
-    } else {
+    } else if (event.action === 'detach') {
       const meta = this.attachedConsumerMeta.get(event.producerId)
       this.attachedConsumerMeta.delete(event.producerId)
       if (meta?.producerClass === 'participant_av' && meta.kind === 'video') {
         emitProducerClosedDrawerLog()
       }
+    } else if (
+      (event.action === 'pause' || event.action === 'resume') &&
+      event.producerClass === 'participant_av' &&
+      event.kind === 'audio'
+    ) {
+      this.participantProducerRegistry = applyAudioProducerPaused(
+        this.participantProducerRegistry,
+        event.producerId,
+        event.action === 'pause',
+      )
+      this.emitParticipantProducerRegistryChange()
     }
     for (const listener of this.consumerTrackListeners) listener(event)
+  }
+
+  private applySignalingProducerLifecycle(event: SignalingProducerLifecycleEvent): void {
+    if (event.producerClass !== 'participant_av') return
+    if (event.action === 'opened') {
+      this.participantProducerRegistry = applyProducerOpened(
+        this.participantProducerRegistry,
+        event.producerId,
+        event.sessionId,
+        event.kind,
+      )
+    } else {
+      this.participantProducerRegistry = applyProducerClosed(
+        this.participantProducerRegistry,
+        event.producerId,
+      )
+    }
+    this.emitParticipantProducerRegistryChange()
+  }
+
+  private resetParticipantProducerRegistry(): void {
+    this.participantProducerRegistry = clearParticipantProducerRegistry()
+    this.emitParticipantProducerRegistryChange()
+  }
+
+  private emitParticipantProducerRegistryChange(): void {
+    for (const listener of this.participantProducerRegistryListeners) listener()
   }
 
   private onNeedsProducerTokenChange(): void {
@@ -673,6 +764,7 @@ export class SfuMediaSession {
       participantAv: this.participantAv,
       onRemoteStream: (stream) => this.emitRemoteStream(stream),
       onConsumerTrack: (event) => this.dispatchConsumerTrack(event),
+      onSignalingProducerLifecycle: (event) => this.applySignalingProducerLifecycle(event),
       assignSession: (s) => {
         this.sessionHandle = s
         if (s) {
@@ -750,6 +842,7 @@ export class SfuMediaSession {
         this.clearJwtRemintTimer()
         this.sessionHandle = null
         this.attachedConsumerMeta.clear()
+        this.resetParticipantProducerRegistry()
         if (this.enabled && generation === this.tokenIntentGeneration) {
           emitClientDrawerLog({
             drawer: 'signaling',

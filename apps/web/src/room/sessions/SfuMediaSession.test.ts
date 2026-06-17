@@ -993,6 +993,123 @@ describe('SfuMediaSession media policy', () => {
     expect(detach).toHaveBeenCalledWith('participant_av')
     expect(clearListener).toHaveBeenCalled()
   })
+
+  it('#247 regression: participant camera-off does not disconnect or touch host_screen', async () => {
+    const session = new SfuMediaSession()
+    const unpublishProducerKind = vi.fn()
+    const unpublishProducerClass = vi.fn()
+    const detachConsumerClass = vi.fn()
+    const close = vi.fn()
+    const mockHandle = {
+      ...mockSfuUnifiedSessionHandle(),
+      unpublishProducerKind,
+      unpublishProducerClass,
+      detachConsumerClass,
+      close,
+      supportsPublish: true,
+    }
+    attachMockSessionHandle(session, mockHandle)
+    session.participantAv.attachSession(mockHandle)
+
+    const disconnect = vi.spyOn(session, 'disconnect')
+    const unpublishHostScreen = vi.spyOn(session, 'unpublishHostScreen')
+    const detachHostScreen = vi.spyOn(session, 'detachHostScreenConsumers')
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getVideoTracks: () => [{ kind: 'video', stop: vi.fn(), id: 'v1' }],
+          getAudioTracks: () => [{ kind: 'audio', stop: vi.fn(), id: 'a1' }],
+          getTracks: () => [
+            { kind: 'video', stop: vi.fn(), id: 'v1' },
+            { kind: 'audio', stop: vi.fn(), id: 'a1' },
+          ],
+          removeTrack: vi.fn(),
+        }),
+      },
+    })
+    vi.stubGlobal(
+      'MediaStream',
+      function MockMediaStream(this: { tracks: MediaStreamTrack[] }, tracks: MediaStreamTrack[] = []) {
+        this.tracks = tracks
+      },
+    )
+
+    session.updatePublishGate({ fanToken: 'fan-jwt', avDisabled: false })
+    await session.participantAv.enableCamera()
+    await session.participantAv.enableMic()
+
+    unpublishProducerKind.mockClear()
+    unpublishProducerClass.mockClear()
+
+    session.participantAv.disableCamera()
+
+    expect(unpublishProducerKind).toHaveBeenCalledWith('participant_av', 'video')
+    expect(unpublishProducerClass).not.toHaveBeenCalledWith('host_screen')
+    expect(disconnect).not.toHaveBeenCalled()
+    expect(close).not.toHaveBeenCalled()
+    expect(unpublishHostScreen).not.toHaveBeenCalled()
+    expect(detachHostScreen).not.toHaveBeenCalled()
+    expect(detachConsumerClass).not.toHaveBeenCalledWith('host_screen')
+    vi.unstubAllGlobals()
+  })
+
+  it('#247 regression: participant mic-off does not disconnect or touch host_screen', async () => {
+    const session = new SfuMediaSession()
+    const unpublishProducerKind = vi.fn()
+    const unpublishProducerClass = vi.fn()
+    const detachConsumerClass = vi.fn()
+    const close = vi.fn()
+    const mockHandle = {
+      ...mockSfuUnifiedSessionHandle(),
+      unpublishProducerKind,
+      unpublishProducerClass,
+      detachConsumerClass,
+      close,
+      supportsPublish: true,
+      publishStream: vi.fn().mockResolvedValue(undefined),
+    }
+    attachMockSessionHandle(session, mockHandle)
+    session.participantAv.attachSession(mockHandle)
+
+    const disconnect = vi.spyOn(session, 'disconnect')
+    const unpublishHostScreen = vi.spyOn(session, 'unpublishHostScreen')
+
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getVideoTracks: () => [{ kind: 'video', stop: vi.fn(), id: 'v1' }],
+          getAudioTracks: () => [{ kind: 'audio', stop: vi.fn(), id: 'a1' }],
+          getTracks: () => [
+            { kind: 'video', stop: vi.fn(), id: 'v1' },
+            { kind: 'audio', stop: vi.fn(), id: 'a1' },
+          ],
+          removeTrack: vi.fn(),
+        }),
+      },
+    })
+    vi.stubGlobal(
+      'MediaStream',
+      function MockMediaStream(this: { tracks: MediaStreamTrack[] }, tracks: MediaStreamTrack[] = []) {
+        this.tracks = tracks
+      },
+    )
+
+    session.updatePublishGate({ fanToken: 'fan-jwt', avDisabled: false })
+    await session.participantAv.enableCamera()
+    await session.participantAv.enableMic()
+
+    unpublishProducerKind.mockClear()
+
+    session.participantAv.disableMic()
+
+    expect(unpublishProducerKind).toHaveBeenCalledWith('participant_av', 'audio')
+    expect(disconnect).not.toHaveBeenCalled()
+    expect(close).not.toHaveBeenCalled()
+    expect(unpublishHostScreen).not.toHaveBeenCalled()
+    expect(detachConsumerClass).not.toHaveBeenCalledWith('host_screen')
+    vi.unstubAllGlobals()
+  })
 })
 
 function base64UrlJson(obj: unknown): string {
@@ -1189,5 +1306,177 @@ describe('SfuMediaSession JWT remint', () => {
     await vi.advanceTimersByTimeAsync(900_000)
     expect(vi.mocked(fetchSfuJoinToken).mock.calls.length).toBe(callsBefore)
     expect(session.getLifecycleState()).toBe('torn-down')
+  })
+})
+
+describe('SfuMediaSession participant producer registry (#248)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useRealTimers()
+  })
+
+  it('tracks remote participant_av producers from signaling lifecycle', () => {
+    const session = new SfuMediaSession()
+    const changes: number[] = []
+    session.onParticipantProducerRegistryChange(() => changes.push(changes.length + 1))
+
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'self',
+      accessToken: 'fan-jwt',
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: false,
+    })
+
+    ;(
+      session as unknown as { applySignalingProducerLifecycle: (event: unknown) => void }
+    ).applySignalingProducerLifecycle({
+      action: 'opened',
+      producerId: 'p-v',
+      sessionId: 'remote-1',
+      producerClass: 'participant_av',
+      kind: 'video',
+    })
+
+    expect(session.getParticipantProducerSnapshot('remote-1')).toEqual({
+      hasVideoProducer: true,
+      hasAudioProducer: false,
+      audioPaused: false,
+    })
+    expect(changes.length).toBe(1)
+
+    ;(
+      session as unknown as { applySignalingProducerLifecycle: (event: unknown) => void }
+    ).applySignalingProducerLifecycle({
+      action: 'closed',
+      producerId: 'p-v',
+      sessionId: 'remote-1',
+      producerClass: 'participant_av',
+      kind: 'video',
+    })
+
+    expect(session.getParticipantProducerSnapshot('remote-1')).toEqual({
+      hasVideoProducer: false,
+      hasAudioProducer: false,
+      audioPaused: false,
+    })
+  })
+
+  it('uses local participant AV state for own sessionId', async () => {
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getVideoTracks: () => [],
+          getAudioTracks: () => [{ kind: 'audio', stop: vi.fn(), id: 'a1', enabled: true }],
+          getTracks: () => [{ kind: 'audio', stop: vi.fn(), id: 'a1', enabled: true }],
+          removeTrack: vi.fn(),
+        }),
+      },
+    })
+
+    const session = new SfuMediaSession()
+    session.updatePublishGate({ fanToken: 'fan-jwt', avDisabled: false })
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'self',
+      accessToken: 'fan-jwt',
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: false,
+    })
+
+    await session.participantAv.enableMic()
+    session.participantAv.attachSession({
+      pauseProducerKind: vi.fn(),
+      resumeProducerKind: vi.fn(),
+      unpublishProducerClass: vi.fn(),
+      unpublishProducerKind: vi.fn(),
+    } as unknown as import('../sfu/mediasoupSharing').SfuUnifiedSessionHandle)
+    session.participantAv.toggleMicMute()
+
+    expect(session.getParticipantProducerSnapshot('self')).toEqual({
+      hasVideoProducer: false,
+      hasAudioProducer: true,
+      audioPaused: true,
+    })
+  })
+
+  it('clears registry on av kill switch and disconnect', () => {
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'self',
+      accessToken: 'fan-jwt',
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: false,
+    })
+
+    ;(
+      session as unknown as { applySignalingProducerLifecycle: (event: unknown) => void }
+    ).applySignalingProducerLifecycle({
+      action: 'opened',
+      producerId: 'p-a',
+      sessionId: 'remote-2',
+      producerClass: 'participant_av',
+      kind: 'audio',
+    })
+
+    session.handleAvDisabledKillSwitch()
+    expect(session.getParticipantProducerSnapshot('remote-2')).toEqual({
+      hasVideoProducer: false,
+      hasAudioProducer: false,
+      audioPaused: false,
+    })
+
+    session.disconnect()
+    expect(session.getParticipantProducerSnapshot('self')).toEqual({
+      hasVideoProducer: false,
+      hasAudioProducer: false,
+      audioPaused: false,
+    })
+  })
+
+  it('marks remote audio paused from consumer pause events', () => {
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'self',
+      accessToken: null,
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: false,
+    })
+
+    ;(
+      session as unknown as { applySignalingProducerLifecycle: (event: unknown) => void }
+    ).applySignalingProducerLifecycle({
+      action: 'opened',
+      producerId: 'p-a',
+      sessionId: 'remote-3',
+      producerClass: 'participant_av',
+      kind: 'audio',
+    })
+
+    ;(
+      session as unknown as { dispatchConsumerTrack: (event: unknown) => void }
+    ).dispatchConsumerTrack({
+      action: 'pause',
+      producerId: 'p-a',
+      sessionId: 'remote-3',
+      producerClass: 'participant_av',
+      kind: 'audio',
+    })
+
+    expect(session.getParticipantProducerSnapshot('remote-3')).toEqual({
+      hasVideoProducer: false,
+      hasAudioProducer: true,
+      audioPaused: true,
+    })
   })
 })

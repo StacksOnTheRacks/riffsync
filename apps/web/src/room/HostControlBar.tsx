@@ -1,4 +1,6 @@
+import { useId } from 'react'
 import type { RoomMode } from '../api/roomsApi'
+import { VIDEO_CHAT_BETA_DESCRIPTION } from './hostRoomControls'
 
 export type HostControlBarProps = {
   roomMode: RoomMode
@@ -23,6 +25,8 @@ export function HostControlBar({
   onToggleAvDisabled,
 }: HostControlBarProps) {
   const barDisabled = busy
+  const videoChatBetaDescId = useId()
+  const showVideoChatBeta = !avDisabled
 
   return (
     <div
@@ -39,6 +43,7 @@ export function HostControlBar({
         {MODE_OPTIONS.map((opt) => {
           const videoChatInert = avDisabled && opt.value === 'videoChat'
           const optionDisabled = barDisabled || videoChatInert
+          const showBeta = showVideoChatBeta && opt.value === 'videoChat'
           return (
             <button
               key={opt.value}
@@ -47,6 +52,8 @@ export function HostControlBar({
               className={`gen-button riffsync-room-page__host-bar-mode${roomMode === opt.value ? ' riffsync-room-page__host-bar-mode--on' : ''}`}
               aria-checked={roomMode === opt.value}
               aria-disabled={optionDisabled || undefined}
+              aria-describedby={showBeta ? videoChatBetaDescId : undefined}
+              title={showBeta ? VIDEO_CHAT_BETA_DESCRIPTION : undefined}
               disabled={barDisabled}
               onClick={() => {
                 if (optionDisabled || roomMode === opt.value) return
@@ -54,10 +61,20 @@ export function HostControlBar({
               }}
             >
               {opt.label}
+              {showBeta ? (
+                <span className="riffsync-room-page__host-bar-beta" aria-hidden="true">
+                  Beta
+                </span>
+              ) : null}
             </button>
           )
         })}
       </div>
+      {showVideoChatBeta ? (
+        <p className="riffsync-room-page__host-bar-beta-desc" id={videoChatBetaDescId}>
+          {VIDEO_CHAT_BETA_DESCRIPTION}
+        </p>
+      ) : null}
       <button
         type="button"
         className={`gen-button riffsync-room-page__host-bar-kill${avDisabled ? ' riffsync-room-page__host-bar-kill--on' : ''}`}

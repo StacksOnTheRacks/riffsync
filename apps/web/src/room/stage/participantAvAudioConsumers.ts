@@ -1,15 +1,15 @@
 import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
 
-export type ParticipantAvVideoConsumer = {
+export type ParticipantAvAudioConsumer = {
   producerId: string
   sessionId: string | undefined
   track: MediaStreamTrack
 }
 
-export function applyParticipantAvConsumerEvent(
-  state: Map<string, ParticipantAvVideoConsumer>,
+export function applyParticipantAvAudioConsumerEvent(
+  state: Map<string, ParticipantAvAudioConsumer>,
   event: SfuConsumerTrackEvent,
-): Map<string, ParticipantAvVideoConsumer> {
+): Map<string, ParticipantAvAudioConsumer> {
   if (event.action === 'detach') {
     if (!state.has(event.producerId)) return state
     const next = new Map(state)
@@ -17,7 +17,7 @@ export function applyParticipantAvConsumerEvent(
     return next
   }
   if (event.action !== 'attach') return state
-  if (event.producerClass !== 'participant_av' || event.kind !== 'video') {
+  if (event.producerClass !== 'participant_av' || event.kind !== 'audio') {
     return state
   }
   const next = new Map(state)

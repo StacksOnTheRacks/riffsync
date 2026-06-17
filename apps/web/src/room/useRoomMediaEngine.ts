@@ -51,6 +51,10 @@ export function useRoomMediaEngine(options: {
   sendChatGif: (result: GiphySearchResult) => void
   toggleChatReaction: (messageId: string, emoji: string, reactionAction: 'add' | 'remove') => void
   peopleShown: ReturnType<RoomMediaEngine['getSnapshot']>['peopleShown']
+  participantProducerBySessionId: ReturnType<
+    RoomMediaEngine['getSnapshot']
+  >['participantProducerBySessionId']
+  speakingBySessionId: ReturnType<RoomMediaEngine['getSnapshot']>['speakingBySessionId']
   chatMemberLabels: Map<string, string>
   sfuConfigAlert: string | null
   chatDrawerBanner: string | null
@@ -302,6 +306,8 @@ export function useRoomMediaEngine(options: {
     sendChatGif,
     toggleChatReaction,
     peopleShown: snapshot.peopleShown,
+    participantProducerBySessionId: snapshot.participantProducerBySessionId,
+    speakingBySessionId: snapshot.speakingBySessionId,
     chatMemberLabels,
     sfuConfigAlert: snapshot.drawerPresentation.sfuConfigAlert,
     chatDrawerBanner: snapshot.drawerPresentation.chatDrawerBanner,

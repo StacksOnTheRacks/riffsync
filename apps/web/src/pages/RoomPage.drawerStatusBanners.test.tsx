@@ -149,6 +149,14 @@ const drawerStatusMockConfig = vi.hoisted(() => {
       return null
     }
 
+    buildParticipantProducerSnapshots() {
+      return new Map()
+    }
+
+    onParticipantProducerRegistryChange() {
+      return () => undefined
+    }
+
     sendControl() {
       return true
     }

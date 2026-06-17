@@ -31,6 +31,7 @@ describe('ParticipantVideoTile', () => {
       label,
       isSelf,
       stream,
+      speaking: false,
     }
   }
 
@@ -87,5 +88,12 @@ describe('ParticipantVideoTile', () => {
     renderTile(makeTile('Alice', false, secondStream))
     expect(video?.srcObject).toBe(secondStream)
     expect(video?.srcObject).not.toBe(firstStream)
+  })
+
+  it('applies speaking class and aria-label when tile is speaking', () => {
+    renderTile({ ...makeTile('Alice', false), speaking: true })
+    const figure = container.querySelector('figure.riffsync-room-page__participant-tile--speaking')
+    expect(figure).not.toBeNull()
+    expect(figure?.getAttribute('aria-label')).toBe('Alice, speaking')
   })
 })
