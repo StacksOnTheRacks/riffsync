@@ -23,7 +23,13 @@ import {
   persistReactionRemove,
   queryChatHistory,
 } from './room-chat-shared';
-import { recordWsRealtimeRoute } from './riffsync-observability';
+import { recordTypingRouteAccepted, recordTypingRouteThrottled, recordWsRealtimeRoute } from './riffsync-observability';
+import {
+  fanOutTyping,
+  recordTypingStartFanOut,
+  shouldCoalesceTypingStart,
+  tryConsumeTypingRateLimit,
+} from './ws-typing-shared';
 import {
   broadcastRoomPresence,
   broadcastRoomPresenceNow,
@@ -513,6 +519,44 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     recordWsRealtimeRoute('react', 200, connectionId, roomId);
+    return { statusCode: 200, body: 'OK' };
+  }
+
+  if (routeKey === 'typing_start' || routeKey === 'typing_stop') {
+    const typingRoute = routeKey;
+    const action = typingRoute === 'typing_start' ? 'start' : 'stop';
+    const fanSubDenied = requireFanSub(conn, typingRoute);
+    if (fanSubDenied) {
+      recordWsRealtimeRoute(typingRoute, 403, connectionId, roomId);
+      return fanSubDenied;
+    }
+
+    const allowed = await tryConsumeTypingRateLimit(doc, connTable, connectionId).catch(() => true);
+    if (!allowed) {
+      recordTypingRouteThrottled(typingRoute, connectionId, roomId);
+      return { statusCode: 200, body: 'OK' };
+    }
+
+    const nowMs = Date.now();
+    if (typingRoute === 'typing_start') {
+      if (shouldCoalesceTypingStart(roomId, sessionId, nowMs)) {
+        return { statusCode: 200, body: 'OK' };
+      }
+      await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey).catch(() => undefined);
+      recordTypingStartFanOut(roomId, sessionId, nowMs);
+    }
+
+    const displayName = presenceDisplayNameForSession(sessionId, conn.displayName);
+    await fanOutTyping({
+      doc,
+      connectionsTable: connTable,
+      presenceTable,
+      roomId,
+      sessionId,
+      displayName,
+      action,
+    });
+    recordTypingRouteAccepted(typingRoute, connectionId, roomId);
     return { statusCode: 200, body: 'OK' };
   }
 

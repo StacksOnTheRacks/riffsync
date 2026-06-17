@@ -29,6 +29,15 @@ vi.mock('./room-lobby-cleanup', () => ({
 
 vi.mock('./ws-shared', () => ({
   broadcastRoomPresenceNow: mocks.broadcastRoomPresenceNow,
+  presenceDisplayNameForSession: (sessionId: string, displayNameAttr: unknown) =>
+    typeof displayNameAttr === 'string' && displayNameAttr.trim() !== ''
+      ? displayNameAttr.trim()
+      : `Guest-${sessionId}`,
+}));
+
+vi.mock('./ws-chat-system-shared', () => ({
+  isWithinJoinReconnectCooldown: vi.fn(async () => false),
+  fanOutChatSystem: vi.fn(async () => undefined),
 }));
 
 import { handler } from './ws-connect';

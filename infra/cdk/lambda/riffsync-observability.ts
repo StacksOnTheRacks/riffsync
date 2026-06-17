@@ -1,4 +1,6 @@
-export type WsRealtimeRoute = 'chat' | 'chat_gif' | 'react' | 'rename';
+export type WsRealtimeRoute = 'chat' | 'chat_gif' | 'react' | 'rename' | 'typing_start' | 'typing_stop';
+
+export type TypingRoute = 'typing_start' | 'typing_stop';
 
 export type WsRealtimeOutcome =
   | 'success'
@@ -145,6 +147,65 @@ export function recordWsRealtimeRoute(
     connectionIdTail: connectionId.slice(-12),
     roomIdHead: roomId.slice(0, 8),
     ...extras,
+  });
+}
+
+/** EMF counter for accepted typing routes (separate metric name per observability contract). */
+export function emitTypingRouteAccepted(route: TypingRoute): void {
+  const env = riffsyncEnvironment();
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Realtime',
+            Dimensions: [['Environment', 'Route']],
+            Metrics: [{ Name: 'TypingRouteAccepted', Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: env,
+      Route: route,
+      TypingRouteAccepted: 1,
+    }),
+  );
+}
+
+/** EMF counter when typing rate limit silently drops an inbound frame. */
+export function emitTypingRouteThrottled(route: TypingRoute): void {
+  const env = riffsyncEnvironment();
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Realtime',
+            Dimensions: [['Environment', 'Route']],
+            Metrics: [{ Name: 'TypingRouteThrottled', Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: env,
+      Route: route,
+      TypingRouteThrottled: 1,
+    }),
+  );
+}
+
+export function recordTypingRouteAccepted(route: TypingRoute, connectionId: string, roomId: string): void {
+  emitTypingRouteAccepted(route);
+  recordWsRealtimeRoute(route, 200, connectionId, roomId);
+}
+
+export function recordTypingRouteThrottled(route: TypingRoute, connectionId: string, roomId: string): void {
+  emitTypingRouteThrottled(route);
+  logWsAction({
+    route,
+    outcome: 'success',
+    connectionIdTail: connectionId.slice(-12),
+    roomIdHead: roomId.slice(0, 8),
   });
 }
 
