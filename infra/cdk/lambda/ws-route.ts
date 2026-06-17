@@ -31,6 +31,7 @@ import {
   presenceDisplayNameForSession,
   queryConnectionsForRoom,
   resolveChatOutboundAvatarUrl,
+  updateRoomPresenceLastActiveAt,
   wsManagementClient,
 } from './ws-shared';
 
@@ -181,6 +182,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
         }),
       )
       .catch(() => undefined);
+    await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey, nowSec).catch(() => undefined);
 
     return { statusCode: 200, body: 'OK' };
   }
@@ -344,6 +346,8 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       ).catch(() => undefined);
     }
 
+    await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey).catch(() => undefined);
+
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     recordWsRealtimeRoute('chat', 200, connectionId, roomId, { textLength: text.length });
@@ -448,6 +452,8 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       ).catch(() => undefined);
     }
 
+    await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey).catch(() => undefined);
+
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
     recordWsRealtimeRoute('chat_gif', 200, connectionId, roomId, { hasGiphyId: true });
@@ -501,6 +507,8 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
         await persistReactionRemove(doc, roomChatTable, roomId, messageId, emoji, sessionId).catch(() => undefined);
       }
     }
+
+    await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey).catch(() => undefined);
 
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);

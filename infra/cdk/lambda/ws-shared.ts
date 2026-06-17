@@ -1,5 +1,5 @@
 import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
-import { DynamoDBDocumentClient, DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, DeleteCommand, GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { TextEncoder } from 'node:util';
 import { batchAvatarUrlsByFanSub } from './fan-profile-shared';
 
@@ -124,10 +124,17 @@ export async function postToConnections(
   }
 }
 
+/** Active idle window — see `.ai/data/data_model.md`. */
+export const PRESENCE_ACTIVE_WINDOW_SEC = 120;
+
 export type PresenceBroadcastMember = {
   sessionId: string;
   displayName: string;
   isHost: boolean;
+  /** Server-precomputed from roster `lastActiveAt` (max per sessionId). */
+  active: boolean;
+  /** Epoch seconds — max across tabs sharing `sessionId`; omitted when never engaged. */
+  lastActiveAt?: number;
   /** Server-trusted FanProfiles HTTPS URL; omitted when the fan has no avatar. */
   avatarUrl?: string;
 };
@@ -137,6 +144,7 @@ type RosterAccumulator = {
   displayName: string;
   isHost: boolean;
   fanSub?: string;
+  lastActiveAt?: number;
 };
 
 export type RosterFromConnectionsResult = {
@@ -156,8 +164,62 @@ export function presenceDisplayNameForSession(sessionId: string, displayNameAttr
   return guestLabelFallback(sessionId);
 }
 
+export function parseLastActiveAt(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return undefined;
+  }
+  return Math.floor(value);
+}
+
+export function derivePresenceActive(lastActiveAt: number | undefined, nowSec: number): boolean {
+  if (lastActiveAt === undefined) {
+    return false;
+  }
+  return nowSec - lastActiveAt < PRESENCE_ACTIVE_WINDOW_SEC;
+}
+
+function maxLastActiveAt(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return Math.max(a, b);
+}
+
+function isConditionalCheckFailed(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { name?: unknown }).name === 'ConditionalCheckFailedException';
+}
+
+/** Monotonic max write — skips when an existing row already has a newer timestamp. */
+export async function updateRoomPresenceLastActiveAt(
+  doc: DynamoDBDocumentClient,
+  presenceTable: string,
+  roomId: string,
+  presenceKey: string,
+  nowSec?: number,
+): Promise<void> {
+  const ts = nowSec ?? Math.floor(Date.now() / 1000);
+  try {
+    await doc.send(
+      new UpdateCommand({
+        TableName: presenceTable,
+        Key: { roomId, presenceKey },
+        UpdateExpression: 'SET lastActiveAt = :ts',
+        ExpressionAttributeValues: { ':ts': ts },
+        ConditionExpression: 'attribute_not_exists(lastActiveAt) OR lastActiveAt <= :ts',
+      }),
+    );
+  } catch (err: unknown) {
+    if (isConditionalCheckFailed(err)) {
+      return;
+    }
+    throw err;
+  }
+}
+
 /** Collapse multiple connections that share `sessionId` (e.g. two tabs): host flag dominates; keep a stable label. */
-export function rosterFromConnectionItems(items: readonly Record<string, unknown>[]): RosterFromConnectionsResult {
+export function rosterFromConnectionItems(
+  items: readonly Record<string, unknown>[],
+  nowSec: number = Math.floor(Date.now() / 1000),
+): RosterFromConnectionsResult {
   const merged = new Map<string, RosterAccumulator>();
 
   for (const it of items) {
@@ -165,6 +227,7 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
     if (sessionId === '') continue;
     const isHostConn = typeof it.hostSub === 'string' && (it.hostSub as string).length > 0;
     const fanSubConn = typeof it.fanSub === 'string' && it.fanSub.length > 0 ? it.fanSub : undefined;
+    const lastActiveAtConn = parseLastActiveAt(it.lastActiveAt);
     let label = presenceDisplayNameForSession(sessionId, it.displayName);
 
     const cur = merged.get(sessionId);
@@ -174,6 +237,7 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
         displayName: label,
         isHost: isHostConn,
         ...(fanSubConn ? { fanSub: fanSubConn } : {}),
+        ...(lastActiveAtConn !== undefined ? { lastActiveAt: lastActiveAtConn } : {}),
       });
     } else {
       if (!isHostConn) label = cur.displayName || label;
@@ -182,6 +246,7 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
         displayName: label,
         isHost: cur.isHost || isHostConn,
         fanSub: cur.fanSub ?? fanSubConn,
+        lastActiveAt: maxLastActiveAt(cur.lastActiveAt, lastActiveAtConn),
       });
     }
   }
@@ -193,11 +258,16 @@ export function rosterFromConnectionItems(items: readonly Record<string, unknown
   });
 
   const fanSubBySessionId = new Map<string, string>();
-  const members: PresenceBroadcastMember[] = list.map(({ sessionId, displayName, isHost, fanSub }) => {
+  const members: PresenceBroadcastMember[] = list.map(({ sessionId, displayName, isHost, fanSub, lastActiveAt }) => {
     if (fanSub) {
       fanSubBySessionId.set(sessionId, fanSub);
     }
-    return { sessionId, displayName, isHost };
+    const active = derivePresenceActive(lastActiveAt, nowSec);
+    const member: PresenceBroadcastMember = { sessionId, displayName, isHost, active };
+    if (lastActiveAt !== undefined) {
+      member.lastActiveAt = lastActiveAt;
+    }
+    return member;
   });
 
   return { members, fanSubBySessionId };
@@ -255,7 +325,8 @@ export async function broadcastRoomPresence(params: {
       if (typeof cid === 'string') ids.push(cid);
     }
 
-    const { members: rosterMembers, fanSubBySessionId } = rosterFromConnectionItems(items);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const { members: rosterMembers, fanSubBySessionId } = rosterFromConnectionItems(items, nowSec);
     const profilesTable = process.env.FAN_PROFILES_TABLE_NAME;
     const members =
       profilesTable && fanSubBySessionId.size > 0

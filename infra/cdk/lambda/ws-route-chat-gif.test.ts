@@ -32,6 +32,7 @@ vi.mock('./ws-shared', () => ({
       : `Guest-${sessionId}`,
   queryConnectionsForRoom: (...args: unknown[]) => mocks.queryConnectionsForRoom(...args),
   resolveChatOutboundAvatarUrl: (...args: unknown[]) => mocks.resolveChatOutboundAvatarUrl(...args),
+  updateRoomPresenceLastActiveAt: vi.fn(async () => undefined),
   wsManagementClient: () => mocks.wsManagementClient(),
 }));
 

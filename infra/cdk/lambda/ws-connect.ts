@@ -85,7 +85,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     presenceKey,
     sessionId,
     ...(displayName ? { displayName } : {}),
-    ...(fanSub ? { fanSub } : {}),
+    ...(fanSub ? { fanSub, lastActiveAt: nowSec } : {}),
     ...(hostSub ? { hostSub } : {}),
     connectedAt: nowSec,
     lastSeenAt: nowSec,
