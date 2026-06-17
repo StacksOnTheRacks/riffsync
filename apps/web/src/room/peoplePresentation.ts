@@ -9,7 +9,10 @@ export function shouldShowPeopleAvIndicators(
   return Boolean(fanToken)
 }
 
-export function peopleAvAriaLabel(snapshot: ParticipantProducerSnapshot): string {
+export function peopleAvAriaLabel(
+  snapshot: ParticipantProducerSnapshot,
+  speaking = false,
+): string {
   const cam = snapshot.hasVideoProducer ? 'camera on' : 'camera off'
   let mic: string
   if (!snapshot.hasAudioProducer) {
@@ -19,5 +22,10 @@ export function peopleAvAriaLabel(snapshot: ParticipantProducerSnapshot): string
   } else {
     mic = 'microphone on'
   }
-  return `${cam}, ${mic}`
+  const speakingSuffix = speaking ? ', speaking' : ''
+  return `${cam}, ${mic}${speakingSuffix}`
+}
+
+export function peopleRowSpeakingClass(speaking: boolean): string {
+  return speaking ? ' riffsync-room-page__people-row--speaking' : ''
 }

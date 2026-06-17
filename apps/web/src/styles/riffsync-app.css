@@ -978,6 +978,27 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   border: 1px solid rgb(255 255 255 / 0.1);
 }
 
+.riffsync-room-page__participant-tile--speaking {
+  border-color: rgb(100 180 255 / 0.9);
+  box-shadow: 0 0 0 2px rgb(100 180 255 / 0.55);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .riffsync-room-page__participant-tile--speaking {
+    animation: riffsync-speaking-tile-glow 1.2s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes riffsync-speaking-tile-glow {
+  from {
+    box-shadow: 0 0 0 2px rgb(100 180 255 / 0.35);
+  }
+
+  to {
+    box-shadow: 0 0 0 3px rgb(100 180 255 / 0.7);
+  }
+}
+
 @media (min-width: 992px) {
   .riffsync-room-page__participant-strip--desktop .riffsync-room-page__participant-tile {
     width: 100%;
@@ -1525,6 +1546,25 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 .riffsync-room-page__people-row--host {
   border-left: 3px solid var(--primary-color);
   background: rgb(255 255 255 / 0.07);
+}
+
+.riffsync-room-page__people-row--speaking {
+  border-color: rgb(100 180 255 / 0.55);
+  box-shadow: inset 0 0 0 1px rgb(100 180 255 / 0.35);
+}
+
+.riffsync-room-page__speaking-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.38rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  color: rgb(130 195 255);
+  border: 1px solid rgb(100 180 255 / 0.45);
+  vertical-align: middle;
 }
 
 .riffsync-room-page__host-badge {

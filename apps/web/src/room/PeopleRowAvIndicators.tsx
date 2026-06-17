@@ -3,6 +3,7 @@ import { peopleAvAriaLabel } from './peoplePresentation'
 
 type PeopleRowAvIndicatorsProps = {
   snapshot: ParticipantProducerSnapshot
+  speaking?: boolean
 }
 
 function CameraOnIcon() {
@@ -61,7 +62,10 @@ function MicOffIcon() {
   )
 }
 
-export function PeopleRowAvIndicators({ snapshot }: PeopleRowAvIndicatorsProps) {
+export function PeopleRowAvIndicators({
+  snapshot,
+  speaking = false,
+}: PeopleRowAvIndicatorsProps) {
   const camClass = snapshot.hasVideoProducer
     ? 'riffsync-room-page__people-av-icon riffsync-room-page__people-av-icon--on'
     : 'riffsync-room-page__people-av-icon riffsync-room-page__people-av-icon--off'
@@ -79,7 +83,7 @@ export function PeopleRowAvIndicators({ snapshot }: PeopleRowAvIndicatorsProps) 
   return (
     <span
       className="riffsync-room-page__people-av"
-      aria-label={peopleAvAriaLabel(snapshot)}
+      aria-label={peopleAvAriaLabel(snapshot, speaking)}
     >
       <span className={camClass} title={snapshot.hasVideoProducer ? 'Camera on' : 'Camera off'}>
         {snapshot.hasVideoProducer ? <CameraOnIcon /> : <CameraOffIcon />}

@@ -137,6 +137,18 @@ describe('stageParticipantTiles', () => {
     expect(tiles.map((t) => t.sessionId)).toEqual(['host-1', 'fan-b'])
   })
 
+  it('marks tiles speaking from speakingBySessionId map', () => {
+    const tiles = buildStageParticipantTiles({
+      roster,
+      videoConsumers: new Map([['p-b', consumer('p-b', 'fan-b')]]),
+      ownSessionId: 'fan-a',
+      localCameraOn: false,
+      localPreviewStream: null,
+      speakingBySessionId: new Map([['fan-b', true]]),
+    })
+    expect(tiles[0]?.speaking).toBe(true)
+  })
+
   it('keeps a stable MediaStream identity per remote track across rebuilds', () => {
     const videoConsumers = new Map([['p1', consumer('p1', 'fan-b')]])
     const args = {

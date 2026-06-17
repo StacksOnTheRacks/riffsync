@@ -32,6 +32,17 @@ describe('peoplePresentation', () => {
           audioPaused: false,
         }),
       ).toBe('camera off, microphone on')
+
+      expect(
+        peopleAvAriaLabel(
+          {
+            hasVideoProducer: true,
+            hasAudioProducer: true,
+            audioPaused: false,
+          },
+          true,
+        ),
+      ).toBe('camera on, microphone on, speaking')
     })
   })
 
@@ -74,6 +85,24 @@ describe('peoplePresentation', () => {
       expect(container.querySelector('.riffsync-room-page__people-av-icon--on')).not.toBeNull()
       expect(container.querySelector('.riffsync-room-page__people-av-icon--muted')).not.toBeNull()
       expect(container.querySelector('[aria-label="camera on, microphone muted"]')).not.toBeNull()
+    })
+
+    it('includes speaking in aria-label when active', () => {
+      act(() => {
+        root.render(
+          <PeopleRowAvIndicators
+            snapshot={{
+              hasVideoProducer: false,
+              hasAudioProducer: true,
+              audioPaused: false,
+            }}
+            speaking
+          />,
+        )
+      })
+      expect(
+        container.querySelector('[aria-label="camera off, microphone on, speaking"]'),
+      ).not.toBeNull()
     })
 
     it('renders cam off mic off when snapshot is empty', () => {

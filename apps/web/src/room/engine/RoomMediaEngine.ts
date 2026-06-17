@@ -3,6 +3,8 @@ import type { GiphySearchResult } from '../../api/giphySearchApi'
 import { getPublicApiBaseUrl } from '../../config/apiBaseUrl'
 import { fetchRtcIceServers } from '../../config/fetchRtcIceServers'
 import { probeTurnReachability } from '../sfu/iceDiagnostics'
+import { createSpeakingVadRegistry, type SpeakingVadRegistry } from '../audio/speakingVadRegistry'
+import { isSpeakingVadEnabled } from '../audio/speakingVad'
 import {
   applyChatReactionEvent,
   canAcceptReactionAdd,
@@ -24,10 +26,15 @@ import {
   applyParticipantAvConsumerEvent,
   type ParticipantAvVideoConsumer,
 } from '../stage/participantAvConsumers'
+import {
+  applyParticipantAvAudioConsumerEvent,
+  type ParticipantAvAudioConsumer,
+} from '../stage/participantAvAudioConsumers'
 import { buildStageParticipantTiles } from '../stage/stageParticipantTiles'
 import { selectDrawerPresentation } from '../drawerErrorPresentation'
 import type { ChatLine, PresenceMember } from '../roomPageTypes'
 import type { ParticipantProducerSnapshot } from '../participantProducerRegistry'
+import { EMPTY_PARTICIPANT_PRODUCER_SNAPSHOT } from '../participantProducerRegistry'
 import {
   RoomRealtimeSdk,
   type RoomControlHandlers,
@@ -67,6 +74,7 @@ export type RoomMediaEngineSnapshot = {
   presenceRoster: { roomId: string; members: PresenceMember[] }
   participantAvPublishTick: number
   participantProducerBySessionId: Map<string, ParticipantProducerSnapshot>
+  speakingBySessionId: Map<string, boolean>
   stageParticipantTiles: ReturnType<typeof buildStageParticipantTiles>
 }
 
@@ -140,6 +148,13 @@ export class RoomMediaEngine {
   private remoteTypingBySession = new Map<string, RemoteTypingEntry>()
   private typingPruneTimer: ReturnType<typeof setInterval> | null = null
   private participantAvVideoConsumers = new Map<string, ParticipantAvVideoConsumer>()
+  private participantAvAudioConsumers = new Map<string, ParticipantAvAudioConsumer>()
+  private speakingVadRegistry: SpeakingVadRegistry = createSpeakingVadRegistry({
+    onSpeakingChange: () => {
+      this.announceSpeakingTransitions()
+      this.notify()
+    },
+  })
   private presenceRoster: { roomId: string; members: PresenceMember[] } = {
     roomId: '',
     members: [],
@@ -147,6 +162,7 @@ export class RoomMediaEngine {
   private participantAvPublishTick = 0
   private participantAvUnsub: (() => void) | null = null
   private participantProducerRegistryUnsub: (() => void) | null = null
+  private previousSpeakingBySession = new Map<string, boolean>()
   private cachedSnapshot: RoomMediaEngineSnapshot | null = null
 
   constructor(roomId: string) {
@@ -198,12 +214,18 @@ export class RoomMediaEngine {
       participantProducerBySessionId: this.sdk.buildParticipantProducerSnapshots(
         peopleShown.map((member) => member.sessionId),
       ),
+      speakingBySessionId: this.speakingVadRegistry.buildSpeakingMap(
+        peopleShown.map((member) => member.sessionId),
+      ),
       stageParticipantTiles: buildStageParticipantTiles({
         roster: peopleShown,
         videoConsumers: this.participantAvVideoConsumers,
         ownSessionId: opts?.sessionId ?? '',
         localCameraOn: participantAvPublishState.cameraEnabled,
         localPreviewStream: participantAvController?.getLocalPreviewStream() ?? null,
+        speakingBySessionId: this.speakingVadRegistry.buildSpeakingMap(
+          peopleShown.map((member) => member.sessionId),
+        ),
       }),
     }
     return this.cachedSnapshot
@@ -331,10 +353,17 @@ export class RoomMediaEngine {
             this.participantAvVideoConsumers,
             event,
           )
+          this.participantAvAudioConsumers = applyParticipantAvAudioConsumerEvent(
+            this.participantAvAudioConsumers,
+            event,
+          )
+          this.syncSpeakingVad()
           this.notify()
         },
         onConsumersClear: () => {
           this.participantAvVideoConsumers = new Map()
+          this.participantAvAudioConsumers = new Map()
+          this.syncSpeakingVad()
           this.notify()
         },
       },
@@ -350,14 +379,18 @@ export class RoomMediaEngine {
     if (controller) {
       this.participantAvUnsub = controller.subscribe(() => {
         this.participantAvPublishTick += 1
+        this.syncSpeakingVad()
         this.notify()
       })
     }
 
     this.participantProducerRegistryUnsub?.()
     this.participantProducerRegistryUnsub = this.sdk.onParticipantProducerRegistryChange(() => {
+      this.syncSpeakingVad()
       this.notify()
     })
+
+    this.syncSpeakingVad()
 
     emitClientDrawerLog({
       drawer: 'signaling',
@@ -404,6 +437,7 @@ export class RoomMediaEngine {
       this.lastMediaFields = { ...this.lastMediaFields, avDisabled }
     }
     this.sdk.setAvDisabled(avDisabled)
+    this.syncSpeakingVad()
     this.notify()
   }
 
@@ -592,6 +626,15 @@ export class RoomMediaEngine {
     this.mountOptions = null
     this.guestRemote = null
     this.participantAvVideoConsumers = new Map()
+    this.participantAvAudioConsumers = new Map()
+    this.speakingVadRegistry.dispose()
+    this.speakingVadRegistry = createSpeakingVadRegistry({
+      onSpeakingChange: () => {
+        this.announceSpeakingTransitions()
+        this.notify()
+      },
+    })
+    this.previousSpeakingBySession = new Map()
     this.connection = transitionRoomMediaConnection(this.connection, 'tornDown')
     this.wsStatus = 'idle'
     this.diagnostics = null
@@ -651,6 +694,69 @@ export class RoomMediaEngine {
     )
     const merged = mergeConnectionPhases(chatPhase, sfuPhase)
     this.connection = transitionRoomMediaConnection(this.connection, merged)
+  }
+
+  private syncSpeakingVad(): void {
+    const opts = this.mountOptions
+    if (!opts) return
+
+    const peopleShown = this.buildPeopleShown()
+    const producerSnapshots = this.sdk.buildParticipantProducerSnapshots(
+      peopleShown.map((member) => member.sessionId),
+    )
+
+    const controller = this.sdk.getParticipantAvController()
+    const localTrack = controller?.getLocalPreviewStream()?.getAudioTracks()[0] ?? null
+    const localSnapshot =
+      producerSnapshots.get(opts.sessionId) ??
+      EMPTY_PARTICIPANT_PRODUCER_SNAPSHOT
+    const localEnabled = isSpeakingVadEnabled(localSnapshot)
+    this.speakingVadRegistry.syncSession(opts.sessionId, localTrack, localEnabled)
+
+    const remoteAudioBySession = new Map<string, MediaStreamTrack>()
+    for (const consumer of this.participantAvAudioConsumers.values()) {
+      const sessionId = consumer.sessionId?.trim()
+      if (!sessionId || sessionId === opts.sessionId) continue
+      remoteAudioBySession.set(sessionId, consumer.track)
+    }
+
+    for (const member of peopleShown) {
+      if (member.sessionId === opts.sessionId) continue
+      const snapshot =
+        producerSnapshots.get(member.sessionId) ?? EMPTY_PARTICIPANT_PRODUCER_SNAPSHOT
+      const track = remoteAudioBySession.get(member.sessionId) ?? null
+      this.speakingVadRegistry.syncSession(
+        member.sessionId,
+        track,
+        isSpeakingVadEnabled(snapshot),
+      )
+    }
+
+    const speakingNow = this.speakingVadRegistry.buildSpeakingMap(
+      peopleShown.map((member) => member.sessionId),
+    )
+    this.announceSpeakingTransitions(speakingNow)
+  }
+
+  private announceSpeakingTransitions(
+    speakingNow = this.speakingVadRegistry.buildSpeakingMap(
+      this.buildPeopleShown().map((member) => member.sessionId),
+    ),
+  ): void {
+    const opts = this.mountOptions
+    if (!opts) return
+
+    const peopleShown = this.buildPeopleShown()
+    for (const member of peopleShown) {
+      const nowSpeaking = speakingNow.get(member.sessionId) ?? false
+      const wasSpeaking = this.previousSpeakingBySession.get(member.sessionId) ?? false
+      if (nowSpeaking && !wasSpeaking) {
+        opts.announceRoomA11y(`${member.displayName} is speaking`)
+      } else if (!nowSpeaking && wasSpeaking) {
+        opts.announceRoomA11y(`${member.displayName} stopped speaking`)
+      }
+    }
+    this.previousSpeakingBySession = speakingNow
   }
 
   private notify(): void {
