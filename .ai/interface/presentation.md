@@ -10,7 +10,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | **Empty catalog** | Clear **“nothing to show yet”** copy for operators/contributors—never a silent blank. |
 | **Signed-in host / solo room** | **WebSocket** + **JWT** for admin paths; embed errors surface **embed blocked** + **open on YouTube** escape hatch (**`error_state.md`**). |
 | **Room / lobby** | **Room-admin** controls only when **`JWT.sub === hostSub`**; anonymous guests see **read-only** player/chat chrome (**picker hidden**, subscribe-only WebRTC). |
-| **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes **player + overlaid chat**, e.g. **right-side rail**) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
+| **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes the player, optional Theater camera row, and RiffSync chrome) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
 | **Share** | **Copy `/room/:id` URL**; show advisory **`playbackExpectation`** near share affordance. |
 | **Rate / caps** | Server may return **429** / **WS business `error`** when limits hit (**`api_contracts.md`**); toast or inline message—**no** infinite retry storms. |
 
@@ -42,7 +42,7 @@ Tabbed popover on chat compose (**`ChatComposeMediaPicker`**) — **Emojis** and
 
 ### Shell boundaries
 
-- **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (strip or grid), host tab-capture chrome, and **video-relay** drawer status.
+- **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (Theater camera row or Video Chat grid), host tab-capture chrome, and **video-relay** drawer status.
 - **`riffsync-room-page__chat-column`** holds sidebar tabs (**Chat**, **People**, **Room**, **Profile**), participant AV toggles, message log, compose, and **chat** drawer status.
 - **Theater room mode** (host layout policy) is distinct from **theater fullscreen** (wrapper **`requestFullscreen`**) and from **expanded view** (in-page stage layout). UI copy must not conflate the three.
 - **`RoomPage`** is a **thin shell**; realtime drawers are owned by **`ChatSession`**, **`SfuMediaSession`**, and **`TheaterPlayback`** (**`runtime/execution_model.md`**). Presentation contracts describe what users see regardless of module wiring.
@@ -131,13 +131,14 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 ### Theater room mode
 
 - Shared movie player (host tab-capture / guest inbound screen-share stream) stays **primary**.
-- On viewports **≥ 992px**, a **vertical participant strip** sits **immediately right of the video** within the stage region (not in the chat column).
-- Strip lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab).
-- **Speaking affordance:** when a participant's mic is unmuted and client VAD crosses threshold (**`execution_model.md`** M23 params), show a **speaking border or glow** on that participant's strip tile. **Mic-only** participants **do not** get strip tiles; their speaking state appears on **People** roster rows only. Under **`prefers-reduced-motion: reduce`**, use a static high-contrast border instead of animated glow.
-- **Mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat). **No** avatar chips or audible-only tile badges.
-- The **local publisher** appears in the strip when their camera is on, labeled **You** (live preview tile).
-- The **host** appears in the strip when their camera is on, same as other signed-in fans.
-- When zero video-on participants, the strip container is **not rendered** (no empty chrome).
+- On viewports **≥ 992px**, a **horizontal camera row** sits **directly below the movie** within the stage region (not in the chat column and not over the movie).
+- The row lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab).
+- **Speaking affordance:** when a participant's mic is unmuted and client VAD crosses threshold (**`execution_model.md`** M23 params), show a **speaking border or glow** on that participant's row tile. **Mic-only** participants **do not** get row tiles; their speaking state appears on **People** roster rows only. Under **`prefers-reduced-motion: reduce`**, use a static high-contrast border instead of animated glow.
+- **Mic-only** participants are audible but **not** shown in the row (identity via **People** tab and chat). **No** avatar chips or audible-only tile badges.
+- The **local publisher** appears in the row when their camera is on, labeled **You** (live preview tile).
+- The **host** appears in the row when their camera is on, same as other signed-in fans.
+- When zero video-on participants, the row container is **not rendered** (no empty chrome) and the movie uses the available stage height.
+- The camera row scrolls horizontally or wraps according to responsive layout rules; it must not overlay or obscure the movie.
 - Participant **microphones** are audible alongside movie audio while AV is enabled.
 
 ### Video Chat room mode
@@ -158,9 +159,9 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 ### Participant video tile lifecycle
 
-- Strip/grid tiles exist **only** while a **live video** consumer is attached for **`participant_av`** at that **`sessionId`**.
+- Row/grid tiles exist **only** while a **live video** consumer is attached for **`participant_av`** at that **`sessionId`**.
 - On **`producerClosed`** for video (camera off, leave, kill switch, session teardown): **remove the tile promptly** — detach **`<video>`**, clear tile state, do **not** leave a **frozen last frame**. Frozen frames are a **contract violation**.
-- **Removal timing (#142):** After consumer **`detach`** updates **`videoConsumers`**, the tile must leave strip/grid within **one React commit**. The **`<video>`** element must set **`srcObject = null`** before the next paint (cleanup on unmount or stream change).
+- **Removal timing (#142):** After consumer **`detach`** updates **`videoConsumers`**, the tile must leave row/grid within **one React commit**. The **`<video>`** element must set **`srcObject = null`** before the next paint (cleanup on unmount or stream change).
 - **Removal animation (#142):** **Instant DOM detach** for remote tiles and local **You** preview — no fade-out in MVP. **`prefers-reduced-motion`** does not alter behavior (already instant).
 - **Mic-only** after camera-off: no tile; audio continues per mode (theater client mix or Video Chat audio path). Visibility rules **unchanged** from pre-hardening contracts.
 - **`share_state: stopped`:** guests lose **host-screen** attachment only; participant tiles and mic audio **persist** when SFU plane is healthy (**`interaction_flow.md`**).
@@ -177,7 +178,7 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 ### Viewport scope
 
-- **Desktop (≥ 992px):** vertical Theater strip beside movie; Video Chat uses full-stage grid; host control bar uses full flex row.
+- **Desktop (≥ 992px):** Theater camera row below movie; Video Chat uses full-stage grid; host control bar uses full flex row.
 - **Narrow (< 992px):** honest **reduced** layout — participant video surfaces render as a **single horizontal scroll row** of tiles positioned **below** the movie primary region (Theater) or **below** the grid primary region (Video Chat). Toggles and host bar remain usable; do not imply desktop layout parity.
 
 ### iOS virtual keyboard (stacked room layout, #240)
@@ -194,7 +195,7 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 
 ### Theater fullscreen with participant AV
 
-- When participant AV surfaces are active, custom fullscreen **includes stage participant strip or grid** alongside the shared movie or grid primary region.
+- When participant AV surfaces are active, custom fullscreen **includes the Theater camera row or Video Chat grid** alongside the shared movie or grid primary region.
 - The **host control bar** may remain **outside** the fullscreen wrapper.
 
 ### Expanded view (in-page, #259)
@@ -204,8 +205,8 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | Concern | Contract |
 | --- | --- |
 | **Availability** | Offered in **Theater** and **Video Chat** room modes when viewport **≥ 992px**. **Hidden or inert** below 992px — standard stacked layout unchanged. |
-| **Stage primary** | **Theater:** shared movie player (host capture / guest inbound **`host_screen`**) fills the stage region. **Video Chat:** participant **video-on** tile grid fills the stage region. |
-| **Participant strip (Theater desktop)** | **Hidden** while expanded — strip returns on exit. **Video Chat** grid is the primary surface (unchanged visibility rules for mic-only). |
+| **Stage primary** | **Theater:** shared movie player (host capture / guest inbound **`host_screen`**) remains primary inside the expanded stage container. **Video Chat:** participant **video-on** tile grid fills the stage region. |
+| **Theater camera row** | When one or more participant cameras are on, the expanded stage container reserves a bottom camera row **beneath** the movie. When zero cameras are on, omit the row and allow the movie to occupy the available expanded stage. Visibility rules for mic-only participants are unchanged. |
 | **Chat overlay** | **Transparent** panel **over** the stage, anchored **bottom-right**. Occupies **at most 50% of stage height** and **at most ~40% of stage width** (exact width via CSS **`clamp`** acceptable). **Does not** span the full right column height. |
 | **Overlay contents** | **Chat plane only:** chat drawer status, scrollable message log (bounded flex + stick-to-bottom per chat contract), jump-to-latest, participant AV toggles when fan JWT present, compose. **No** sidebar tab strip (**Chat / People / Room / Profile**). **People / Room / Profile** require **exit expanded view**. |
 | **Optional polish** | **Top fade gradient** on the overlay zone (video visible through chat background) is **nice-to-have**, not MVP-required. |
@@ -262,6 +263,15 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | **Tab body height** | **16.5rem** fixed below tab bar for both **Emojis** and **GIF** panels. |
 | **GIF results growth** | Results grid scrolls inside fixed panel — popover does **not** grow when results appear. |
 | **Tab switch jitter** | **Contract violation** if outer popover height changes on tab switch. |
+
+## Decisions (answered — Theater camera placement #261)
+
+| Topic | Decision |
+| --- | --- |
+| **Standard Theater cameras** | Video-on participants render in a horizontal row directly beneath the movie, not in a right-side rail and not over the movie. |
+| **Expanded Theater cameras** | Expanded stage includes the movie plus optional bottom camera row; when the row is empty, the movie may use the full expanded stage. |
+| **Chat in expanded Theater** | Chat remains the bottom-right transparent overlay from **#259** and is not displaced by cameras. |
+| **Video Chat** | Participant grid remains primary; mic-only and grid visibility rules are unchanged. |
 
 ## Open implementation decisions
 
