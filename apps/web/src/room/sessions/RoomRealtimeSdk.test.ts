@@ -5,12 +5,18 @@ import { ChatSession } from './ChatSession'
 import { SfuMediaSession } from './SfuMediaSession'
 import { TheaterPlayback } from './TheaterPlayback'
 import {
-  DRAWER_LIFECYCLE_STATES,
   RoomRealtimeSdk,
   mapChatSessionStatusToDrawerState,
   mapSfuMediaSessionStatusToDrawerState,
   type RoomRealtimeDiagnostics,
 } from './RoomRealtimeSdk'
+import {
+  DRAWER_LIFECYCLE_STATES,
+  REQUIRED_DIAGNOSTIC_KEYS,
+  REQUIRED_DRAWER_KEYS,
+  REQUIRED_SFU_HEALTH_KEYS,
+  assertRoomRealtimeDiagnosticsContract,
+} from './roomRealtimeDiagnosticsContract'
 import {
   assertDrawerReconnectCycle,
   assertNoDrawerTornDown,
@@ -64,18 +70,9 @@ const baseSnapshot: RoomSnapshot = {
   broadcastCaptureActive: false,
 }
 
-const REQUIRED_DIAGNOSTIC_KEYS = [
-  'roomId',
-  'sessionId',
-  'asOf',
-  'drawers',
-  'activeErrorCodes',
-] as const satisfies readonly (keyof RoomRealtimeDiagnostics)[]
-
-const REQUIRED_DRAWER_KEYS = ['chat', 'sfuSignaling', 'theaterPlayback'] as const
-const REQUIRED_SFU_HEALTH_KEYS = ['connectivity', 'produceConsume'] as const
-
 function assertStableDiagnosticsContract(diag: RoomRealtimeDiagnostics): void {
+  expect(() => assertRoomRealtimeDiagnosticsContract(diag)).not.toThrow()
+
   for (const key of REQUIRED_DIAGNOSTIC_KEYS) {
     expect(diag).toHaveProperty(key)
   }
@@ -506,6 +503,25 @@ describe('RoomRealtimeSdk public surface', () => {
     expect(typeof sdk.subscribe).toBe('function')
     expect(typeof sdk.getDiagnostics).toBe('function')
     expect(typeof sdk.teardown).toBe('function')
+  })
+
+  it('registers dev-only window.riffsyncRoomDiagnostics during a joined session', () => {
+    vi.stubGlobal('window', {})
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-dev-getter',
+    })
+
+    expect(window.riffsyncRoomDiagnostics).toBeTypeOf('function')
+    expect(window.riffsyncRoomDiagnostics?.()).toMatchObject({
+      roomId: 'room-abc',
+      sessionId: 'sess-dev-getter',
+    })
+
+    sdk.teardown()
+    expect(window.riffsyncRoomDiagnostics).toBeUndefined()
+    vi.unstubAllGlobals()
   })
 
   it('teardown resets diagnostics to torn-down drawers', () => {
@@ -1162,6 +1178,49 @@ describe('RoomRealtimeSdk theater playback lifecycle', () => {
     expect(diag.drawers.theaterPlayback.state).toBe('degraded')
     expect(diag.drawers.theaterPlayback.lastErrorCode).toBe('THEATER_AUDIO_SUSPENDED')
     expect(diag.drawers.theaterPlayback.audioContextState).toBe('suspended')
+  })
+
+  it('maps verifying guest media to reconnecting and exposes guestShareFsm', async () => {
+    mockChatConnectOpensImmediately()
+    mockSfuConnectOpensImmediately()
+    const onDiagnosticsChange = vi.fn()
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-theater-verifying-media',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+      isHost: false,
+      onDiagnosticsChange,
+    })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+    onDiagnosticsChange.mockClear()
+
+    const pendingStream = {
+      getTracks: () => [{ kind: 'video', readyState: 'ended' }],
+      getVideoTracks: () => [{ kind: 'video', readyState: 'ended' }],
+      getAudioTracks: () => [],
+    } as unknown as MediaStream
+    ;(sdk as unknown as { theater: TheaterPlayback }).theater.setGuestRemote(pendingStream)
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.theaterPlayback.state).toBe('reconnecting')
+    expect(diag.drawers.theaterPlayback.guestShareFsm).toBe('verifying_media')
+    expect(onDiagnosticsChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        drawers: expect.objectContaining({
+          theaterPlayback: expect.objectContaining({
+            state: 'reconnecting',
+            guestShareFsm: 'verifying_media',
+          }),
+        }),
+      }),
+    )
   })
 
   it('replays SFU consumers when transitioning from video chat to theater', async () => {

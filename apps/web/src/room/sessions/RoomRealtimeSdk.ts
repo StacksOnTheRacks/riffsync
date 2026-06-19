@@ -31,46 +31,29 @@ import {
 } from './SfuMediaSession'
 import { collectActiveErrorCodes } from '../realtimeDrawerErrors'
 import { TheaterPlayback, type TheaterPlaybackSnapshot } from './TheaterPlayback'
+import {
+  type DrawerLifecycleState,
+  type RoomRealtimeDiagnostics,
+} from './roomRealtimeDiagnosticsContract'
 
 export type { TheaterPlaybackSnapshot }
+export {
+  DRAWER_LIFECYCLE_STATES,
+  REQUIRED_DIAGNOSTIC_KEYS,
+  REQUIRED_DRAWER_KEYS,
+  REQUIRED_SFU_HEALTH_KEYS,
+  assertRoomRealtimeDiagnosticsContract,
+  type ChatDrawerDiagnostics,
+  type DrawerLifecycleState,
+  type RoomRealtimeDiagnostics,
+  type SfuSignalingDrawerDiagnostics,
+  type TheaterPlaybackDrawerDiagnostics,
+} from './roomRealtimeDiagnosticsContract'
 
-export const DRAWER_LIFECYCLE_STATES = [
-  'connected',
-  'reconnecting',
-  'degraded',
-  'torn-down',
-] as const
-
-export type DrawerLifecycleState = (typeof DRAWER_LIFECYCLE_STATES)[number]
-
-export type ChatDrawerDiagnostics = {
-  state: DrawerLifecycleState
-  lastErrorCode?: string
-}
-
-export type SfuSignalingDrawerDiagnostics = {
-  state: DrawerLifecycleState
-  lastErrorCode?: string
-  role?: 'producer' | 'consumer'
-  health: SfuHealthDiagnostics
-}
-
-export type TheaterPlaybackDrawerDiagnostics = {
-  state: DrawerLifecycleState
-  lastErrorCode?: string
-  audioContextState?: AudioContextState
-}
-
-export type RoomRealtimeDiagnostics = {
-  roomId: string
-  sessionId: string
-  asOf: string
-  drawers: {
-    chat: ChatDrawerDiagnostics
-    sfuSignaling: SfuSignalingDrawerDiagnostics
-    theaterPlayback: TheaterPlaybackDrawerDiagnostics
+declare global {
+  interface Window {
+    riffsyncRoomDiagnostics?: () => RoomRealtimeDiagnostics
   }
-  activeErrorCodes: string[]
 }
 
 export type RoomControlHandlers = {
@@ -235,6 +218,7 @@ export class RoomRealtimeSdk {
     this.onDiagnosticsChange = options.onDiagnosticsChange
     this.getHostScreenStream = options.getHostScreenStream ?? (() => null)
     this.sfuRelayErrorMessage = null
+    this.installDevDiagnosticsGetter()
 
     this.chat = new ChatSession()
     this.sfu = new SfuMediaSession()
@@ -311,6 +295,7 @@ export class RoomRealtimeSdk {
     const sfuDiag = this.sfu?.getSignalingDiagnostics() ?? {}
     const sfuHealth = this.sfu?.getHealthDiagnostics() ?? defaultSfuHealthDiagnostics()
     const theaterAudioContextState = this.theater?.getAudioContextState()
+    const theaterGuestShareFsm = this.theater?.getSnapshot().guestShareFsm
 
     const chatLastError = this.chatLastErrorCode ?? this.chat?.getLastErrorCode()
     const sfuLastError = this.sfuLastErrorCode
@@ -331,6 +316,7 @@ export class RoomRealtimeSdk {
         state: theaterState,
         ...(theaterLastError ? { lastErrorCode: theaterLastError } : {}),
         ...(theaterAudioContextState ? { audioContextState: theaterAudioContextState } : {}),
+        ...(theaterGuestShareFsm ? { guestShareFsm: theaterGuestShareFsm } : {}),
       },
     }
 
@@ -521,6 +507,9 @@ export class RoomRealtimeSdk {
     if (!chat || !sfu || !theater) return
 
     this.theaterLifecycleUnsub = theater.onLifecycleChange(() => {
+      this.emitDiagnosticsChange()
+    })
+    this.theaterSnapshotUnsub = theater.onSnapshotChange(() => {
       this.emitDiagnosticsChange()
     })
     theater.notifySignalingSiblingState(sfu.getLifecycleState())
@@ -783,6 +772,20 @@ export class RoomRealtimeSdk {
     this.onDiagnosticsChange?.(this.getDiagnostics())
   }
 
+  private readonly devDiagnosticsGetter = (): RoomRealtimeDiagnostics => this.getDiagnostics()
+
+  private installDevDiagnosticsGetter(): void {
+    if (!import.meta.env.DEV || typeof window === 'undefined') return
+    window.riffsyncRoomDiagnostics = this.devDiagnosticsGetter
+  }
+
+  private uninstallDevDiagnosticsGetter(): void {
+    if (typeof window === 'undefined') return
+    if (window.riffsyncRoomDiagnostics === this.devDiagnosticsGetter) {
+      delete window.riffsyncRoomDiagnostics
+    }
+  }
+
   private teardownModules(opts: { intentional: boolean }): void {
     this.chatStatusUnsub?.()
     this.chatLifecycleUnsub?.()
@@ -835,6 +838,7 @@ export class RoomRealtimeSdk {
     this.chatLastErrorCode = undefined
     this.sfuLastErrorCode = undefined
     this.sfuRelayErrorMessage = null
+    this.uninstallDevDiagnosticsGetter()
 
     if (opts.intentional) {
       this.roomId = ''
