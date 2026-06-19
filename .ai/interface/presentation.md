@@ -20,6 +20,18 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 - **Layout:** Message list occupies a **bounded flex region** inside the sidebar; **only the log scrolls** (`overflow-y: auto`). Compose toolbar and tabs stay fixed. **Stick-to-bottom:** new messages auto-scroll when the user is within **48px** of the bottom (same threshold as implementation in bounded-log work). **Jump to latest:** when the user has scrolled up beyond that threshold, show a **button** above the compose bar after one or more lines arrive while they are reading history; label **"New messages"** (append **`(N)`** when **N > 1** pending). Activating the control scrolls to the latest line, clears the pending count, and hides the control. Manual scroll back within **48px** of the bottom also clears pending without requiring the button. Programmatic scroll uses **`behavior: 'smooth'`** unless **`prefers-reduced-motion: reduce`**, then **`'auto'`**.
 - **Ephemeral** chat: **in-memory / UI scrollback** capped (~**100** recent messages in client; align with **`docs/architecture.frontend.md`**). **No durable transcript** from server—reload clears messages, reactions, and GIF posts (**storage cost**).
 - **Rich content (signed-in send):** **Unicode emoji** via compose picker; **Giphy GIF** posts (inline render, bounded dimensions); **emoji reactions** aggregated per message. **Anonymous guests** may **view** all rich content but **cannot** send or react (**`authorization.md`**).
+
+### Compose media picker (emoji / GIF tabs, #258)
+
+Tabbed popover on chat compose (**`ChatComposeMediaPicker`**) — **Emojis** and **GIF** tabs share one shell above the compose row.
+
+| Concern | Contract |
+| --- | --- |
+| **Stable outer height** | Popover **outer height must not change** when switching tabs or when Giphy transitions between empty, loading, error, and results states. Tab switches must not jitter the compose row. |
+| **Fixed tab body** | Content below the tab bar uses a **fixed height of 16.5rem** (matches **`emoji-picker`** body). Both tab panels fill this region. |
+| **Giphy scroll** | Search field, status copy, attribution, and results grid render **inside** the fixed panel; the results grid **scrolls internally** (`overflow: auto`) — it must **not** expand the popover when results load. |
+| **Viewport cap** | Shell keeps **`width: min(100vw - 1rem, 18.5rem)`** and **`max-height: min(70vh, 24rem)`**; fixed body height must fit within the cap on typical viewports. |
+| **Out of scope** | Message **reaction** emoji popover (**`ChatReactionPicker`**) — separate component; not governed by this table. |
 - **Avatars:** Signed-in fans may upload **one** profile image (server-retained). Chat rows show a **thumbnail beside display name** using a **public HTTPS** avatar URL when set; guests without avatars use a neutral fallback glyph.
 - **Typing indicator:** When a signed-in fan sends **`typing_start`** on the room WebSocket, other participants see an **ellipsis** affordance associated with that sender in the chat log (e.g. **"DisplayName is typing…"** or inline ellipsis row). **Typing start** also marks the sender **active** on the **People** tab. Indicator clears on send, **`typing_stop`**, disconnect, or TTL expiry (exact TTL tier TW). **Do not** imply message archive — typing is ephemeral like chat scrollback.
 - **Join/leave system lines:** When a **signed-in fan** connects or disconnects, other participants see a muted **system line** in the chat log (e.g. **"DisplayName joined"** / **"DisplayName left"**). **Anonymous guests** produce **no** system line. Lines are **ephemeral** (in-memory scrollback only) and **not** replayed from server on refresh or **`presence_request`**.
@@ -225,6 +237,14 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | **Missing name** | Rows without **`hostDisplayName`** are **not rendered** — the API omits them; SPA does not synthesize fallback copy. |
 | **Private rooms** | Unchanged — only **public** rooms appear on **`/lobby`**. |
 
+## Decisions (answered — compose media picker #258)
+
+| Topic | Decision |
+| --- | --- |
+| **Tab body height** | **16.5rem** fixed below tab bar for both **Emojis** and **GIF** panels. |
+| **GIF results growth** | Results grid scrolls inside fixed panel — popover does **not** grow when results appear. |
+| **Tab switch jitter** | **Contract violation** if outer popover height changes on tab switch. |
+
 ## Open implementation decisions
 
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
@@ -232,6 +252,7 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 
 ## Primary code pointers (optional)
 
+- **`apps/web/src/room/ChatComposeMediaPicker.tsx`**, **`ChatEmojiPicker.tsx`**, **`ChatGiphyPicker.tsx`** — compose emoji/GIF tabbed popover (#258 stable height).
 - SPA layout, design system, and route-level **loading/error** boundaries once scaffolded.
 - **`apps/web/src/room/RoomPlaybackPanel.tsx`** — guest **`#riffsync-video-relay-status`** host-screen status line.
 - **`apps/web/src/pages/RoomPage.tsx`** — thin room shell composing session modules; stage + chat-column layout unchanged.
