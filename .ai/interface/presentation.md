@@ -44,7 +44,7 @@ Tabbed popover on chat compose (**`ChatComposeMediaPicker`**) — **Emojis** and
 
 - **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (strip or grid), host tab-capture chrome, and **video-relay** drawer status.
 - **`riffsync-room-page__chat-column`** holds sidebar tabs (**Chat**, **People**, **Room**, **Profile**), participant AV toggles, message log, compose, and **chat** drawer status.
-- **Theater room mode** (host layout policy) is distinct from **theater fullscreen** (wrapper **`requestFullscreen`**). UI copy must not conflate the two.
+- **Theater room mode** (host layout policy) is distinct from **theater fullscreen** (wrapper **`requestFullscreen`**) and from **expanded view** (in-page stage layout). UI copy must not conflate the three.
 - **`RoomPage`** is a **thin shell**; realtime drawers are owned by **`ChatSession`**, **`SfuMediaSession`**, and **`TheaterPlayback`** (**`runtime/execution_model.md`**). Presentation contracts describe what users see regardless of module wiring.
 
 ### Media path (SFU-only)
@@ -197,6 +197,24 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 - When participant AV surfaces are active, custom fullscreen **includes stage participant strip or grid** alongside the shared movie or grid primary region.
 - The **host control bar** may remain **outside** the fullscreen wrapper.
 
+### Expanded view (in-page, #259)
+
+**Expanded view** is an optional **in-page** layout within **`/room/:roomId`** — **not** browser **`requestFullscreen`**, **not** YouTube iframe-native fullscreen, and **not** the same as **theater fullscreen** above. Compact site header and footer remain visible; the **stage region** fills the width available beneath header within the room shell.
+
+| Concern | Contract |
+| --- | --- |
+| **Availability** | Offered in **Theater** and **Video Chat** room modes when viewport **≥ 992px**. **Hidden or inert** below 992px — standard stacked layout unchanged. |
+| **Stage primary** | **Theater:** shared movie player (host capture / guest inbound **`host_screen`**) fills the stage region. **Video Chat:** participant **video-on** tile grid fills the stage region. |
+| **Participant strip (Theater desktop)** | **Hidden** while expanded — strip returns on exit. **Video Chat** grid is the primary surface (unchanged visibility rules for mic-only). |
+| **Chat overlay** | **Transparent** panel **over** the stage, anchored **bottom-right**. Occupies **at most 50% of stage height** and **at most ~40% of stage width** (exact width via CSS **`clamp`** acceptable). **Does not** span the full right column height. |
+| **Overlay contents** | **Chat plane only:** chat drawer status, scrollable message log (bounded flex + stick-to-bottom per chat contract), jump-to-latest, participant AV toggles when fan JWT present, compose. **No** sidebar tab strip (**Chat / People / Room / Profile**). **People / Room / Profile** require **exit expanded view**. |
+| **Optional polish** | **Top fade gradient** on the overlay zone (video visible through chat background) is **nice-to-have**, not MVP-required. |
+| **Toggle** | **Corner control** on the stage (mockup: top-right). **Visible on pointer hover** over the stage; control remains visible while **keyboard focused**. Accessible names: **Expand view** / **Exit expanded view**. |
+| **Host control bar** | **Remains below the stage** in expanded and standard layouts (host-only). |
+| **State** | **Session-only** client state — **no** `localStorage` persistence; full reload returns to **standard** layout. |
+| **Drawers** | Chat and video-relay drawer status rules **unchanged** — chat banner lives inside the overlay; video-relay status stays on the stage playback surface. |
+| **Chromecast (future)** | Implement expanded layout as a **reusable shell** (stage-primary + chat overlay) suitable as a future Cast receiver target. **No** Cast SDK or receiver work in #259. |
+
 ## Accessibility & motion (baseline)
 
 - Prefer **semantic headings** and **focus order** that match visual flow; **keyboard** paths for **Play**, **share**, **lobby join** before shipping broadly.
@@ -255,5 +273,6 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 - **`apps/web/src/room/ChatComposeMediaPicker.tsx`**, **`ChatEmojiPicker.tsx`**, **`ChatGiphyPicker.tsx`** — compose emoji/GIF tabbed popover (#258 stable height).
 - SPA layout, design system, and route-level **loading/error** boundaries once scaffolded.
 - **`apps/web/src/room/RoomPlaybackPanel.tsx`** — guest **`#riffsync-video-relay-status`** host-screen status line.
-- **`apps/web/src/pages/RoomPage.tsx`** — thin room shell composing session modules; stage + chat-column layout unchanged.
+- **`apps/web/src/pages/RoomPage.tsx`** — thin room shell composing session modules; stage + chat-column layout; expanded-view toggle and overlay wiring (**#259**).
+- **`apps/web/src/room/RoomPageSidebar.tsx`** — sidebar tabs + chat; chat/compose subtree reused inside expanded overlay.
 - **`apps/web/src/room/stage/participantAvConsumers.ts`**, **`stageParticipantTiles.ts`** — tile attach/detach on **`newProducer`** / **`producerClosed`**.

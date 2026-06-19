@@ -100,6 +100,16 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 - Participants receive authoritative **room mode** and **AV kill switch** state on join snapshot and realtime updates.
 - Non-host users cannot change mode; they see layout swap without confirmation.
 
+### Expanded view (local UI, #259)
+
+1. **Per-viewer toggle:** Any participant may enter or exit **expanded view** independently — **not** host-authoritative and **not** fan-out over WebSocket.
+2. **Enter expanded (≥ 992px):** Stage primary fills the room stage column span; chat moves from sidebar column to **bottom-right transparent overlay** (chat-only chrome).
+3. **Theater expanded:** Movie player fills stage; **desktop participant strip hidden** until exit.
+4. **Video Chat expanded:** Participant video grid fills stage; mic-only rules unchanged.
+5. **Exit expanded:** Restore standard side-by-side stage + sidebar grid; active sidebar tab unchanged (defaults to last tab before expand if implementation tracks it; **Chat** tab content remains wired).
+6. **Room mode change while expanded:** Apply new mode to stage primary **without** forcing exit — overlay chat rules stay the same.
+7. **Reload / navigate away:** Expanded state **clears** — standard layout on return.
+
 ### Presence, typing, and People badges
 
 1. **Roster on join:** Client sends **`presence_request`** after room WebSocket connect; server returns **`presence`** roster (with **`lastActiveAt`** / **`active`**) and requester-only **`chat_history`** (capped durable messages — **excludes** ephemeral join/leave system lines).
