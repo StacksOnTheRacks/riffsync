@@ -12,6 +12,7 @@ import {
   type SfuConsumerTrackEvent,
   type SfuMediaErrorCode,
   type SfuProducerClass,
+  type SfuTransportConnectivityHealthEvent,
   type SfuUnifiedSessionHandle,
 } from '../sfu/mediasoupSharing'
 import {
@@ -74,6 +75,29 @@ export type SfuMediaSessionLifecycleState =
   | 'degraded'
   | 'torn-down'
 
+export type SfuConnectivityDiagnostics = {
+  state: SfuMediaSessionLifecycleState
+  lastErrorCode?: 'ICE_FAILED' | 'TURN_RELAY_REQUIRED'
+  iceConnectionState?: RTCIceConnectionState
+}
+
+export type SfuProduceConsumeDiagnostics = {
+  state: SfuMediaSessionLifecycleState
+  lastErrorCode?: Extract<
+    RealtimeDrawerErrorCode,
+    'TRANSPORT_LIMIT_REACHED' | 'CONSUMER_LIMIT_REACHED' | 'sfu_publish_rejected'
+  >
+  producerCount?: number
+  consumerCount?: number
+  hostScreenAttached?: boolean
+  participantAvPublishActive?: boolean
+}
+
+export type SfuHealthDiagnostics = {
+  connectivity: SfuConnectivityDiagnostics
+  produceConsume: SfuProduceConsumeDiagnostics
+}
+
 export type SfuRoomSessionHandle = SfuUnifiedSessionHandle
 
 type SessionHooks = {
@@ -97,6 +121,7 @@ export type StartSfuRoomSessionOpts = SessionHooks & {
   onRemoteStream: (stream: MediaStream | null) => void
   onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
   onSignalingProducerLifecycle?: (event: SignalingProducerLifecycleEvent) => void
+  onConnectivityHealth?: (event: SfuTransportConnectivityHealthEvent) => void
   getHostScreenStream: () => MediaStream | null
   participantAv: ParticipantAvController
 }
@@ -118,6 +143,38 @@ function isSfuRelayConfigErrorCode(code: string): code is SfuRelayConfigErrorCod
     code === 'local_sfu_unreachable' ||
     code === 'sfu_relay_unreachable'
   )
+}
+
+function connectivitySeverity(state: SfuMediaSessionLifecycleState): number {
+  switch (state) {
+    case 'degraded':
+      return 3
+    case 'reconnecting':
+      return 2
+    case 'connected':
+      return 1
+    case 'torn-down':
+    default:
+      return 0
+  }
+}
+
+function classifyProduceConsumeHealthError(
+  code: SfuMediaErrorCode,
+  message: string,
+): SfuProduceConsumeDiagnostics['lastErrorCode'] | undefined {
+  const lower = message.toLowerCase()
+  if (lower.includes('transport limit reached')) return 'TRANSPORT_LIMIT_REACHED'
+  if (lower.includes('consumer limit reached')) return 'CONSUMER_LIMIT_REACHED'
+  if (code === 'produce_failed' || code === 'bad_capabilities') return 'sfu_publish_rejected'
+  return undefined
+}
+
+function isProduceConsumeHealthFailure(code: SfuMediaErrorCode, message: string): boolean {
+  if (code === 'produce_failed' || code === 'bad_capabilities') return true
+  if (code !== 'consume_failed') return false
+  const lower = message.toLowerCase()
+  return !lower.includes('gone') && !lower.includes('host stream ended')
 }
 
 export function formatSfuTokenError(e: unknown): string {
@@ -295,6 +352,7 @@ export function startSfuRoomSession(opts: StartSfuRoomSessionOpts): { cancel: ()
         onRemoteStream: opts.onRemoteStream,
         onConsumerTrack: opts.onConsumerTrack,
         onSignalingProducerLifecycle: opts.onSignalingProducerLifecycle,
+        onConnectivityHealth: opts.onConnectivityHealth,
         ownSessionId: opts.sessionId,
         onMediaError: (code, message) => {
           if (code !== 'signaling_failed') {
@@ -385,6 +443,9 @@ export class SfuMediaSession {
   private lifecycleState: SfuMediaSessionLifecycleState = 'torn-down'
   private failedReconnectCycles = 0
   private lastErrorCode: RealtimeDrawerErrorCode | undefined
+  private lastConnectivityErrorCode: SfuConnectivityDiagnostics['lastErrorCode'] | undefined
+  private lastProduceConsumeErrorCode: SfuProduceConsumeDiagnostics['lastErrorCode'] | undefined
+  private produceConsumeDegraded = false
   private cancelReconnect: (() => void) | null = null
   private sessionHandle: SfuUnifiedSessionHandle | null = null
   private tokenIntentGeneration = 0
@@ -412,12 +473,14 @@ export class SfuMediaSession {
   private drawerErrorListeners = new Set<Listener<RealtimeDrawerError | null>>()
   private statusListeners = new Set<Listener<SfuMediaSessionStatus>>()
   private lifecycleListeners = new Set<Listener<SfuMediaSessionLifecycleState>>()
+  private healthListeners = new Set<Listener<SfuHealthDiagnostics>>()
   private participantAvConsumerClearListeners = new Set<Listener<void>>()
   private participantProducerRegistry: ParticipantProducerRegistryState =
     createParticipantProducerRegistryState()
   private participantProducerRegistryListeners = new Set<Listener<void>>()
   private participantAvStateUnsub: (() => void) | null = null
   private ownSessionId: string | null = null
+  private readonly connectivityByTransport = new Map<string, SfuConnectivityDiagnostics>()
 
   constructor() {
     this.participantAv = createBoundParticipantAvController(() => this.gate, {
@@ -444,16 +507,76 @@ export class SfuMediaSession {
 
   getSignalingDiagnostics(): {
     role?: 'producer' | 'consumer'
-    producerCount?: number
-    consumerCount?: number
   } {
     const handle = this.sessionHandle
     if (!handle || this.status !== 'open') return {}
     return {
       role: handle.tokenRole,
-      producerCount: handle.getProducerCount(),
-      consumerCount: handle.getConsumerCount(),
     }
+  }
+
+  getHealthDiagnostics(): SfuHealthDiagnostics {
+    const handle = this.sessionHandle
+    const participantAv = this.participantAv.getState()
+    const participantAvPublishActive = participantAv.cameraEnabled || participantAv.micEnabled
+    const hasProducerClass =
+      typeof handle?.hasProducerClass === 'function'
+        ? handle.hasProducerClass.bind(handle)
+        : () => false
+    const hasConsumerClass =
+      typeof handle?.hasConsumerClass === 'function'
+        ? handle.hasConsumerClass.bind(handle)
+        : () => false
+    const getProducerCount =
+      typeof handle?.getProducerCount === 'function' ? handle.getProducerCount.bind(handle) : () => 0
+    const getConsumerCount =
+      typeof handle?.getConsumerCount === 'function' ? handle.getConsumerCount.bind(handle) : () => 0
+    const hostScreenAttached =
+      hasProducerClass('host_screen') ||
+      hasConsumerClass('host_screen') ||
+      (this.lastRemoteStream?.getTracks().some((track) => track.readyState === 'live') ?? false)
+
+    return {
+      connectivity: this.getConnectivityDiagnostics(),
+      produceConsume: {
+        state: this.getProduceConsumeHealthState(),
+        ...(this.lastProduceConsumeErrorCode
+          ? { lastErrorCode: this.lastProduceConsumeErrorCode }
+          : {}),
+        producerCount: getProducerCount(),
+        consumerCount: getConsumerCount(),
+        hostScreenAttached,
+        participantAvPublishActive,
+      },
+    }
+  }
+
+  private getConnectivityDiagnostics(): SfuConnectivityDiagnostics {
+    if (this.lifecycleState === 'torn-down' || this.status === 'idle') {
+      return { state: 'torn-down' }
+    }
+    if (this.lastConnectivityErrorCode && this.connectivityByTransport.size === 0) {
+      return { state: 'degraded', lastErrorCode: this.lastConnectivityErrorCode }
+    }
+    if (this.connectivityByTransport.size === 0) {
+      return { state: this.lifecycleState }
+    }
+
+    let selected: SfuConnectivityDiagnostics | null = null
+    for (const health of this.connectivityByTransport.values()) {
+      if (!selected || connectivitySeverity(health.state) > connectivitySeverity(selected.state)) {
+        selected = health
+      }
+    }
+    return selected ?? { state: this.lifecycleState }
+  }
+
+  private getProduceConsumeHealthState(): SfuMediaSessionLifecycleState {
+    if (this.lifecycleState === 'torn-down' || this.status === 'idle') return 'torn-down'
+    if (this.produceConsumeDegraded) return 'degraded'
+    if (this.lifecycleState === 'degraded') return 'degraded'
+    if (this.lifecycleState === 'reconnecting') return 'reconnecting'
+    return this.status === 'open' ? 'connected' : this.lifecycleState
   }
 
   onRemoteStream(listener: Listener<MediaStream | null>): () => void {
@@ -484,6 +607,11 @@ export class SfuMediaSession {
   onLifecycleChange(listener: Listener<SfuMediaSessionLifecycleState>): () => void {
     this.lifecycleListeners.add(listener)
     return () => this.lifecycleListeners.delete(listener)
+  }
+
+  onHealthChange(listener: Listener<SfuHealthDiagnostics>): () => void {
+    this.healthListeners.add(listener)
+    return () => this.healthListeners.delete(listener)
   }
 
   /** Fired when participant_av producer registry changes (People tab cam/mic). */
@@ -536,6 +664,7 @@ export class SfuMediaSession {
     this.participantAvStateUnsub?.()
     this.participantAvStateUnsub = this.participantAv.subscribe(() => {
       this.emitParticipantProducerRegistryChange()
+      this.emitHealthChange()
     })
     this.stopReconnectLoop()
     if (!this.enabled || !options.apiBaseUrl || !options.roomId) {
@@ -545,6 +674,11 @@ export class SfuMediaSession {
     }
     this.failedReconnectCycles = 0
     this.lastErrorCode = undefined
+    this.lastConnectivityErrorCode = undefined
+    this.lastProduceConsumeErrorCode = undefined
+    this.produceConsumeDegraded = false
+    this.connectivityByTransport.clear()
+    this.emitHealthChange()
     this.startReconnectLoop()
   }
 
@@ -562,10 +696,15 @@ export class SfuMediaSession {
     this.emitRemoteStream(null)
     this.failedReconnectCycles = 0
     this.lastErrorCode = undefined
+    this.lastConnectivityErrorCode = undefined
+    this.lastProduceConsumeErrorCode = undefined
+    this.produceConsumeDegraded = false
+    this.connectivityByTransport.clear()
     this.setStatus('idle')
     this.setLifecycleState('torn-down')
     this.emitError(null)
     this.emitDrawerError(null)
+    this.emitHealthChange()
   }
 
   /** Guest: detach host_screen consumers only when share stops. */
@@ -600,10 +739,12 @@ export class SfuMediaSession {
 
   unpublishHostScreen(): void {
     this.sessionHandle?.unpublishProducerClass('host_screen')
+    this.emitHealthChange()
   }
 
   detachHostScreenConsumers(): void {
     this.sessionHandle?.detachConsumerClass('host_screen')
+    this.emitHealthChange()
   }
 
   /** Re-deliver live SFU consumer attach events and last host_screen stream to subscribers. */
@@ -700,6 +841,7 @@ export class SfuMediaSession {
       this.emitParticipantProducerRegistryChange()
     }
     for (const listener of this.consumerTrackListeners) listener(event)
+    this.emitHealthChange()
   }
 
   private applySignalingProducerLifecycle(event: SignalingProducerLifecycleEvent): void {
@@ -718,11 +860,31 @@ export class SfuMediaSession {
       )
     }
     this.emitParticipantProducerRegistryChange()
+    this.emitHealthChange()
+  }
+
+  private applyConnectivityHealth(event: SfuTransportConnectivityHealthEvent): void {
+    if (event.state === 'torn-down') {
+      this.connectivityByTransport.delete(event.transportId)
+    } else {
+      this.connectivityByTransport.set(event.transportId, {
+        state: event.state,
+        ...(event.lastErrorCode ? { lastErrorCode: event.lastErrorCode } : {}),
+        ...(event.iceConnectionState ? { iceConnectionState: event.iceConnectionState } : {}),
+      })
+    }
+    if (event.lastErrorCode) {
+      this.lastConnectivityErrorCode = event.lastErrorCode
+    } else if (event.state === 'connected') {
+      this.lastConnectivityErrorCode = undefined
+    }
+    this.emitHealthChange()
   }
 
   private resetParticipantProducerRegistry(): void {
     this.participantProducerRegistry = clearParticipantProducerRegistry()
     this.emitParticipantProducerRegistryChange()
+    this.emitHealthChange()
   }
 
   private emitParticipantProducerRegistryChange(): void {
@@ -765,6 +927,7 @@ export class SfuMediaSession {
       onRemoteStream: (stream) => this.emitRemoteStream(stream),
       onConsumerTrack: (event) => this.dispatchConsumerTrack(event),
       onSignalingProducerLifecycle: (event) => this.applySignalingProducerLifecycle(event),
+      onConnectivityHealth: (event) => this.applyConnectivityHealth(event),
       assignSession: (s) => {
         this.sessionHandle = s
         if (s) {
@@ -785,6 +948,11 @@ export class SfuMediaSession {
       onMediaError: (code, msg) => {
         if (code === 'consume_failed' || code === 'produce_failed') {
           emitProduceConsumeMediaErrorLog(code, msg)
+        }
+        if (isProduceConsumeHealthFailure(code, msg)) {
+          this.produceConsumeDegraded = true
+          this.lastProduceConsumeErrorCode = classifyProduceConsumeHealthError(code, msg)
+          this.emitHealthChange()
         }
         const drawerError = mapSfuMediaCodeToDrawerError(code)
         if (isSfuRelayConfigErrorCode(code)) {
@@ -821,8 +989,12 @@ export class SfuMediaSession {
         this.emitDrawerError(null)
         this.failedReconnectCycles = 0
         this.lastErrorCode = undefined
+        this.lastConnectivityErrorCode = undefined
+        this.lastProduceConsumeErrorCode = undefined
+        this.produceConsumeDegraded = false
         this.setStatus('open')
         this.setLifecycleState('connected')
+        this.emitHealthChange()
         if (recoveredFromReconnect) {
           emitClientDrawerLog({
             drawer: 'signaling',
@@ -842,6 +1014,7 @@ export class SfuMediaSession {
         this.clearJwtRemintTimer()
         this.sessionHandle = null
         this.attachedConsumerMeta.clear()
+        this.connectivityByTransport.clear()
         this.resetParticipantProducerRegistry()
         if (this.enabled && generation === this.tokenIntentGeneration) {
           emitClientDrawerLog({
@@ -959,6 +1132,7 @@ export class SfuMediaSession {
   private emitRemoteStream(stream: MediaStream | null): void {
     this.lastRemoteStream = stream
     for (const listener of this.remoteStreamListeners) listener(stream)
+    this.emitHealthChange()
   }
 
   private emitError(message: string | null): void {
@@ -967,6 +1141,30 @@ export class SfuMediaSession {
 
   private emitDrawerError(error: RealtimeDrawerError | null): void {
     this.lastErrorCode = error?.code
+    if (error?.drawer === 'connectivity') {
+      if (error.code === 'ICE_FAILED' || error.code === 'TURN_RELAY_REQUIRED') {
+        this.lastConnectivityErrorCode = error.code
+        this.emitHealthChange()
+      }
+    } else if (
+      error?.code === 'TRANSPORT_LIMIT_REACHED' ||
+      error?.code === 'CONSUMER_LIMIT_REACHED' ||
+      error?.code === 'sfu_publish_rejected'
+    ) {
+      this.produceConsumeDegraded = true
+      this.lastProduceConsumeErrorCode = error.code
+      this.emitHealthChange()
+    } else if (error === null) {
+      this.lastConnectivityErrorCode = undefined
+      this.lastProduceConsumeErrorCode = undefined
+      this.produceConsumeDegraded = false
+      this.emitHealthChange()
+    }
     for (const listener of this.drawerErrorListeners) listener(error)
+  }
+
+  private emitHealthChange(): void {
+    const diagnostics = this.getHealthDiagnostics()
+    for (const listener of this.healthListeners) listener(diagnostics)
   }
 }

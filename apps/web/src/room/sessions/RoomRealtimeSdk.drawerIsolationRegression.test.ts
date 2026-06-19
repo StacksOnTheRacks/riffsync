@@ -85,6 +85,8 @@ function mockSfuSessionWithControllableEnd(): {
     tokenRole: 'consumer',
     getProducerCount: () => 0,
     getConsumerCount: () => 0,
+    hasProducerClass: () => false,
+    hasConsumerClass: () => false,
     detachConsumerClass: vi.fn(),
     pauseProducerKind: vi.fn(),
     resumeProducerKind: vi.fn(),

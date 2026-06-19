@@ -24,7 +24,11 @@ import {
   type RoomModeEvent,
   type TypingEvent,
 } from './ChatSession'
-import { SfuMediaSession, type SfuMediaSessionStatus } from './SfuMediaSession'
+import {
+  SfuMediaSession,
+  type SfuHealthDiagnostics,
+  type SfuMediaSessionStatus,
+} from './SfuMediaSession'
 import { collectActiveErrorCodes } from '../realtimeDrawerErrors'
 import { TheaterPlayback, type TheaterPlaybackSnapshot } from './TheaterPlayback'
 
@@ -48,8 +52,7 @@ export type SfuSignalingDrawerDiagnostics = {
   state: DrawerLifecycleState
   lastErrorCode?: string
   role?: 'producer' | 'consumer'
-  producerCount?: number
-  consumerCount?: number
+  health: SfuHealthDiagnostics
 }
 
 export type TheaterPlaybackDrawerDiagnostics = {
@@ -156,6 +159,19 @@ export function mapSfuMediaSessionStatusToDrawerState(
   }
 }
 
+function defaultSfuHealthDiagnostics(): SfuHealthDiagnostics {
+  return {
+    connectivity: { state: 'torn-down' },
+    produceConsume: {
+      state: 'torn-down',
+      producerCount: 0,
+      consumerCount: 0,
+      hostScreenAttached: false,
+      participantAvPublishActive: false,
+    },
+  }
+}
+
 /**
  * Framework-agnostic facade over ChatSession, SfuMediaSession, and TheaterPlayback.
  */
@@ -196,6 +212,7 @@ export class RoomRealtimeSdk {
   private sfuLifecycleUnsub: (() => void) | null = null
   private sfuErrorUnsub: (() => void) | null = null
   private sfuDrawerErrorUnsub: (() => void) | null = null
+  private sfuHealthUnsub: (() => void) | null = null
   private mediaPolicyUnsubs: Array<() => void> = []
   private hostScreenStreamUnsub: (() => void) | null = null
   private participantAvTrackUnsub: (() => void) | null = null
@@ -292,10 +309,11 @@ export class RoomRealtimeSdk {
     const theaterState: DrawerLifecycleState = this.theater?.getLifecycleState() ?? 'torn-down'
 
     const sfuDiag = this.sfu?.getSignalingDiagnostics() ?? {}
+    const sfuHealth = this.sfu?.getHealthDiagnostics() ?? defaultSfuHealthDiagnostics()
     const theaterAudioContextState = this.theater?.getAudioContextState()
 
     const chatLastError = this.chatLastErrorCode ?? this.chat?.getLastErrorCode()
-    const sfuLastError = this.sfuLastErrorCode ?? this.sfu?.getLastErrorCode()
+    const sfuLastError = this.sfuLastErrorCode
     const theaterLastError = this.theater?.getLastErrorCode()
 
     const drawers: RoomRealtimeDiagnostics['drawers'] = {
@@ -307,8 +325,7 @@ export class RoomRealtimeSdk {
         state: sfuState,
         ...(sfuLastError ? { lastErrorCode: sfuLastError } : {}),
         ...(sfuDiag.role ? { role: sfuDiag.role } : {}),
-        ...(sfuDiag.producerCount !== undefined ? { producerCount: sfuDiag.producerCount } : {}),
-        ...(sfuDiag.consumerCount !== undefined ? { consumerCount: sfuDiag.consumerCount } : {}),
+        health: sfuHealth,
       },
       theaterPlayback: {
         state: theaterState,
@@ -325,6 +342,8 @@ export class RoomRealtimeSdk {
       activeErrorCodes: collectActiveErrorCodes([
         drawers.chat.lastErrorCode,
         drawers.sfuSignaling.lastErrorCode,
+        drawers.sfuSignaling.health.connectivity.lastErrorCode,
+        drawers.sfuSignaling.health.produceConsume.lastErrorCode,
         drawers.theaterPlayback.lastErrorCode,
       ]),
     }
@@ -535,8 +554,17 @@ export class RoomRealtimeSdk {
     this.sfuLifecycleUnsub = sfu.onLifecycleChange((state) => {
       if (state === 'connected') {
         this.sfuLastErrorCode = undefined
-      } else if (state === 'degraded' && sfu.getLastErrorCode()) {
-        this.sfuLastErrorCode = sfu.getLastErrorCode()
+      } else if (state === 'degraded') {
+        const code = sfu.getLastErrorCode()
+        this.sfuLastErrorCode =
+          code &&
+          code !== 'ICE_FAILED' &&
+          code !== 'TURN_RELAY_REQUIRED' &&
+          code !== 'TRANSPORT_LIMIT_REACHED' &&
+          code !== 'CONSUMER_LIMIT_REACHED' &&
+          code !== 'sfu_publish_rejected'
+            ? code
+            : undefined
       }
       theater.notifySignalingSiblingState(state)
       this.emitDiagnosticsChange()
@@ -548,7 +576,17 @@ export class RoomRealtimeSdk {
     })
 
     this.sfuDrawerErrorUnsub = sfu.onDrawerError((error) => {
-      this.sfuLastErrorCode = error?.code
+      this.sfuLastErrorCode =
+        error?.drawer === 'sfuSignaling' &&
+        error.code !== 'TRANSPORT_LIMIT_REACHED' &&
+        error.code !== 'CONSUMER_LIMIT_REACHED' &&
+        error.code !== 'sfu_publish_rejected'
+          ? error.code
+          : undefined
+      this.emitDiagnosticsChange()
+    })
+
+    this.sfuHealthUnsub = sfu.onHealthChange(() => {
       this.emitDiagnosticsChange()
     })
 
@@ -753,6 +791,7 @@ export class RoomRealtimeSdk {
     this.sfuLifecycleUnsub?.()
     this.sfuErrorUnsub?.()
     this.sfuDrawerErrorUnsub?.()
+    this.sfuHealthUnsub?.()
     for (const unsub of this.mediaPolicyUnsubs) unsub()
     for (const unsub of this.roomControlUnsubs) unsub()
     this.theaterSnapshotUnsub?.()
@@ -768,6 +807,7 @@ export class RoomRealtimeSdk {
     this.sfuLifecycleUnsub = null
     this.sfuErrorUnsub = null
     this.sfuDrawerErrorUnsub = null
+    this.sfuHealthUnsub = null
     this.mediaPolicyUnsubs = []
     this.roomControlUnsubs = []
     this.theaterSnapshotUnsub = null

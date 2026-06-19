@@ -22,19 +22,50 @@ export const RETIRED_MESH_HOST_SCREEN_COPY = [
   'VITE_WEBRTC_USE_MEDIASOU_SFU',
 ] as const
 
+type DrawerDiagnosticsOverrides = Partial<
+  Omit<RoomRealtimeDiagnostics['drawers'], 'sfuSignaling'>
+> & {
+  sfuSignaling?: Partial<RoomRealtimeDiagnostics['drawers']['sfuSignaling']>
+}
+
 export function drawerDiagnostics(
-  drawers: Partial<RoomRealtimeDiagnostics['drawers']>,
+  drawers: DrawerDiagnosticsOverrides,
   activeErrorCodes: string[] = [],
 ): RoomRealtimeDiagnostics {
+  const defaultSfuSignaling: RoomRealtimeDiagnostics['drawers']['sfuSignaling'] = {
+    state: 'connected',
+    health: {
+      connectivity: { state: 'connected' },
+      produceConsume: {
+        state: 'connected',
+        producerCount: 0,
+        consumerCount: 0,
+        hostScreenAttached: false,
+        participantAvPublishActive: false,
+      },
+    },
+  }
+
   return {
     roomId: 'room-test-1',
     sessionId: 'sess-test-1',
     asOf: new Date(0).toISOString(),
     drawers: {
       chat: { state: 'connected' },
-      sfuSignaling: { state: 'connected' },
+      sfuSignaling: {
+        ...defaultSfuSignaling,
+        ...drawers.sfuSignaling,
+        health: {
+          connectivity:
+            drawers.sfuSignaling?.health?.connectivity ?? defaultSfuSignaling.health.connectivity,
+          produceConsume:
+            drawers.sfuSignaling?.health?.produceConsume ??
+            defaultSfuSignaling.health.produceConsume,
+        },
+      },
       theaterPlayback: { state: 'connected' },
-      ...drawers,
+      ...(drawers.chat ? { chat: drawers.chat } : {}),
+      ...(drawers.theaterPlayback ? { theaterPlayback: drawers.theaterPlayback } : {}),
     },
     activeErrorCodes,
   }

@@ -6,7 +6,10 @@ import type {
   RtpParameters,
 } from 'mediasoup-client/types'
 import { getPublicSfuWsUrl } from '../../config/sfuWsUrl'
-import { attachTransportConnectivityDrawerLog } from './transportConnectivityDrawerLog'
+import {
+  attachTransportConnectivityDrawerLog,
+  type TransportConnectivityHealthSnapshot,
+} from './transportConnectivityDrawerLog'
 import { emitClientDrawerLog } from '../clientDrawerLog'
 
 export type SfuTokenResponse = {
@@ -272,6 +275,12 @@ export type SignalingProducerLifecycleEvent =
       kind?: 'audio' | 'video'
     }
 
+export type SfuTransportConnectivityHealthEvent = TransportConnectivityHealthSnapshot & {
+  transportId: string
+  producerClass?: SfuProducerClass
+  direction: 'send' | 'recv'
+}
+
 export type SfuUnifiedSessionHandle = {
   close: (reason?: SfuSessionEndReason) => void
   sessionEnded: Promise<SfuSessionEndReason>
@@ -279,8 +288,10 @@ export type SfuUnifiedSessionHandle = {
   /** False for consumer-only SFU tokens (no send transport until producer reconnect). */
   supportsPublish: boolean
   tokenRole: 'producer' | 'consumer'
-  getProducerCount: () => number
-  getConsumerCount: () => number
+  getProducerCount: (producerClass?: SfuProducerClass) => number
+  getConsumerCount: (producerClass?: SfuProducerClass) => number
+  hasProducerClass: (producerClass: SfuProducerClass) => boolean
+  hasConsumerClass: (producerClass: SfuProducerClass) => boolean
   publishStream: (stream: MediaStream, producerClass: SfuProducerClass) => Promise<void>
   unpublishProducerKind: (producerClass: SfuProducerClass, kind: 'audio' | 'video') => void
   unpublishProducerClass: (producerClass: SfuProducerClass) => void
@@ -304,6 +315,7 @@ export async function connectSfuUnifiedSession(options: {
   onRemoteStream: (stream: MediaStream | null) => void
   onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
   onSignalingProducerLifecycle?: (event: SignalingProducerLifecycleEvent) => void
+  onConnectivityHealth?: (event: SfuTransportConnectivityHealthEvent) => void
   ownSessionId?: string
   onMediaError?: (code: SfuMediaErrorCode, message: string) => void
 }): Promise<SfuUnifiedSessionHandle> {
@@ -315,6 +327,7 @@ export async function connectSfuUnifiedSession(options: {
     onRemoteStream,
     onConsumerTrack,
     onSignalingProducerLifecycle,
+    onConnectivityHealth,
     ownSessionId,
     onMediaError,
   } = options
@@ -506,15 +519,29 @@ export async function connectSfuUnifiedSession(options: {
       iceServers: sessionIceServers,
     })
 
-    const unwatch = watchTransportConnectionUntilUnhealthy(transport, () => {
+    const unwatchConnection = watchTransportConnectionUntilUnhealthy(transport, () => {
       onMediaError?.(
         'transport_failed',
         `Video relay send transport failed (${producerClass}).`,
       )
       teardownSendTransportClass(producerClass)
     })
+    const unwatchConnectivity = attachTransportConnectivityDrawerLog(
+      transport,
+      sessionIceServers,
+      (snapshot) =>
+        onConnectivityHealth?.({
+          ...snapshot,
+          transportId,
+          producerClass,
+          direction: 'send',
+        }),
+    )
+    const unwatch = () => {
+      unwatchConnection()
+      unwatchConnectivity()
+    }
     unwatchFns.push(unwatch)
-    unwatchFns.push(attachTransportConnectivityDrawerLog(transport, sessionIceServers))
 
     transport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
       void signaling
@@ -680,7 +707,15 @@ export async function connectSfuUnifiedSession(options: {
           finish(r)
         }),
       )
-      unwatchFns.push(attachTransportConnectivityDrawerLog(recvTransport, iceServers))
+      unwatchFns.push(
+        attachTransportConnectivityDrawerLog(recvTransport, iceServers, (snapshot) =>
+          onConnectivityHealth?.({
+            ...snapshot,
+            transportId: recvTransportId,
+            direction: 'recv',
+          }),
+        ),
+      )
 
       recvTransport.on('connect', ({ dtlsParameters: dtls }, callback, errback) => {
         void signaling
@@ -880,8 +915,22 @@ export async function connectSfuUnifiedSession(options: {
     ready,
     supportsPublish: tokenRole === 'producer',
     tokenRole,
-    getProducerCount: () => liveProducers.length,
-    getConsumerCount: () => mediasoupConsumers.length,
+    getProducerCount: (producerClass?: SfuProducerClass) =>
+      producerClass === undefined
+        ? liveProducers.length
+        : liveProducers.filter((producer) => producer.producerClass === producerClass).length,
+    getConsumerCount: (producerClass?: SfuProducerClass) =>
+      producerClass === undefined
+        ? mediasoupConsumers.length
+        : mediasoupConsumers.filter(
+            (consumer) => consumerProducerClassById.get(consumer.producerId) === producerClass,
+          ).length,
+    hasProducerClass: (producerClass: SfuProducerClass) =>
+      liveProducers.some((producer) => producer.producerClass === producerClass),
+    hasConsumerClass: (producerClass: SfuProducerClass) =>
+      mediasoupConsumers.some(
+        (consumer) => consumerProducerClassById.get(consumer.producerId) === producerClass,
+      ),
     publishStream,
     unpublishProducerKind,
     unpublishProducerClass,
