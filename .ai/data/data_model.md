@@ -117,6 +117,14 @@ Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-imag
 | Update expression | **`SET lastActiveAt = :ts`** where **`:ts = max(if_not_exists(lastActiveAt, 0), nowSec)`** on qualifying inbound routes; **`rename`** and **`lastActiveAt`** updates are independent fields on the same row. |
 | Disconnect | Row delete on **`$disconnect`** — no tombstone **`lastActiveAt`**; late joiners read remaining connections only. |
 
+## Decisions (answered — lobby host display #257)
+
+| Question | Decision |
+| --- | --- |
+| Store host display name on **Rooms**? | **No** — resolve **`hostDisplayName`** at **`GET /v1/lobby`** read time from **FanProfiles** keyed by **`hostSub`**. |
+| Lobby eligibility? | Public **Rooms** rows whose **`hostSub`** has no non-empty **FanProfiles.displayName** are **excluded** from lobby listing results (not returned with a placeholder). |
+| In-room rename vs lobby? | WS **`rename`** updates **RoomPresence** / **Connections** only; lobby continues to show **FanProfiles** name. |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).

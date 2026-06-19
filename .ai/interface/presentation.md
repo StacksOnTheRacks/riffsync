@@ -215,6 +215,16 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | **Video Chat empty grid** | **`No cameras on yet. Mic-only participants are still audible.`** |
 | **Theater before capture** | Host **Share Source Tab** prompt in existing stage status region. |
 
+## Decisions (answered — lobby host line #257)
+
+| Topic | Decision |
+| --- | --- |
+| **Placement** | On **`/lobby`**, each list row shows **`Hosted by {hostDisplayName}`** on a line **directly below** the episode **title** (`h2`) and **above** the stats row (activity, connections, playback badge). |
+| **Copy** | Sentence case **`Hosted by …`**; **`hostDisplayName`** verbatim from API (already trimmed server-side, max **48**). |
+| **Styling** | Muted secondary text — reuse **`riffsync-muted`** or an adjacent lobby stat class; not a second heading. |
+| **Missing name** | Rows without **`hostDisplayName`** are **not rendered** — the API omits them; SPA does not synthesize fallback copy. |
+| **Private rooms** | Unchanged — only **public** rooms appear on **`/lobby`**. |
+
 ## Open implementation decisions
 
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
