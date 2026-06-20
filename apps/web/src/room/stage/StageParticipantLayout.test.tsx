@@ -55,7 +55,7 @@ describe('StageParticipantLayout', () => {
     expect(container.textContent).toContain('Updating room layout')
   })
 
-  it('renders self tile in desktop theater strip', () => {
+  it('renders self tile in desktop theater bottom row', () => {
     const stream = new MediaStream()
     renderLayout({
       roomMode: 'theater',
@@ -71,7 +71,8 @@ describe('StageParticipantLayout', () => {
         },
       ],
     })
-    expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__participant-row--desktop')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).toBeNull()
     expect(container.textContent).toContain('You')
   })
 
@@ -93,6 +94,7 @@ describe('StageParticipantLayout', () => {
       ],
     })
     expect(container.querySelector('.riffsync-room-page__participant-row--expanded')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__participant-row--desktop')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).toBeNull()
     expect(container.textContent).toContain('You')
   })
@@ -135,7 +137,7 @@ describe('StageParticipantLayout', () => {
       expect(container.textContent).toContain(VIDEO_CHAT_EMPTY_COPY)
     })
 
-    it('removes remote tile from Theater desktop strip when consumer detaches', () => {
+    it('removes remote tile from Theater desktop bottom row when consumer detaches', () => {
       renderLayout({
         roomMode: 'theater',
         viewportWide: true,
@@ -144,7 +146,7 @@ describe('StageParticipantLayout', () => {
       const video = container.querySelector(
         'video.riffsync-room-page__participant-tile-video',
       ) as HTMLVideoElement | null
-      expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).not.toBeNull()
+      expect(container.querySelector('.riffsync-room-page__participant-row--desktop')).not.toBeNull()
 
       renderLayout({
         roomMode: 'theater',
@@ -152,7 +154,7 @@ describe('StageParticipantLayout', () => {
         tiles: [],
       })
       assertTileRemoved(video)
-      expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).toBeNull()
+      expect(container.querySelector('.riffsync-room-page__participant-row--desktop')).toBeNull()
     })
 
     it('removes remote tile from narrow horizontal row when consumer detaches', () => {
@@ -193,6 +195,6 @@ describe('StageParticipantLayout', () => {
       ],
     })
     expect(container.querySelector('.riffsync-room-page__participant-row--narrow')).not.toBeNull()
-    expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__participant-row--desktop')).toBeNull()
   })
 })

@@ -216,7 +216,7 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | **Drawers** | Chat and video-relay drawer status rules **unchanged** — chat banner lives inside the overlay; video-relay status stays on the stage playback surface. |
 | **Chromecast (future)** | Implement expanded layout as a **reusable shell** (stage-primary + chat overlay) suitable as a future Cast receiver target. **No** Cast SDK or receiver work in #259. |
 
-Implementation: `RoomPage.tsx` owns session-only expanded state, `RoomPageSidebar.tsx` renders the shared chat plane as either sidebar or overlay, and `StageParticipantLayout.tsx` switches Theater cameras from the desktop side strip to the expanded bottom row.
+Implementation: `RoomPage.tsx` owns session-only expanded state, `RoomPageSidebar.tsx` renders the shared chat plane as either sidebar or overlay, and `StageParticipantLayout.tsx` renders Theater cameras in a bottom horizontal row (standard and expanded desktop layouts).
 
 ## Accessibility & motion (baseline)
 

@@ -60,7 +60,7 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 
 - **Expand / exit** control is a native **`<button>`** on the stage region — keyboard activatable (**Enter** / **Space**); not pointer-only.
 - Control is **revealed on stage hover** for pointer users; **:focus-visible** keeps it visible for keyboard users.
-- **Theater camera row:** participant tiles are informational video surfaces and must not add unexpected tab stops or steal focus when the row appears, scrolls, or wraps. Tile labels and speaking affordances remain available through visible text and accessible names.
+- **Theater camera row (standard and expanded):** participant tiles are informational video surfaces and must not add unexpected tab stops or steal focus when the row appears, scrolls, or wraps. Tile labels and speaking affordances remain available through visible text and accessible names.
 - **Tab order in expanded view:** expand/exit toggle → chat overlay (drawer status if present → message log scroll region → jump-to-latest when visible → AV toggles when rendered → compose) → host control bar (host only). **No** sidebar tab strip in tab order while expanded.
 - **People / Room / Profile:** reachable only after **exit expanded view** (or via site chrome navigation).
 - **Touch targets:** expand/exit control minimum **44×44** CSS px.
