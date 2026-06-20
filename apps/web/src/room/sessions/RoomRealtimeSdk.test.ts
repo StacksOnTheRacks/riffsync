@@ -5,12 +5,18 @@ import { ChatSession } from './ChatSession'
 import { SfuMediaSession } from './SfuMediaSession'
 import { TheaterPlayback } from './TheaterPlayback'
 import {
-  DRAWER_LIFECYCLE_STATES,
   RoomRealtimeSdk,
   mapChatSessionStatusToDrawerState,
   mapSfuMediaSessionStatusToDrawerState,
   type RoomRealtimeDiagnostics,
 } from './RoomRealtimeSdk'
+import {
+  DRAWER_LIFECYCLE_STATES,
+  REQUIRED_DIAGNOSTIC_KEYS,
+  REQUIRED_DRAWER_KEYS,
+  REQUIRED_SFU_HEALTH_KEYS,
+  assertRoomRealtimeDiagnosticsContract,
+} from './roomRealtimeDiagnosticsContract'
 import {
   assertDrawerReconnectCycle,
   assertNoDrawerTornDown,
@@ -64,17 +70,9 @@ const baseSnapshot: RoomSnapshot = {
   broadcastCaptureActive: false,
 }
 
-const REQUIRED_DIAGNOSTIC_KEYS = [
-  'roomId',
-  'sessionId',
-  'asOf',
-  'drawers',
-  'activeErrorCodes',
-] as const satisfies readonly (keyof RoomRealtimeDiagnostics)[]
-
-const REQUIRED_DRAWER_KEYS = ['chat', 'sfuSignaling', 'theaterPlayback'] as const
-
 function assertStableDiagnosticsContract(diag: RoomRealtimeDiagnostics): void {
+  expect(() => assertRoomRealtimeDiagnosticsContract(diag)).not.toThrow()
+
   for (const key of REQUIRED_DIAGNOSTIC_KEYS) {
     expect(diag).toHaveProperty(key)
   }
@@ -83,6 +81,13 @@ function assertStableDiagnosticsContract(diag: RoomRealtimeDiagnostics): void {
     expect(diag.drawers).toHaveProperty(drawerKey)
     expect(diag.drawers[drawerKey]).toHaveProperty('state')
     expect(DRAWER_LIFECYCLE_STATES).toContain(diag.drawers[drawerKey].state)
+  }
+
+  for (const healthKey of REQUIRED_SFU_HEALTH_KEYS) {
+    expect(diag.drawers.sfuSignaling.health).toHaveProperty(healthKey)
+    expect(DRAWER_LIFECYCLE_STATES).toContain(
+      diag.drawers.sfuSignaling.health[healthKey].state,
+    )
   }
 
   expect(Array.isArray(diag.activeErrorCodes)).toBe(true)
@@ -192,13 +197,17 @@ describe('RoomRealtimeSdk.getDiagnostics', () => {
     expect({
       topLevelKeys: REQUIRED_DIAGNOSTIC_KEYS.slice().sort(),
       drawerKeys: REQUIRED_DRAWER_KEYS.slice().sort(),
+      sfuHealthKeys: REQUIRED_SFU_HEALTH_KEYS.slice().sort(),
       lifecycleStates: DRAWER_LIFECYCLE_STATES.slice(),
       sample: {
         roomId: diag.roomId,
         sessionId: diag.sessionId,
         drawers: {
           chat: { state: diag.drawers.chat.state },
-          sfuSignaling: { state: diag.drawers.sfuSignaling.state },
+          sfuSignaling: {
+            state: diag.drawers.sfuSignaling.state,
+            health: diag.drawers.sfuSignaling.health,
+          },
           theaterPlayback: { state: diag.drawers.theaterPlayback.state },
         },
         activeErrorCodes: diag.activeErrorCodes,
@@ -223,6 +232,18 @@ describe('RoomRealtimeSdk.getDiagnostics', () => {
               "state": "torn-down",
             },
             "sfuSignaling": {
+              "health": {
+                "connectivity": {
+                  "state": "torn-down",
+                },
+                "produceConsume": {
+                  "consumerCount": 0,
+                  "hostScreenAttached": false,
+                  "participantAvPublishActive": false,
+                  "producerCount": 0,
+                  "state": "torn-down",
+                },
+              },
               "state": "torn-down",
             },
             "theaterPlayback": {
@@ -232,6 +253,10 @@ describe('RoomRealtimeSdk.getDiagnostics', () => {
           "roomId": "room-abc",
           "sessionId": "sess-snapshot",
         },
+        "sfuHealthKeys": [
+          "connectivity",
+          "produceConsume",
+        ],
         "topLevelKeys": [
           "activeErrorCodes",
           "asOf",
@@ -480,6 +505,25 @@ describe('RoomRealtimeSdk public surface', () => {
     expect(typeof sdk.teardown).toBe('function')
   })
 
+  it('registers dev-only window.riffsyncRoomDiagnostics during a joined session', () => {
+    vi.stubGlobal('window', {})
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-dev-getter',
+    })
+
+    expect(window.riffsyncRoomDiagnostics).toBeTypeOf('function')
+    expect(window.riffsyncRoomDiagnostics?.()).toMatchObject({
+      roomId: 'room-abc',
+      sessionId: 'sess-dev-getter',
+    })
+
+    sdk.teardown()
+    expect(window.riffsyncRoomDiagnostics).toBeUndefined()
+    vi.unstubAllGlobals()
+  })
+
   it('teardown resets diagnostics to torn-down drawers', () => {
     const sdk = new RoomRealtimeSdk()
     sdk.join('room-abc', {
@@ -515,6 +559,40 @@ describe('RoomRealtimeSdk public surface', () => {
       const lastCall = onDiagnosticsChange.mock.calls.at(-1)?.[0]
       expect(lastCall?.drawers.chat.state).toBe('connected')
     })
+  })
+
+  it('calls onDiagnosticsChange when SFU health changes', async () => {
+    const onDiagnosticsChange = vi.fn()
+    const sdk = await joinHealthySdk({ sessionId: 'sess-health-cb' })
+    ;(sdk as unknown as { onDiagnosticsChange: typeof onDiagnosticsChange }).onDiagnosticsChange =
+      onDiagnosticsChange
+
+    ;(
+      getSfuSession(sdk) as unknown as {
+        applyConnectivityHealth: (event: unknown) => void
+      }
+    ).applyConnectivityHealth({
+      transportId: 'recv-1',
+      direction: 'recv',
+      state: 'degraded',
+      lastErrorCode: 'ICE_FAILED',
+      iceConnectionState: 'failed',
+    })
+
+    expect(onDiagnosticsChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        drawers: expect.objectContaining({
+          sfuSignaling: expect.objectContaining({
+            health: expect.objectContaining({
+              connectivity: expect.objectContaining({
+                state: 'degraded',
+                lastErrorCode: 'ICE_FAILED',
+              }),
+            }),
+          }),
+        }),
+      }),
+    )
   })
 
   it('reports connected chat and SFU drawers when modules are healthy after bootstrap', async () => {
@@ -1014,6 +1092,32 @@ describe('RoomRealtimeSdk.getDiagnostics activeErrorCodes contract', () => {
     expect(diag.activeErrorCodes).toEqual(['CHAT_SEND_DROPPED', 'SIGNALING_TIMEOUT'])
   })
 
+  it('reports ICE failures under connectivity health', async () => {
+    const sdk = await joinHealthySdk({ sessionId: 'sess-ice-health' })
+    emitSfuDrawerError(sdk, mapSfuMediaCodeToDrawerError('transport_failed'))
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.sfuSignaling.lastErrorCode).toBeUndefined()
+    expect(diag.drawers.sfuSignaling.health.connectivity).toEqual({
+      state: 'degraded',
+      lastErrorCode: 'ICE_FAILED',
+    })
+    expect(diag.activeErrorCodes).toEqual(['ICE_FAILED'])
+  })
+
+  it('reports transport and consumer caps under produce/consume health', async () => {
+    const sdk = await joinHealthySdk({ sessionId: 'sess-produce-consume-health' })
+    emitSfuDrawerError(sdk, { code: 'TRANSPORT_LIMIT_REACHED', drawer: 'sfuSignaling' })
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.sfuSignaling.lastErrorCode).toBeUndefined()
+    expect(diag.drawers.sfuSignaling.health.produceConsume.state).toBe('degraded')
+    expect(diag.drawers.sfuSignaling.health.produceConsume.lastErrorCode).toBe(
+      'TRANSPORT_LIMIT_REACHED',
+    )
+    expect(diag.activeErrorCodes).toEqual(['TRANSPORT_LIMIT_REACHED'])
+  })
+
   it('excludes PRODUCER_CLOSED from activeErrorCodes after consumer detach simulation', async () => {
     mockChatConnectOpensImmediately()
     const consumerListeners: Array<(event: SfuConsumerTrackEvent) => void> = []
@@ -1074,6 +1178,49 @@ describe('RoomRealtimeSdk theater playback lifecycle', () => {
     expect(diag.drawers.theaterPlayback.state).toBe('degraded')
     expect(diag.drawers.theaterPlayback.lastErrorCode).toBe('THEATER_AUDIO_SUSPENDED')
     expect(diag.drawers.theaterPlayback.audioContextState).toBe('suspended')
+  })
+
+  it('maps verifying guest media to reconnecting and exposes guestShareFsm', async () => {
+    mockChatConnectOpensImmediately()
+    mockSfuConnectOpensImmediately()
+    const onDiagnosticsChange = vi.fn()
+
+    const sdk = new RoomRealtimeSdk()
+    sdk.join('room-abc', {
+      roomSnapshot: baseSnapshot,
+      sessionId: 'sess-theater-verifying-media',
+      wsUrl: 'wss://ws.test',
+      apiBaseUrl: 'https://api.test',
+      getIceServers: async () => [],
+      isHost: false,
+      onDiagnosticsChange,
+    })
+
+    await vi.waitFor(() =>
+      expect((sdk as unknown as { theaterBootstrapped: boolean }).theaterBootstrapped).toBe(true),
+    )
+    onDiagnosticsChange.mockClear()
+
+    const pendingStream = {
+      getTracks: () => [{ kind: 'video', readyState: 'ended' }],
+      getVideoTracks: () => [{ kind: 'video', readyState: 'ended' }],
+      getAudioTracks: () => [],
+    } as unknown as MediaStream
+    ;(sdk as unknown as { theater: TheaterPlayback }).theater.setGuestRemote(pendingStream)
+
+    const diag = sdk.getDiagnostics()
+    expect(diag.drawers.theaterPlayback.state).toBe('reconnecting')
+    expect(diag.drawers.theaterPlayback.guestShareFsm).toBe('verifying_media')
+    expect(onDiagnosticsChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        drawers: expect.objectContaining({
+          theaterPlayback: expect.objectContaining({
+            state: 'reconnecting',
+            guestShareFsm: 'verifying_media',
+          }),
+        }),
+      }),
+    )
   })
 
   it('replays SFU consumers when transitioning from video chat to theater', async () => {
@@ -1253,13 +1400,21 @@ describe('RoomRealtimeSdk.getDiagnostics SFU counts', () => {
     vi.restoreAllMocks()
   })
 
-  it('exposes optional SFU role and producer/consumer counts when session is open', async () => {
+  it('exposes optional SFU role and health producer/consumer counts when session is open', async () => {
     mockChatConnectOpensImmediately()
     mockSfuConnectOpensImmediately()
     vi.spyOn(SfuMediaSession.prototype, 'getSignalingDiagnostics').mockReturnValue({
       role: 'consumer',
-      producerCount: 0,
-      consumerCount: 2,
+    })
+    vi.spyOn(SfuMediaSession.prototype, 'getHealthDiagnostics').mockReturnValue({
+      connectivity: { state: 'connected', iceConnectionState: 'connected' },
+      produceConsume: {
+        state: 'connected',
+        producerCount: 0,
+        consumerCount: 2,
+        hostScreenAttached: true,
+        participantAvPublishActive: false,
+      },
     })
 
     const sdk = new RoomRealtimeSdk()
@@ -1277,8 +1432,11 @@ describe('RoomRealtimeSdk.getDiagnostics SFU counts', () => {
 
     const diag = sdk.getDiagnostics()
     expect(diag.drawers.sfuSignaling.role).toBe('consumer')
-    expect(diag.drawers.sfuSignaling.producerCount).toBe(0)
-    expect(diag.drawers.sfuSignaling.consumerCount).toBe(2)
+    expect(diag.drawers.sfuSignaling).not.toHaveProperty('producerCount')
+    expect(diag.drawers.sfuSignaling).not.toHaveProperty('consumerCount')
+    expect(diag.drawers.sfuSignaling.health.produceConsume.producerCount).toBe(0)
+    expect(diag.drawers.sfuSignaling.health.produceConsume.consumerCount).toBe(2)
+    expect(diag.drawers.sfuSignaling.health.produceConsume.hostScreenAttached).toBe(true)
   })
 })
 

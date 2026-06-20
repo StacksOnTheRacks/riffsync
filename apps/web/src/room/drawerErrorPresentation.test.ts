@@ -15,6 +15,27 @@ import {
   resolveVideoRelayStatusLine,
   selectDrawerPresentation,
 } from './drawerErrorPresentation'
+import type { SfuSignalingDrawerDiagnostics } from './sessions/RoomRealtimeSdk'
+
+function sfuDiagnostics(
+  partial: Omit<SfuSignalingDrawerDiagnostics, 'health'> & {
+    health?: SfuSignalingDrawerDiagnostics['health']
+  },
+): SfuSignalingDrawerDiagnostics {
+  return {
+    ...partial,
+    health: partial.health ?? {
+      connectivity: { state: partial.state },
+      produceConsume: {
+        state: partial.state,
+        producerCount: 0,
+        consumerCount: 0,
+        hostScreenAttached: false,
+        participantAvPublishActive: false,
+      },
+    },
+  }
+}
 
 describe('drawerErrorPresentation', () => {
   afterEach(() => {
@@ -41,14 +62,14 @@ describe('drawerErrorPresentation', () => {
     )
     expect(
       resolveVideoRelayStatusLine({
-        sfu: { state: 'reconnecting' },
+        sfu: sfuDiagnostics({ state: 'reconnecting' }),
         isPublisher: false,
         guestShareFsm: 'running',
       }),
     ).toBe('Video relay reconnecting…')
     expect(
       resolveVideoRelayStatusLine({
-        sfu: { state: 'degraded' },
+        sfu: sfuDiagnostics({ state: 'degraded' }),
         isPublisher: false,
         guestShareFsm: 'running',
       }),
@@ -102,12 +123,12 @@ describe('drawerErrorPresentation', () => {
 
   it('surfaces config-class SFU errors on the page alert target', () => {
     expect(
-      resolveSfuConfigAlert({
+      resolveSfuConfigAlert(sfuDiagnostics({
         state: 'degraded',
         lastErrorCode: 'LOCAL_SFU_UNREACHABLE',
-      }),
+      })),
     ).toContain('Local video relay is not running')
-    expect(resolveSfuConfigAlert({ state: 'connected' })).toBeNull()
+    expect(resolveSfuConfigAlert(sfuDiagnostics({ state: 'connected' }))).toBeNull()
   })
 
   it('shows theater audio status for blocked and suspended codes', () => {
@@ -128,7 +149,7 @@ describe('drawerErrorPresentation', () => {
   it('keeps guest host-screen FSM copy on the video-relay surface when SFU drawer is healthy', () => {
     expect(
       resolveVideoRelayStatusLine({
-        sfu: { state: 'connected' },
+        sfu: sfuDiagnostics({ state: 'connected' }),
         isPublisher: false,
         guestShareFsm: 'idle',
       }),
@@ -145,7 +166,7 @@ describe('drawerErrorPresentation', () => {
         asOf: new Date(0).toISOString(),
         drawers: {
           chat: { state: 'reconnecting' },
-          sfuSignaling: { state: 'connected' },
+          sfuSignaling: sfuDiagnostics({ state: 'connected' }),
           theaterPlayback: { state: 'connected' },
         },
         activeErrorCodes: [],
@@ -166,7 +187,7 @@ describe('drawerErrorPresentation', () => {
         asOf: new Date(0).toISOString(),
         drawers: {
           chat: { state: 'reconnecting' },
-          sfuSignaling: { state: 'degraded', lastErrorCode: 'ICE_FAILED' },
+          sfuSignaling: sfuDiagnostics({ state: 'degraded', lastErrorCode: 'ICE_FAILED' }),
           theaterPlayback: { state: 'connected' },
         },
         activeErrorCodes: ['ICE_FAILED'],
@@ -223,7 +244,7 @@ describe('chat drawer banner and compose inline feedback (#207)', () => {
         asOf: new Date(0).toISOString(),
         drawers: {
           chat: { state: 'connected' },
-          sfuSignaling: { state: 'reconnecting' },
+          sfuSignaling: sfuDiagnostics({ state: 'reconnecting' }),
           theaterPlayback: { state: 'connected' },
         },
         activeErrorCodes: [],
@@ -262,7 +283,7 @@ describe('chat drawer banner and compose inline feedback (#207)', () => {
         asOf: new Date(0).toISOString(),
         drawers: {
           chat: { state: 'connected' },
-          sfuSignaling: { state: 'degraded', lastErrorCode: 'ICE_FAILED' },
+          sfuSignaling: sfuDiagnostics({ state: 'degraded', lastErrorCode: 'ICE_FAILED' }),
           theaterPlayback: { state: 'connected' },
         },
         activeErrorCodes: ['ICE_FAILED'],

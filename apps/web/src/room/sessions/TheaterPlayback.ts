@@ -15,7 +15,11 @@ import { emitClientDrawerLog } from '../clientDrawerLog'
 import type { SfuMediaSession } from './SfuMediaSession'
 
 /** Normative drawer lifecycle for diagnostics (`execution_model.md`). */
-export type TheaterPlaybackLifecycleState = 'connected' | 'degraded' | 'torn-down'
+export type TheaterPlaybackLifecycleState =
+  | 'connected'
+  | 'reconnecting'
+  | 'degraded'
+  | 'torn-down'
 
 export type TheaterPlaybackSnapshot = {
   guestShareFsm: GuestHostScreenFsm
@@ -352,6 +356,10 @@ export class TheaterPlayback {
         this.setLifecycleState('degraded', undefined)
         return
       }
+      if (this.guestShareFsm === 'verifying_media') {
+        this.setLifecycleState('reconnecting', undefined)
+        return
+      }
       this.setLifecycleState('connected', undefined)
       return
     }
@@ -374,6 +382,11 @@ export class TheaterPlayback {
 
     if (this.signalingSiblingDegraded) {
       this.setLifecycleState('degraded', undefined)
+      return
+    }
+
+    if (this.guestShareFsm === 'verifying_media') {
+      this.setLifecycleState('reconnecting', undefined)
       return
     }
 
@@ -555,6 +568,7 @@ export class TheaterPlayback {
     if (this.guestShareFsm === next) return
     this.guestShareFsm = next
     this.emitSnapshot()
+    this.syncLifecycleState()
   }
 
   private setGuestPlayHint(next: boolean): void {

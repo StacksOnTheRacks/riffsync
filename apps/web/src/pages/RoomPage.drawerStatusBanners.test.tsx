@@ -15,6 +15,7 @@ import {
   VIDEO_RELAY_RECONNECTING_COPY,
 } from './roomPageDrawerStatusTestHelpers'
 import { RIFFSYNC_CHAT_DRAWER_STATUS_ID, RIFFSYNC_VIDEO_RELAY_STATUS_ID } from '../room/drawerErrorPresentation'
+import type { RoomRealtimeDiagnostics } from '../room/sessions/RoomRealtimeSdk'
 
 const fetchRoom = vi.fn()
 const fetchRtcIceServers = vi.fn()
@@ -78,17 +79,7 @@ vi.mock('../room/audio/theaterAudioMix', () => ({
 
 const drawerStatusMockConfig = vi.hoisted(() => {
   type MockConfig = {
-    diagnostics: {
-      roomId: string
-      sessionId: string
-      asOf: string
-      drawers: {
-        chat: { state: string; lastErrorCode?: string }
-        sfuSignaling: { state: string; lastErrorCode?: string }
-        theaterPlayback: { state: string; lastErrorCode?: string }
-      }
-      activeErrorCodes: string[]
-    }
+    diagnostics: RoomRealtimeDiagnostics
     guestShareFsm: 'idle' | 'verifying_media' | 'running'
   }
 
@@ -99,7 +90,19 @@ const drawerStatusMockConfig = vi.hoisted(() => {
       asOf: new Date(0).toISOString(),
       drawers: {
         chat: { state: 'connected' },
-        sfuSignaling: { state: 'connected' },
+        sfuSignaling: {
+          state: 'connected',
+          health: {
+            connectivity: { state: 'connected' },
+            produceConsume: {
+              state: 'connected',
+              producerCount: 0,
+              consumerCount: 0,
+              hostScreenAttached: false,
+              participantAvPublishActive: false,
+            },
+          },
+        },
         theaterPlayback: { state: 'connected' },
       },
       activeErrorCodes: [],

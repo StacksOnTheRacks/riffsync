@@ -4,6 +4,18 @@ import { ICE_DISCONNECTED_FAILURE_MS } from '../realtimeDrawerErrors'
 import { webrtcDebugEnabled, webrtcLog } from '../webrtcDebug'
 import { logIceCandidateSummary, summarizeLocalIceCandidates } from './iceDiagnostics'
 
+export type TransportConnectivityHealthState =
+  | 'connected'
+  | 'reconnecting'
+  | 'degraded'
+  | 'torn-down'
+
+export type TransportConnectivityHealthSnapshot = {
+  state: TransportConnectivityHealthState
+  lastErrorCode?: 'ICE_FAILED' | 'TURN_RELAY_REQUIRED'
+  iceConnectionState?: RTCIceConnectionState
+}
+
 type TransportWithHandler = {
   _handler?: { _pc?: RTCPeerConnection }
 }
@@ -36,6 +48,7 @@ export function localDescriptionHasRelayCandidate(pc: RTCPeerConnection): boolea
 export function attachTransportConnectivityDrawerLog(
   transport: Transport,
   iceServers: RTCIceServer[],
+  onHealthChange?: (snapshot: TransportConnectivityHealthSnapshot) => void,
 ): () => void {
   const pc = resolvePeerConnectionFromTransport(transport)
   if (!pc) return () => undefined
@@ -54,8 +67,20 @@ export function attachTransportConnectivityDrawerLog(
     }
   }
 
+  const emitHealth = (
+    state: TransportConnectivityHealthState,
+    lastErrorCode?: TransportConnectivityHealthSnapshot['lastErrorCode'],
+  ) => {
+    onHealthChange?.({
+      state,
+      ...(lastErrorCode ? { lastErrorCode } : {}),
+      iceConnectionState: pc.iceConnectionState,
+    })
+  }
+
   const emitIceFailed = () => {
     connectivityDegraded = true
+    emitHealth('degraded', 'ICE_FAILED')
     emitClientDrawerLog({
       drawer: 'connectivity',
       event: 'ice_failed',
@@ -79,6 +104,7 @@ export function attachTransportConnectivityDrawerLog(
   const emitTurnRelayRequired = () => {
     if (turnRelayLogged) return
     turnRelayLogged = true
+    emitHealth('degraded', 'TURN_RELAY_REQUIRED')
     emitClientDrawerLog({
       drawer: 'connectivity',
       event: 'turn_relay_required',
@@ -90,6 +116,7 @@ export function attachTransportConnectivityDrawerLog(
   const emitIceRecovered = () => {
     if (!connectivityDegraded) return
     connectivityDegraded = false
+    emitHealth('connected')
     emitClientDrawerLog({
       drawer: 'connectivity',
       event: 'ice_recovered',
@@ -101,6 +128,7 @@ export function attachTransportConnectivityDrawerLog(
     const state = pc.iceConnectionState
     if (state === 'connected' || state === 'completed') {
       clearDisconnectedTimer()
+      emitHealth('connected')
       emitIceRecovered()
       return
     }
@@ -111,6 +139,7 @@ export function attachTransportConnectivityDrawerLog(
     }
     if (state === 'disconnected') {
       clearDisconnectedTimer()
+      emitHealth('reconnecting')
       disconnectedTimer = setTimeout(() => {
         disconnectedTimer = null
         const cur = pc.iceConnectionState
@@ -118,6 +147,14 @@ export function attachTransportConnectivityDrawerLog(
           emitIceFailed()
         }
       }, ICE_DISCONNECTED_FAILURE_MS)
+      return
+    }
+    if (state === 'checking') {
+      emitHealth('reconnecting')
+      return
+    }
+    if (state === 'closed') {
+      emitHealth('torn-down')
     }
   }
 
@@ -143,6 +180,7 @@ export function attachTransportConnectivityDrawerLog(
 
   pc.addEventListener('iceconnectionstatechange', onIceConnectionStateChange)
   pc.addEventListener('icegatheringstatechange', onIceGatheringStateChange)
+  onIceConnectionStateChange()
 
   if (webrtcDebugEnabled()) {
     const logState = (ev: string) => {
@@ -161,5 +199,6 @@ export function attachTransportConnectivityDrawerLog(
     clearDisconnectedTimer()
     pc.removeEventListener('iceconnectionstatechange', onIceConnectionStateChange)
     pc.removeEventListener('icegatheringstatechange', onIceGatheringStateChange)
+    onHealthChange?.({ state: 'torn-down', iceConnectionState: 'closed' })
   }
 }
