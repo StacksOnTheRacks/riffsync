@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,6 +14,11 @@ vi.mock('../api/giphySearchApi', () => ({
 vi.mock('emoji-picker-element', () => ({}))
 
 const searchGiphyMock = vi.mocked(giphySearchApi.searchGiphy)
+
+function cssRule(selector: string): string {
+  const css = readFileSync(join(process.cwd(), 'src/styles/riffsync-app.css'), 'utf8')
+  return css.match(new RegExp(`${selector.replaceAll('.', '\\.')}\\s*\\{[^}]+\\}`))?.[0] ?? ''
+}
 
 function setInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
@@ -74,8 +81,26 @@ describe('ChatComposeMediaPicker', () => {
     const emojiTab = container.querySelector('.riffsync-room-chat-media-tab') as HTMLButtonElement
     expect(emojiTab.textContent).toBe('Emojis')
     expect(emojiTab.getAttribute('aria-selected')).toBe('true')
+    const body = container.querySelector('.riffsync-room-chat-media-body')
+    expect(body?.querySelector('.riffsync-room-chat-media-panel--emoji')).not.toBeNull()
+    expect(body?.querySelector('.riffsync-room-chat-media-panel--giphy')).not.toBeNull()
     expect(container.querySelector('.riffsync-room-chat-emoji-picker')).not.toBeNull()
     expect(container.querySelector('.riffsync-room-chat-media-panel--giphy')?.hasAttribute('hidden')).toBe(true)
+  })
+
+  it('keeps picker tab body fixed while Giphy results scroll internally', () => {
+    const bodyRule = cssRule('.riffsync-room-chat-media-body')
+    const panelRule = cssRule('.riffsync-room-chat-media-panel')
+    const giphyPanelRule = cssRule('.riffsync-room-chat-media-panel--giphy')
+    const resultsRule = cssRule('.riffsync-room-chat-giphy-results')
+
+    expect(bodyRule).toContain('height: 16.5rem;')
+    expect(bodyRule).toContain('flex: 0 0 16.5rem;')
+    expect(bodyRule).toContain('overflow: hidden;')
+    expect(panelRule).toContain('height: 100%;')
+    expect(giphyPanelRule).toContain('overflow: hidden;')
+    expect(resultsRule).toContain('overflow: auto;')
+    expect(resultsRule).toContain('min-height: 0;')
   })
 
   it('switches to GIF tab and runs debounced search', async () => {

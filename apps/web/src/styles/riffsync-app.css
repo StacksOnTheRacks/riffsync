@@ -2029,6 +2029,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   max-height: min(70vh, 24rem);
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   border-radius: 8px;
   overflow: hidden;
   background: rgb(12 16 22);
@@ -2068,8 +2069,17 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   color: var(--primary-color);
 }
 
-.riffsync-room-chat-media-panel {
+.riffsync-room-chat-media-body {
+  height: 16.5rem;
   min-height: 0;
+  flex: 0 0 16.5rem;
+  overflow: hidden;
+}
+
+.riffsync-room-chat-media-panel {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .riffsync-room-chat-media-panel--emoji {
@@ -2082,7 +2092,6 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   gap: 0.35rem;
   padding: 0.45rem;
   overflow: hidden;
-  flex: 1 1 auto;
 }
 
 .riffsync-room-chat-media-panel[hidden] {
