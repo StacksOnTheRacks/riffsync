@@ -24,6 +24,7 @@ import {
 } from './drawerErrorPresentation'
 
 type RoomPageSidebarProps = {
+  presentation?: 'sidebar' | 'overlay'
   wsBase: string | undefined
   fanToken: string | null
   roomId: string
@@ -74,6 +75,7 @@ type RoomPageSidebarProps = {
 }
 
 export function RoomPageSidebar({
+  presentation = 'sidebar',
   wsBase,
   fanToken,
   roomId,
@@ -122,9 +124,11 @@ export function RoomPageSidebar({
   saveProfileDisplayName,
   onProfileAvatarSelected,
 }: RoomPageSidebarProps) {
-  return (
-    <aside className="riffsync-room-page__chat-column" aria-label="Room sidebar">
-      <section className="riffsync-room-page__chat" aria-label="Chat and viewers">
+  const chatPlane = (
+    <section
+      className={`riffsync-room-page__chat${presentation === 'overlay' ? ' riffsync-room-page__chat--overlay' : ''}`}
+      aria-label={presentation === 'overlay' ? 'Chat overlay' : 'Chat and viewers'}
+    >
         {!wsBase ? (
           <p className="riffsync-room-page__ws-banner riffsync-muted" role="status">
             Chat and viewer list require <code>VITE_PUBLIC_WS_URL</code> on this deployment.
@@ -142,6 +146,7 @@ export function RoomPageSidebar({
           </p>
         ) : null}
 
+        {presentation === 'sidebar' ? (
         <div className="riffsync-room-page__chat-toolbar">
           <div className="riffsync-room-page__tabs">
             <button
@@ -180,6 +185,7 @@ export function RoomPageSidebar({
             ) : null}
           </div>
         </div>
+        ) : null}
 
         {activeSidebarTab === 'chat' ? (
           <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
@@ -276,7 +282,7 @@ export function RoomPageSidebar({
           </div>
         ) : null}
 
-        {activeSidebarTab === 'people' ? (
+        {presentation === 'sidebar' && activeSidebarTab === 'people' ? (
           <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
             <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
               {peopleShown.map((p) => {
@@ -337,7 +343,7 @@ export function RoomPageSidebar({
           </div>
         ) : null}
 
-        {activeSidebarTab === 'room' ? (
+        {presentation === 'sidebar' && activeSidebarTab === 'room' ? (
           <div className="riffsync-room-page__tab-panel riffsync-room-page__room-panel">
             <button type="button" className="gen-button gen-button-wide" onClick={onCopyShare}>
               Copy Party Link
@@ -364,7 +370,7 @@ export function RoomPageSidebar({
           </div>
         ) : null}
 
-        {activeSidebarTab === 'profile' ? (
+        {presentation === 'sidebar' && activeSidebarTab === 'profile' ? (
           <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--profile">
             <p className="riffsync-muted riffsync-room-page__profile-lede">
               This name appears in chat, the viewer list, and across devices when you&apos;re signed in.
@@ -519,6 +525,13 @@ export function RoomPageSidebar({
           ) : null}
         </div>
       </section>
+  )
+
+  if (presentation === 'overlay') return chatPlane
+
+  return (
+    <aside className="riffsync-room-page__chat-column" aria-label="Room sidebar">
+      {chatPlane}
     </aside>
   )
 }

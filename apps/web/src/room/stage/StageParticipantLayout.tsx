@@ -15,6 +15,7 @@ type StageParticipantLayoutProps = {
   viewportWide: boolean
   avSurfacesEnabled: boolean
   playback: ReactNode
+  expandedView?: boolean
 }
 
 export function StageParticipantLayout({
@@ -24,8 +25,12 @@ export function StageParticipantLayout({
   viewportWide,
   avSurfacesEnabled,
   playback,
+  expandedView = false,
 }: StageParticipantLayoutProps) {
-  const showDesktopStrip = avSurfacesEnabled && viewportWide && roomMode === 'theater' && tiles.length > 0
+  const showDesktopStrip =
+    avSurfacesEnabled && viewportWide && !expandedView && roomMode === 'theater' && tiles.length > 0
+  const showExpandedTheaterRow =
+    avSurfacesEnabled && viewportWide && expandedView && roomMode === 'theater' && tiles.length > 0
   const showNarrowRow =
     avSurfacesEnabled && !viewportWide && roomMode === 'theater' && tiles.length > 0
   const showVideoChatEmpty =
@@ -77,9 +82,13 @@ export function StageParticipantLayout({
           </div>
         )}
       </div>
-      {showNarrowRow ? (
+      {showNarrowRow || showExpandedTheaterRow ? (
         <div
-          className="riffsync-room-page__participant-row riffsync-room-page__participant-row--narrow"
+          className={`riffsync-room-page__participant-row ${
+            showExpandedTheaterRow
+              ? 'riffsync-room-page__participant-row--expanded'
+              : 'riffsync-room-page__participant-row--narrow'
+          }`}
           aria-label="Participant cameras"
         >
           {tileList}
