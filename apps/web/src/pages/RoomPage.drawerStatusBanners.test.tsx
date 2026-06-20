@@ -4,7 +4,9 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoomPage } from './RoomPage'
+import { SiteLayout } from '../layouts/SiteLayout'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
+import { useRoomChrome } from '../room/useRoomChrome'
 import {
   CHAT_RECONNECTING_COPY,
   drawerDiagnostics,
@@ -244,6 +246,7 @@ describe('RoomPage drawer status banner integration (#209)', () => {
       root.render(
         <MemoryRouter initialEntries={['/room/room-test-1']}>
           <RoomChromeProvider>
+            <RoomChromeExpandedProbe />
             <Routes>
               <Route path="/room/:roomId" element={<RoomPage />} />
             </Routes>
@@ -251,6 +254,24 @@ describe('RoomPage drawer status banner integration (#209)', () => {
         </MemoryRouter>,
       )
     })
+  }
+
+  function renderRoomWithSiteLayout() {
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/room/room-test-1']}>
+          <Routes>
+            <Route element={<SiteLayout />}>
+              <Route path="/room/:roomId" element={<RoomPage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>,
+      )
+    })
+  }
+
+  function roomChromeExpandedProbe() {
+    return container.querySelector('[data-testid="room-chrome-expanded"]')
   }
 
   function chatBanner() {
@@ -484,6 +505,7 @@ describe('RoomPage drawer status banner integration (#209)', () => {
       expect(container.querySelector('.riffsync-room-page__stage--expanded')).not.toBeNull()
     })
 
+    expect(roomChromeExpandedProbe()?.getAttribute('data-expanded')).toBe('true')
     expect(expandViewButton()?.textContent).toBe('Exit expanded view')
     expect(container.querySelector('.riffsync-room-page__chat--overlay')).not.toBeNull()
     expect(container.querySelector('.riffsync-room-page__chat-column')).toBeNull()
@@ -497,7 +519,50 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('.riffsync-room-page__stage--expanded')).toBeNull()
     })
+    expect(roomChromeExpandedProbe()?.getAttribute('data-expanded')).toBe('false')
     expect(container.querySelector('.riffsync-room-page__chat-column')).not.toBeNull()
     expect(container.querySelector('.riffsync-room-page__tabs')).not.toBeNull()
   })
+
+  it('hides compact header and applies expanded site chrome class (#259)', async () => {
+    drawerStatusMockConfig.set({
+      diagnostics: drawerDiagnostics({
+        chat: { state: 'connected' },
+        sfuSignaling: { state: 'connected' },
+      }),
+      guestShareFsm: 'running',
+    })
+    renderRoomWithSiteLayout()
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-header--compact')).not.toBeNull()
+      expect(expandViewButton()?.textContent).toBe('Expand view')
+    })
+
+    act(() => {
+      expandViewButton()?.click()
+    })
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-site--room-expanded')).not.toBeNull()
+      expect(container.querySelector('.riffsync-main--room-expanded')).not.toBeNull()
+      expect(container.querySelector('.riffsync-header--compact')).toBeNull()
+    })
+
+    act(() => {
+      expandViewButton()?.click()
+    })
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-site--room-expanded')).toBeNull()
+      expect(container.querySelector('.riffsync-header--compact')).not.toBeNull()
+    })
+  })
 })
+
+function RoomChromeExpandedProbe() {
+  const { expandedViewActive } = useRoomChrome()
+  return (
+    <div data-testid="room-chrome-expanded" data-expanded={expandedViewActive ? 'true' : 'false'} />
+  )
+}

@@ -18,6 +18,7 @@ import {
 } from '../room/hostRoomControls'
 import { StageParticipantLayout } from '../room/stage/StageParticipantLayout'
 import { enteredVideoChatMode } from '../room/roomMediaLifecycle'
+import { useRoomChrome } from '../room/useRoomChrome'
 import { useRoomSnapshot } from '../room/useRoomSnapshot'
 import { detectExperimentalRoomFeatures } from '../room/experimentalRoomFeatures'
 import { useRoomMediaEngine } from '../room/useRoomMediaEngine'
@@ -227,6 +228,13 @@ export function RoomPage() {
     !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
   const viewportWide = useViewportWide()
   const expandedViewActive = expandedView && viewportWide
+  const { setExpandedViewActive } = useRoomChrome()
+
+  useEffect(() => {
+    setExpandedViewActive(expandedViewActive)
+    return () => setExpandedViewActive(false)
+  }, [expandedViewActive, setExpandedViewActive])
+
   const roomChatTabActive = expandedViewActive || activeSidebarTab === 'chat'
   const {
     logRef: chatLogRef,
