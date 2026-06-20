@@ -117,32 +117,34 @@ export function ChatComposeMediaPicker({
               GIF
             </button>
           </div>
-          <div
-            id={emojiPanelId}
-            role="tabpanel"
-            className="riffsync-room-chat-media-panel riffsync-room-chat-media-panel--emoji"
-            aria-labelledby={emojiTabId}
-            hidden={tab !== 'emoji'}
-          >
-            <ChatEmojiPickerPanel
-              draft={draft}
-              onDraftChange={onDraftChange}
-              inputRef={inputRef}
-              active={tab === 'emoji'}
-            />
-          </div>
-          <div
-            id={giphyPanelId}
-            role="tabpanel"
-            className="riffsync-room-chat-media-panel riffsync-room-chat-media-panel--giphy"
-            aria-labelledby={giphyTabId}
-            hidden={tab !== 'giphy'}
-          >
-            <ChatGiphyPickerPanel
-              accessToken={accessToken}
-              onSelect={handleGifSelect}
-              active={tab === 'giphy'}
-            />
+          <div className="riffsync-room-chat-media-body">
+            <div
+              id={emojiPanelId}
+              role="tabpanel"
+              className="riffsync-room-chat-media-panel riffsync-room-chat-media-panel--emoji"
+              aria-labelledby={emojiTabId}
+              hidden={tab !== 'emoji'}
+            >
+              <ChatEmojiPickerPanel
+                draft={draft}
+                onDraftChange={onDraftChange}
+                inputRef={inputRef}
+                active={tab === 'emoji'}
+              />
+            </div>
+            <div
+              id={giphyPanelId}
+              role="tabpanel"
+              className="riffsync-room-chat-media-panel riffsync-room-chat-media-panel--giphy"
+              aria-labelledby={giphyTabId}
+              hidden={tab !== 'giphy'}
+            >
+              <ChatGiphyPickerPanel
+                accessToken={accessToken}
+                onSelect={handleGifSelect}
+                active={tab === 'giphy'}
+              />
+            </div>
           </div>
         </div>
       ) : null}
