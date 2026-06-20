@@ -144,7 +144,7 @@ export function stageLayoutUsesNarrowRow(viewportWide: boolean): boolean {
   return !viewportWide
 }
 
-export function stageLayoutUsesDesktopStrip(
+export function stageLayoutUsesDesktopTheaterRow(
   viewportWide: boolean,
   roomMode: 'theater' | 'videoChat',
   tileCount: number,

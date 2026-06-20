@@ -7,7 +7,7 @@ import {
   buildStageParticipantTiles,
   sortRosterForStage,
   stageLayoutSurfaceClass,
-  stageLayoutUsesDesktopStrip,
+  stageLayoutUsesDesktopTheaterRow,
   stageLayoutUsesNarrowRow,
 } from './stageParticipantTiles'
 
@@ -196,10 +196,10 @@ describe('stageParticipantTiles', () => {
     expect(stageLayoutUsesNarrowRow(true)).toBe(false)
   })
 
-  it('uses desktop strip only in theater with tiles on wide viewport', () => {
-    expect(stageLayoutUsesDesktopStrip(true, 'theater', 2)).toBe(true)
-    expect(stageLayoutUsesDesktopStrip(true, 'videoChat', 2)).toBe(false)
-    expect(stageLayoutUsesDesktopStrip(true, 'theater', 0)).toBe(false)
-    expect(stageLayoutUsesDesktopStrip(false, 'theater', 2)).toBe(false)
+  it('uses desktop theater row only in theater with tiles on wide viewport', () => {
+    expect(stageLayoutUsesDesktopTheaterRow(true, 'theater', 2)).toBe(true)
+    expect(stageLayoutUsesDesktopTheaterRow(true, 'videoChat', 2)).toBe(false)
+    expect(stageLayoutUsesDesktopTheaterRow(true, 'theater', 0)).toBe(false)
+    expect(stageLayoutUsesDesktopTheaterRow(false, 'theater', 2)).toBe(false)
   })
 })

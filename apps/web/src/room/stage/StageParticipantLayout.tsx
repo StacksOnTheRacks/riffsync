@@ -27,7 +27,7 @@ export function StageParticipantLayout({
   playback,
   expandedView = false,
 }: StageParticipantLayoutProps) {
-  const showDesktopStrip =
+  const showDesktopTheaterRow =
     avSurfacesEnabled && viewportWide && !expandedView && roomMode === 'theater' && tiles.length > 0
   const showExpandedTheaterRow =
     avSurfacesEnabled && viewportWide && expandedView && roomMode === 'theater' && tiles.length > 0
@@ -58,14 +58,6 @@ export function StageParticipantLayout({
         {roomMode === 'theater' ? (
           <div className="riffsync-room-page__theater-row">
             <div className="riffsync-room-page__theater-playback">{playback}</div>
-            {showDesktopStrip ? (
-              <div
-                className="riffsync-room-page__participant-strip riffsync-room-page__participant-strip--desktop"
-                aria-label="Participant cameras"
-              >
-                {tileList}
-              </div>
-            ) : null}
           </div>
         ) : (
           <div
@@ -82,12 +74,14 @@ export function StageParticipantLayout({
           </div>
         )}
       </div>
-      {showNarrowRow || showExpandedTheaterRow ? (
+      {showNarrowRow || showExpandedTheaterRow || showDesktopTheaterRow ? (
         <div
           className={`riffsync-room-page__participant-row ${
             showExpandedTheaterRow
               ? 'riffsync-room-page__participant-row--expanded'
-              : 'riffsync-room-page__participant-row--narrow'
+              : showDesktopTheaterRow
+                ? 'riffsync-room-page__participant-row--desktop'
+                : 'riffsync-room-page__participant-row--narrow'
           }`}
           aria-label="Participant cameras"
         >
