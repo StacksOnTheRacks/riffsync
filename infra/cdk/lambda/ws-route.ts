@@ -23,7 +23,7 @@ import {
   persistReactionRemove,
   queryChatHistory,
 } from './room-chat-shared';
-import { recordTypingRouteAccepted, recordTypingRouteThrottled, recordWsRealtimeRoute } from './riffsync-observability';
+import { recordTypingRouteAccepted, recordTypingRouteThrottled, recordPresenceRequestRehydrated, recordQualifyingActiveWrite, recordWsRealtimeRoute, type QualifyingActiveRoute } from './riffsync-observability';
 import {
   fanOutTyping,
   recordTypingStartFanOut,
@@ -91,7 +91,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Strongly consistent read with brief retry — $connect Put may lag behind the first onopen frames. */
+/** Strongly consistent read with brief retry - $connect Put may lag behind the first onopen frames. */
 export async function loadConnectionRow(
   tableName: string,
   connectionId: string,
@@ -113,6 +113,24 @@ export async function loadConnectionRow(
     }
   }
   return undefined;
+}
+
+async function tryRecordQualifyingActiveWrite(
+  route: QualifyingActiveRoute,
+  doc: Parameters<typeof updateRoomPresenceLastActiveAt>[0],
+  presenceTable: string,
+  roomId: string,
+  presenceKey: string,
+  nowSec?: number,
+): Promise<void> {
+  try {
+    const wrote = await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey, nowSec);
+    if (wrote) {
+      recordQualifyingActiveWrite(route);
+    }
+  } catch {
+    // Presence write failures must not fail the route handler.
+  }
 }
 
 async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Promise<APIGatewayProxyResultV2> {
@@ -222,7 +240,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
         }),
       )
       .catch(() => undefined);
-    await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey, nowSec).catch(() => undefined);
+    await tryRecordQualifyingActiveWrite('ping', doc, presenceTable, roomId, presenceKey, nowSec);
 
     return { statusCode: 200, body: 'OK' };
   }
@@ -269,6 +287,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       }
     }
 
+    recordPresenceRequestRehydrated();
     return { statusCode: 200, body: 'OK' };
   }
 
@@ -386,7 +405,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       ).catch(() => undefined);
     }
 
-    await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey).catch(() => undefined);
+    await tryRecordQualifyingActiveWrite('chat', doc, presenceTable, roomId, presenceKey);
 
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
@@ -492,7 +511,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       ).catch(() => undefined);
     }
 
-    await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey).catch(() => undefined);
+    await tryRecordQualifyingActiveWrite('chat_gif', doc, presenceTable, roomId, presenceKey);
 
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
@@ -548,7 +567,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
       }
     }
 
-    await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey).catch(() => undefined);
+    await tryRecordQualifyingActiveWrite('react', doc, presenceTable, roomId, presenceKey);
 
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
@@ -574,9 +593,10 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     const nowMs = Date.now();
     if (typingRoute === 'typing_start') {
       if (shouldCoalesceTypingStart(roomId, sessionId, nowMs)) {
+        recordTypingRouteAccepted(typingRoute, connectionId, roomId);
         return { statusCode: 200, body: 'OK' };
       }
-      await updateRoomPresenceLastActiveAt(doc, presenceTable, roomId, presenceKey).catch(() => undefined);
+      await tryRecordQualifyingActiveWrite('typing_start', doc, presenceTable, roomId, presenceKey);
       recordTypingStartFanOut(roomId, sessionId, nowMs);
     }
 

@@ -76,7 +76,7 @@ jobs:
 
   realtime-conformance:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -96,6 +96,12 @@ jobs:
         id: bootstrap_wait
         if: hashFiles('tests/realtime-conformance/bootstrap-media.sh') != ''
         run: bash tests/realtime-conformance/bootstrap-media.sh wait
+      - name: Install harness dependencies
+        if: hashFiles('tests/realtime-conformance/run.sh') != ''
+        run: npm ci --prefix tests/realtime-conformance
+      - name: Audit harness production exposure
+        if: hashFiles('tests/realtime-conformance/package-lock.json') != ''
+        run: npm audit --omit=dev --prefix tests/realtime-conformance
       - name: Run realtime conformance harness
         id: harness
         if: hashFiles('tests/realtime-conformance/run.sh') != ''

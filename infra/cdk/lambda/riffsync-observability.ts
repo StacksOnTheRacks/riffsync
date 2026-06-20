@@ -2,6 +2,8 @@ export type WsRealtimeRoute = 'chat' | 'chat_gif' | 'react' | 'rename' | 'typing
 
 export type TypingRoute = 'typing_start' | 'typing_stop';
 
+export type QualifyingActiveRoute = 'typing_start' | 'chat' | 'chat_gif' | 'react' | 'ping';
+
 export type WsRealtimeOutcome =
   | 'success'
   | 'validation_error'
@@ -207,6 +209,78 @@ export function recordTypingRouteThrottled(route: TypingRoute, connectionId: str
     connectionIdTail: connectionId.slice(-12),
     roomIdHead: roomId.slice(0, 8),
   });
+}
+
+/** EMF counter when a handler updates roster `lastActiveAt` (qualifying engagement). */
+export function emitQualifyingActiveWrite(route: QualifyingActiveRoute): void {
+  const env = riffsyncEnvironment();
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Realtime',
+            Dimensions: [['Environment', 'Route']],
+            Metrics: [{ Name: 'QualifyingActiveWrite', Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: env,
+      Route: route,
+      QualifyingActiveWrite: 1,
+    }),
+  );
+}
+
+export function recordQualifyingActiveWrite(route: QualifyingActiveRoute): void {
+  emitQualifyingActiveWrite(route);
+}
+
+/** EMF counter after a presence broadcast wave with at least one active member. */
+export function emitPresenceActiveFanOut(): void {
+  const env = riffsyncEnvironment();
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Realtime',
+            Dimensions: [['Environment']],
+            Metrics: [{ Name: 'PresenceActiveFanOut', Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: env,
+      PresenceActiveFanOut: 1,
+    }),
+  );
+}
+
+/** EMF counter when `presence_request` completes with roster rehydration. */
+export function emitPresenceRequestRehydrated(): void {
+  const env = riffsyncEnvironment();
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Realtime',
+            Dimensions: [['Environment']],
+            Metrics: [{ Name: 'PresenceRequestRehydrated', Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: env,
+      PresenceRequestRehydrated: 1,
+    }),
+  );
+}
+
+export function recordPresenceRequestRehydrated(): void {
+  emitPresenceRequestRehydrated();
 }
 
 /** EMF counter for HTTP API routes via stdout (no PutMetricData IAM required). */
