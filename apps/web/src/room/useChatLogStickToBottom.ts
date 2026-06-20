@@ -32,10 +32,12 @@ const PROGRAMMATIC_SCROLL_SETTLE_MS = 600
 export function useChatLogStickToBottom(
   chatLength: number,
   chatTabActive: boolean,
+  chatSurfaceKey: string = chatTabActive ? 'active' : 'inactive',
 ): UseChatLogStickToBottomResult {
   const logRef = useRef<HTMLUListElement>(null)
   const stickToBottomRef = useRef(true)
   const prevChatLengthRef = useRef(chatLength)
+  const prevChatSurfaceKeyRef = useRef(chatSurfaceKey)
   // True while a programmatic scroll-to-bottom is still animating. During that
   // window the log is not yet "near bottom", but the user has not scrolled away
   // either, so stick-to-bottom must be preserved until the scroll lands.
@@ -113,17 +115,20 @@ export function useChatLogStickToBottom(
   }, [chatLength])
 
   useLayoutEffect(() => {
+    const surfaceChanged = prevChatSurfaceKeyRef.current !== chatSurfaceKey
+    prevChatSurfaceKeyRef.current = chatSurfaceKey
+
     if (!chatTabActive) return
     const el = logRef.current
     if (!el) return
-    if (stickToBottomRef.current) {
+    if (surfaceChanged || stickToBottomRef.current) {
       // Pin to the new bottom. Assert the stuck state instead of re-measuring,
       // because a smooth scroll has not updated `scrollTop` yet on this frame.
       stickToBottomNow()
     } else {
       syncStickState()
     }
-  }, [chatLength, chatTabActive, stickToBottomNow, syncStickState])
+  }, [chatLength, chatTabActive, chatSurfaceKey, stickToBottomNow, syncStickState])
 
   useEffect(() => clearSettleTimer, [clearSettleTimer])
 

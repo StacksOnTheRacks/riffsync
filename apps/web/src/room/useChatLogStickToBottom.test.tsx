@@ -16,10 +16,19 @@ vi.mock('./chatLogScroll', () => ({
   scrollChatLogToBottom: (el: HTMLElement) => scrollSpy(el),
 }))
 
-function Harness({ chatLength, chatTabActive }: { chatLength: number; chatTabActive: boolean }) {
+function Harness({
+  chatLength,
+  chatTabActive,
+  chatSurfaceKey,
+}: {
+  chatLength: number
+  chatTabActive: boolean
+  chatSurfaceKey: string
+}) {
   const { logRef, showJumpToLatest, jumpToLatestLabel, jumpToLatest } = useChatLogStickToBottom(
     chatLength,
     chatTabActive,
+    chatSurfaceKey,
   )
   return (
     <div>
@@ -50,9 +59,15 @@ describe('useChatLogStickToBottom', () => {
     container.remove()
   })
 
-  function render(chatLength: number, chatTabActive = true) {
+  function render(chatLength: number, chatTabActive = true, chatSurfaceKey = 'sidebar:chat') {
     act(() => {
-      root.render(<Harness chatLength={chatLength} chatTabActive={chatTabActive} />)
+      root.render(
+        <Harness
+          chatLength={chatLength}
+          chatTabActive={chatTabActive}
+          chatSurfaceKey={chatSurfaceKey}
+        />,
+      )
     })
   }
 
@@ -126,10 +141,24 @@ describe('useChatLogStickToBottom', () => {
   })
 
   it('hides the affordance when the chat tab is not active', () => {
-    render(1, false)
+    render(1, false, 'sidebar:people')
     nearBottom = false
     fireScroll()
-    render(2, false)
+    render(2, false, 'sidebar:people')
+    expect(jumpButton()).toBeNull()
+  })
+
+  it('jumps to latest when chat is shown on a different surface', () => {
+    render(3, true, 'sidebar:chat')
+    settleProgrammaticScroll()
+
+    nearBottom = false
+    fireScroll()
+    expect(jumpButton()).toBeNull()
+
+    render(3, true, 'expanded:chat')
+
+    expect(scrollSpy).toHaveBeenCalledTimes(2)
     expect(jumpButton()).toBeNull()
   })
 })

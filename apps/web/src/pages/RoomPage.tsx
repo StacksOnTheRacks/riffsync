@@ -236,12 +236,13 @@ export function RoomPage() {
   }, [expandedViewActive, setExpandedViewActive])
 
   const roomChatTabActive = expandedViewActive || activeSidebarTab === 'chat'
+  const chatSurfaceKey = `${expandedViewActive ? 'expanded' : 'sidebar'}:${activeSidebarTab}`
   const {
     logRef: chatLogRef,
     showJumpToLatest,
     jumpToLatestLabel,
     jumpToLatest,
-  } = useChatLogStickToBottom(chat.length, roomChatTabActive)
+  } = useChatLogStickToBottom(chat.length, roomChatTabActive, chatSurfaceKey)
 
   const avSurfacesEnabled = !avDisabled
 
