@@ -265,6 +265,12 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     expect(container.textContent).not.toContain(RETIRED_COMBINED_STATUS_COPY)
   }
 
+  function expandViewButton() {
+    return Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Expand view' || button.textContent === 'Exit expanded view',
+    ) as HTMLButtonElement | undefined
+  }
+
   it('chat-only reconnecting: chat banner uses drawerErrorPresentation copy; video-relay omits chat copy', async () => {
     drawerStatusMockConfig.set({
       diagnostics: drawerDiagnostics({
@@ -454,5 +460,44 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     expect(
       chatBanner()!.compareDocumentPosition(tabs!) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+  })
+
+  it('switches desktop expanded view to a chat-only overlay without sidebar tabs (#259)', async () => {
+    drawerStatusMockConfig.set({
+      diagnostics: drawerDiagnostics({
+        chat: { state: 'reconnecting' },
+        sfuSignaling: { state: 'connected' },
+      }),
+      guestShareFsm: 'running',
+    })
+    renderRoom()
+
+    await vi.waitFor(() => {
+      expect(expandViewButton()?.textContent).toBe('Expand view')
+    })
+
+    act(() => {
+      expandViewButton()?.click()
+    })
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-room-page__stage--expanded')).not.toBeNull()
+    })
+
+    expect(expandViewButton()?.textContent).toBe('Exit expanded view')
+    expect(container.querySelector('.riffsync-room-page__chat--overlay')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__chat-column')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__tabs')).toBeNull()
+    expect(chatBanner()?.closest('.riffsync-room-page__chat--overlay')).not.toBeNull()
+
+    act(() => {
+      expandViewButton()?.click()
+    })
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-room-page__stage--expanded')).toBeNull()
+    })
+    expect(container.querySelector('.riffsync-room-page__chat-column')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__tabs')).not.toBeNull()
   })
 })

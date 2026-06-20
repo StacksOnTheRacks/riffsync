@@ -785,6 +785,10 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
     max-height: 100%;
     overflow: hidden;
   }
+
+  .riffsync-room-page__stage--expanded {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .riffsync-room-page__host-bar {
@@ -872,11 +876,61 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-page__theater {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+.riffsync-room-page__expand-toggle {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 8;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.24);
+  background: rgb(5 8 12 / 0.68);
+  color: var(--white-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.42);
+}
+
+.riffsync-room-page__expand-toggle:hover,
+.riffsync-room-page__expand-toggle:focus-visible,
+.riffsync-room-page__expand-toggle[aria-pressed='true'] {
+  border-color: rgb(255 255 255 / 0.42);
+  background: rgb(18 23 31 / 0.86);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .riffsync-room-page__expand-toggle {
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 140ms ease,
+      visibility 140ms ease;
+  }
+
+  .riffsync-room-page__theater:hover .riffsync-room-page__expand-toggle,
+  .riffsync-room-page__theater:focus-within .riffsync-room-page__expand-toggle {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .riffsync-room-page__expand-toggle {
+    transition: none;
+  }
 }
 
 .riffsync-room-page__stage-media {
@@ -984,6 +1038,19 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   gap: 0.45rem;
   overflow-x: auto;
   padding-bottom: 0.15rem;
+}
+
+.riffsync-room-page__participant-row--expanded {
+  display: flex;
+  flex-direction: row;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding: 0.15rem 0.2rem 0;
+  flex-shrink: 0;
+}
+
+.riffsync-room-page__participant-row--expanded .riffsync-room-page__participant-tile {
+  width: min(16vw, 180px);
 }
 
 @media (min-width: 992px) {
@@ -1419,6 +1486,35 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   backdrop-filter: blur(8px);
   /* Popovers above compose open upward; overflow:hidden on this box clipped them. */
   overflow: visible;
+}
+
+.riffsync-room-page__chat--overlay {
+  position: absolute;
+  right: clamp(0.75rem, 1.4vw, 1.1rem);
+  bottom: clamp(0.75rem, 1.4vw, 1.1rem);
+  z-index: 7;
+  width: clamp(20rem, 40%, 32rem);
+  height: min(50%, 30rem);
+  min-height: min(16rem, 50%);
+  max-height: 50%;
+  background: rgb(7 10 14 / 0.42);
+  border-color: rgb(255 255 255 / 0.16);
+  box-shadow: 0 14px 40px rgb(0 0 0 / 0.38);
+  backdrop-filter: blur(6px);
+}
+
+.riffsync-room-page__chat--overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2.75rem;
+  pointer-events: none;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(rgb(0 0 0 / 0.32), rgb(0 0 0 / 0));
+}
+
+.riffsync-room-page__chat--overlay .riffsync-room-page__sidebar-footer {
+  background: rgb(5 8 11 / 0.32);
 }
 
 @media (max-width: 991px) {

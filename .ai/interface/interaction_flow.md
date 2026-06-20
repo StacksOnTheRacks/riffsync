@@ -110,6 +110,8 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 6. **Room mode change while expanded:** Apply new mode to stage primary **without** forcing exit — overlay chat rules stay the same.
 7. **Reload / navigate away:** Expanded state **clears** — standard layout on return.
 
+Implementation note: the expanded toggle is client-local React state in `RoomPage.tsx`; no room snapshot patch or WebSocket fan-out is sent when a viewer enters or exits expanded view.
+
 ### Presence, typing, and People badges
 
 1. **Roster on join:** Client sends **`presence_request`** after room WebSocket connect; server returns **`presence`** roster (with **`lastActiveAt`** / **`active`**) and requester-only **`chat_history`** (capped durable messages — **excludes** ephemeral join/leave system lines).

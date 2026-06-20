@@ -75,6 +75,28 @@ describe('StageParticipantLayout', () => {
     expect(container.textContent).toContain('You')
   })
 
+  it('moves theater participant cameras to a bottom row in expanded view', () => {
+    const stream = new MediaStream()
+    renderLayout({
+      roomMode: 'theater',
+      viewportWide: true,
+      expandedView: true,
+      tiles: [
+        {
+          key: 'self',
+          sessionId: 'me',
+          label: 'You',
+          isSelf: true,
+          stream,
+          speaking: false,
+        },
+      ],
+    })
+    expect(container.querySelector('.riffsync-room-page__participant-row--expanded')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).toBeNull()
+    expect(container.textContent).toContain('You')
+  })
+
   describe('producerClosed regression (tile detach across stage surfaces)', () => {
     const remoteTile = {
       key: 'remote-1',

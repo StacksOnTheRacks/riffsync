@@ -21,8 +21,9 @@ describe('chat drawer UX wiring (#207)', () => {
 
   it('RoomPage passes chat drawer props into RoomPageSidebar', () => {
     const src = readSrc('../pages/RoomPage.tsx')
-    expect(src).toMatch(/chatDrawerBanner=\{chatDrawerBanner\}/)
-    expect(src).toMatch(/chatComposeStatus=\{chatComposeStatus\}/)
+    expect(src).toMatch(/const roomSidebarProps = \{[\s\S]*chatDrawerBanner,[\s\S]*chatComposeStatus,/)
+    expect(src).toMatch(/<RoomPageSidebar presentation="overlay" \{\.\.\.roomSidebarProps\}/)
+    expect(src).toMatch(/<RoomPageSidebar \{\.\.\.roomSidebarProps\}/)
     expect(src).toContain('useRoomMediaEngine')
   })
 

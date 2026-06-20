@@ -65,6 +65,7 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - **People / Room / Profile:** reachable only after **exit expanded view** (or via site chrome navigation).
 - **Touch targets:** expand/exit control minimum **44×44** CSS px.
 - **Not offered < 992px:** toggle absent or **`aria-hidden`** / inert — no expanded keyboard path on narrow viewports in MVP.
+- **Implementation:** the overlay reuses the chat plane without rendering `.riffsync-room-page__tabs`; standard sidebar tabs return immediately after exit.
 
 ## Primary code pointers (optional)
 

@@ -44,6 +44,7 @@ export function RoomPage() {
   const [hostBarErr, setHostBarErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [roomSidebarTab, setRoomSidebarTab] = useState<RoomSidebarTab>('chat')
+  const [expandedView, setExpandedView] = useState(false)
   const [renameModalOpen, setRenameModalOpen] = useState(false)
   const [renameModalDraft, setRenameModalDraft] = useState('')
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null)
@@ -222,8 +223,11 @@ export function RoomPage() {
     }
   }, [isPublisher, roomMode, setRoom, stopCapture])
 
-  const roomChatTabActive =
-    (!fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab) === 'chat'
+  const activeSidebarTab =
+    !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
+  const viewportWide = useViewportWide()
+  const expandedViewActive = expandedView && viewportWide
+  const roomChatTabActive = expandedViewActive || activeSidebarTab === 'chat'
   const {
     logRef: chatLogRef,
     showJumpToLatest,
@@ -231,7 +235,6 @@ export function RoomPage() {
     jumpToLatest,
   } = useChatLogStickToBottom(chat.length, roomChatTabActive)
 
-  const viewportWide = useViewportWide()
   const avSurfacesEnabled = !avDisabled
 
   const saveRenameFromModal = async (): Promise<boolean> => {
@@ -315,8 +318,55 @@ export function RoomPage() {
 
   const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
   const viewerCount = peopleShown.length
-  const activeSidebarTab =
-    !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
+  const roomSidebarProps = {
+    wsBase,
+    fanToken,
+    roomId,
+    sessionId,
+    myAvatarUrl,
+    activeSidebarTab,
+    setRoomSidebarTab,
+    viewerCount,
+    chat,
+    chatReactions,
+    remoteTyping,
+    chatMemberLabels,
+    chatDraft,
+    setChatDraft,
+    notifyComposeBlur,
+    chatLogRef,
+    chatInputRef,
+    showJumpToLatest,
+    jumpToLatestLabel,
+    jumpToLatest,
+    chatDrawerBanner,
+    chatComposeStatus,
+    sendChat,
+    sendChatGif,
+    toggleChatReaction,
+    peopleShown,
+    participantProducerBySessionId,
+    speakingBySessionId,
+    isPublisher,
+    experimentalFeatures,
+    shareHint,
+    onCopyShare: () => void copyShare(),
+    onOpenRenameModal: openRenameModal,
+    avDisabled,
+    participantAvController,
+    announceRoomA11y,
+    profileDraft: profile.profileDraft,
+    setProfileDraft: profile.setProfileDraft,
+    profileSaveErr: profile.profileSaveErr,
+    profileSaving: profile.profileSaving,
+    profileAvatarUrl: profile.profileAvatarUrl,
+    profileAvatarLoading: profile.profileAvatarLoading,
+    profileAvatarUploading: profile.profileAvatarUploading,
+    profileAvatarErr: profile.profileAvatarErr,
+    profileAvatarInputRef: profile.profileAvatarInputRef,
+    saveProfileDisplayName: profile.saveProfileDisplayName,
+    onProfileAvatarSelected: profile.onProfileAvatarSelected,
+  }
 
   return (
     <div
@@ -351,14 +401,29 @@ export function RoomPage() {
             {sfuConfigAlert}
           </p>
         ) : null}
-        <div className="riffsync-room-page__stage">
-          <div className="riffsync-room-page__theater">
+        <div
+          className={`riffsync-room-page__stage${expandedViewActive ? ' riffsync-room-page__stage--expanded' : ''}`}
+          data-expanded-view={expandedViewActive ? 'true' : 'false'}
+        >
+          <div className={`riffsync-room-page__theater${expandedViewActive ? ' riffsync-room-page__theater--expanded' : ''}`}>
+            {viewportWide ? (
+              <button
+                type="button"
+                className="riffsync-room-page__expand-toggle"
+                aria-pressed={expandedViewActive}
+                onClick={() => setExpandedView((value) => !value)}
+              >
+                {expandedViewActive ? 'Exit expanded view' : 'Expand view'}
+              </button>
+            ) : null}
+            {expandedViewActive ? <RoomPageSidebar presentation="overlay" {...roomSidebarProps} activeSidebarTab="chat" /> : null}
             <StageParticipantLayout
               roomMode={roomMode}
               tiles={stageParticipantTiles}
               layoutUpdating={stageLayoutUpdating}
               viewportWide={viewportWide}
               avSurfacesEnabled={avSurfacesEnabled}
+              expandedView={expandedViewActive}
               playback={
                 <RoomPlaybackPanel
                   isPublisher={isPublisher}
@@ -382,55 +447,7 @@ export function RoomPage() {
             />
           </div>
 
-          <RoomPageSidebar
-            wsBase={wsBase}
-            fanToken={fanToken}
-            roomId={roomId}
-            sessionId={sessionId}
-            myAvatarUrl={myAvatarUrl}
-            activeSidebarTab={activeSidebarTab}
-            setRoomSidebarTab={setRoomSidebarTab}
-            viewerCount={viewerCount}
-            chat={chat}
-            chatReactions={chatReactions}
-            remoteTyping={remoteTyping}
-            chatMemberLabels={chatMemberLabels}
-            chatDraft={chatDraft}
-            setChatDraft={setChatDraft}
-            notifyComposeBlur={notifyComposeBlur}
-            chatLogRef={chatLogRef}
-            chatInputRef={chatInputRef}
-            showJumpToLatest={showJumpToLatest}
-            jumpToLatestLabel={jumpToLatestLabel}
-            jumpToLatest={jumpToLatest}
-            chatDrawerBanner={chatDrawerBanner}
-            chatComposeStatus={chatComposeStatus}
-            sendChat={sendChat}
-            sendChatGif={sendChatGif}
-            toggleChatReaction={toggleChatReaction}
-            peopleShown={peopleShown}
-            participantProducerBySessionId={participantProducerBySessionId}
-            speakingBySessionId={speakingBySessionId}
-            isPublisher={isPublisher}
-            experimentalFeatures={experimentalFeatures}
-            shareHint={shareHint}
-            onCopyShare={() => void copyShare()}
-            onOpenRenameModal={openRenameModal}
-            avDisabled={avDisabled}
-            participantAvController={participantAvController}
-            announceRoomA11y={announceRoomA11y}
-            profileDraft={profile.profileDraft}
-            setProfileDraft={profile.setProfileDraft}
-            profileSaveErr={profile.profileSaveErr}
-            profileSaving={profile.profileSaving}
-            profileAvatarUrl={profile.profileAvatarUrl}
-            profileAvatarLoading={profile.profileAvatarLoading}
-            profileAvatarUploading={profile.profileAvatarUploading}
-            profileAvatarErr={profile.profileAvatarErr}
-            profileAvatarInputRef={profile.profileAvatarInputRef}
-            saveProfileDisplayName={profile.saveProfileDisplayName}
-            onProfileAvatarSelected={profile.onProfileAvatarSelected}
-          />
+          {!expandedViewActive ? <RoomPageSidebar {...roomSidebarProps} /> : null}
         </div>
         {isPublisher && experimentalFeatures ? (
           <HostControlBar
