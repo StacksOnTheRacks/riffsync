@@ -210,10 +210,23 @@ describe('ws-route typing', () => {
 
   it('coalesces duplicate typing_start within 1s without fan-out', async () => {
     mocks.shouldCoalesceTypingStart.mockReturnValue(true);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
     const result = await handler(baseEvent({ routeKey: 'typing_start' }), {} as never, () => undefined);
     expect(result).toEqual({ statusCode: 200, body: 'OK' });
     expect(mocks.fanOutTyping).not.toHaveBeenCalled();
     expect(mocks.updateRoomPresenceLastActiveAt).not.toHaveBeenCalled();
+
+    const acceptedEmf = logSpy.mock.calls
+      .map((call) => {
+        try {
+          return JSON.parse(call[0] as string) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .find((parsed) => parsed?.TypingRouteAccepted === 1);
+    expect(acceptedEmf?.Route).toBe('typing_start');
   });
 
   it('fans out typing_stop without updating lastActiveAt', async () => {

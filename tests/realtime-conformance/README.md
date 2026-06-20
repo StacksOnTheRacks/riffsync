@@ -56,7 +56,7 @@ ICE/TURN credentials are derived from **`infra/local-media/coturn/turnserver.con
 | **8 Presence active** | **`scenarios/08-presence-active.test.ts`** | Qualifying **`ping`** then **`presence_request`** returns **`lastActiveAt`** and **`active`**. |
 | **9 `host_screen` survival** | **`scenarios/09-host-screen-survival.mts`** | **`host_screen`** + **`participant_av`** publish; **`participant_av`** video close leaves **`host_screen`** consumer within **2s**. |
 
-Each step has a **90s** wall-clock budget. Failures print **`[drawer=…] code=… step=…`** to stderr and write repo-root **`harness-summary.json`** (see **`.ai/operations/observability.md`**).
+Each step runs in its own process with a **90s** wall-clock budget. Failures print **`[drawer=…] code=… step=…`** to stderr and write repo-root **`harness-summary.json`** (see **`.ai/operations/observability.md`**). A hung step emits **`[drawer=connectivity] code=HARNESS_STEP_TIMEOUT step=<step>`** before the GitHub Actions job timeout.
 
 ## CI contract (**#153**)
 
@@ -64,10 +64,17 @@ Each step has a **90s** wall-clock budget. Failures print **`[drawer=…] code=�
 
 1. SFU compile gate (**`services/riffsync-sfu`**: **`npm ci && npm run build`**).
 2. **`bootstrap-media.sh up`** then **`wait`**.
-3. **`run.sh`** (this package).
-4. **`bootstrap-media.sh down`** in **`if: always()`** teardown.
+3. **`npm audit --omit=dev`** for this private harness package.
+4. **`run.sh`** (this package).
+5. **`bootstrap-media.sh down`** in **`if: always()`** teardown.
 
 On failure, CI uploads **`harness-summary.json`**, **`sfu-compose.log`**, and **`harness-stderr.log`**.
+
+## Dependency audit posture
+
+This package is a private CI/local test harness, not shipped application code. All executable harness dependencies, including native WebRTC bindings, live in **`devDependencies`** so **`npm audit --omit=dev`** must remain clean in CI.
+
+Full dev audit currently includes inherited advisories from **`@koush/wrtc`** through **`@mapbox/node-pre-gyp`** with no upstream fix available. The accepted exposure is limited to trusted CI runners and developer machines running disposable loopback SFU/TURN containers against synthetic media. Do not publish this package, expose it as a service, or run it against untrusted URLs or untrusted room payloads.
 
 ## Bootstrap (`bootstrap-media.sh`)
 

@@ -593,6 +593,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     const nowMs = Date.now();
     if (typingRoute === 'typing_start') {
       if (shouldCoalesceTypingStart(roomId, sessionId, nowMs)) {
+        recordTypingRouteAccepted(typingRoute, connectionId, roomId);
         return { statusCode: 200, body: 'OK' };
       }
       await tryRecordQualifyingActiveWrite('typing_start', doc, presenceTable, roomId, presenceKey);

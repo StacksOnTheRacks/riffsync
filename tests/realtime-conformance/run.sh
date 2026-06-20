@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HARNESS_DIR="${SCRIPT_DIR}"
+STEP_TIMEOUT_SECONDS="${STEP_TIMEOUT_SECONDS:-90}"
 
 cd "${HARNESS_DIR}"
 
@@ -16,10 +17,49 @@ if [[ -z "${GITHUB_ACTIONS:-}" ]] && [[ ! -d "${HARNESS_DIR}/node_modules" ]]; t
   npm ci --prefix "${HARNESS_DIR}" >/dev/null 2>&1
 fi
 
+run_with_timeout() {
+  local step="$1"
+  shift
+  echo "realtime-conformance: starting ${step}"
+  node - "${step}" "${STEP_TIMEOUT_SECONDS}" "$@" <<'NODE'
+const { spawn } = require('node:child_process')
+
+const [step, secondsRaw, command, ...args] = process.argv.slice(2)
+const timeoutMs = Math.max(1, Number(secondsRaw) || 90) * 1000
+let timedOut = false
+
+const child = spawn(command, args, { stdio: 'inherit' })
+const timer = setTimeout(() => {
+  timedOut = true
+  child.kill('SIGTERM')
+  setTimeout(() => child.kill('SIGKILL'), 5_000).unref()
+}, timeoutMs)
+
+child.on('exit', (code, signal) => {
+  clearTimeout(timer)
+  if (timedOut) {
+    console.error(`[drawer=connectivity] code=HARNESS_STEP_TIMEOUT step=${step}`)
+    process.exit(124)
+  }
+  if (typeof code === 'number') {
+    process.exit(code)
+  }
+  process.exit(signal ? 1 : 0)
+})
+
+child.on('error', (err) => {
+  clearTimeout(timer)
+  console.error(err.message)
+  process.exit(1)
+})
+NODE
+  echo "realtime-conformance: passed ${step}"
+}
+
 run_step() {
   local step="$1"
   local script="$2"
-  if ! npx --prefix "${HARNESS_DIR}" tsx "${script}"; then
+  if ! run_with_timeout "${step}" npx --prefix "${HARNESS_DIR}" tsx "${script}"; then
     exit 1
   fi
 }
@@ -27,7 +67,7 @@ run_step() {
 run_vitest() {
   local step="$1"
   shift
-  if ! npx --prefix "${HARNESS_DIR}" vitest run "$@"; then
+  if ! run_with_timeout "${step}" npx --prefix "${HARNESS_DIR}" vitest run "$@"; then
     exit 1
   fi
 }
@@ -38,11 +78,10 @@ run_step "1-join" "${HARNESS_DIR}/scenarios/01-join.mts"
 run_step "2-publish" "${HARNESS_DIR}/scenarios/02-publish.mts"
 run_step "3-consume" "${HARNESS_DIR}/scenarios/03-consume.mts"
 run_step "4-partial-unpublish" "${HARNESS_DIR}/scenarios/04-partial-unpublish.mts"
-run_vitest "5-8-ws-drawer" \
-  "${HARNESS_DIR}/scenarios/05-chat-reconnect.test.ts" \
-  "${HARNESS_DIR}/scenarios/06-sfu-reconnect.test.ts" \
-  "${HARNESS_DIR}/scenarios/07-typing.test.ts" \
-  "${HARNESS_DIR}/scenarios/08-presence-active.test.ts"
+run_vitest "5-chat-reconnect" "${HARNESS_DIR}/scenarios/05-chat-reconnect.test.ts"
+run_vitest "6-sfu-reconnect" "${HARNESS_DIR}/scenarios/06-sfu-reconnect.test.ts"
+run_vitest "7-typing" "${HARNESS_DIR}/scenarios/07-typing.test.ts"
+run_vitest "8-presence-active" "${HARNESS_DIR}/scenarios/08-presence-active.test.ts"
 run_step "9-host-screen-survival" "${HARNESS_DIR}/scenarios/09-host-screen-survival.mts"
 
 echo "realtime-conformance: all nine steps passed"
