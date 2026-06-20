@@ -39,4 +39,15 @@ describe('chat drawer UX wiring (#207)', () => {
     expect(src).not.toMatch(/sfuSignaling/)
     expect(src).not.toMatch(/videoRelayStatus/)
   })
+
+  it('anchors sparse chat history to the compose edge', () => {
+    const css = readSrc('../styles/riffsync-app.css')
+    expect(css).toMatch(
+      /\.riffsync-room-page__chat \.riffsync-room-chat-log \{[\s\S]*display: flex;[\s\S]*flex-direction: column;/,
+    )
+    expect(css).toContain('.riffsync-room-page__chat .riffsync-room-chat-log > :first-child')
+    expect(css).toMatch(
+      /\.riffsync-room-page__chat \.riffsync-room-chat-log > :first-child \{[\s\S]*margin-top: auto;/,
+    )
+  })
 })

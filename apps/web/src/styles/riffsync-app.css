@@ -2040,6 +2040,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 }
 
 .riffsync-room-page__chat .riffsync-room-chat-log {
+  display: flex;
+  flex-direction: column;
   list-style: none;
   min-height: 0;
   overflow-y: auto;
@@ -2050,6 +2052,10 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   line-height: 1.4;
   --chat-avatar-size: 28px;
   --chat-avatar-gap: 0.35rem;
+}
+
+.riffsync-room-page__chat .riffsync-room-chat-log > :first-child {
+  margin-top: auto;
 }
 
 .riffsync-room-chat-compose {
