@@ -10,7 +10,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | **Empty catalog** | Clear **“nothing to show yet”** copy for operators/contributors—never a silent blank. |
 | **Signed-in host / solo room** | **WebSocket** + **JWT** for admin paths; embed errors surface **embed blocked** + **open on YouTube** escape hatch (**`error_state.md`**). |
 | **Room / lobby** | **Room-admin** controls only when **`JWT.sub === hostSub`**; anonymous guests see **read-only** player/chat chrome (**picker hidden**, subscribe-only WebRTC). |
-| **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes **player + overlaid chat**, e.g. **right-side rail**) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
+| **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes the player, optional Theater camera row, and RiffSync chrome) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
 | **Share** | **Copy `/room/:id` URL**; show advisory **`playbackExpectation`** near share affordance. |
 | **Rate / caps** | Server may return **429** / **WS business `error`** when limits hit (**`api_contracts.md`**); toast or inline message—**no** infinite retry storms. |
 
@@ -20,6 +20,18 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 - **Layout:** Message list occupies a **bounded flex region** inside the sidebar; **only the log scrolls** (`overflow-y: auto`). Compose toolbar and tabs stay fixed. **Stick-to-bottom:** new messages auto-scroll when the user is within **48px** of the bottom (same threshold as implementation in bounded-log work). **Jump to latest:** when the user has scrolled up beyond that threshold, show a **button** above the compose bar after one or more lines arrive while they are reading history; label **"New messages"** (append **`(N)`** when **N > 1** pending). Activating the control scrolls to the latest line, clears the pending count, and hides the control. Manual scroll back within **48px** of the bottom also clears pending without requiring the button. Programmatic scroll uses **`behavior: 'smooth'`** unless **`prefers-reduced-motion: reduce`**, then **`'auto'`**.
 - **Ephemeral** chat: **in-memory / UI scrollback** capped (~**100** recent messages in client; align with **`docs/architecture.frontend.md`**). **No durable transcript** from server—reload clears messages, reactions, and GIF posts (**storage cost**).
 - **Rich content (signed-in send):** **Unicode emoji** via compose picker; **Giphy GIF** posts (inline render, bounded dimensions); **emoji reactions** aggregated per message. **Anonymous guests** may **view** all rich content but **cannot** send or react (**`authorization.md`**).
+
+### Compose media picker (emoji / GIF tabs, #258)
+
+Tabbed popover on chat compose (**`ChatComposeMediaPicker`**) — **Emojis** and **GIF** tabs share one shell above the compose row.
+
+| Concern | Contract |
+| --- | --- |
+| **Stable outer height** | Popover **outer height must not change** when switching tabs or when Giphy transitions between empty, loading, error, and results states. Tab switches must not jitter the compose row. |
+| **Fixed tab body** | Content below the tab bar uses a **fixed height of 16.5rem** (matches **`emoji-picker`** body). Both tab panels fill this region. |
+| **Giphy scroll** | Search field, status copy, attribution, and results grid render **inside** the fixed panel; the results grid **scrolls internally** (`overflow: auto`) — it must **not** expand the popover when results load. |
+| **Viewport cap** | Shell keeps **`width: min(100vw - 1rem, 18.5rem)`** and **`max-height: min(70vh, 24rem)`**; fixed body height must fit within the cap on typical viewports. |
+| **Out of scope** | Message **reaction** emoji popover (**`ChatReactionPicker`**) — separate component; not governed by this table. |
 - **Avatars:** Signed-in fans may upload **one** profile image (server-retained). Chat rows show a **thumbnail beside display name** using a **public HTTPS** avatar URL when set; guests without avatars use a neutral fallback glyph.
 - **Typing indicator:** When a signed-in fan sends **`typing_start`** on the room WebSocket, other participants see an **ellipsis** affordance associated with that sender in the chat log (e.g. **"DisplayName is typing…"** or inline ellipsis row). **Typing start** also marks the sender **active** on the **People** tab. Indicator clears on send, **`typing_stop`**, disconnect, or TTL expiry (exact TTL tier TW). **Do not** imply message archive — typing is ephemeral like chat scrollback.
 - **Join/leave system lines:** When a **signed-in fan** connects or disconnects, other participants see a muted **system line** in the chat log (e.g. **"DisplayName joined"** / **"DisplayName left"**). **Anonymous guests** produce **no** system line. Lines are **ephemeral** (in-memory scrollback only) and **not** replayed from server on refresh or **`presence_request`**.
@@ -30,9 +42,9 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 
 ### Shell boundaries
 
-- **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (strip or grid), host tab-capture chrome, and **video-relay** drawer status.
+- **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (Theater camera row or Video Chat grid), host tab-capture chrome, and **video-relay** drawer status.
 - **`riffsync-room-page__chat-column`** holds sidebar tabs (**Chat**, **People**, **Room**, **Profile**), participant AV toggles, message log, compose, and **chat** drawer status.
-- **Theater room mode** (host layout policy) is distinct from **theater fullscreen** (wrapper **`requestFullscreen`**). UI copy must not conflate the two.
+- **Theater room mode** (host layout policy) is distinct from **theater fullscreen** (wrapper **`requestFullscreen`**) and from **expanded view** (in-page stage layout). UI copy must not conflate the three.
 - **`RoomPage`** is a **thin shell**; realtime drawers are owned by **`ChatSession`**, **`SfuMediaSession`**, and **`TheaterPlayback`** (**`runtime/execution_model.md`**). Presentation contracts describe what users see regardless of module wiring.
 
 ### Media path (SFU-only)
@@ -119,13 +131,14 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 ### Theater room mode
 
 - Shared movie player (host tab-capture / guest inbound screen-share stream) stays **primary**.
-- On viewports **≥ 992px**, a **vertical participant strip** sits **immediately right of the video** within the stage region (not in the chat column).
-- Strip lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab).
-- **Speaking affordance:** when a participant's mic is unmuted and client VAD crosses threshold (**`execution_model.md`** M23 params), show a **speaking border or glow** on that participant's strip tile. **Mic-only** participants **do not** get strip tiles; their speaking state appears on **People** roster rows only. Under **`prefers-reduced-motion: reduce`**, use a static high-contrast border instead of animated glow.
-- **Mic-only** participants are audible but **not** shown in the strip (identity via **People** tab and chat). **No** avatar chips or audible-only tile badges.
-- The **local publisher** appears in the strip when their camera is on, labeled **You** (live preview tile).
-- The **host** appears in the strip when their camera is on, same as other signed-in fans.
-- When zero video-on participants, the strip container is **not rendered** (no empty chrome).
+- On viewports **≥ 992px**, a **horizontal camera row** sits **directly below the movie** within the stage region (not in the chat column and not over the movie).
+- The row lists **video-on** participants only, ordered by **stable roster join order** (same source as **People** tab).
+- **Speaking affordance:** when a participant's mic is unmuted and client VAD crosses threshold (**`execution_model.md`** M23 params), show a **speaking border or glow** on that participant's row tile. **Mic-only** participants **do not** get row tiles; their speaking state appears on **People** roster rows only. Under **`prefers-reduced-motion: reduce`**, use a static high-contrast border instead of animated glow.
+- **Mic-only** participants are audible but **not** shown in the row (identity via **People** tab and chat). **No** avatar chips or audible-only tile badges.
+- The **local publisher** appears in the row when their camera is on, labeled **You** (live preview tile).
+- The **host** appears in the row when their camera is on, same as other signed-in fans.
+- When zero video-on participants, the row container is **not rendered** (no empty chrome) and the movie uses the available stage height.
+- The camera row scrolls horizontally or wraps according to responsive layout rules; it must not overlay or obscure the movie.
 - Participant **microphones** are audible alongside movie audio while AV is enabled.
 
 ### Video Chat room mode
@@ -146,9 +159,9 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 ### Participant video tile lifecycle
 
-- Strip/grid tiles exist **only** while a **live video** consumer is attached for **`participant_av`** at that **`sessionId`**.
+- Row/grid tiles exist **only** while a **live video** consumer is attached for **`participant_av`** at that **`sessionId`**.
 - On **`producerClosed`** for video (camera off, leave, kill switch, session teardown): **remove the tile promptly** — detach **`<video>`**, clear tile state, do **not** leave a **frozen last frame**. Frozen frames are a **contract violation**.
-- **Removal timing (#142):** After consumer **`detach`** updates **`videoConsumers`**, the tile must leave strip/grid within **one React commit**. The **`<video>`** element must set **`srcObject = null`** before the next paint (cleanup on unmount or stream change).
+- **Removal timing (#142):** After consumer **`detach`** updates **`videoConsumers`**, the tile must leave row/grid within **one React commit**. The **`<video>`** element must set **`srcObject = null`** before the next paint (cleanup on unmount or stream change).
 - **Removal animation (#142):** **Instant DOM detach** for remote tiles and local **You** preview — no fade-out in MVP. **`prefers-reduced-motion`** does not alter behavior (already instant).
 - **Mic-only** after camera-off: no tile; audio continues per mode (theater client mix or Video Chat audio path). Visibility rules **unchanged** from pre-hardening contracts.
 - **`share_state: stopped`:** guests lose **host-screen** attachment only; participant tiles and mic audio **persist** when SFU plane is healthy (**`interaction_flow.md`**).
@@ -165,7 +178,7 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 ### Viewport scope
 
-- **Desktop (≥ 992px):** vertical Theater strip beside movie; Video Chat uses full-stage grid; host control bar uses full flex row.
+- **Desktop (≥ 992px):** Theater camera row below movie; Video Chat uses full-stage grid; host control bar uses full flex row.
 - **Narrow (< 992px):** honest **reduced** layout — participant video surfaces render as a **single horizontal scroll row** of tiles positioned **below** the movie primary region (Theater) or **below** the grid primary region (Video Chat). Toggles and host bar remain usable; do not imply desktop layout parity.
 
 ### iOS virtual keyboard (stacked room layout, #240)
@@ -182,8 +195,26 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 
 ### Theater fullscreen with participant AV
 
-- When participant AV surfaces are active, custom fullscreen **includes stage participant strip or grid** alongside the shared movie or grid primary region.
+- When participant AV surfaces are active, custom fullscreen **includes the Theater camera row or Video Chat grid** alongside the shared movie or grid primary region.
 - The **host control bar** may remain **outside** the fullscreen wrapper.
+
+### Expanded view (in-page, #259)
+
+**Expanded view** is an optional **in-page** layout within **`/room/:roomId`** — **not** browser **`requestFullscreen`**, **not** YouTube iframe-native fullscreen, and **not** the same as **theater fullscreen** above. Compact site header and footer remain visible; the **stage region** fills the width available beneath header within the room shell.
+
+| Concern | Contract |
+| --- | --- |
+| **Availability** | Offered in **Theater** and **Video Chat** room modes when viewport **≥ 992px**. **Hidden or inert** below 992px — standard stacked layout unchanged. |
+| **Stage primary** | **Theater:** shared movie player (host capture / guest inbound **`host_screen`**) remains primary inside the expanded stage container. **Video Chat:** participant **video-on** tile grid fills the stage region. |
+| **Theater camera row** | When one or more participant cameras are on, the expanded stage container reserves a bottom camera row **beneath** the movie. When zero cameras are on, omit the row and allow the movie to occupy the available expanded stage. Visibility rules for mic-only participants are unchanged. |
+| **Chat overlay** | **Transparent** panel **over** the stage, anchored **bottom-right**. Occupies **at most 50% of stage height** and **at most ~40% of stage width** (exact width via CSS **`clamp`** acceptable). **Does not** span the full right column height. |
+| **Overlay contents** | **Chat plane only:** chat drawer status, scrollable message log (bounded flex + stick-to-bottom per chat contract), jump-to-latest, participant AV toggles when fan JWT present, compose. **No** sidebar tab strip (**Chat / People / Room / Profile**). **People / Room / Profile** require **exit expanded view**. |
+| **Optional polish** | **Top fade gradient** on the overlay zone (video visible through chat background) is **nice-to-have**, not MVP-required. |
+| **Toggle** | **Corner control** on the stage (mockup: top-right). **Visible on pointer hover** over the stage; control remains visible while **keyboard focused**. Accessible names: **Expand view** / **Exit expanded view**. |
+| **Host control bar** | **Remains below the stage** in expanded and standard layouts (host-only). |
+| **State** | **Session-only** client state — **no** `localStorage` persistence; full reload returns to **standard** layout. |
+| **Drawers** | Chat and video-relay drawer status rules **unchanged** — chat banner lives inside the overlay; video-relay status stays on the stage playback surface. |
+| **Chromecast (future)** | Implement expanded layout as a **reusable shell** (stage-primary + chat overlay) suitable as a future Cast receiver target. **No** Cast SDK or receiver work in #259. |
 
 ## Accessibility & motion (baseline)
 
@@ -215,6 +246,33 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | **Video Chat empty grid** | **`No cameras on yet. Mic-only participants are still audible.`** |
 | **Theater before capture** | Host **Share Source Tab** prompt in existing stage status region. |
 
+## Decisions (answered — lobby host line #257)
+
+| Topic | Decision |
+| --- | --- |
+| **Placement** | On **`/lobby`**, each list row shows **`Hosted by {hostDisplayName}`** on a line **directly below** the episode **title** (`h2`) and **above** the stats row (activity, connections, playback badge). |
+| **Copy** | Sentence case **`Hosted by …`**; **`hostDisplayName`** verbatim from API (already trimmed server-side, max **48**). |
+| **Styling** | Muted secondary text — reuse **`riffsync-muted`** or an adjacent lobby stat class; not a second heading. |
+| **Missing name** | Rows without **`hostDisplayName`** are **not rendered** — the API omits them; SPA does not synthesize fallback copy. |
+| **Private rooms** | Unchanged — only **public** rooms appear on **`/lobby`**. |
+
+## Decisions (answered — compose media picker #258)
+
+| Topic | Decision |
+| --- | --- |
+| **Tab body height** | **16.5rem** fixed below tab bar for both **Emojis** and **GIF** panels. |
+| **GIF results growth** | Results grid scrolls inside fixed panel — popover does **not** grow when results appear. |
+| **Tab switch jitter** | **Contract violation** if outer popover height changes on tab switch. |
+
+## Decisions (answered — Theater camera placement #261)
+
+| Topic | Decision |
+| --- | --- |
+| **Standard Theater cameras** | Video-on participants render in a horizontal row directly beneath the movie, not in a right-side rail and not over the movie. |
+| **Expanded Theater cameras** | Expanded stage includes the movie plus optional bottom camera row; when the row is empty, the movie may use the full expanded stage. |
+| **Chat in expanded Theater** | Chat remains the bottom-right transparent overlay from **#259** and is not displaced by cameras. |
+| **Video Chat** | Participant grid remains primary; mic-only and grid visibility rules are unchanged. |
+
 ## Open implementation decisions
 
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
@@ -222,7 +280,9 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 
 ## Primary code pointers (optional)
 
+- **`apps/web/src/room/ChatComposeMediaPicker.tsx`**, **`ChatEmojiPicker.tsx`**, **`ChatGiphyPicker.tsx`** — compose emoji/GIF tabbed popover (#258 stable height).
 - SPA layout, design system, and route-level **loading/error** boundaries once scaffolded.
 - **`apps/web/src/room/RoomPlaybackPanel.tsx`** — guest **`#riffsync-video-relay-status`** host-screen status line.
-- **`apps/web/src/pages/RoomPage.tsx`** — thin room shell composing session modules; stage + chat-column layout unchanged.
+- **`apps/web/src/pages/RoomPage.tsx`** — thin room shell composing session modules; stage + chat-column layout; expanded-view toggle and overlay wiring (**#259**).
+- **`apps/web/src/room/RoomPageSidebar.tsx`** — sidebar tabs + chat; chat/compose subtree reused inside expanded overlay.
 - **`apps/web/src/room/stage/participantAvConsumers.ts`**, **`stageParticipantTiles.ts`** — tile attach/detach on **`newProducer`** / **`producerClosed`**.

@@ -47,6 +47,9 @@ function isPostToConnectionGone(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { name?: unknown }).name === 'GoneException';
 }
 
+/** PostToConnection can return Gone during the $connect handshake before the socket is deliverable. */
+const CONNECT_GONE_DELETE_GRACE_SEC = 15;
+
 /** API Gateway rejects payloads over 128 KiB — keep fan-out payloads small client-side too. */
 const MAX_WS_FANOUT_BYTES = 120 * 1024;
 
@@ -86,10 +89,19 @@ export async function postToConnections(
                 new GetCommand({
                   TableName: connectionsTable,
                   Key: { connectionId: id },
+                  ConsistentRead: true,
                 }),
               )
               .catch(() => undefined)
           : undefined;
+        const connectedAt = prior?.Item?.connectedAt;
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (
+          typeof connectedAt === 'number' &&
+          nowSec - connectedAt < CONNECT_GONE_DELETE_GRACE_SEC
+        ) {
+          continue;
+        }
         const roomId = typeof prior?.Item?.roomId === 'string' ? prior.Item.roomId : undefined;
         const presenceKey = typeof prior?.Item?.presenceKey === 'string' ? prior.Item.presenceKey : undefined;
         if (roomPresenceTable && roomId && presenceKey) {
@@ -316,8 +328,10 @@ export async function broadcastRoomPresence(params: {
   connectionsTable: string;
   roomPresenceTable: string;
   roomId: string;
+  /** Skip PostToConnection for this id (e.g. the socket still in $connect). */
+  except?: string;
 }): Promise<void> {
-  const { doc, connectionsTable, roomPresenceTable, roomId } = params;
+  const { doc, connectionsTable, roomPresenceTable, roomId, except } = params;
 
   try {
     const items = await queryRoomPresenceItems(doc, roomPresenceTable, roomId);
@@ -341,7 +355,7 @@ export async function broadcastRoomPresence(params: {
     const buf = encoder.encode(JSON.stringify({ type: 'presence', roomId, members }));
     const mgmt = wsManagementClient();
 
-    await postToConnections(mgmt, doc, connectionsTable, ids, buf, undefined, roomPresenceTable);
+    await postToConnections(mgmt, doc, connectionsTable, ids, buf, except, roomPresenceTable);
   } catch {
     console.warn(JSON.stringify({ riffsyncDiag: 'broadcast_presence_failed', roomIdHead: roomId.slice(0, 8) }));
   }
@@ -352,6 +366,7 @@ export async function broadcastRoomPresenceNow(params: {
   connectionsTable: string;
   roomPresenceTable: string;
   roomId: string;
+  except?: string;
 }): Promise<void> {
   await broadcastRoomPresence(params);
 }

@@ -84,6 +84,37 @@ function summarizeCaughtErr(err: unknown): { errorType: string; errorMessage: st
   return { errorType: name, errorMessage: message };
 }
 
+const CONN_LOOKUP_RETRY_MS = 25;
+const CONN_LOOKUP_MAX_ATTEMPTS = 4;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Strongly consistent read with brief retry - $connect Put may lag behind the first onopen frames. */
+export async function loadConnectionRow(
+  tableName: string,
+  connectionId: string,
+): Promise<Record<string, unknown> | undefined> {
+  for (let attempt = 0; attempt < CONN_LOOKUP_MAX_ATTEMPTS; attempt++) {
+    const connOut = await doc.send(
+      new GetCommand({
+        TableName: tableName,
+        Key: { connectionId },
+        ConsistentRead: true,
+      }),
+    );
+    const item = connOut.Item as Record<string, unknown> | undefined;
+    if (item && typeof item.roomId === 'string') {
+      return item;
+    }
+    if (attempt < CONN_LOOKUP_MAX_ATTEMPTS - 1) {
+      await sleep(CONN_LOOKUP_RETRY_MS);
+    }
+  }
+  return undefined;
+}
+
 async function tryRecordQualifyingActiveWrite(
   route: QualifyingActiveRoute,
   doc: Parameters<typeof updateRoomPresenceLastActiveAt>[0],
@@ -113,17 +144,19 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
 
   const connectionId = event.requestContext.connectionId;
 
-  const connOut = await doc.send(
-    new GetCommand({
-      TableName: connTable,
-      Key: { connectionId },
-    }),
-  );
-  const conn = connOut.Item as Record<string, unknown> | undefined;
-  if (!conn || typeof conn.roomId !== 'string') {
-    return { statusCode: 410, body: 'Unknown connection' };
+  const conn = await loadConnectionRow(connTable, connectionId);
+  if (!conn) {
+    console.warn(
+      JSON.stringify({
+        riffsyncDiag: 'ws_route_unknown_connection',
+        connectionIdTail: connectionId.slice(-12),
+        routeKey: event.requestContext.routeKey,
+      }),
+    );
+    // Avoid 410 here: API Gateway may close the socket and the client reconnect loop never settles.
+    return { statusCode: 200, body: 'OK' };
   }
-  const roomId = conn.roomId;
+  const roomId = conn.roomId as string;
   const sessionId = typeof conn.sessionId === 'string' ? conn.sessionId : '';
   const presenceKey = typeof conn.presenceKey === 'string' ? conn.presenceKey : `${sessionId}#${connectionId}`;
 
@@ -131,6 +164,7 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     new GetCommand({
       TableName: roomsTable,
       Key: { roomId },
+      ConsistentRead: true,
     }),
   );
   const room = roomOut.Item as Record<string, unknown> | undefined;

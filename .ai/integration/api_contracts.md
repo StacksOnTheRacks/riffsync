@@ -117,6 +117,26 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Host PATCH partial body? | **`roomMode`** / **`avDisabled`** omit-only (no **`null`**); may combine with **`broadcastCaptureActive`** in one atomic write. |
 | SPA types? | **`apps/web/src/api/roomsApi.ts`** extended in #109. |
 
+## Decisions (answered — lobby host display #257)
+
+| Question | Decision |
+| --- | --- |
+| Lobby row host label? | Each returned **`GET /v1/lobby`** room object **includes** **`hostDisplayName`** (string, max **48** chars). |
+| Name source? | **`FanProfiles.displayName`** for the room's immutable **`hostSub`** only — **not** live **RoomPresence** labels and **not** in-room WS **`rename`**. |
+| Missing / empty profile name? | **Omit the entire room row** from the lobby response — no generic fallback line and no partial row without **`hostDisplayName`**. |
+| Privacy on lobby JSON? | **Never** expose raw **`hostSub`** on **`GET /v1/lobby`**. |
+| Read path? | **`lobby-get`** batch-reads **FanProfiles** (deduped **`hostSub`** across the page); no new durable attribute on the **Rooms** item. |
+| IaC? | **`lobby-get`** receives **`FAN_PROFILES_TABLE_NAME`** and read grant on **FanProfiles** (same table as **`/v1/fans/me`**). |
+
+## Decisions (answered — host reconnect and lobby index #239 / #257)
+
+| Question | Decision |
+| --- | --- |
+| Sweeper removed **`lobbyPk`**? | When the **room admin** opens a room WebSocket on a **public** room whose **Rooms** item lacks **`lobbyPk`** (e.g. after **`lobby-sweeper`** **`removeRoomFromPublicLobby`**), **`ws-connect`** **restores** **`lobbyPk`** + **`lobbySk`** and clears **`lobbyCleanupAfter`** / **`hostLastDisconnectedAt`** — same outcome as **`clearLobbyCleanupPending`** today plus re-index. |
+| Host **`isHost`** on People? | **RoomPresence** / **Connections** rows for the admin connection **must** carry **`hostSub`** whenever **`JWT.sub === room.hostSub`** at **`$connect`** so roster fan-out keeps **`isHost: true`**. |
+| SFU token while host connected? | Host with valid fan JWT + open room WebSocket **must** receive **`host_screen`** producer grants; spurious **`not_host`** / **`unknown_session`** denials while the host tab is connected are **bugs** to fix under #239. |
+| Existing host disconnect grace? | **`lobbyCleanupAfter`** / **`HOST_DISCONNECT_GRACE_MS`** behavior **unchanged** — temporary hide during grace; re-index on admin reconnect after sweeper removal. |
+
 ## `POST /v1/webrtc/sfu-token` response (#102)
 
 | Field | Contract |

@@ -75,6 +75,9 @@ describe('ws-connect handler', () => {
     expect(mocks.clearLobbyCleanupPending).toHaveBeenCalledWith(
       expect.objectContaining({ roomsTable: 'rooms', roomId: 'room-1' }),
     );
+    expect(mocks.broadcastRoomPresenceNow).toHaveBeenCalledWith(
+      expect.objectContaining({ roomId: 'room-1', except: 'conn-1' }),
+    );
 
     const transact = mocks.docSend.mock.calls.find(
       (call) => (call[0] as { kind?: string }).kind === 'TransactWrite',

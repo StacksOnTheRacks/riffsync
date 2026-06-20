@@ -56,7 +56,7 @@ No new routes; AV extends the existing room shell. **Realtime hardening** keeps 
 When the host stops screen-share and guests receive authoritative **`share_state: stopped`**:
 
 1. **Detach `host_screen` consumers only** — clear host movie / tab-capture attachment and show honest **not sharing** placeholder in the guest playback region.
-2. **Preserve** SFU signaling session, **`participant_av`** producers/consumers, strip/grid tiles, and theater participant mic mix.
+2. **Preserve** SFU signaling session, **`participant_av`** producers/consumers, row/grid tiles, and theater participant mic mix.
 3. **Do not** close the full SFU session or reset participant AV toggles for this event alone.
 
 ### `share_state: started` (guest host-screen re-attach — #146)
@@ -64,14 +64,14 @@ When the host stops screen-share and guests receive authoritative **`share_state
 When the host starts screen-share and guests receive authoritative **`share_state: started`** in **Theater** mode:
 
 1. **Do not** close or rebuild the SFU signaling session.
-2. **Do not** detach or reset **`participant_av`** consumers or strip/grid tiles.
+2. **Do not** detach or reset **`participant_av`** consumers or row/grid tiles.
 3. Guest playback FSM transitions **`idle`** → **`verifying_media`** until a live **`host_screen`** video track is attached via SFU **`newProducer`** / consumer attach.
 4. In **Video Chat** mode, **`share_state: started`** does **not** attach host-screen consumers — layout remains participant-grid primary.
 
 ### Participant video tile lifecycle (`producerClosed`)
 
-1. **Camera off (local or remote):** On video **`producerClosed`** for **`participant_av`**, remove the strip/grid tile **promptly** for that **`sessionId`**. A **frozen last frame** after camera-off is a **contract violation**.
-2. **Mic-only after camera-off:** Participant remains **audible**; tile stays **absent** from strip/grid (identity via **People** tab and chat). **No** avatar chips, audible-only badges, or speaking borders this milestone.
+1. **Camera off (local or remote):** On video **`producerClosed`** for **`participant_av`**, remove the row/grid tile **promptly** for that **`sessionId`**. A **frozen last frame** after camera-off is a **contract violation**.
+2. **Mic-only after camera-off:** Participant remains **audible**; tile stays **absent** from row/grid (identity via **People** tab and chat). **No** avatar chips, audible-only badges, or speaking borders this milestone.
 3. **Local self-preview:** **You** tile removed when local camera off; toggling camera on again may create a new tile when video producer resumes.
 4. **Host tab-capture** is separate from participant AV tiles; **`share_state: stopped`** follows the guest detach flow above, not participant tile rules.
 
@@ -100,6 +100,16 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 - Participants receive authoritative **room mode** and **AV kill switch** state on join snapshot and realtime updates.
 - Non-host users cannot change mode; they see layout swap without confirmation.
 
+### Expanded view (local UI, #259)
+
+1. **Per-viewer toggle:** Any participant may enter or exit **expanded view** independently — **not** host-authoritative and **not** fan-out over WebSocket.
+2. **Enter expanded (≥ 992px):** Stage primary fills the room stage column span; chat moves from sidebar column to **bottom-right transparent overlay** (chat-only chrome).
+3. **Theater expanded:** Movie player remains primary inside the expanded stage container. When participant cameras are on, render the Theater camera row beneath the movie; when no cameras are on, omit the row so the movie may use the available expanded stage.
+4. **Video Chat expanded:** Participant video grid fills stage; mic-only rules unchanged.
+5. **Exit expanded:** Restore standard side-by-side stage + sidebar grid; active sidebar tab unchanged (defaults to last tab before expand if implementation tracks it; **Chat** tab content remains wired).
+6. **Room mode change while expanded:** Apply new mode to stage primary **without** forcing exit — overlay chat rules stay the same.
+7. **Reload / navigate away:** Expanded state **clears** — standard layout on return.
+
 ### Presence, typing, and People badges
 
 1. **Roster on join:** Client sends **`presence_request`** after room WebSocket connect; server returns **`presence`** roster (with **`lastActiveAt`** / **`active`**) and requester-only **`chat_history`** (capped durable messages — **excludes** ephemeral join/leave system lines).
@@ -111,8 +121,8 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 
 ### Speaking indicator flows
 
-1. **Video-on (Theater strip / Video Chat grid):** Client derives speaking from local mic analyser (self) or inbound audio track energy (remote) when producer is unmuted. Apply **speaking border/glow** on tile while above threshold (debounced tier TW).
-2. **Mic-only:** No strip/grid tile. Speaking affordance on **People** roster row for that **`sessionId`** only.
+1. **Video-on (Theater row / Video Chat grid):** Client derives speaking from local mic analyser (self) or inbound audio track energy (remote) when producer is unmuted. Apply **speaking border/glow** on tile while above threshold (debounced tier TW).
+2. **Mic-only:** No row/grid tile. Speaking affordance on **People** roster row for that **`sessionId`** only.
 3. **Muted mic:** No speaking affordance regardless of energy.
 4. **Kill switch / producer closed:** Clear speaking state with tile removal or row update.
 
@@ -126,17 +136,17 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 | Fan + staff sessions in one browser? | **Coexist independently**; staff sign-out clears staff tokens only. |
 | Discoverability of `/admin/login`? | **Unlisted** — bookmark/direct URL only; no public SPA links from fan surfaces. |
 | Participant AV toggle visibility across sidebar tabs? | **Always visible** above compose on **Chat**, **People**, **Room**, **Profile** when fan JWT present; **hidden** for anonymous guests. |
-| Local self-preview in strip/grid? | **Yes** — **You** tile when local camera on. |
+| Local self-preview in row/grid? | **Yes** — **You** tile when local camera on. |
 | Non-host room mode indicator? | **Layout only** — no read-only mode badge in MVP. |
 | Narrow viewport participant video? | **Horizontal scroll row** below movie/grid primary region. |
 | Mic-only in Video Chat grid? | **Excluded**; audio heard; identity via **People** / chat. |
-| Host in strip/grid? | **Yes** when host camera is on. |
+| Host in row/grid? | **Yes** when host camera is on. |
 | Kill switch toggle UX? | **Visible but disabled** with explanation when host disabled room AV. |
 | Video Chat tab-capture? | **Fully stop** on enter; **Share Source Tab** again on return to **Theater**. |
 | Reconnect AV state? | Camera/mic **default off**; manual re-enable. |
 | Chat vs video relay reconnect? | **Independent** — healthy drawer keeps running; each plane shows its own status surface (**`presentation.md`**). |
 | `share_state: stopped` guest scope? | **`host_screen` detach only** — participant AV and SFU session persist. |
-| Frozen frame on camera-off? | **Contract violation** — tile must leave strip/grid on video **`producerClosed`**. |
+| Frozen frame on camera-off? | **Contract violation** — tile must leave row/grid on video **`producerClosed`**. |
 | Mic-only stage chrome? | **Unchanged** for tiles — off strip/grid; **speaking** on **People** rows for mic-only; no avatar chips or audible-only tile badges. |
 | Media path (all envs)? | **SFU mandatory**; mesh WebRTC UI removed. |
 | Chat send while chat **`reconnecting`**? | **Drop** send; show **sidebar chat status** **and** **inline compose feedback** (honest copy per **`error_state.md`** **`CHAT_SEND_DROPPED`**). |

@@ -131,9 +131,13 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     await clearLobbyCleanupPending({ doc: client, roomsTable, roomId }).catch(() => undefined);
   }
 
-  await broadcastRoomPresenceNow({ doc: client, connectionsTable: connTable, roomPresenceTable: presenceTable, roomId }).catch(
-    () => undefined,
-  );
+  await broadcastRoomPresenceNow({
+    doc: client,
+    connectionsTable: connTable,
+    roomPresenceTable: presenceTable,
+    roomId,
+    except: connectionId,
+  }).catch(() => undefined);
 
   if (fanSub) {
     const inCooldown = await isWithinJoinReconnectCooldown(client, presenceTable, roomId, fanSub, nowSec).catch(

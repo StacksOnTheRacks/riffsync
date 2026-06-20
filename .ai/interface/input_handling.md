@@ -54,7 +54,17 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 ## Theater fullscreen
 
 - Fullscreen enter/exit control remains keyboard-accessible.
-- When participant AV is in fullscreen scope, strip/grid tiles do not steal focus from fullscreen exit on open.
+- When participant AV is in fullscreen scope, Theater camera row and Video Chat grid tiles do not steal focus from fullscreen exit on open.
+
+## Expanded view (#259)
+
+- **Expand / exit** control is a native **`<button>`** on the stage region — keyboard activatable (**Enter** / **Space**); not pointer-only.
+- Control is **revealed on stage hover** for pointer users; **:focus-visible** keeps it visible for keyboard users.
+- **Theater camera row:** participant tiles are informational video surfaces and must not add unexpected tab stops or steal focus when the row appears, scrolls, or wraps. Tile labels and speaking affordances remain available through visible text and accessible names.
+- **Tab order in expanded view:** expand/exit toggle → chat overlay (drawer status if present → message log scroll region → jump-to-latest when visible → AV toggles when rendered → compose) → host control bar (host only). **No** sidebar tab strip in tab order while expanded.
+- **People / Room / Profile:** reachable only after **exit expanded view** (or via site chrome navigation).
+- **Touch targets:** expand/exit control minimum **44×44** CSS px.
+- **Not offered < 992px:** toggle absent or **`aria-hidden`** / inert — no expanded keyboard path on narrow viewports in MVP.
 
 ## Primary code pointers (optional)
 
