@@ -138,10 +138,6 @@ function fanSubFromConn(conn: JsonRecord): string {
   return typeof conn.fanSub === 'string' ? conn.fanSub.trim() : '';
 }
 
-function isHostConnection(conn: JsonRecord, roomHostSub: string): boolean {
-  return typeof conn.hostSub === 'string' && conn.hostSub === roomHostSub;
-}
-
 function checkParticipantMintRateLimit(fanSub: string): boolean {
   const now = Date.now();
   const windowMs = 60_000;
@@ -289,7 +285,8 @@ async function resolveGrant(
   const wantsParticipantAv = requested.includes('participant_av');
 
   if (wantsHostScreen) {
-    if (!isHostJwt || !isHostConnection(myConn, roomHostSub)) {
+    /** HTTP Authorization is authoritative; WS `$connect` may omit `hostSub` when the query JWT fails. */
+    if (!isHostJwt) {
       return {
         status: 403,
         code: 'not_host',
@@ -319,7 +316,7 @@ async function resolveGrant(
   }
 
   if (wantsParticipantAv) {
-    if (isHostJwt && isHostConnection(myConn, roomHostSub)) {
+    if (isHostJwt) {
       const avGrant = await resolveParticipantAvGrant(
         room,
         presenceTable,

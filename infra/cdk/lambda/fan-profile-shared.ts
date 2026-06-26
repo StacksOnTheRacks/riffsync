@@ -55,6 +55,15 @@ export function avatarUrlFromStoredProfile(item: Record<string, unknown> | undef
   return typeof au === 'string' && au.trim() !== '' ? au.trim() : undefined;
 }
 
+/** Non-empty display name from a FanProfiles row (omitted when unset). */
+export function displayNameFromStoredProfile(item: Record<string, unknown> | undefined): string | undefined {
+  const dn = item?.displayName;
+  if (typeof dn !== 'string' || dn.trim() === '') {
+    return undefined;
+  }
+  return dn.trim().slice(0, FAN_DISPLAY_NAME_MAX_LEN);
+}
+
 /** Batch-read `avatarUrl` for fan Cognito subs (DynamoDB keys: `{ sub }`). */
 export async function batchAvatarUrlsByFanSub(
   doc: DynamoDBDocumentClient,
@@ -86,6 +95,44 @@ export async function batchAvatarUrlsByFanSub(
       const url = avatarUrlFromStoredProfile(item);
       if (sub && url) {
         result.set(sub, url);
+      }
+    }
+  }
+
+  return result;
+}
+
+/** Batch-read `displayName` for fan Cognito subs (DynamoDB keys: `{ sub }`). */
+export async function batchDisplayNamesByFanSub(
+  doc: DynamoDBDocumentClient,
+  table: string,
+  fanSubs: readonly string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(fanSubs.filter((s) => s.length > 0))];
+  const result = new Map<string, string>();
+  if (unique.length === 0) {
+    return result;
+  }
+
+  for (let i = 0; i < unique.length; i += 100) {
+    const chunk = unique.slice(i, i + 100);
+    const out = await doc.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [table]: {
+            Keys: chunk.map((sub) => ({ sub })),
+            ProjectionExpression: '#sub, displayName',
+            ExpressionAttributeNames: { '#sub': 'sub' },
+          },
+        },
+      }),
+    );
+    const items = (out.Responses?.[table] ?? []) as Record<string, unknown>[];
+    for (const item of items) {
+      const sub = typeof item.sub === 'string' ? item.sub : '';
+      const name = displayNameFromStoredProfile(item);
+      if (sub && name) {
+        result.set(sub, name);
       }
     }
   }

@@ -511,6 +511,13 @@ export class ChatSession {
     }
   }
 
+  /** Persist refreshed fan JWT so automatic reconnects keep publisher/host presence. */
+  updateAccessToken(accessToken: string | null): void {
+    if (this.connectOptions) {
+      this.connectOptions = { ...this.connectOptions, accessToken }
+    }
+  }
+
   disconnect(): void {
     this.cancelled = true
     this.enabled = false

@@ -81,6 +81,9 @@ export function LobbyPage() {
                   <h2 className="riffsync-lobby-list__title">
                     <Link to={`/room/${encodeURIComponent(row.roomId)}`}>{headline}</Link>
                   </h2>
+                  <p className="riffsync-lobby-list__host riffsync-muted">
+                    Hosted by {row.hostDisplayName}
+                  </p>
                   <div className="riffsync-lobby-list__stats">
                     {activity ? (
                       <span className="riffsync-lobby-list__activity riffsync-muted">{activity}</span>

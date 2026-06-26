@@ -440,6 +440,7 @@ export class RoomRealtimeSdk {
       this.joinOptions.accessToken = accessToken
     }
     this.sfu?.updatePublishGate({ fanToken: accessToken })
+    this.chat?.updateAccessToken(accessToken)
   }
 
   /**

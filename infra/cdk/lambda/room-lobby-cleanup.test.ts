@@ -26,6 +26,7 @@ import {
   clearLobbyCleanupPending,
   defaultHostDisconnectGraceMs,
   hasHostPresence,
+  maintainPublicLobbyOnHostConnect,
   markLobbyCleanupPendingIfLastHostGone,
   removeRoomFromPublicLobby,
   shouldExcludeFromLobby,
@@ -189,6 +190,55 @@ describe('room-lobby-cleanup async helpers', () => {
         kind: 'Update',
         input: expect.objectContaining({
           UpdateExpression: 'REMOVE #lpk, #lsk, #lca, #hld',
+        }),
+      }),
+    );
+  });
+
+  it('maintainPublicLobbyOnHostConnect re-indexes public rooms and clears grace fields', async () => {
+    mocks.docSend.mockResolvedValue({});
+    const nowMs = 1_700_000_000_000;
+
+    await maintainPublicLobbyOnHostConnect({
+      doc,
+      roomsTable: 'rooms',
+      roomId: 'room-1',
+      room: { visibility: 'public' },
+      nowMs,
+    });
+
+    expect(mocks.docSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'Update',
+        input: expect.objectContaining({
+          TableName: 'rooms',
+          Key: { roomId: 'room-1' },
+          UpdateExpression: 'SET #lpk = :lpk, #lsk = :lsk, #vat = :vat REMOVE #lca, #hld',
+          ExpressionAttributeValues: expect.objectContaining({
+            ':lpk': 'PUBLIC',
+            ':lsk': expect.stringContaining('room-1'),
+            ':vat': nowMs,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('maintainPublicLobbyOnHostConnect only clears grace fields for private rooms', async () => {
+    mocks.docSend.mockResolvedValue({});
+
+    await maintainPublicLobbyOnHostConnect({
+      doc,
+      roomsTable: 'rooms',
+      roomId: 'room-private',
+      room: { visibility: 'private' },
+    });
+
+    expect(mocks.docSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'Update',
+        input: expect.objectContaining({
+          UpdateExpression: 'REMOVE #lca, #hld',
         }),
       }),
     );

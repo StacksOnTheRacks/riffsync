@@ -23,7 +23,7 @@ vi.mock('./cognito-jwt', () => ({
 }));
 
 vi.mock('./room-lobby-cleanup', () => ({
-  clearLobbyCleanupPending: vi.fn(async () => undefined),
+  maintainPublicLobbyOnHostConnect: vi.fn(async () => undefined),
 }));
 
 vi.mock('./ws-chat-system-shared', () => ({

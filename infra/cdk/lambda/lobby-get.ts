@@ -1,6 +1,7 @@
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { batchDisplayNamesByFanSub } from './fan-profile-shared';
 import { shouldExcludeFromLobby } from './room-lobby-cleanup';
 import { defaultStaleRoomMs, LOBBY_PARTITION } from './room-shared';
 
@@ -24,7 +25,8 @@ async function countConnectionsForRoom(connectionsTable: string, roomId: string)
 export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
   const roomsTable = process.env.ROOMS_TABLE_NAME;
   const presenceTable = process.env.ROOM_PRESENCE_TABLE_NAME;
-  if (!roomsTable || !presenceTable) {
+  const fanProfilesTable = process.env.FAN_PROFILES_TABLE_NAME;
+  if (!roomsTable || !presenceTable || !fanProfilesTable) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Missing table env' }) };
   }
 
@@ -51,11 +53,23 @@ export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
     (row) => !shouldExcludeFromLobby(row, nowMs),
   );
 
+  const hostSubs = rows
+    .map((r) => (typeof r.hostSub === 'string' ? r.hostSub : ''))
+    .filter((s) => s.length > 0);
+  const displayNamesByHostSub = await batchDisplayNamesByFanSub(client, fanProfilesTable, hostSubs);
+
+  const listedRows = rows.filter((r) => {
+    const hostSub = typeof r.hostSub === 'string' ? r.hostSub : '';
+    return hostSub.length > 0 && displayNamesByHostSub.has(hostSub);
+  });
+
   const counts = await Promise.all(
-    rows.map((r) => countConnectionsForRoom(presenceTable, String(r.roomId ?? ''))),
+    listedRows.map((r) => countConnectionsForRoom(presenceTable, String(r.roomId ?? ''))),
   );
 
-  const roomsOut = rows.map((r, i) => {
+  const roomsOut = listedRows.map((r, i) => {
+    const hostSub = String(r.hostSub ?? '');
+    const hostDisplayName = displayNamesByHostSub.get(hostSub) ?? '';
     const catalogEpisodeId = String(r.catalogEpisodeId ?? '');
     const trimmedDisplay =
       typeof r.displayTitle === 'string' && r.displayTitle.trim() !== ''
@@ -68,6 +82,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
       lastActivityAt: r.lastActivityAt,
       catalogEpisodeId,
       youtubeVideoId: r.youtubeVideoId,
+      hostDisplayName,
       ...(trimmedDisplay !== undefined ? { displayTitle: trimmedDisplay } : {}),
       liveConnectionCount: counts[i] ?? 0,
     };

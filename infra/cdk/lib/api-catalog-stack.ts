@@ -486,6 +486,7 @@ export class ApiCatalogStack extends cdk.Stack {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CONNECTIONS_TABLE_NAME: this.connectionsTable.tableName,
         ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
+        FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
         STALE_ROOM_MS: String(staleRoomMs),
         NODE_OPTIONS: '--enable-source-maps',
       },
@@ -499,6 +500,7 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomsTable.grantReadData(lobbyGetFn);
     this.connectionsTable.grantReadData(lobbyGetFn);
     this.roomPresenceTable.grantReadData(lobbyGetFn);
+    this.fanProfilesTable.grantReadData(lobbyGetFn);
 
     const lobbySweeperFn = new lambdaNodejs.NodejsFunction(this, 'LobbySweeperFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
