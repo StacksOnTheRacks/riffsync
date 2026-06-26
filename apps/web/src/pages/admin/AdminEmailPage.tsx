@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAdminSession } from '../../admin/useAdminSession'
 import { staffHasAdminGroup } from '../../admin/staffHasAdminGroup'
-import { EmailBlockEditor, useEmailComposerState } from '../../admin/email/EmailComposerEditor'
+import { EmailBlockEditor } from '../../admin/email/EmailComposerEditor'
+import { useEmailComposerState } from '../../admin/email/useEmailComposerState'
 import {
   BROADCAST_CONFIRMATION_PHRASE,
   computeEmailContentHash,
@@ -26,6 +27,7 @@ import {
 } from '../../api/staffAdminSessionApi'
 
 type TestState = {
+  draftKey: string
   contentHash: string
   testSentAt: string
   testProof: string
@@ -40,7 +42,6 @@ export function AdminEmailPage() {
   const [subject, setSubject] = useState('')
   const [audienceCount, setAudienceCount] = useState<number | null>(null)
   const [audienceError, setAudienceError] = useState<string | null>(null)
-  const [contentHash, setContentHash] = useState<string | null>(null)
   const [testState, setTestState] = useState<TestState | null>(null)
   const [confirmationPhrase, setConfirmationPhrase] = useState('')
   const [pageError, setPageError] = useState<string | null>(null)
@@ -48,49 +49,49 @@ export function AdminEmailPage() {
   const [busy, setBusy] = useState<'test' | 'send' | null>(null)
 
   const isAdmin = session ? staffHasAdminGroup(session.groups) : false
-
-  const loadAudience = useCallback(async () => {
-    setAudienceError(null)
-    try {
-      await refreshStaffTokensIfStale()
-      const token = getStaffAccessToken()
-      if (!token) {
-        throw new StaffSessionUnauthorizedError()
-      }
-      const res = await fetchStaffEmailAudience(token)
-      setAudienceCount(res.eligibleCount)
-    } catch (e) {
-      if (e instanceof StaffSessionUnauthorizedError) {
-        setAudienceError('Session expired. Sign in again.')
-      } else if (e instanceof StaffSessionForbiddenError) {
-        setAudienceError('Admin group required for email tools.')
-      } else {
-        setAudienceError(e instanceof Error ? e.message : 'Could not load audience count.')
-      }
-    }
-  }, [])
+  const draftKey = useMemo(
+    () => JSON.stringify({ subject: subject.trim(), content }),
+    [subject, content],
+  )
 
   useEffect(() => {
-    if (!loading && session && isAdmin) {
-      void loadAudience()
+    if (loading || !session || !isAdmin) {
+      return
     }
-  }, [loading, session, isAdmin, loadAudience])
 
-  useEffect(() => {
     let cancelled = false
-    void (async () => {
-      const hash = await computeEmailContentHash(subject.trim(), content)
-      if (!cancelled) {
-        setContentHash(hash)
+
+    async function loadAudience() {
+      setAudienceError(null)
+      try {
+        await refreshStaffTokensIfStale()
+        const token = getStaffAccessToken()
+        if (!token) {
+          throw new StaffSessionUnauthorizedError()
+        }
+        const res = await fetchStaffEmailAudience(token)
+        if (!cancelled) {
+          setAudienceCount(res.eligibleCount)
+        }
+      } catch (e) {
+        if (cancelled) return
+        if (e instanceof StaffSessionUnauthorizedError) {
+          setAudienceError('Session expired. Sign in again.')
+        } else if (e instanceof StaffSessionForbiddenError) {
+          setAudienceError('Admin group required for email tools.')
+        } else {
+          setAudienceError(e instanceof Error ? e.message : 'Could not load audience count.')
+        }
       }
-    })()
+    }
+
+    void loadAudience()
     return () => {
       cancelled = true
     }
-  }, [subject, content])
+  }, [loading, session, isAdmin])
 
-  const testMatchesDraft =
-    testState !== null && contentHash !== null && testState.contentHash === contentHash
+  const testMatchesDraft = testState !== null && testState.draftKey === draftKey
 
   const previewHtml = useMemo(
     () => renderEmailPreviewHtml(subject.trim() || 'Subject preview', content),
@@ -125,6 +126,7 @@ export function AdminEmailPage() {
         content,
       })
       setTestState({
+        draftKey,
         contentHash: res.contentHash,
         testSentAt: res.testSentAt,
         testProof: res.testProof,
@@ -146,8 +148,29 @@ export function AdminEmailPage() {
     }
   }
 
+  const reloadAudience = async () => {
+    setAudienceError(null)
+    try {
+      await refreshStaffTokensIfStale()
+      const token = getStaffAccessToken()
+      if (!token) {
+        throw new StaffSessionUnauthorizedError()
+      }
+      const res = await fetchStaffEmailAudience(token)
+      setAudienceCount(res.eligibleCount)
+    } catch (e) {
+      if (e instanceof StaffSessionUnauthorizedError) {
+        setAudienceError('Session expired. Sign in again.')
+      } else if (e instanceof StaffSessionForbiddenError) {
+        setAudienceError('Admin group required for email tools.')
+      } else {
+        setAudienceError(e instanceof Error ? e.message : 'Could not load audience count.')
+      }
+    }
+  }
+
   const onSendCustomers = async () => {
-    if (!testState || contentHash === null || audienceCount === null) {
+    if (!testState || audienceCount === null) {
       return
     }
     setPageError(null)
@@ -159,6 +182,7 @@ export function AdminEmailPage() {
       if (!token) {
         throw new StaffSessionUnauthorizedError()
       }
+      const contentHash = await computeEmailContentHash(subject.trim(), content)
       const res = await sendStaffEmailBroadcast(token, {
         subject: subject.trim(),
         content,
@@ -171,14 +195,14 @@ export function AdminEmailPage() {
       setPageNotice(`Broadcast sent to ${res.sentCount} customers (${res.failedCount} failed).`)
       setTestState(null)
       setConfirmationPhrase('')
-      await loadAudience()
+      await reloadAudience()
     } catch (e) {
       if (e instanceof StaffEmailDisabledError) {
         setPageError('Customer broadcast is disabled in this environment.')
       } else if (e instanceof StaffEmailConflictError) {
         setPageError(e.message)
         if (e.code === 'audience_count_mismatch') {
-          await loadAudience()
+          await reloadAudience()
         }
       } else if (e instanceof StaffSessionUnauthorizedError) {
         setPageError('Session expired. Sign in again.')
