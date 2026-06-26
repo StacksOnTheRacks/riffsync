@@ -2,7 +2,7 @@ import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyAccessToken } from './cognito-jwt';
-import { clearLobbyCleanupPending } from './room-lobby-cleanup';
+import { maintainPublicLobbyOnHostConnect } from './room-lobby-cleanup';
 import { fanOutChatSystem, isWithinJoinReconnectCooldown } from './ws-chat-system-shared';
 import { broadcastRoomPresenceNow, presenceDisplayNameForSession } from './ws-shared';
 
@@ -128,7 +128,9 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
   );
 
   if (hostSub) {
-    await clearLobbyCleanupPending({ doc: client, roomsTable, roomId }).catch(() => undefined);
+    await maintainPublicLobbyOnHostConnect({ doc: client, roomsTable, roomId, room }).catch(
+      () => undefined,
+    );
   }
 
   await broadcastRoomPresenceNow({

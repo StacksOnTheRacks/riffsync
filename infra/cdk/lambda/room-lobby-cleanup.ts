@@ -1,5 +1,5 @@
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { defaultStaleRoomMs } from './room-shared';
+import { defaultStaleRoomMs, lobbySortKey, LOBBY_PARTITION } from './room-shared';
 import { queryRoomPresenceItems } from './ws-shared';
 
 /** Grace period before a hostless public room is hidden from the lobby (default 90s). */
@@ -88,6 +88,47 @@ export async function clearLobbyCleanupPending(params: {
         ExpressionAttributeNames: {
           '#lca': 'lobbyCleanupAfter',
           '#hld': 'hostLastDisconnectedAt',
+        },
+      }),
+    )
+    .catch(() => undefined);
+}
+
+/**
+ * When the host reconnects over WebSocket: clear lobby grace fields and re-index public rooms
+ * whose `lobbyPk`/`lobbySk` were removed by the sweeper after a host disconnect.
+ */
+export async function maintainPublicLobbyOnHostConnect(params: {
+  doc: DynamoDBDocumentClient;
+  roomsTable: string;
+  roomId: string;
+  room: Record<string, unknown>;
+  nowMs?: number;
+}): Promise<void> {
+  const { doc, roomsTable, roomId, room } = params;
+  if (room.visibility !== 'public') {
+    await clearLobbyCleanupPending({ doc, roomsTable, roomId });
+    return;
+  }
+
+  const nowMs = params.nowMs ?? Date.now();
+  await doc
+    .send(
+      new UpdateCommand({
+        TableName: roomsTable,
+        Key: { roomId },
+        UpdateExpression: 'SET #lpk = :lpk, #lsk = :lsk, #vat = :vat REMOVE #lca, #hld',
+        ExpressionAttributeNames: {
+          '#lpk': 'lobbyPk',
+          '#lsk': 'lobbySk',
+          '#vat': 'lastActivityAt',
+          '#lca': 'lobbyCleanupAfter',
+          '#hld': 'hostLastDisconnectedAt',
+        },
+        ExpressionAttributeValues: {
+          ':lpk': LOBBY_PARTITION,
+          ':lsk': lobbySortKey(nowMs, roomId),
+          ':vat': nowMs,
         },
       }),
     )

@@ -333,6 +333,24 @@ describe('webrtc-sfu-token handler', () => {
     expect(body.code).toBe('unknown_session');
   });
 
+  it('grants host_screen when the host JWT is valid but the presence row lacks hostSub', async () => {
+    stubRoomAndPresence({
+      myConn: { fanSub: hostSub },
+    });
+    mocks.verifyAccessToken.mockResolvedValue({ sub: hostSub });
+
+    const res = await handler(
+      tokenEvent({
+        authorization: 'Bearer host-jwt',
+        body: { producerClass: 'host_screen' },
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+    const body = parseBody(res);
+    expect(body.role).toBe('producer');
+    expect(body.producerClass).toBe('host_screen');
+  });
+
   it('returns not_host when a non-host requests host_screen', async () => {
     stubRoomAndPresence({ myConn: { fanSub } });
     mocks.verifyAccessToken.mockResolvedValue({ sub: fanSub });

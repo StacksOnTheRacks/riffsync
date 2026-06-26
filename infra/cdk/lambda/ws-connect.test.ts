@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   docSend: vi.fn(),
-  clearLobbyCleanupPending: vi.fn(),
+  maintainPublicLobbyOnHostConnect: vi.fn(),
   broadcastRoomPresenceNow: vi.fn(),
   verifyAccessToken: vi.fn(),
 }));
@@ -24,7 +24,7 @@ vi.mock('./cognito-jwt', () => ({
 }));
 
 vi.mock('./room-lobby-cleanup', () => ({
-  clearLobbyCleanupPending: mocks.clearLobbyCleanupPending,
+  maintainPublicLobbyOnHostConnect: mocks.maintainPublicLobbyOnHostConnect,
 }));
 
 vi.mock('./ws-shared', () => ({
@@ -50,13 +50,13 @@ describe('ws-connect handler', () => {
     process.env.ROOM_PRESENCE_TABLE_NAME = 'presence';
     mocks.docSend.mockResolvedValue({});
     mocks.verifyAccessToken.mockResolvedValue({ sub: 'host-sub-1' });
-    mocks.clearLobbyCleanupPending.mockResolvedValue(undefined);
+    mocks.maintainPublicLobbyOnHostConnect.mockResolvedValue(undefined);
     mocks.broadcastRoomPresenceNow.mockResolvedValue(undefined);
   });
 
-  it('clears pending lobby cleanup when the host reconnects', async () => {
+  it('maintains public lobby index when the host reconnects', async () => {
     mocks.docSend.mockResolvedValueOnce({
-      Item: { hostSub: 'host-sub-1' },
+      Item: { hostSub: 'host-sub-1', visibility: 'public' },
     });
 
     await handler(
@@ -72,8 +72,12 @@ describe('ws-connect handler', () => {
       () => undefined,
     );
 
-    expect(mocks.clearLobbyCleanupPending).toHaveBeenCalledWith(
-      expect.objectContaining({ roomsTable: 'rooms', roomId: 'room-1' }),
+    expect(mocks.maintainPublicLobbyOnHostConnect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roomsTable: 'rooms',
+        roomId: 'room-1',
+        room: expect.objectContaining({ hostSub: 'host-sub-1', visibility: 'public' }),
+      }),
     );
     expect(mocks.broadcastRoomPresenceNow).toHaveBeenCalledWith(
       expect.objectContaining({ roomId: 'room-1', except: 'conn-1' }),
@@ -82,12 +86,15 @@ describe('ws-connect handler', () => {
     const transact = mocks.docSend.mock.calls.find(
       (call) => (call[0] as { kind?: string }).kind === 'TransactWrite',
     )?.[0] as { input?: { TransactItems?: Array<{ Put?: { Item?: Record<string, unknown> } }> } };
+    const connPut = transact?.input?.TransactItems?.[0]?.Put?.Item;
     const presencePut = transact?.input?.TransactItems?.[1]?.Put?.Item;
+    expect(connPut?.hostSub).toBe('host-sub-1');
+    expect(presencePut?.hostSub).toBe('host-sub-1');
     expect(presencePut?.lastActiveAt).toEqual(expect.any(Number));
     expect(presencePut?.fanSub).toBe('host-sub-1');
   });
 
-  it('does not clear pending cleanup for guest connections', async () => {
+  it('does not maintain lobby cleanup for guest connections', async () => {
     mocks.verifyAccessToken.mockResolvedValue(null);
     mocks.docSend.mockResolvedValueOnce({
       Item: { hostSub: 'host-sub-1' },
@@ -105,7 +112,7 @@ describe('ws-connect handler', () => {
       () => undefined,
     );
 
-    expect(mocks.clearLobbyCleanupPending).not.toHaveBeenCalled();
+    expect(mocks.maintainPublicLobbyOnHostConnect).not.toHaveBeenCalled();
 
     const transact = mocks.docSend.mock.calls.find(
       (call) => (call[0] as { kind?: string }).kind === 'TransactWrite',
