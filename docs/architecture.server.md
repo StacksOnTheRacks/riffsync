@@ -123,6 +123,8 @@ RiffSync assumes **charts, alarms, and most reporting** are satisfied **inside A
 
 Operator-facing **admin HTTP** reporting endpoints (**`architecture.admin.md`**) remain **optional** for drill-down or CSV export; **canonical charts** for uptime, volumes, and reconcile health should be **CloudWatch** so on-call and stakeholders use one console.
 
+**Realtime drawers:** Watch-party reliability uses four orthogonal drawers (**chat**, **signaling**, **connectivity**, **produce_consume**). For operator investigation — fan console JSON, **`getDiagnostics()`** fields, **`RiffSync/Realtime`** vs **`RiffSync/Media`** metrics, and SFU journal lines — see **[`observability-drawer-mapping.md`](observability-drawer-mapping.md)** and **`.ai/operations/observability.md`**.
+
 ---
 
 ## Delivery pipeline (GitHub Actions)

@@ -90,7 +90,7 @@ Prerequisites: M14 sub-issues through #102–#105 landed; room has **`avDisabled
     On one guest, close only the **SFU** WebSocket while two remote **`participant_av`** streams are active. Guest recovers via token refetch + reconnect; remote video returns or visible **`sfu_signaling_failed`** copy after backoff.
 
 16. **Post-deploy health** — **`[Manual only]`**  
-    After media deploy: **`curl -sSf "${SFU_HTTP}/healthz"`** → **`ok`**, **`workerAlive: true`**. Optional: check CloudWatch **`RiffSync/Media`** gauges if wired.
+    After media deploy: **`curl -sSf "${SFU_HTTP}/healthz"`** → **`ok`**, **`workerAlive: true`**. Optional: check CloudWatch **`RiffSync/Media`** gauges if wired. See **[`observability-drawer-mapping.md`](observability-drawer-mapping.md)** for **`/healthz`** fields vs **`getDiagnostics()`** and EMF ship status.
 
 17. **Worker failure drill (optional)** — **`[Manual only]`**  
-    If **`/healthz`** reports **`workerAlive: false`**, use SSM + **`journalctl -u riffsync-sfu`** for the **`worker died`** JSON line, then **`sudo systemctl restart riffsync-sfu`** and re-probe. See **`infra/cdk/README.md`** SFU worker runbook for reboot escalation.
+    If **`/healthz`** reports **`workerAlive: false`**, use SSM + **`journalctl -u riffsync-sfu`** for the **`worker died`** JSON line, then **`sudo systemctl restart riffsync-sfu`** and re-probe. See **`infra/cdk/README.md`** SFU worker runbook for reboot escalation. Investigation order (console → diagnostics → CloudWatch → journal): **`observability-drawer-mapping.md`**.
