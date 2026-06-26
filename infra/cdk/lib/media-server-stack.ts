@@ -6,6 +6,7 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as path from 'node:path';
 import type { Construct } from 'constructs';
 
@@ -20,6 +21,11 @@ export const SFU_JOIN_SECRET_NAME = 'riffsync/sfu-join-hmac-secret';
 
 /** Admin teardown shared secret (room PATCH Lambda + SFU EC2; create in Secrets Manager before kill switch). */
 export const SFU_ADMIN_SECRET_NAME = 'riffsync/sfu-admin-secret';
+
+export const SFU_HIGH_CPU_ALARM_NAME = 'riffsync-sfu-high-cpu';
+export const SFU_STATUS_CHECK_FAILED_ALARM_NAME = 'riffsync-sfu-status-check-failed';
+export const TURN_HIGH_CPU_ALARM_NAME = 'riffsync-turn-high-cpu';
+export const TURN_STATUS_CHECK_FAILED_ALARM_NAME = 'riffsync-turn-status-check-failed';
 
 export interface MediaServerStackProps extends cdk.StackProps {
   /**
@@ -60,6 +66,47 @@ function recordNameUnderZone(fqdn: string, zoneName: string): string | undefined
 function normalizeFqdn(host: string): string {
   return host.replace(/\.$/, '').toLowerCase();
 }
+
+function mediaMachineImageFromContext(scope: Construct, contextKey: string): ec2.IMachineImage {
+  const amiId = scope.node.tryGetContext(contextKey);
+  if (typeof amiId === 'string' && amiId.trim() !== '') {
+    return ec2.MachineImage.genericLinux({ 'us-east-1': amiId.trim() });
+  }
+  return ec2.MachineImage.latestAmazonLinux2023();
+}
+
+const SFU_SYNC_SCRIPT = `#!/usr/bin/env bash
+set -euo pipefail
+exec 9>/run/riffsync-sfu-sync.lock
+flock -n 9 || exit 0
+
+S3_BUCKET="$(grep '^S3_BUCKET=' /etc/riffsync-sfu-sync.env | cut -d= -f2-)"
+WORKDIR=/opt/riffsync-sfu
+STATE_DIR=/var/lib/riffsync-sfu
+STATE_FILE="$STATE_DIR/source.sha256"
+mkdir -p "$WORKDIR" "$STATE_DIR"
+
+before=""
+if [ -f "$STATE_FILE" ]; then
+  before="$(cat "$STATE_FILE")"
+fi
+
+aws s3 sync "s3://$S3_BUCKET/" "$WORKDIR" --delete --exclude 'node_modules/*' --exclude 'dist/*'
+after="$(find "$WORKDIR" -type f -not -path "$WORKDIR/node_modules/*" -not -path "$WORKDIR/dist/*" -print0 | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')"
+
+if [ "$after" = "$before" ] && [ -d "$WORKDIR/node_modules" ] && [ -f "$WORKDIR/dist/index.js" ]; then
+  exit 0
+fi
+
+cd "$WORKDIR"
+npm ci
+npm run build
+npm prune --omit=dev
+printf '%s' "$after" > "$STATE_FILE"
+
+if systemctl is-active --quiet riffsync-sfu; then
+  systemctl restart riffsync-sfu
+fi`;
 
 /**
  * **Singleton** media stack: **coturn** + **mediasoup SFU** in **one** VPC (one cross-stack boundary with **`RiffSyncApi-prod`**).
@@ -202,24 +249,62 @@ export class MediaServerStack extends cdk.Stack {
       'systemctl enable --now coturn',
     );
 
+    const turnMachineImage = mediaMachineImageFromContext(this, 'turnAmiId');
+
     const turnInstance = new ec2.Instance(this, 'TurnInstance', {
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       instanceType: new ec2.InstanceType('t3.small'),
-      machineImage: ec2.MachineImage.latestAmazonLinux2023(),
+      machineImage: turnMachineImage,
       securityGroup: turnSg,
       role: turnRole,
       userData: turnUserData,
-      // UserData provisions coturn AND the 443->3478 TCP redirect, which only runs on first
-      // boot. Without replacement, CloudFormation updates the UserData property silently and the
-      // running box never picks up changes (e.g. the TURN 443 fallback). The TurnEip re-associates
-      // to the replacement instance, so PROD_TURN_HOST keeps the same public address.
-      userDataCausesReplacement: true,
+      // Keep the singleton TURN backend stable during routine CDK deploys. Operational changes
+      // should be rolled with SSM or an explicit replacement window, not by every UserData edit.
+      userDataCausesReplacement: false,
       associatePublicIpAddress: true,
       detailedMonitoring: false,
       sourceDestCheck: true,
     });
     this.turnInstanceId = turnInstance.instanceId;
+
+    new cloudwatch.Alarm(this, 'TurnHighCpuAlarm', {
+      alarmName: TURN_HIGH_CPU_ALARM_NAME,
+      alarmDescription:
+        'TURN EC2 CPU > 80% for 5 minutes - optional maintainer alert (no SNS in OSS default).',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/EC2',
+        metricName: 'CPUUtilization',
+        dimensionsMap: {
+          InstanceId: turnInstance.instanceId,
+        },
+        statistic: 'Average',
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 80,
+      evaluationPeriods: 5,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    new cloudwatch.Alarm(this, 'TurnStatusCheckFailedAlarm', {
+      alarmName: TURN_STATUS_CHECK_FAILED_ALARM_NAME,
+      alarmDescription:
+        'TURN EC2 StatusCheckFailed >= 1 for 2 minutes - optional maintainer alert (no SNS in OSS default).',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/EC2',
+        metricName: 'StatusCheckFailed',
+        dimensionsMap: {
+          InstanceId: turnInstance.instanceId,
+        },
+        statistic: 'Maximum',
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
 
     const turnEip = new ec2.CfnEIP(this, 'TurnEip', {
       domain: 'vpc',
@@ -349,8 +434,9 @@ export class MediaServerStack extends cdk.Stack {
       'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
       `printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "SFU_ADMIN_SECRET=$ADMIN_SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" ${sfuCapEnvPrintfFragments().join(' ')} > /etc/riffsync-sfu.env`,
       'chmod 0600 /etc/riffsync-sfu.env',
-      'aws s3 sync "s3://$S3_BUCKET/" /opt/riffsync-sfu --delete',
-      'cd /opt/riffsync-sfu && npm ci && npm run build && npm prune --omit=dev',
+      `cat > /usr/local/bin/riffsync-sfu-sync.sh << 'SYNCEOF'\n${SFU_SYNC_SCRIPT}\nSYNCEOF`,
+      'chmod 0755 /usr/local/bin/riffsync-sfu-sync.sh',
+      'printf "%s\\n" "S3_BUCKET=$S3_BUCKET" > /etc/riffsync-sfu-sync.env',
       `cat > /etc/systemd/system/riffsync-sfu.service << 'EOUNIT'
 [Unit]
 Description=RiffSync mediasoup SFU
@@ -365,8 +451,31 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOUNIT`,
+      `cat > /etc/systemd/system/riffsync-sfu-sync.service << 'SYNCUNIT'
+[Unit]
+Description=Sync and rebuild RiffSync SFU from S3
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/riffsync-sfu-sync.sh
+SYNCUNIT`,
+      `cat > /etc/systemd/system/riffsync-sfu-sync.timer << 'TIMEREOF'
+[Unit]
+Description=Poll RiffSync SFU S3 deployment bundle
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=riffsync-sfu-sync.service
+
+[Install]
+WantedBy=timers.target
+TIMEREOF`,
       'systemctl daemon-reload',
+      'systemctl start riffsync-sfu-sync.service',
       'systemctl enable --now riffsync-sfu',
+      'systemctl enable --now riffsync-sfu-sync.timer',
     );
 
     if (tlsEnabled && siteNamesForCaddy) {
@@ -401,13 +510,14 @@ SVCEOF`,
     }
 
     const sfuInstance = new ec2.Instance(this, 'MediasoupSfuHost', {
+      machineImage: mediaMachineImageFromContext(this, 'sfuAmiId'),
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       instanceType: new ec2.InstanceType('t3.medium'),
-      machineImage: ec2.MachineImage.latestAmazonLinux2023(),
       securityGroup: sfuSg,
       role: sfuRole,
       userData: sfuUserData,
+      userDataCausesReplacement: false,
       associatePublicIpAddress: true,
       detailedMonitoring: false,
       sourceDestCheck: true,
@@ -415,8 +525,54 @@ SVCEOF`,
     sfuInstance.node.addDependency(codeDeploy);
     this.sfuInstanceId = sfuInstance.instanceId;
 
+    const installSfuSyncTimerCommands = [
+      'set -euxo pipefail',
+      'install -d -m 0755 /opt/riffsync-sfu',
+      `cat > /usr/local/bin/riffsync-sfu-sync.sh << 'SYNCEOF'\n${SFU_SYNC_SCRIPT}\nSYNCEOF`,
+      'chmod 0755 /usr/local/bin/riffsync-sfu-sync.sh',
+      `printf "%s\\n" "S3_BUCKET=${bucketName}" > /etc/riffsync-sfu-sync.env`,
+      `cat > /etc/systemd/system/riffsync-sfu-sync.service << 'SYNCUNIT'
+[Unit]
+Description=Sync and rebuild RiffSync SFU from S3
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/riffsync-sfu-sync.sh
+SYNCUNIT`,
+      `cat > /etc/systemd/system/riffsync-sfu-sync.timer << 'TIMEREOF'
+[Unit]
+Description=Poll RiffSync SFU S3 deployment bundle
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=riffsync-sfu-sync.service
+
+[Install]
+WantedBy=timers.target
+TIMEREOF`,
+      'systemctl daemon-reload',
+      'systemctl enable --now riffsync-sfu-sync.timer',
+      'systemctl start riffsync-sfu-sync.service',
+    ];
+    const installSfuSyncTimer = new ssm.CfnAssociation(this, 'InstallSfuSyncTimer', {
+      name: 'AWS-RunShellScript',
+      targets: [
+        {
+          key: 'InstanceIds',
+          values: [sfuInstance.instanceId],
+        },
+      ],
+      parameters: {
+        commands: installSfuSyncTimerCommands,
+      },
+    });
+    installSfuSyncTimer.node.addDependency(codeDeploy);
+    installSfuSyncTimer.node.addDependency(sfuInstance);
+
     new cloudwatch.Alarm(this, 'SfuHighCpuAlarm', {
-      alarmName: 'riffsync-sfu-high-cpu',
+      alarmName: SFU_HIGH_CPU_ALARM_NAME,
       alarmDescription:
         'SFU EC2 CPU > 80% for 5 minutes — optional maintainer alert (no SNS in OSS default).',
       metric: new cloudwatch.Metric({
@@ -435,7 +591,7 @@ SVCEOF`,
     });
 
     new cloudwatch.Alarm(this, 'SfuStatusCheckFailedAlarm', {
-      alarmName: 'riffsync-sfu-status-check-failed',
+      alarmName: SFU_STATUS_CHECK_FAILED_ALARM_NAME,
       alarmDescription:
         'SFU EC2 StatusCheckFailed >= 1 for 2 minutes — optional maintainer alert (no SNS in OSS default).',
       metric: new cloudwatch.Metric({

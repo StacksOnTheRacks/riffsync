@@ -8,6 +8,7 @@ import type { Construct } from 'constructs';
 import {
   RIFFSYNC_OPERATIONS_DASHBOARD_NAME,
   buildRiffSyncOperationsDashboard,
+  type RiffSyncDashboardAlarmRef,
 } from './observability-dashboard';
 
 export interface ObservabilityTableRef {
@@ -22,8 +23,7 @@ export interface ObservabilityStackProps extends cdk.StackProps {
   readonly webSocketStageName: string;
   readonly tables: ObservabilityTableRef[];
   readonly criticalLambdas: lambda.IFunction[];
-  readonly sfuInstanceId: string;
-  readonly turnInstanceId: string;
+  readonly mediaAlarms: RiffSyncDashboardAlarmRef[];
 }
 
 /**
@@ -59,8 +59,7 @@ export class ObservabilityStack extends cdk.Stack {
         label: criticalLambdaLabels[index] ?? fn.node.id,
         functionName: fn.functionName,
       })),
-      sfuInstanceId: props.sfuInstanceId,
-      turnInstanceId: props.turnInstanceId,
+      mediaAlarms: props.mediaAlarms,
     });
 
     const region = cdk.Stack.of(this).region;

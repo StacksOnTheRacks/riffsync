@@ -13,6 +13,11 @@ on:
         required: true
         default: 'main'
         type: string
+      allow_media_replacement:
+        description: 'Allow RiffSyncTurn EC2 replacement during a planned media maintenance window'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -57,12 +62,75 @@ jobs:
             echo "::notice::RiffSync: RIFFSYNC_ROUTE53_HOSTED_ZONE_ID / RIFFSYNC_ROUTE53_ZONE_NAME unset — static stack will not create Route 53 aliases (FanWebRoute53AliasRecordCount will be 0)."
           fi
 
+      - name: Release stale media instance imports from observability
+        working-directory: infra/cdk
+        run: |
+          set -euo pipefail
+          mapfile -t CDK_CTX < <(bash scripts/cdk-prod-context-args.sh)
+          mapfile -t MEDIA_INSTANCE_EXPORTS < <(
+            aws cloudformation list-exports \
+              --query "Exports[?starts_with(Name, 'RiffSyncTurn:ExportsOutputRefMediasoupSfuHost') || starts_with(Name, 'RiffSyncTurn:ExportsOutputRefTurnInstance')].Name" \
+              --output text | tr '\t' '\n' | sed '/^$/d'
+          )
+
+          needs_observability_release=0
+          for export_name in "${MEDIA_INSTANCE_EXPORTS[@]}"; do
+            if aws cloudformation list-imports --export-name "$export_name" \
+              --query 'Imports[]' --output text | tr '\t' '\n' | grep -qx 'RiffSyncObservability-prod'; then
+              needs_observability_release=1
+            fi
+          done
+
+          if [ "$needs_observability_release" -eq 1 ]; then
+            echo "RiffSyncObservability-prod still imports media EC2 instance IDs; deploying dashboard stack first to release them."
+            npx cdk deploy RiffSyncObservability-prod --exclusively "${CDK_CTX[@]}" --require-approval never
+          else
+            echo "No stale RiffSyncObservability-prod media instance imports found."
+          fi
+
       - name: Deploy RiffSyncTurn (coturn + mediasoup SFU)
         working-directory: infra/cdk
         run: |
           set -euo pipefail
           mapfile -t CDK_CTX < <(bash scripts/cdk-prod-context-args.sh)
-          npx cdk deploy RiffSyncTurn "${CDK_CTX[@]}" --require-approval never
+          MEDIA_AMI_CTX=()
+
+          turn_instance_id="$(aws cloudformation describe-stack-resource \
+            --stack-name RiffSyncTurn \
+            --logical-resource-id TurnInstanceAE0C2A65 \
+            --query 'StackResourceDetail.PhysicalResourceId' \
+            --output text 2>/dev/null || true)"
+          if [ -n "$turn_instance_id" ] && [ "$turn_instance_id" != "None" ]; then
+            turn_ami_id="$(aws ec2 describe-instances \
+              --instance-ids "$turn_instance_id" \
+              --query 'Reservations[0].Instances[0].ImageId' \
+              --output text)"
+            MEDIA_AMI_CTX+=(--context "turnAmiId=${turn_ami_id}")
+          fi
+
+          sfu_instance_id="$(aws cloudformation describe-stack-resource \
+            --stack-name RiffSyncTurn \
+            --logical-resource-id MediasoupSfuHost3A378EC0 \
+            --query 'StackResourceDetail.PhysicalResourceId' \
+            --output text 2>/dev/null || true)"
+          if [ -n "$sfu_instance_id" ] && [ "$sfu_instance_id" != "None" ]; then
+            sfu_ami_id="$(aws ec2 describe-instances \
+              --instance-ids "$sfu_instance_id" \
+              --query 'Reservations[0].Instances[0].ImageId' \
+              --output text)"
+            MEDIA_AMI_CTX+=(--context "sfuAmiId=${sfu_ami_id}")
+          fi
+
+          npx cdk diff RiffSyncTurn "${CDK_CTX[@]}" "${MEDIA_AMI_CTX[@]}" > /tmp/riffsync-turn.diff || true
+          if grep -q 'requires replacement' /tmp/riffsync-turn.diff; then
+            cat /tmp/riffsync-turn.diff
+            if [ "${{ github.event.inputs.allow_media_replacement }}" != "true" ]; then
+              echo "::error::RiffSyncTurn deploy would replace infrastructure. Re-run with allow_media_replacement=true during a planned maintenance window."
+              exit 1
+            fi
+          fi
+
+          npx cdk deploy RiffSyncTurn "${CDK_CTX[@]}" "${MEDIA_AMI_CTX[@]}" --require-approval never
 
   cdk-platform:
     name: CDK prod – Fan + staff auth, static site, SES inbound

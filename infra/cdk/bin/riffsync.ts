@@ -6,7 +6,13 @@ import { FanAuthStack } from '../lib/fan-auth-stack';
 import { StaffAuthStack } from '../lib/staff-auth-stack';
 import { SesInboundStack, sesInboundReceiptRulesActivated } from '../lib/ses-inbound-stack';
 import { StaticSiteStack } from '../lib/static-site-stack';
-import { MediaServerStack } from '../lib/media-server-stack';
+import {
+  MediaServerStack,
+  SFU_HIGH_CPU_ALARM_NAME,
+  SFU_STATUS_CHECK_FAILED_ALARM_NAME,
+  TURN_HIGH_CPU_ALARM_NAME,
+  TURN_STATUS_CHECK_FAILED_ALARM_NAME,
+} from '../lib/media-server-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
 
 function trimContext(app: cdk.App, key: string): string | undefined {
@@ -145,15 +151,18 @@ const observability = new ObservabilityStack(app, 'RiffSyncObservability-prod', 
     { label: 'RoomChat', table: apiCatalog.roomChatTable },
   ],
   criticalLambdas: apiCatalog.criticalObservabilityFunctions,
-  sfuInstanceId: mediaServer.sfuInstanceId,
-  turnInstanceId: mediaServer.turnInstanceId,
+  mediaAlarms: [
+    { label: 'SFU high CPU', alarmName: SFU_HIGH_CPU_ALARM_NAME },
+    { label: 'SFU status check failed', alarmName: SFU_STATUS_CHECK_FAILED_ALARM_NAME },
+    { label: 'TURN high CPU', alarmName: TURN_HIGH_CPU_ALARM_NAME },
+    { label: 'TURN status check failed', alarmName: TURN_STATUS_CHECK_FAILED_ALARM_NAME },
+  ],
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
 });
 observability.addDependency(apiCatalog);
-observability.addDependency(mediaServer);
 
 new StaticSiteStack(app, 'RiffSyncStatic-prod', {
   description: 'RiffSync static SPA hosting (prod) — S3 (private) + CloudFront OAC',

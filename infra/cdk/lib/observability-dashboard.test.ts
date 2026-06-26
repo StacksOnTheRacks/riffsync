@@ -31,8 +31,10 @@ describe('observability dashboard', () => {
         { label: 'WsConnect', functionName: 'WsConnectFn' },
         { label: 'WsRoute', functionName: 'WsRouteFn' },
       ],
-      sfuInstanceId: 'i-sfu123',
-      turnInstanceId: 'i-turn456',
+      mediaAlarms: [
+        { label: 'SFU high CPU', alarmName: 'riffsync-sfu-high-cpu' },
+        { label: 'TURN high CPU', alarmName: 'riffsync-turn-high-cpu' },
+      ],
     });
 
     const template = Template.fromStack(stack);
@@ -46,7 +48,8 @@ describe('observability dashboard', () => {
     expect(serialized).toContain('RiffSync/Realtime');
     expect(serialized).toContain('RiffSync/Media');
     expect(serialized).toContain('RiffSync/Reconcile');
-    expect(serialized).toContain('AWS/EC2');
+    expect(serialized).toContain('riffsync-sfu-high-cpu');
+    expect(serialized).not.toContain('i-sfu123');
     expect(serialized).toContain('AWS/DynamoDB');
     expect(serialized).toContain('AWS/Lambda');
   });
@@ -75,8 +78,10 @@ describe('observability dashboard', () => {
       webSocketStageName: 'prod',
       tables: [{ label: 'Connections', table: table }],
       criticalLambdas: [fn],
-      sfuInstanceId: 'i-sfu123',
-      turnInstanceId: 'i-turn456',
+      mediaAlarms: [
+        { label: 'SFU high CPU', alarmName: 'riffsync-sfu-high-cpu' },
+        { label: 'TURN high CPU', alarmName: 'riffsync-turn-high-cpu' },
+      ],
       env: { account: '123456789012', region: 'us-east-1' },
     });
 

@@ -17,6 +17,11 @@ export interface RiffSyncDashboardLambdaRef {
   readonly functionName: string;
 }
 
+export interface RiffSyncDashboardAlarmRef {
+  readonly label: string;
+  readonly alarmName: string;
+}
+
 export interface RiffSyncDashboardProps {
   readonly environment: string;
   readonly httpApiId: string;
@@ -24,8 +29,7 @@ export interface RiffSyncDashboardProps {
   readonly webSocketStageName: string;
   readonly tables: RiffSyncDashboardTableRef[];
   readonly criticalLambdas: RiffSyncDashboardLambdaRef[];
-  readonly sfuInstanceId: string;
-  readonly turnInstanceId: string;
+  readonly mediaAlarms: RiffSyncDashboardAlarmRef[];
 }
 
 function httpApiMetric(
@@ -78,24 +82,6 @@ function dynamoTableMetric(
     metricName,
     dimensionsMap: {
       TableName: tableName,
-    },
-    statistic,
-    period: METRIC_PERIOD,
-    label,
-  });
-}
-
-function ec2InstanceMetric(
-  instanceId: string,
-  metricName: string,
-  statistic: string,
-  label?: string,
-): cloudwatch.Metric {
-  return new cloudwatch.Metric({
-    namespace: 'AWS/EC2',
-    metricName,
-    dimensionsMap: {
-      InstanceId: instanceId,
     },
     statistic,
     period: METRIC_PERIOD,
@@ -227,6 +213,9 @@ export function buildRiffSyncOperationsDashboard(
   const lambdaDurationMetrics = props.criticalLambdas.map((lambdaRef) =>
     lambdaFunctionMetric(lambdaRef.functionName, 'Duration', 'p99', `${lambdaRef.label} p99`),
   );
+  const mediaAlarms = props.mediaAlarms.map((alarmRef, index) =>
+    cloudwatch.Alarm.fromAlarmName(scope, `MediaAlarm${index}`, alarmRef.alarmName),
+  );
 
   dashboard.addWidgets(
     new cloudwatch.TextWidget({
@@ -340,7 +329,7 @@ export function buildRiffSyncOperationsDashboard(
       ],
     }),
     new cloudwatch.GraphWidget({
-      title: 'Media — SFU token denials and EC2 load',
+      title: 'Media — SFU token denials',
       width: 12,
       height: 6,
       left: [
@@ -351,13 +340,13 @@ export function buildRiffSyncOperationsDashboard(
           `Environment="${env}"`,
           'SfuTokenDenied (by reason)',
         ),
-        ec2InstanceMetric(props.sfuInstanceId, 'CPUUtilization', 'Average', 'SFU CPU %'),
-        ec2InstanceMetric(props.turnInstanceId, 'CPUUtilization', 'Average', 'TURN CPU %'),
       ],
-      right: [
-        ec2InstanceMetric(props.sfuInstanceId, 'NetworkOut', 'Sum', 'SFU network out'),
-        ec2InstanceMetric(props.turnInstanceId, 'NetworkOut', 'Sum', 'TURN network out'),
-      ],
+    }),
+    new cloudwatch.AlarmStatusWidget({
+      title: 'Media — host alarms',
+      width: 12,
+      height: 6,
+      alarms: mediaAlarms,
     }),
     new cloudwatch.GraphWidget({
       title: 'Catalog reconcile — RiffSync/Reconcile',
