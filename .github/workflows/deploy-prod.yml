@@ -122,7 +122,7 @@ jobs:
           fi
 
           npx cdk diff RiffSyncTurn "${CDK_CTX[@]}" "${MEDIA_AMI_CTX[@]}" > /tmp/riffsync-turn.diff || true
-          if grep -q 'requires replacement' /tmp/riffsync-turn.diff; then
+          if grep -Eq 'requires replacement|may cause replacement|may be replaced|\(replaced\)| destroy$| replace$' /tmp/riffsync-turn.diff; then
             cat /tmp/riffsync-turn.diff
             if [ "${{ github.event.inputs.allow_media_replacement }}" != "true" ]; then
               echo "::error::RiffSyncTurn deploy would replace infrastructure. Re-run with allow_media_replacement=true during a planned maintenance window."

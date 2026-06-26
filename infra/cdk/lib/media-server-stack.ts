@@ -266,6 +266,8 @@ export class MediaServerStack extends cdk.Stack {
       detailedMonitoring: false,
       sourceDestCheck: true,
     });
+    const turnCfnInstance = turnInstance.node.defaultChild as ec2.CfnInstance;
+    turnCfnInstance.overrideLogicalId('TurnInstanceAE0C2A657f750e8998ba6d12');
     this.turnInstanceId = turnInstance.instanceId;
 
     new cloudwatch.Alarm(this, 'TurnHighCpuAlarm', {
@@ -434,9 +436,6 @@ export class MediaServerStack extends cdk.Stack {
       'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
       `printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "SFU_ADMIN_SECRET=$ADMIN_SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" ${sfuCapEnvPrintfFragments().join(' ')} > /etc/riffsync-sfu.env`,
       'chmod 0600 /etc/riffsync-sfu.env',
-      `cat > /usr/local/bin/riffsync-sfu-sync.sh << 'SYNCEOF'\n${SFU_SYNC_SCRIPT}\nSYNCEOF`,
-      'chmod 0755 /usr/local/bin/riffsync-sfu-sync.sh',
-      'printf "%s\\n" "S3_BUCKET=$S3_BUCKET" > /etc/riffsync-sfu-sync.env',
       `cat > /etc/systemd/system/riffsync-sfu.service << 'EOUNIT'
 [Unit]
 Description=RiffSync mediasoup SFU
@@ -451,31 +450,8 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOUNIT`,
-      `cat > /etc/systemd/system/riffsync-sfu-sync.service << 'SYNCUNIT'
-[Unit]
-Description=Sync and rebuild RiffSync SFU from S3
-After=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/riffsync-sfu-sync.sh
-SYNCUNIT`,
-      `cat > /etc/systemd/system/riffsync-sfu-sync.timer << 'TIMEREOF'
-[Unit]
-Description=Poll RiffSync SFU S3 deployment bundle
-
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=1min
-Unit=riffsync-sfu-sync.service
-
-[Install]
-WantedBy=timers.target
-TIMEREOF`,
       'systemctl daemon-reload',
-      'systemctl start riffsync-sfu-sync.service',
       'systemctl enable --now riffsync-sfu',
-      'systemctl enable --now riffsync-sfu-sync.timer',
     );
 
     if (tlsEnabled && siteNamesForCaddy) {
