@@ -111,7 +111,7 @@ Recommended order (from #159):
 3. **CloudWatch** — open dashboard **`RiffSync-prod-operations`** ([`infra/cdk/README.md`](../infra/cdk/README.md#cloudwatch-operations-dashboard)):
    - Chat symptoms → **`RiffSync/Realtime`** widget (**`Requests`**, typing counters, presence counters).
    - Media cap / token symptoms → **`RiffSync/Media`** (**`SfuTokenDenied`** on dashboard; limit rejections may require SFU log tail until agent ships).
-   - Infra saturation → Lambda errors, API Gateway 5xx, SFU EC2 **`CPUUtilization`** (**`riffsync-sfu-high-cpu`** alarm when wired).
+   - Infra saturation → Lambda errors, API Gateway 5xx, SFU EC2 **`CPUUtilization`** (**`riffsync-sfu-high-cpu`**) and **`StatusCheckFailed`** (**`riffsync-sfu-status-check-failed`**) alarms when wired.
 4. **SFU journal** — SSM to SFU instance: **`journalctl -u riffsync-sfu -f`**. Look for structured JSON with **`drawer: "signaling"`** or **`drawer: "produce_consume"`**. Worker death: see worker runbook in [`infra/cdk/README.md`](../infra/cdk/README.md#self-hosted-media-coturn-turn--mediasoup-sfu-on-ec2) and [`sfu-deploy-checklist.md`](sfu-deploy-checklist.md).
 
 **Drawer independence:** Chat-only outage must not set **`drawers.sfuSignaling.state`** to **`torn-down`**, and SFU-only outage must not block chat sends when **`drawers.chat.state === 'connected'`**. Harness steps 5–6 encode this contract.
