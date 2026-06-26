@@ -20,6 +20,8 @@ export interface LobbyRoomRow {
   lastActivityAt?: number
   /** Host-editable headline for the lobby row. */
   displayTitle?: string
+  /** FanProfiles display name for the room host (never hostSub). */
+  hostDisplayName: string
   /** WebSocket connections for this room (tabs / live sockets; not unique people). */
   liveConnectionCount?: number
 }

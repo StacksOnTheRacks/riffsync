@@ -2605,6 +2605,12 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   text-decoration: underline;
 }
 
+.riffsync-lobby-list__host {
+  margin: 0 0 0.35rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
 .riffsync-lobby-list__stats {
   display: flex;
   flex-wrap: wrap;
