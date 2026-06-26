@@ -16,6 +16,7 @@ import { AdminLoginPage } from './pages/admin/AdminLoginPage'
 import { AdminCatalogCreatePage } from './pages/admin/AdminCatalogCreatePage'
 import { AdminCatalogEditPage } from './pages/admin/AdminCatalogEditPage'
 import { AdminCatalogListPage } from './pages/admin/AdminCatalogListPage'
+import { AdminEmailPage } from './pages/admin/AdminEmailPage'
 import { AdminHomePage } from './pages/admin/AdminHomePage'
 import { StaffAdminGate } from './pages/admin/StaffAdminGate'
 import { AdminLayout } from './layouts/AdminLayout'
@@ -32,6 +33,7 @@ export function AppRoutes() {
           <Route path="catalog/new" element={<AdminCatalogCreatePage />} />
           <Route path="catalog/:id/edit" element={<AdminCatalogEditPage />} />
           <Route path="catalog" element={<AdminCatalogListPage />} />
+          <Route path="email" element={<AdminEmailPage />} />
         </Route>
       </Route>
       <Route element={<SiteLayout />}>

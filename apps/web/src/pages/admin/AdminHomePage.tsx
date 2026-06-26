@@ -29,10 +29,13 @@ export function AdminHomePage() {
         </div>
       ) : (
         <>
-          <p>Operator tools for catalog and curation. Use Catalog to manage episodes when list UI ships.</p>
+          <p>Operator tools for catalog, curation, and customer email.</p>
           <p>
             <Link to="/admin/catalog" className="btn btn-primary">
               Open catalog
+            </Link>{' '}
+            <Link to="/admin/email" className="btn btn-secondary">
+              Open email
             </Link>
           </p>
         </>
