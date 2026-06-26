@@ -436,6 +436,8 @@ export class MediaServerStack extends cdk.Stack {
       'PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)',
       `printf "%s\\n" "SFU_JWT_SECRET=$SECRET" "SFU_ADMIN_SECRET=$ADMIN_SECRET" "PORT=3000" "MEDIASOUP_ANNOUNCED_IP=$PUBLIC_IP" "MEDIASOUP_RTC_MIN_PORT=$RTC_MIN" "MEDIASOUP_RTC_MAX_PORT=$RTC_MAX" ${sfuCapEnvPrintfFragments().join(' ')} > /etc/riffsync-sfu.env`,
       'chmod 0600 /etc/riffsync-sfu.env',
+      'aws s3 sync "s3://$S3_BUCKET/" /opt/riffsync-sfu --delete',
+      'cd /opt/riffsync-sfu && npm ci && npm run build && npm prune --omit=dev',
       `cat > /etc/systemd/system/riffsync-sfu.service << 'EOUNIT'
 [Unit]
 Description=RiffSync mediasoup SFU
