@@ -32,6 +32,9 @@ export function AdminLayout() {
           <NavLink to="/admin/catalog" className={adminNavClassName}>
             Catalog
           </NavLink>
+          <NavLink to="/admin/email" className={adminNavClassName}>
+            Email
+          </NavLink>
         </nav>
         <div className="riffsync-admin-session-strip" aria-live="polite">
           {loading ? (

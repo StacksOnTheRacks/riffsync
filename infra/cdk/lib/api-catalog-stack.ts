@@ -138,6 +138,24 @@ function turnCredentialTtlSecondsFromContext(scope: Construct): string {
   return String(ttl);
 }
 
+function enableAdminCustomerEmailSendFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('enableAdminCustomerEmailSend');
+  return raw === true || raw === 'true' ? 'true' : 'false';
+}
+
+function maxBroadcastRecipientsFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('maxBroadcastRecipients');
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(n) && n > 0 ? String(n) : '';
+}
+
+function adminEmailFromAddressFromContext(scope: Construct): string {
+  const raw = scope.node.tryGetContext('adminEmailFromAddress');
+  return typeof raw === 'string' && raw.trim().includes('@')
+    ? raw.trim()
+    : 'RiffSync <noreply@riffsync.tv>';
+}
+
 function corsAllowOrigins(extras: string[], scope: Construct): string[] {
   const altOrigins = fanWebAlternateDomainNamesFromContext(scope).map((h) => `https://${h}`);
   const base = [
@@ -770,6 +788,64 @@ export class ApiCatalogStack extends cdk.Stack {
       );
     }
 
+    const adminEmailTestProofSecret = new secretsmanager.Secret(this, 'AdminEmailTestProofSecret', {
+      description: 'HMAC key for admin email test-send proof tokens',
+    });
+
+    const adminEmailSharedEnv = {
+      STAFF_USER_POOL_ID: staffUserPool.userPoolId,
+      FAN_USER_POOL_ID: fanUserPool.userPoolId,
+      SES_CONFIGURATION_SET_NAME: sesSendingConfigurationSetName,
+      EMAIL_FROM_ADDRESS: adminEmailFromAddressFromContext(this),
+      ENABLE_ADMIN_CUSTOMER_EMAIL_SEND: enableAdminCustomerEmailSendFromContext(this),
+      MAX_BROADCAST_RECIPIENTS: maxBroadcastRecipientsFromContext(this),
+      ADMIN_EMAIL_TEST_PROOF_SECRET: adminEmailTestProofSecret.secretValue.unsafeUnwrap(),
+      NODE_OPTIONS: '--enable-source-maps',
+    };
+
+    const adminEmailAudienceFn = new lambdaNodejs.NodejsFunction(this, 'AdminEmailAudienceFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(29),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/admin-email-audience.ts'),
+      handler: 'handler',
+      environment: adminEmailSharedEnv,
+    });
+    const adminEmailTestFn = new lambdaNodejs.NodejsFunction(this, 'AdminEmailTestFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(29),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/admin-email-test.ts'),
+      handler: 'handler',
+      environment: adminEmailSharedEnv,
+    });
+    const adminEmailSendFn = new lambdaNodejs.NodejsFunction(this, 'AdminEmailSendFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/admin-email-send.ts'),
+      handler: 'handler',
+      environment: adminEmailSharedEnv,
+    });
+
+    for (const fn of [adminEmailAudienceFn, adminEmailTestFn, adminEmailSendFn]) {
+      fn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['cognito-idp:AdminListGroupsForUser', 'cognito-idp:ListUsers'],
+          resources: [staffUserPool.userPoolArn, fanUserPool.userPoolArn],
+        }),
+      );
+      fn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['ses:SendEmail'],
+          resources: ['*'],
+        }),
+      );
+    }
+
     const fanAvatarPostFn = new lambdaNodejs.NodejsFunction(this, 'FanAvatarPostFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(29),
@@ -990,6 +1066,18 @@ export class ApiCatalogStack extends cdk.Stack {
       'AdminCatalogDeleteInt',
       adminCatalogDeleteFn,
     );
+    const adminEmailAudienceIntegration = new integrations.HttpLambdaIntegration(
+      'AdminEmailAudienceInt',
+      adminEmailAudienceFn,
+    );
+    const adminEmailTestIntegration = new integrations.HttpLambdaIntegration(
+      'AdminEmailTestInt',
+      adminEmailTestFn,
+    );
+    const adminEmailSendIntegration = new integrations.HttpLambdaIntegration(
+      'AdminEmailSendInt',
+      adminEmailSendFn,
+    );
 
     this.httpApi.addRoutes({
       path: '/v1/catalog',
@@ -1117,6 +1205,27 @@ export class ApiCatalogStack extends cdk.Stack {
       authorizer: staffJwtAuthorizer,
     });
 
+    this.httpApi.addRoutes({
+      path: '/v1/admin/email/audience',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: adminEmailAudienceIntegration,
+      authorizer: staffJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/admin/email/test',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: adminEmailTestIntegration,
+      authorizer: staffJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/admin/email/send',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: adminEmailSendIntegration,
+      authorizer: staffJwtAuthorizer,
+    });
+
     const httpStageL1 = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage | undefined;
     if (httpStageL1) {
       httpStageL1.defaultRouteSettings = {
@@ -1179,7 +1288,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE).',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {

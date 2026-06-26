@@ -57,6 +57,17 @@ vi.mock('./api/staffAdminCatalogApi', () => ({
   StaffSessionForbiddenError: class StaffSessionForbiddenError extends Error {},
 }))
 
+vi.mock('./api/staffAdminEmailApi', () => ({
+  fetchStaffEmailAudience: vi.fn().mockResolvedValue({ eligibleCount: 2 }),
+  sendStaffEmailTest: vi.fn(),
+  sendStaffEmailBroadcast: vi.fn(),
+  StaffSessionUnauthorizedError: class StaffSessionUnauthorizedError extends Error {},
+  StaffSessionForbiddenError: class StaffSessionForbiddenError extends Error {},
+  StaffEmailValidationError: class StaffEmailValidationError extends Error {},
+  StaffEmailConflictError: class StaffEmailConflictError extends Error {},
+  StaffEmailDisabledError: class StaffEmailDisabledError extends Error {},
+}))
+
 describe('AppRoutes admin tree', () => {
   let container: HTMLDivElement
   let root: Root | null = null
