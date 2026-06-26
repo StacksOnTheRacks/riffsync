@@ -434,6 +434,25 @@ SVCEOF`,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
+    new cloudwatch.Alarm(this, 'SfuStatusCheckFailedAlarm', {
+      alarmName: 'riffsync-sfu-status-check-failed',
+      alarmDescription:
+        'SFU EC2 StatusCheckFailed >= 1 for 2 minutes — optional maintainer alert (no SNS in OSS default).',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/EC2',
+        metricName: 'StatusCheckFailed',
+        dimensionsMap: {
+          InstanceId: sfuInstance.instanceId,
+        },
+        statistic: 'Maximum',
+        period: cdk.Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
     const sfuEip = new ec2.CfnEIP(this, 'SfuEip', {
       domain: 'vpc',
       tags: [

@@ -201,7 +201,9 @@ One account, **one CloudFormation stack** **`RiffSyncTurn`** ([`lib/media-server
 
 **Session Manager:** no inbound **SSH**; use **SSM** for troubleshooting (**`/var/log/cloud-init-output.log`** if UserData fails).
 
-**SFU producer / transport caps:** UserData writes **`/etc/riffsync-sfu.env`** with **`SFU_MAX_PRODUCERS_PER_SESSION=3`**, **`SFU_MAX_PRODUCERS_PER_ROOM=24`**, **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION=8`**, **`SFU_MAX_CONSUMERS_PER_SESSION=64`** (defaults in [`lib/sfu-env-lines.ts`](lib/sfu-env-lines.ts); **`riffsync-sfu`** reads them at startup). Optional CloudWatch alarm **`riffsync-sfu-high-cpu`** fires when SFU EC2 **CPUUtilization** exceeds **80%** for **5** minutes (no SNS in OSS default — attach a topic in IaC if desired).
+**SFU producer / transport caps:** UserData writes **`/etc/riffsync-sfu.env`** with **`SFU_MAX_PRODUCERS_PER_SESSION=3`**, **`SFU_MAX_PRODUCERS_PER_ROOM=24`**, **`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION=8`**, **`SFU_MAX_CONSUMERS_PER_SESSION=64`** (defaults in [`lib/sfu-env-lines.ts`](lib/sfu-env-lines.ts); **`riffsync-sfu`** reads them at startup). Optional CloudWatch alarms on the SFU EC2 instance (no SNS in OSS default — attach a topic in IaC if desired): **`riffsync-sfu-high-cpu`** when **CPUUtilization** exceeds **80%** for **5** minutes; **`riffsync-sfu-status-check-failed`** when **StatusCheckFailed** is **≥ 1** for **2** consecutive minutes.
+
+**Drawer → signal mapping:** SFU stdout EMF (**`TransportLimitRejected`**, **`ConsumerLimitRejected`**, **`ProduceFailure`**) and client **`getDiagnostics()`** health fields are documented in **[`docs/observability-drawer-mapping.md`](../../docs/observability-drawer-mapping.md)** (operator runbook; **`.ai/operations/observability.md`** remains the contract).
 
 ### CloudWatch operations dashboard
 

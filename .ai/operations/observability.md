@@ -196,7 +196,7 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 | **`RiffSync/Media` (frozen)** | Metric names are the **`Signal`** dimension values in the **`RiffSync/Media` metrics (#106)** table. Dimensions **`Environment`**, **`Signal`**; **`SfuTokenDenied`** Lambda may add **`Reason`** (server-side only). |
 | **Limit rejection EMF** | **`TransportLimitRejected`** and **`ConsumerLimitRejected`** emit from SFU stdout via **`services/riffsync-sfu/src/media-observability.ts`** — **shipped**; maps to **produce_consume** drawer. |
 | **Health gauges** | **`HealthProbeSuccess`**, **`WorkerAlive`**, **`SignalingConnections`**, **`RouterRoomCount`** are **contracted** but **not auto-scraped in M21** — operator **`curl /healthz`** per **`docs/sfu-deploy-checklist.md`**; periodic Lambda scrape **deferred**. |
-| **EC2 alarms** | **`riffsync-sfu-high-cpu`** (**`CPUUtilization` > 80%**, 5 min) **shipped** in **`media-server-stack.ts`** — no SNS in OSS default. **`StatusCheckFailed`** alarm **deferred** (**#220** optional). |
+| **EC2 alarms** | **`riffsync-sfu-high-cpu`** (**`CPUUtilization` > 80%**, 5 min) and **`riffsync-sfu-status-check-failed`** (**`StatusCheckFailed` ≥ 1**, 2 min) **shipped** in **`media-server-stack.ts`** — no SNS in OSS default. |
 | **Investigation order** | (1) Fan console filter **`drawer`** → (2) matching **`getDiagnostics()`** field per #158 table → (3) **`RiffSync/Realtime`** or **`RiffSync/Media`** dashboard / EMF → (4) SFU **`journalctl`** for signaling / produce_consume server lines. |
 
 ## Decisions (answered — presence and AV maturity)
@@ -242,7 +242,6 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 
 ## Open implementation decisions
 
-- **StatusCheckFailed EC2 alarm** — Optional IaC alarm in **`media-server-stack.ts`** with maintainer SNS — tracked as **#220**; not blocking M21 doc ship.
 - **Health probe scrape Lambda** — Periodic **`/healthz`** scrape emitting **`HealthProbeSuccess`** / gauge metrics — deferred past M21 (cost and IAM guardrails).
 - **Optional aggregate client counters** — **`IceGatheringFailed`**, **`ProducerLifecycleEvent`**, **`ChatSendDropped`** — design only in runbook until a server-side aggregation path exists (no browser **`PutMetricData`**).
 
