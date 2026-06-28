@@ -232,6 +232,19 @@ Optional Chromecast support is a local room presentation layer for Cast-capable 
 | **Stop Cast** | Stop returns the sender to normal in-page playback without clearing chat scrollback, compose state, selected sidebar tab, presence, room membership, or authoritative room snapshot state. |
 | **Failure / unavailable** | Cast unavailable, blocked, rejected, or failed start surfaces honest local status and leaves normal in-page playback/chat intact. It never implies the room failed or that other participants changed state. |
 
+### Cast availability in normal room view (#272)
+
+The first Cast slice exposes availability only after the normal room shell has rendered and local sender support is confirmed.
+
+| Concern | Contract |
+| --- | --- |
+| **Primary placement** | Place **Cast to TV** in the normal-view **Room** sidebar action group near existing room actions such as **Copy Party Link** and **Leave Party**. It is a viewer-local room action, not a host-authoritative control. |
+| **Host control separation** | Do **not** place Cast availability in **`HostControlBar`** or gate it on **`JWT.sub === hostSub`**. Room admins and guests follow the same local sender-support rule. |
+| **Expanded view** | Do not render a Cast start action in expanded view. If normal-view state changes while expanded, the expanded toggle and overlay remain unchanged; the viewer exits expanded view before using Cast. |
+| **Unsupported sender default** | When sender support is absent, unknown, blocked by platform policy, or still checking, omit **Cast to TV**. Normal playback, chat, expanded view, host controls, and participant A/V remain unchanged. |
+| **Explainable unavailable state** | If an implementation briefly renders or evaluates the Cast affordance and then learns Cast is unavailable, show a local status line at the Cast surface with copy such as **Cast is not available in this browser or device.** Do not use the chat drawer banner, video-relay status, room error, or host feedback surfaces. |
+| **Stage impact** | #272 does not replace the stage, hide the player, or show **`Now Casting`**. The regular **`RoomPlaybackPanel`** remains the active playback surface until a later start-Cast slice confirms a Cast session. |
+
 ## Accessibility & motion (baseline)
 
 - Prefer **semantic headings** and **focus order** that match visual flow; **keyboard** paths for **Play**, **share**, **lobby join** before shipping broadly.
@@ -298,8 +311,6 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions.
 
 ### chromecast-presentation
-- Decide the exact normal-view placement for **Cast to TV** within existing room chrome.
-- Decide whether unavailable Cast is hidden only, disabled with explanatory text, or shown after a failed support check.
 - Define the Cast-active stage details: visible heading/copy beyond **`Now Casting`**, stop action priority, and coexistence with existing video-relay status.
 - Define whether Cast-active mode hides the expanded-view toggle or leaves it inert with explanation while the normal stage is replaced by **`Now Casting`**.
 - Define exact Cast recovery/status copy beyond the settled labels **Cast to TV**, **`Now Casting`**, and stop wording.
