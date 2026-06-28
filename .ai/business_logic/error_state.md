@@ -34,15 +34,17 @@ User-visible and system-visible failure modes (catalog + room + embed).
 | **Theater playback blocked** | Inline honest copy when **AudioContext** suspend or autoplay blocks movie/mic mix; chat and SFU sessions may still be connected; user action may be required to resume audio (**client-side mix default**). |
 | **Cast unavailable or failed** | Local recoverable Cast status only. Keep normal in-page playback/chat/room participation available; do not leave the room, tear down healthy chat/SFU drawers, stop host share, mutate room state, or imply other participants are affected. |
 
-## Local Cast status taxonomy (#272 availability)
+## Local Cast status taxonomy
 
-The availability slice defines the first local Cast status code only. Later Cast-start and lifecycle issues extend this table for launch rejection, receiver disconnect, receiver playback blocked, and stop failure.
+The availability and Cast-start slices define local Cast status codes only. Later lifecycle issues extend this table for receiver disconnect, receiver playback blocked, and stop failure.
 
 | **`code`** | Source | Surface | User-facing copy (template) |
 | --- | --- | --- | --- |
 | **`CAST_UNAVAILABLE`** | Sender support check reports no usable Cast sender path, support is blocked by browser/platform policy, or the support detector fails without a recoverable sender action. | Normal-view Room sidebar Cast surface only. | Cast is not available in this browser or device. |
+| **`CAST_STARTING`** | Sender launches the custom RiffSync Cast receiver and waits for receiver render confirmation. | Local Cast status near the Cast action or stage-local Cast surface. | Starting Cast… |
+| **`CAST_START_REJECTED`** | Sender SDK rejects launch, user cancels the Cast chooser, receiver launch fails, or the receiver does not confirm rendering the stage-primary video plus chat overlay. | Local Cast status near the Cast action or stage-local Cast surface. | Cast could not start. Try again from this browser or device. |
 
-`CAST_UNAVAILABLE` must not appear in chat drawer status, video-relay status, room-level alerts, or **`RoomRealtimeSdk.getDiagnostics().drawers.*`**. It is a local UI status for the viewer's browser/session only.
+Cast status codes must not appear in chat drawer status, video-relay status, room-level alerts, or **`RoomRealtimeSdk.getDiagnostics().drawers.*`**. They are local UI status for the viewer's browser/session only.
 
 ## Auth — fan
 
@@ -170,8 +172,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Kill-switch toggle affordance:** visible-disabled with host explanation per **`presentation.md`** (resolved).
 
 ### chromecast-local-errors
-- Define stable local Cast error/status codes and copy for no receiver available, user-canceled start, receiver disconnect, receiver playback blocked, and stop failure.
-- Decide whether active Cast failures use a stage-local status line, room action status, or inline alert. The surface must not merge with chat drawer or video-relay drawer health.
+- **Resolved for #273:** start uses **`CAST_STARTING`** while waiting for custom receiver render confirmation and **`CAST_START_REJECTED`** when launch is rejected, canceled, or the receiver does not confirm stage-primary video plus chat overlay rendering.
+- **Out of #273 scope:** receiver disconnect, receiver playback blocked, and stop failure codes are owned by #278 / #276.
+- **Resolved for #273:** start feedback uses local Cast status near the Cast action or stage-local Cast surface and must not merge with chat drawer or video-relay drawer health.
 
 ## Primary code pointers (optional)
 

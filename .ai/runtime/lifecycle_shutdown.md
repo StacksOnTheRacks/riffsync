@@ -59,6 +59,7 @@ Local Cast state follows the same independence rule: Cast stop, failure, or rece
 - **Stop Cast:** user stop, receiver disconnect, sender SDK-ended event, or stop failure all converge on one best-effort cleanup path that clears local Cast-active UI and returns to normal in-page playback.
 - **Room leave / navigate / reload:** clear local Cast state and release Cast/source resources best-effort before or alongside global room teardown. Failure to stop an already-ended receiver session must not block room leave.
 - **Cast start failure:** restore or keep normal in-page playback visible, keep chat draft/session state intact, and avoid closing healthy chat or SFU drawers.
+- **Custom receiver launch failure (#273):** if the sender SDK rejects launch, the user cancels the chooser, or the receiver does not confirm rendering stage-primary video plus chat overlay, clear **`CAST_STARTING`**, surface **`CAST_START_REJECTED`**, and keep normal playback visible.
 - **Expanded view state:** Cast starts only from normal view. If stale expanded-view local state exists internally, cleanup must not re-enter expanded view after Cast stop unless a later interface contract permits it.
 
 ## Participant A/V errors (client)
@@ -97,9 +98,8 @@ Local Cast state follows the same independence rule: Cast stop, failure, or rece
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-lifecycle-shutdown
-- Specify cleanup ordering for user stop, receiver disconnect, sender SDK-ended event, route change, reload, and room teardown.
-- Decide whether stop failure keeps **`Now Casting`** visible with retry, returns to normal playback with warning, or attempts a second best-effort cleanup.
-- Define how Cast cleanup coordinates with hidden or detached playback/source elements without leaking media handles.
+- **Resolved for #273:** launch failure and route leave clear local start state and keep/restore normal playback without closing healthy room, chat, SFU, or theater playback modules.
+- **Out of #273 scope:** user Stop Cast, receiver disconnect after active Cast, sender SDK-ended active sessions, stop failure, and hidden/detached active playback source cleanup are owned by #276 / #278 / #274.
 
 ## Primary code pointers (optional)
 

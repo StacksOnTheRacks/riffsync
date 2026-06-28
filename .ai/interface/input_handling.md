@@ -73,7 +73,8 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - In #272, **Cast to TV** is part of the normal-view **Room** sidebar action group. It follows the existing action-button tab order near **Copy Party Link** and **Leave Party** and uses the same minimum **44×44** CSS px target size as other room controls.
 - Unsupported, unknown, or platform-blocked sender support omits the control from the tab order. If the implementation needs to explain a late unavailable result, the explanatory text is readable near the Cast surface but does not add a required keyboard action.
 - Expanded view must not expose a Cast start control in the tab order. If implementation leaves a Cast affordance mounted for layout reasons, it is inert and unavailable to assistive technology while expanded.
-- During Cast start, focus remains stable unless the implementation moves focus to a visible local status region. Failed start returns focus to the Cast entry or nearby room action surface.
+- During Cast start, focus remains on **Cast to TV** while the custom receiver launches unless the user explicitly moves focus. Start status is announced through a visible local status region and does not require focus.
+- Failed start returns focus to **Cast to TV** when it is still rendered; otherwise it returns focus to the nearest normal-view Room action.
 - After successful Cast start, the sender's stage exposes a keyboard-reachable stop control associated with the **`Now Casting`** state.
 - Stop Cast activation by click, **Enter**, or **Space** returns the sender to normal in-page playback without trapping focus or moving focus into a hidden video surface.
 - Chat compose, jump-to-latest, sidebar tabs, and participant A/V toggles keep their existing keyboard paths while local Cast is active.
@@ -83,9 +84,9 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-input-handling
-- Define whether focus moves to Stop Cast after successful start, returns to **Cast to TV** after stop, or remains on the activating control until the user moves it.
-- Define keyboard and pointer behavior for the expanded-view toggle while local Cast is active.
-- Define touch target placement and hit area for Stop Cast on narrow normal-view layouts while Cast is active.
+- **Resolved for #273:** focus remains on **Cast to TV** during receiver launch; start status uses local status text rather than forced focus movement.
+- **Out of #273 scope:** focus movement to Stop Cast after the #274 **`Now Casting`** stage appears is owned by #274.
+- **Out of #273 scope:** expanded-view toggle behavior while already casting and narrow Stop Cast hit-area placement are owned by #274 / #276.
 
 ## Primary code pointers (optional)
 

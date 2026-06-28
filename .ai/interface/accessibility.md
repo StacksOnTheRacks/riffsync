@@ -52,7 +52,8 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - The sender's **`Now Casting`** state is perceivable as text, not color/icon-only, and associated with the Stop Cast control.
 - Cast-active status uses a visible stage-local **`role="status"`** or equivalent polite live region. It must not duplicate chat drawer or video-relay drawer reconnect announcements.
 - Cast failure/unavailable copy is readable by assistive technology at the local Cast surface and must not imply that the room, host share, chat, or other participants failed.
-- The Cast receiver presentation reuses the expanded-view composition model. If chat overlay content is rendered on the receiver, it remains readable presentation only; chat input and authenticated send affordances remain on the sender.
+- The Cast receiver presentation reuses the expanded-view composition model. Chat overlay content is required on the receiver for #273, remains readable presentation only, and must not expose chat input or authenticated send affordances on the receiver.
+- Do not expose the receiver device name in accessible descriptions for #273. Use privacy-preserving copy such as **Casting to TV** or **Starting Cast** unless the sender-side Cast SDK requires device naming in browser-owned UI.
 
 ### Keyboard verification matrix (#106)
 
@@ -82,9 +83,10 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **`THEATER_AUDIO_SUSPENDED` a11y:** whether resume uses implicit gesture only or a keyboard-focusable explicit control with accessible name (pairs with **`presentation.md`** theater audio item).
 
 ### chromecast-accessibility
-- Choose the exact `role="status"` / `aria-live` placement for local Cast starting, active, failed, and stopped states beyond the #272 Room sidebar availability status.
-- Define accessible names and descriptions for Cast start/stop controls, including whether the current receiver/device name is exposed or omitted for privacy.
-- Define focus recovery after failed start, successful stop, and receiver disconnect.
+- **Resolved for #273:** local Cast starting and start-failed text uses a visible **`role="status"`** with polite announcement near the Cast action or stage-local Cast surface. It must not duplicate chat drawer, video-relay, or global room announcer output.
+- **Resolved for #273:** **Cast to TV** has a visible label or accessible name; receiver/device name is omitted from app-authored accessible copy for privacy.
+- **Resolved for #273:** failed start returns focus to **Cast to TV** when still rendered, or to the nearest normal-view Room action.
+- **Out of #273 scope:** successful stop, receiver disconnect, and persistent active-state focus recovery are owned by #276 / #278 / #274.
 
 ## Primary code pointers (optional)
 
