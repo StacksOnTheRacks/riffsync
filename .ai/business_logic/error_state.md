@@ -34,6 +34,16 @@ User-visible and system-visible failure modes (catalog + room + embed).
 | **Theater playback blocked** | Inline honest copy when **AudioContext** suspend or autoplay blocks movie/mic mix; chat and SFU sessions may still be connected; user action may be required to resume audio (**client-side mix default**). |
 | **Cast unavailable or failed** | Local recoverable Cast status only. Keep normal in-page playback/chat/room participation available; do not leave the room, tear down healthy chat/SFU drawers, stop host share, mutate room state, or imply other participants are affected. |
 
+## Local Cast status taxonomy (#272 availability)
+
+The availability slice defines the first local Cast status code only. Later Cast-start and lifecycle issues extend this table for launch rejection, receiver disconnect, receiver playback blocked, and stop failure.
+
+| **`code`** | Source | Surface | User-facing copy (template) |
+| --- | --- | --- | --- |
+| **`CAST_UNAVAILABLE`** | Sender support check reports no usable Cast sender path, support is blocked by browser/platform policy, or the support detector fails without a recoverable sender action. | Normal-view Room sidebar Cast surface only. | Cast is not available in this browser or device. |
+
+`CAST_UNAVAILABLE` must not appear in chat drawer status, video-relay status, room-level alerts, or **`RoomRealtimeSdk.getDiagnostics().drawers.*`**. It is a local UI status for the viewer's browser/session only.
+
 ## Auth — fan
 
 | State | UX |
@@ -160,8 +170,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Kill-switch toggle affordance:** visible-disabled with host explanation per **`presentation.md`** (resolved).
 
 ### chromecast-local-errors
-- Define stable local Cast error/status codes and copy for unsupported sender, no receiver available, user-canceled start, receiver disconnect, receiver playback blocked, and stop failure.
-- Decide whether Cast failures use a stage-local status line, room action status, or inline alert. The surface must not merge with chat drawer or video-relay drawer health.
+- Define stable local Cast error/status codes and copy for no receiver available, user-canceled start, receiver disconnect, receiver playback blocked, and stop failure.
+- Decide whether active Cast failures use a stage-local status line, room action status, or inline alert. The surface must not merge with chat drawer or video-relay drawer health.
 
 ## Primary code pointers (optional)
 

@@ -49,6 +49,17 @@ Chromecast runtime state belongs to the room shell as a **client-local controlle
 | **Stop / failure** | Stop, unavailable, rejected start, receiver disconnect, route leave, or reload converges on local cleanup and returns to normal in-page playback without clearing room session or chat state. |
 | **Authority** | Cast state never changes **`roomMode`**, **`avDisabled`**, **`share_state`**, host screen publishing, participant A/V publish eligibility, or other participants' presentation. |
 
+### Cast availability detector (#272)
+
+The #272 slice may introduce the first local Cast controller shape as a capability detector only.
+
+| Concern | Contract |
+| --- | --- |
+| **Minimum states** | **`checking`**, **`available`**, and **`unavailable`** are sufficient for the availability UI. Internal names may differ, but the UI must distinguish "show Cast to TV" from "omit or explain unavailable." |
+| **Bootstrap isolation** | Detection starts after normal room shell bootstrap is underway or complete. Failure to load a Cast SDK or read browser support maps to local **`CAST_UNAVAILABLE`** and does not fail the room. |
+| **Diagnostics** | #272 does not add Cast to **`RoomRealtimeSdk.getDiagnostics()`**, drawer health, or active realtime error codes. Local dev logs are acceptable when they do not imply room activity or identify receiver devices. |
+| **Lifecycle ceiling** | #272 does not model **`starting`**, **`casting`**, **`stopping`**, receiver disconnect, or source cleanup. Those runtime states belong to later M25 slices. |
+
 ### Application SDK surface (narrow public API)
 
 Room code outside these modules calls only:
@@ -414,7 +425,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-runtime-controller
 - Define the Cast controller home and public shape, likely a room-shell hook or module owned near `RoomPage` rather than existing realtime session modules.
-- Choose local lifecycle states exposed to UI and diagnostics, such as unavailable, idle, starting, casting, stopping, failed, and receiver disconnected.
+- Choose local lifecycle states exposed to UI after availability, such as idle, starting, casting, stopping, failed, and receiver disconnected.
 - Decide source binding for the expanded-view-like Cast presentation: hidden/offscreen reusable shell, receiver reconstruction, media element/stream Cast, or provider-native path.
 - Decide playback element behavior while casting: mounted but hidden, detached, or replaced by Cast placeholder without violating **`TheaterPlayback`** cleanup rules.
 - Decide Cast-specific test hooks or diagnostics without overloading `getDiagnostics().drawers.*` unless a later contract adds a Cast drawer.

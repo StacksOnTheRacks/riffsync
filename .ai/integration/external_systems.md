@@ -19,6 +19,18 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 
 **Boundary:** Cast state is not written to RiffSync HTTP APIs, not sent over the room WebSocket, not represented in **`share_state`**, and not used for SFU token authorization. If a future custom receiver joins RiffSync services directly, that is a new integration/auth review rather than an implied part of this contract.
 
+### Cast sender availability gate (#272)
+
+The first Cast implementation slice may add a browser-local sender support detector. It reports whether the current normal room view may show **Cast to TV**; it does not start Cast and does not select the final receiver/source architecture.
+
+| Gate | Contract |
+| --- | --- |
+| **Runtime phase** | Run after normal room shell render/bootstrap. Detection must not block room snapshot, chat WebSocket, SFU bootstrap, normal playback, expanded view, or host controls. |
+| **Required support** | Show **Cast to TV** only when the browser/session exposes a usable sender capability for the chosen implementation path and the current context satisfies origin/security requirements. |
+| **Unsupported / unknown** | Omit the Cast entry while support is unknown or absent. If the detector fails after evaluation, map to local **`CAST_UNAVAILABLE`** copy in **`error_state.md`**. |
+| **No receiver architecture commitment** | #272 does not require custom receiver registration, receiver application id, receiver service identity, direct SFU subscribe authorization, YouTube-native Cast binding, or MediaStream Cast support. Those choices belong to the Cast-start slice. |
+| **No authority side effects** | Detection must not call RiffSync HTTP APIs, publish WebSocket messages, request SFU tokens, alter **`roomMode`**, alter **`share_state`**, or inspect/identify receiver devices in room state. |
+
 ## TMDB (The Movie Database)
 
 | Use | Mechanism | Contract |
@@ -121,7 +133,6 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### chromecast-provider-boundary
 - Decide the Cast source architecture: rendered RiffSync receiver page, native YouTube Cast path where available, sender media element/stream Cast, tab mirroring guidance, or another supported Cast mechanism.
 - Validate whether guest inbound **`MediaStream`** playback can be cast directly, requires screen/tab mirroring, or needs a receiver that reconnects to RiffSync media services.
-- Determine sender support detection gates before rendering **Cast to TV**, including browser API availability, HTTPS/origin requirements, receiver availability state, and provider failure states.
 - Identify Google Cast receiver registration, application ID, origin allowlist, CSP, iframe, and YouTube policy requirements.
 - If a custom receiver joins room services directly, define receiver identity, room access, and SFU subscribe authorization before implementation.
 

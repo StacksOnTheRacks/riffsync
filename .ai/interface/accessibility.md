@@ -47,6 +47,8 @@ Accessible-by-default contract for presentation and interaction surfaces.
 ### Chromecast Cast status
 
 - **Cast to TV** and Stop Cast are semantic controls with visible labels or accessible names.
+- For #272 availability, **Cast to TV** is exposed as a normal-view Room sidebar action only after local sender support is confirmed. Unsupported or unknown support omits the control from the accessibility tree.
+- If Cast becomes unavailable after the local support check begins or fails, expose the explanation in a visible local status element near the Room sidebar Cast surface, with **`role="status"`** and polite announcement behavior. Do not route this copy through **`#riffsync-a11y-announcer`**, the chat drawer status, or the video-relay status.
 - The sender's **`Now Casting`** state is perceivable as text, not color/icon-only, and associated with the Stop Cast control.
 - Cast-active status uses a visible stage-local **`role="status"`** or equivalent polite live region. It must not duplicate chat drawer or video-relay drawer reconnect announcements.
 - Cast failure/unavailable copy is readable by assistive technology at the local Cast surface and must not imply that the room, host share, chat, or other participants failed.
@@ -80,7 +82,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **`THEATER_AUDIO_SUSPENDED` a11y:** whether resume uses implicit gesture only or a keyboard-focusable explicit control with accessible name (pairs with **`presentation.md`** theater audio item).
 
 ### chromecast-accessibility
-- Choose the exact `role="status"` / `aria-live` placement for local Cast starting, active, failed, and stopped states.
+- Choose the exact `role="status"` / `aria-live` placement for local Cast starting, active, failed, and stopped states beyond the #272 Room sidebar availability status.
 - Define accessible names and descriptions for Cast start/stop controls, including whether the current receiver/device name is exposed or omitted for privacy.
 - Define focus recovery after failed start, successful stop, and receiver disconnect.
 

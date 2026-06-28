@@ -70,6 +70,8 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 ## Chromecast Cast controls
 
 - **Cast to TV** is keyboard-operable when rendered and appears only in normal room view after sender support is detected.
+- In #272, **Cast to TV** is part of the normal-view **Room** sidebar action group. It follows the existing action-button tab order near **Copy Party Link** and **Leave Party** and uses the same minimum **44×44** CSS px target size as other room controls.
+- Unsupported, unknown, or platform-blocked sender support omits the control from the tab order. If the implementation needs to explain a late unavailable result, the explanatory text is readable near the Cast surface but does not add a required keyboard action.
 - Expanded view must not expose a Cast start control in the tab order. If implementation leaves a Cast affordance mounted for layout reasons, it is inert and unavailable to assistive technology while expanded.
 - During Cast start, focus remains stable unless the implementation moves focus to a visible local status region. Failed start returns focus to the Cast entry or nearby room action surface.
 - After successful Cast start, the sender's stage exposes a keyboard-reachable stop control associated with the **`Now Casting`** state.
@@ -83,7 +85,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### chromecast-input-handling
 - Define whether focus moves to Stop Cast after successful start, returns to **Cast to TV** after stop, or remains on the activating control until the user moves it.
 - Define keyboard and pointer behavior for the expanded-view toggle while local Cast is active.
-- Define touch target placement and hit area for Cast start/stop on narrow normal-view layouts if Cast is supported there.
+- Define touch target placement and hit area for Stop Cast on narrow normal-view layouts while Cast is active.
 
 ## Primary code pointers (optional)
 

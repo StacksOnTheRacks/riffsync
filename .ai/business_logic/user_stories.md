@@ -100,8 +100,18 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Video Chat empty grid:** copy and layout when **no participant has camera on** (placeholder vs audio-only affordance).
 - **Kill switch control affordance:** participant camera/mic toggles **visible but disabled** with short explanation vs hidden when **`avDisabled`** is true (accessibility vs minimal chrome).
 
-### chromecast-watch-party-room
-- Break the Cast-capable viewer story into issue-sized delivery slices for availability gating, Cast start, sender `Now Casting` state, Stop Cast recovery, and fallback handling.
+## Decisions (answered — M25 Chromecast delivery slices)
+
+| Issue | Slice |
+| --- | --- |
+| **#272** | Expose viewer-local Cast availability in normal room view only, without changing room state or playback when unavailable. |
+| **#273** | Start Cast from the expanded-view presentation model after availability is known. |
+| **#274** | Replace the sender stage with **`Now Casting`** and Stop Cast while local Cast is active. |
+| **#275** | Keep sender chat and room participation interactive while local Cast is active. |
+| **#276** | Restore normal in-page playback after intentional Stop Cast. |
+| **#277** | Preserve room authority, participant playback, SFU permissions, and room fan-out during local Cast. |
+| **#278** | Handle local Cast unavailable, failed launch, receiver disconnect, and recovery states. |
+| **#279** | Verify Cast lifecycle, accessibility, and cleanup behavior across the milestone. |
 
 ## Primary code pointers (optional)
 
