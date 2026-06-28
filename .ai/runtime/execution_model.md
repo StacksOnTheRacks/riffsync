@@ -48,6 +48,7 @@ Chromecast runtime state belongs to the room shell as a **client-local controlle
 | **Active state** | While active, the sender remains joined to the room and chat stays controlled by **`ChatSession`**. Cast active state must not close healthy chat or SFU sessions. |
 | **Stop / failure** | Stop, unavailable, rejected start, receiver disconnect, route leave, or reload converges on local cleanup and returns to normal in-page playback without clearing room session or chat state. |
 | **Authority** | Cast state never changes **`roomMode`**, **`avDisabled`**, **`share_state`**, host screen publishing, participant A/V publish eligibility, or other participants' presentation. |
+| **Receiver model** | The receiver is a custom RiffSync Cast page fed by sender-proxied local state over the Cast channel. It does not join the room, create a participant session, open room/SFU sockets, or own room authority. |
 
 ### Cast availability detector (#272)
 
@@ -59,6 +60,19 @@ The #272 slice may introduce the first local Cast controller shape as a capabili
 | **Bootstrap isolation** | Detection starts after normal room shell bootstrap is underway or complete. Failure to load a Cast SDK or read browser support maps to local **`CAST_UNAVAILABLE`** and does not fail the room. |
 | **Diagnostics** | #272 does not add Cast to **`RoomRealtimeSdk.getDiagnostics()`**, drawer health, or active realtime error codes. Local dev logs are acceptable when they do not imply room activity or identify receiver devices. |
 | **Lifecycle ceiling** | #272 does not model **`starting`**, **`casting`**, **`stopping`**, receiver disconnect, or source cleanup. Those runtime states belong to later M25 slices. |
+
+### Cast start controller (#273)
+
+The #273 slice extends the local Cast controller from availability into custom receiver launch and receiver presentation proof.
+
+| Concern | Contract |
+| --- | --- |
+| **Controller home** | Keep Cast controller state near the room shell (`RoomPage` or a colocated room hook/module). It coordinates sender presentation snapshots and receiver channel messages, but it remains outside **`RoomRealtimeSdk.getDiagnostics()`**. |
+| **Minimum lifecycle states** | Add local states equivalent to **`idle`**, **`starting`**, **`casting`**, and **`start_failed`**. Later stop, receiver-disconnect, receiver-playback-blocked, and stop-failed refinements may extend the state machine without changing room authority. |
+| **Launch source** | Cast starts the custom RiffSync receiver page, then sends a presentation snapshot that includes the current stage-primary video source/binding metadata needed by the receiver plus chat overlay state. |
+| **Receiver updates** | While launch is active, the sender sends chat-overlay updates over the Cast channel. The receiver renders overlay content only; compose, authenticated chat send, People, Room, and Profile interactions stay on the sender. |
+| **Success condition** | Cast start is successful only when the receiver confirms it is rendering the stage-primary video plus bottom-right chat overlay. A launch-only or model-pass-only acknowledgement is insufficient for #273. |
+| **Playback surface** | The sender keeps normal in-page playback visible during **`starting`**. After receiver render confirmation, the sender may transition to the later **`Now Casting`** state owned by #274. |
 
 ### Application SDK surface (narrow public API)
 
@@ -424,11 +438,11 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Harness extension** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`**.
 
 ### chromecast-runtime-controller
-- Define the Cast controller home and public shape, likely a room-shell hook or module owned near `RoomPage` rather than existing realtime session modules.
-- Choose local lifecycle states exposed to UI after availability, such as idle, starting, casting, stopping, failed, and receiver disconnected.
-- Decide source binding for the expanded-view-like Cast presentation: hidden/offscreen reusable shell, receiver reconstruction, media element/stream Cast, or provider-native path.
-- Decide playback element behavior while casting: mounted but hidden, detached, or replaced by Cast placeholder without violating **`TheaterPlayback`** cleanup rules.
-- Decide Cast-specific test hooks or diagnostics without overloading `getDiagnostics().drawers.*` unless a later contract adds a Cast drawer.
+- **Resolved for #273:** the controller is room-shell local and launches a custom RiffSync receiver page with sender-proxied state.
+- **Resolved for #273:** local lifecycle must cover **`idle`**, **`starting`**, **`casting`**, and **`start_failed`**; stop/disconnect refinements extend this in sibling issues.
+- **Resolved for #273:** the receiver reconstructs the expanded-view-like presentation from sender-proxied snapshots and updates; provider-native media Cast and tab mirroring are outside this slice.
+- **Resolved for #273:** normal in-page playback remains visible during **`starting`** and the #274 sender-stage replacement owns the full **`Now Casting`** placeholder behavior.
+- **Resolved for #273:** Cast-specific launch/render test hooks may be local to the Cast controller or receiver harness, but they must not overload **`getDiagnostics().drawers.*`**.
 
 ## Primary code pointers (optional)
 

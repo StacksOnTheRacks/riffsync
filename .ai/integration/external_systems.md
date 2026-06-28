@@ -14,10 +14,10 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 
 | Use | Mechanism | Contract |
 | --- | --- | --- |
-| **Viewer-local Cast** | Browser sender capability detection plus a supported Cast sender/receiver path. Exact SDK calls, receiver application shape, and media/source binding are implementation details. | Optional and availability-gated. Cast entry appears only in normal room view when sender support is present. Cast failure or unavailability leaves normal inline playback/chat/room participation intact. |
-| **Cast presentation** | Reuses the expanded-view composition model: stage-primary/video plus chat overlay, without the sidebar tab strip. | Presentation is local to the sender/receiver pair. It does not create a room-wide Cast mode, change what other participants see, or grant host/admin authority. |
+| **Viewer-local Cast** | Browser sender capability detection plus a custom RiffSync Cast receiver page launched from the sender. The sender proxies a local presentation snapshot and chat-overlay updates over the Cast channel. | Optional and availability-gated. Cast entry appears only in normal room view when sender support is present. Cast failure or unavailability leaves normal inline playback/chat/room participation intact. |
+| **Cast presentation** | The custom receiver reconstructs the expanded-view composition model: stage-primary/video plus bottom-right chat overlay, without the sidebar tab strip. | Presentation is local to the sender/receiver pair. The receiver does not join the room as a participant, does not receive durable room authority, and does not create a room-wide Cast mode or change what other participants see. |
 
-**Boundary:** Cast state is not written to RiffSync HTTP APIs, not sent over the room WebSocket, not represented in **`share_state`**, and not used for SFU token authorization. If a future custom receiver joins RiffSync services directly, that is a new integration/auth review rather than an implied part of this contract.
+**Boundary:** Cast state is not written to RiffSync HTTP APIs, not sent over the room WebSocket, not represented in **`share_state`**, and not used for SFU token authorization. The M25 receiver is sender-proxied only: the sender remains the sole room participant for this Cast session and owns the room snapshot, chat log, and overlay updates it forwards to the receiver. If a future receiver joins RiffSync services directly, that is a new integration/auth review rather than an implied part of this contract.
 
 ### Cast sender availability gate (#272)
 
@@ -30,6 +30,18 @@ The first Cast implementation slice may add a browser-local sender support detec
 | **Unsupported / unknown** | Omit the Cast entry while support is unknown or absent. If the detector fails after evaluation, map to local **`CAST_UNAVAILABLE`** copy in **`error_state.md`**. |
 | **No receiver architecture commitment** | #272 does not require custom receiver registration, receiver application id, receiver service identity, direct SFU subscribe authorization, YouTube-native Cast binding, or MediaStream Cast support. Those choices belong to the Cast-start slice. |
 | **No authority side effects** | Detection must not call RiffSync HTTP APIs, publish WebSocket messages, request SFU tokens, alter **`roomMode`**, alter **`share_state`**, or inspect/identify receiver devices in room state. |
+
+### Cast start receiver boundary (#273)
+
+The Cast-start slice uses a custom RiffSync Cast receiver page. The receiver renders a live presentation supplied by the sender, not a second room client.
+
+| Concern | Contract |
+| --- | --- |
+| **Receiver application** | A RiffSync receiver route/page reconstructs the expanded-view presentation shell for Cast. It renders stage-primary video plus bottom-right chat overlay and omits the sidebar tab strip. |
+| **Sender authority** | The sender stays joined to the room and remains the only RiffSync participant involved in the Cast session. The receiver receives sender-proxied presentation data over the Cast channel. |
+| **Room access** | The receiver does not call room HTTP APIs, open the room WebSocket, request SFU tokens, create a presence row, publish chat, or subscribe to room media services directly in M25. |
+| **Chat overlay** | The receiver overlay is required for #273. Native media Cast without the RiffSync chat overlay is outside #273 and not an acceptable M25 substitute. |
+| **Provider metadata** | Google Cast receiver registration, application id, origin allowlist, CSP, and iframe policy are configuration concerns for this custom receiver path. They must not introduce receiver room authority. |
 
 ## TMDB (The Movie Database)
 
@@ -131,10 +143,9 @@ The first Cast implementation slice may add a browser-local sender support detec
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-provider-boundary
-- Decide the Cast source architecture: rendered RiffSync receiver page, native YouTube Cast path where available, sender media element/stream Cast, tab mirroring guidance, or another supported Cast mechanism.
-- Validate whether guest inbound **`MediaStream`** playback can be cast directly, requires screen/tab mirroring, or needs a receiver that reconnects to RiffSync media services.
-- Identify Google Cast receiver registration, application ID, origin allowlist, CSP, iframe, and YouTube policy requirements.
-- If a custom receiver joins room services directly, define receiver identity, room access, and SFU subscribe authorization before implementation.
+- **Resolved for #273:** custom RiffSync receiver page with sender-proxied local state. Native YouTube Cast, sender media-element Cast, and tab mirroring are outside #273.
+- **Resolved for #273:** the receiver does not join room services directly, so no receiver identity, room access token, SFU subscribe authorization, or receiver presence row is introduced for M25.
+- **Resolved for #273:** Google Cast receiver registration, application ID, origin allowlist, CSP, and iframe policy are required configuration for the custom receiver path and must preserve sender-only room authority.
 
 ## Primary code pointers (optional)
 
