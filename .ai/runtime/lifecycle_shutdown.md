@@ -56,6 +56,7 @@ Local Cast state follows the same independence rule: Cast stop, failure, or rece
 
 ## SPA local Cast
 
+- **Active Cast UI (#274):** After receiver render confirmation, active Cast owns the sender **`Now Casting`** UI and Stop Cast control. Activating Stop Cast begins local stop intent and may enter a local stopping state, but it must not clear room membership, chat draft/session state, selected sidebar tab, SFU signaling, or **`TheaterPlayback`** by itself.
 - **Stop Cast:** user stop, receiver disconnect, sender SDK-ended event, or stop failure all converge on one best-effort cleanup path that clears local Cast-active UI and returns to normal in-page playback.
 - **Room leave / navigate / reload:** clear local Cast state and release Cast/source resources best-effort before or alongside global room teardown. Failure to stop an already-ended receiver session must not block room leave.
 - **Cast start failure:** restore or keep normal in-page playback visible, keep chat draft/session state intact, and avoid closing healthy chat or SFU drawers.
@@ -99,7 +100,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-lifecycle-shutdown
 - **Resolved for #273:** launch failure and route leave clear local start state and keep/restore normal playback without closing healthy room, chat, SFU, or theater playback modules.
-- **Out of #273 scope:** user Stop Cast, receiver disconnect after active Cast, sender SDK-ended active sessions, stop failure, and hidden/detached active playback source cleanup are owned by #276 / #278 / #274.
+- **Resolved for #274:** active Cast cleanup begins with local stop intent only; the Stop Cast control must not tear down healthy room, chat, SFU, or theater playback modules by itself.
+- **Out of #274 scope:** normal in-page playback restoration after successful stop, receiver disconnect after active Cast, sender SDK-ended active sessions, stop failure, and hidden/detached active playback source cleanup are owned by #276 / #278.
 
 ## Primary code pointers (optional)
 

@@ -74,6 +74,18 @@ The #273 slice extends the local Cast controller from availability into custom r
 | **Success condition** | Cast start is successful only when the receiver confirms it is rendering the stage-primary video plus bottom-right chat overlay. A launch-only or model-pass-only acknowledgement is insufficient for #273. |
 | **Playback surface** | The sender keeps normal in-page playback visible during **`starting`**. After receiver render confirmation, the sender may transition to the later **`Now Casting`** state owned by #274. |
 
+### Cast-active controller (#274)
+
+The #274 slice extends the local Cast controller from confirmed start into persistent active sender presentation.
+
+| Concern | Contract |
+| --- | --- |
+| **Minimum lifecycle state** | Add or expose local state equivalent to **`casting`** / **`active`** with optional **`stopping`** intent. Names may differ, but UI must distinguish active Cast from starting, failed start, idle, and later failed-stop/disconnect states. |
+| **Stage projection** | When state is active, the room shell renders **`CAST_ACTIVE`** / **`Now Casting`** on the sender stage and hides the normal in-page video surface until stop/disconnect cleanup returns control to later slices. |
+| **Stop intent** | The Stop Cast control invokes the local Cast controller's stop entrypoint. This entrypoint must not call room HTTP APIs, emit room WebSocket messages, mutate **`share_state`**, close **`ChatSession`**, close **`SfuMediaSession`**, or change SFU token claims. |
+| **Expanded state** | Active Cast clears or suppresses expanded-view local state. The controller must not re-enter expanded view after stop unless a later interface contract permits it. |
+| **Diagnostics** | Active/stopping Cast state remains outside **`RoomRealtimeSdk.getDiagnostics().drawers.*`** and **`activeErrorCodes`**. Test-only controller state or local component assertions are acceptable. |
+
 ### Application SDK surface (narrow public API)
 
 Room code outside these modules calls only:
@@ -443,6 +455,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #273:** the receiver reconstructs the expanded-view-like presentation from sender-proxied snapshots and updates; provider-native media Cast and tab mirroring are outside this slice.
 - **Resolved for #273:** normal in-page playback remains visible during **`starting`** and the #274 sender-stage replacement owns the full **`Now Casting`** placeholder behavior.
 - **Resolved for #273:** Cast-specific launch/render test hooks may be local to the Cast controller or receiver harness, but they must not overload **`getDiagnostics().drawers.*`**.
+- **Resolved for #274:** active Cast renders **`CAST_ACTIVE`** / **`Now Casting`** on the sender stage, exposes local Stop Cast intent, clears/suppresses expanded view, and still does not add drawer diagnostics or active realtime error codes.
 
 ## Primary code pointers (optional)
 

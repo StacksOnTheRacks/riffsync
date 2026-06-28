@@ -54,6 +54,9 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - Cast failure/unavailable copy is readable by assistive technology at the local Cast surface and must not imply that the room, host share, chat, or other participants failed.
 - The Cast receiver presentation reuses the expanded-view composition model. Chat overlay content is required on the receiver for #273, remains readable presentation only, and must not expose chat input or authenticated send affordances on the receiver.
 - Do not expose the receiver device name in accessible descriptions for #273. Use privacy-preserving copy such as **Casting to TV** or **Starting Cast** unless the sender-side Cast SDK requires device naming in browser-owned UI.
+- For #274, the Stop Cast control has a visible label or accessible name **Stop Cast**, is programmatically associated with the active **`Now Casting`** text, and remains keyboard reachable while local Cast is active.
+- If active Cast begins from a still-focused **Cast to TV** control, focus moves to **Stop Cast**. If the viewer moved focus elsewhere before confirmation, do not move it unexpectedly.
+- While local Cast is active, expanded-view controls are absent from the accessibility tree or inert. The Cast-active status remains the only stage-local Cast announcement.
 
 ### Keyboard verification matrix (#106)
 
@@ -86,7 +89,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #273:** local Cast starting and start-failed text uses a visible **`role="status"`** with polite announcement near the Cast action or stage-local Cast surface. It must not duplicate chat drawer, video-relay, or global room announcer output.
 - **Resolved for #273:** **Cast to TV** has a visible label or accessible name; receiver/device name is omitted from app-authored accessible copy for privacy.
 - **Resolved for #273:** failed start returns focus to **Cast to TV** when still rendered, or to the nearest normal-view Room action.
-- **Out of #273 scope:** successful stop, receiver disconnect, and persistent active-state focus recovery are owned by #276 / #278 / #274.
+- **Resolved for #274:** persistent active state exposes **`Now Casting`** text plus an associated **Stop Cast** control, with stage-local polite status only.
+- **Resolved for #274:** focus moves from **Cast to TV** to **Stop Cast** only when the initiating action still owns focus at success; expanded-view controls are inaccessible while casting.
+- **Out of #274 scope:** successful post-stop focus restoration and receiver-disconnect recovery are owned by #276 / #278.
 
 ## Primary code pointers (optional)
 

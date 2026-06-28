@@ -232,6 +232,19 @@ Optional Chromecast support is a local room presentation layer for Cast-capable 
 | **Stop Cast** | Stop returns the sender to normal in-page playback without clearing chat scrollback, compose state, selected sidebar tab, presence, room membership, or authoritative room snapshot state. |
 | **Failure / unavailable** | Cast unavailable, blocked, rejected, or failed start surfaces honest local status and leaves normal in-page playback/chat intact. It never implies the room failed or that other participants changed state. |
 
+### Cast-active sender stage (#274)
+
+The #274 slice starts only after #273 receiver render confirmation.
+
+| Concern | Contract |
+| --- | --- |
+| **Stage replacement** | Replace the sender's regular stage video/playback surface with a stage-local active Cast panel. The panel includes visible **`Now Casting`** text and short local copy such as **`Casting to TV`**. App-authored copy must not expose the receiver device name. |
+| **Stop affordance** | Render a visible **Stop Cast** button/control in the active Cast panel. The control is local to the sender and must not be placed in **`HostControlBar`** or described as room-wide. |
+| **Status surface** | The active panel provides a stage-local **`role="status"`** or equivalent polite live region for the Cast-active state. It must not reuse chat drawer status, video-relay status, host feedback, room error boundaries, or **`#riffsync-a11y-announcer`**. |
+| **Expanded view while casting** | Expanded view is unavailable while local Cast is active. If stale expanded-view state exists when Cast becomes active, clear it and show the normal room layout with the **`Now Casting`** sender stage. Do not offer an expand control until Cast is no longer active. |
+| **Room context** | Sidebar tabs, chat scrollback, compose draft, selected sidebar tab, presence, participant A/V controls, and room membership remain sender-side state. #275 covers broader chat interactivity while Cast is active; #274 must not regress those surfaces while replacing the stage. |
+| **Boundary with #276** | #274 owns rendering the Stop Cast control and invoking local stop intent. #276 owns the complete restoration of normal in-page playback after stop completes. |
+
 ### Cast start receiver presentation (#273)
 
 The Cast-start slice proves an actual custom receiver view, not just a sender-side launch request.
@@ -324,8 +337,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions.
 
 ### chromecast-presentation
-- **Out of #273 scope:** persistent Cast-active sender stage details beyond the #273 start confirmation handoff belong to #274.
-- **Out of #273 scope:** expanded-view toggle behavior while local Cast is active belongs to #274 because #273 keeps normal playback visible until receiver render confirmation.
+- **Resolved for #274:** persistent Cast-active sender stage uses a stage-local **`Now Casting`** panel with Stop Cast, no receiver-device naming, and no room-wide framing.
+- **Resolved for #274:** expanded view is unavailable while local Cast is active; stale expanded-view state is cleared when active Cast begins.
 - **Out of #273 scope:** disconnected, blocked, and stop-failure recovery copy belongs to #278 / #276. #273 covers local start feedback and start failure only.
 
 ## Primary code pointers (optional)

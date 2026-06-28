@@ -65,6 +65,17 @@ Participant A/V maturity depends on **orthogonal drawer health**. Telemetry must
 | **Client typing logs** | **`ChatSession`** via **`clientDrawerLog`** | **`typing_start_sent`**, **`typing_stop_sent`**, **`typing_fanout`**, **`active_roster_update`** at **INFO** — **`drawer: chat`** only. |
 | **Speaking VAD** | Client-only | **No** CloudWatch or SFU logs — maintainer debug via optional dev flags only. |
 
+## Local Cast observability
+
+Viewer-local Cast state is not a realtime drawer and is not room authority.
+
+| Concern | Contract |
+| --- | --- |
+| **#274 active state** | **No CloudWatch metric, aggregate product telemetry, or drawer diagnostic is required.** Unit/component tests may assert local Cast controller state and Stop Cast callback behavior. |
+| **Drawer vocabulary** | Do not emit active Cast or Stop Cast as **`drawer: chat`**, **`drawer: signaling`**, **`drawer: connectivity`**, or **`drawer: produce_consume`**. Those labels remain reserved for room WebSocket, SFU, ICE/TURN, and mediasoup producer/consumer behavior. |
+| **Privacy** | App-authored logs and status copy must not include receiver device names or receiver identifiers. Browser-owned Cast UI may display device names outside RiffSync control. |
+| **Future metrics** | If later milestones add aggregate Cast counters, they must use low-cardinality dimensions only and still not imply room activity or identify receiver devices. |
+
 ## Media plane (SFU + TURN)
 
 Participant AV increases silent degradation risk on the **singleton** mediasoup worker (limits hit, worker death, RTC port exhaustion). Observability stays **aggregate** — same OSS posture as chat/API.

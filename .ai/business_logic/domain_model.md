@@ -229,14 +229,16 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Where can Cast start? | **Normal room view only** when sender support is available. Expanded view may provide the reusable presentation composition, but it is not a Cast entry point. |
 | What does the sender show while casting? | After confirmed Cast start, the normal stage replaces the regular video surface with **`Now Casting`** and a stop affordance. Chat, presence, sidebar state, and room membership remain intact. |
 | What does stop Cast do? | Stop returns the sender to normal in-page playback and the latest authoritative room snapshot/realtime state without clearing room session or chat state. |
+| What does #274 own? | The persistent sender-local active Cast state after receiver render confirmation: perceivable **`Now Casting`** stage copy, a visible Stop Cast control, no receiver-device naming in app-authored copy, and no room-authority side effects. Full post-stop playback restoration remains the #276 slice. |
+| Does active Cast emit diagnostics or telemetry? | **No aggregate telemetry or drawer diagnostics for #274.** Local controller state and test-only hooks may prove active/stop behavior, but Cast must not appear in **`RoomRealtimeSdk.getDiagnostics().drawers.*`**, room activity metrics, or receiver-identifying logs. |
 
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-local-cast-lifecycle
-- Define the local Cast status taxonomy for unavailable, start rejected, receiver disconnected, receiver playback blocked, and stop failed. These remain local playback states, not room-wide realtime drawer failures.
-- Define whether Cast start/stop produce local diagnostics or aggregate telemetry. If added, they must not imply room authority, room activity, or identify receiver devices.
+- **Resolved for #274:** active Cast uses sender-local stage state only: **`Now Casting`** plus Stop Cast. It produces no aggregate telemetry and no **`RoomRealtimeSdk`** drawer diagnostics.
+- **Out of #274 scope:** receiver disconnected, receiver playback blocked, and stop-failed taxonomy remain owned by #278 / #276.
 
 ## Decisions (theater mic mix on host_screen close — #145)
 
