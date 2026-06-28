@@ -32,6 +32,7 @@ User-visible and system-visible failure modes (catalog + room + embed).
 | **Presence roster stale after reconnect** | Brief **People** tab gap until **`presence_request`** completes; show existing roster or honest loading state — no crash. If roster refresh fails after reconnect, chat drawer shows recoverable status; SFU plane unaffected. |
 | **Video relay plane degraded** | **Separate** status surface (e.g. "Video relay reconnecting"); chat read/send may continue when chat plane is healthy; participant toggles reflect publish/consume errors per taxonomy below. |
 | **Theater playback blocked** | Inline honest copy when **AudioContext** suspend or autoplay blocks movie/mic mix; chat and SFU sessions may still be connected; user action may be required to resume audio (**client-side mix default**). |
+| **Cast unavailable or failed** | Local recoverable Cast status only. Keep normal in-page playback/chat/room participation available; do not leave the room, tear down healthy chat/SFU drawers, stop host share, mutate room state, or imply other participants are affected. |
 
 ## Auth — fan
 
@@ -152,8 +153,15 @@ When **`import.meta.env.DEV`** (or equivalent Vite dev flag), append **` (code: 
 
 ## Open implementation decisions
 
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### existing-room-errors
 - **Empty / transitional UX:** Video Chat zero-camera grid only (**`interface/presentation.md`** — centered sparse copy).
 - **Kill-switch toggle affordance:** visible-disabled with host explanation per **`presentation.md`** (resolved).
+
+### chromecast-local-errors
+- Define stable local Cast error/status codes and copy for unsupported sender, no receiver available, user-canceled start, receiver disconnect, receiver playback blocked, and stop failure.
+- Decide whether Cast failures use a stage-local status line, room action status, or inline alert. The surface must not merge with chat drawer or video-relay drawer health.
 
 ## Primary code pointers (optional)
 

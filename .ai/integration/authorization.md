@@ -55,6 +55,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 - **Room-admin authority:** only **`JWT.sub === room.hostSub`** may mutate authoritative playback metadata, **`roomMode`**, **`avDisabled`**, host tab-capture lifecycle, and host-only WebSocket control actions.
 - **Participant publish:** signed-in non-host fans and the host (when using participant toggles) may publish **participant A/V** only; never room-admin playback or layout fields.
 - **AV kill switch (server-enforced):** when **`avDisabled`** is true, deny new participant producer SFU tokens, tear down active participant producers on the SFU, and broadcast authoritative disabled state; room reverts to movie + text chat (no participant A/V publish or consumption).
+- **Viewer-local Cast:** starting, stopping, or failing a Cast session does not grant room-admin authority, does not require host status, and does not change fan/guest chat or SFU permissions. Any connected participant may use local Cast when their browser/device supports it, subject to the same room access they already have.
 - **Moderation:** target **`sessionId`** / **`connectionId`** for anonymous guests; **`sub`** for signed-in hosts (**`docs/architecture.admin.md`**).
 - **Principle:** never require an IdP to **browse catalog**, **join**, **watch**, or **read** room chat; **do** require **fan JWT** to **send** chat (text/emoji/GIF), **react**, **upload avatar**, **publish participant A/V**, or **host**.
 
@@ -70,6 +71,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | Who may publish participant camera/mic? | **Signed-in fans only** (**fanSub** on connection); anonymous guests **subscribe-only** for participant A/V. |
 | AV kill switch enforcement? | **Server-enforced** — deny SFU participant producer tokens, tear down active participant producers, broadcast **`avDisabled`**; not client-cooperative-only. |
 | Host participant A/V while screen sharing? | **Allowed** — host may publish **participant A/V** alongside **host screen** (two video sources on the same SFU router). |
+| Chromecast authority? | **No new authority tier.** Cast is local to the sender/receiver and does not mutate room state or authorize room-wide actions. |
 
 ## SFU join token claims (`SfuJoinClaims`)
 

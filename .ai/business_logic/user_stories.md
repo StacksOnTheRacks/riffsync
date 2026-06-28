@@ -49,6 +49,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P1-03 | fan | federated login (e.g. Facebook) | I can **host** rooms and retain continuity across devices |
 | US-P1-04 | operator | admin catalog + lists | I can curate without editing raw JSON in prod (**depends on US-P1-05**) |
 | US-P1-06 | signed-in fan in room | my **active** badge to persist across brief reconnects when I was recently engaged | late joiners and refresh see accurate engagement state on **People** |
+| US-P1-07 | Cast-capable room viewer | start a viewer-local Cast session from normal room view | I can watch the party on a TV while continuing to chat from my sender device |
 
 ## Out of scope (MVP)
 
@@ -65,6 +66,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 - **Server-side theater audio mixing** (client-side Web Audio mix remains default until follow-on initiative)
 - **Supplementary mic-only stage chrome** (avatar chips, audible-only tile badges) — speaking on **People** rows only for mic-only
 - **Guest join/leave system lines** (signed-in fans only; anonymous guests connect silently)
+- Room-wide Chromecast or host-controlled casting for all participants (Cast is viewer-local only)
 
 ## Decisions (answered — realtime hardening)
 
@@ -92,8 +94,14 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 
 ## Open implementation decisions
 
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### existing-room-polish
 - **Video Chat empty grid:** copy and layout when **no participant has camera on** (placeholder vs audio-only affordance).
 - **Kill switch control affordance:** participant camera/mic toggles **visible but disabled** with short explanation vs hidden when **`avDisabled`** is true (accessibility vs minimal chrome).
+
+### chromecast-watch-party-room
+- Break the Cast-capable viewer story into issue-sized delivery slices for availability gating, Cast start, sender `Now Casting` state, Stop Cast recovery, and fallback handling.
 
 ## Primary code pointers (optional)
 
