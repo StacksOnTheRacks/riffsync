@@ -78,6 +78,8 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - After successful Cast start, the sender's stage exposes a keyboard-reachable stop control associated with the **`Now Casting`** state.
 - Stop Cast activation by click, **Enter**, or **Space** returns the sender to normal in-page playback without trapping focus or moving focus into a hidden video surface.
 - Chat compose, jump-to-latest, sidebar tabs, and participant A/V toggles keep their existing keyboard paths while local Cast is active.
+- When successful Cast start replaces the stage and focus is still on the initiating **Cast to TV** action, move focus to **Stop Cast** so keyboard users retain an immediate escape from the active Cast state. If the user moved focus elsewhere during startup, do not steal focus.
+- While local Cast is active, the expanded-view toggle is not rendered or is inert and unavailable to assistive technology. **Stop Cast** remains the primary stage action and uses the same minimum **44×44** CSS px target posture as other room controls.
 
 ## Open implementation decisions
 
@@ -85,8 +87,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-input-handling
 - **Resolved for #273:** focus remains on **Cast to TV** during receiver launch; start status uses local status text rather than forced focus movement.
-- **Out of #273 scope:** focus movement to Stop Cast after the #274 **`Now Casting`** stage appears is owned by #274.
-- **Out of #273 scope:** expanded-view toggle behavior while already casting and narrow Stop Cast hit-area placement are owned by #274 / #276.
+- **Resolved for #274:** after active Cast appears, focus moves to **Stop Cast** only when focus is still on the initiating **Cast to TV** action; otherwise do not steal focus.
+- **Resolved for #274:** expanded-view toggle is unavailable while casting, and Stop Cast keeps a keyboard-operable **44×44** minimum target posture.
+- **Out of #274 scope:** post-stop focus restoration after normal playback returns is owned by #276.
 
 ## Primary code pointers (optional)
 

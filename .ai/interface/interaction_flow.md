@@ -123,6 +123,14 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 7. **Stop Cast:** Stop, receiver disconnect, or equivalent ended-session signal returns the sender to normal in-page playback. Room session, chat state, selected sidebar tab, and latest authoritative room state remain intact.
 8. **Failure / unavailable:** Start rejection, platform policy block, receiver loss before active Cast, or unsupported sender state returns to normal in-page playback with local recoverable status only. Do not leave the room, reset chat, or tear down healthy SFU/video relay state.
 
+### Cast-active sender flow (#274)
+
+1. **Active entry:** #274 begins when the local Cast controller reaches active Cast after receiver render confirmation. Do not show **`Now Casting`** before that confirmation.
+2. **Sender stage:** Replace the normal stage playback surface with **`Now Casting`** and Stop Cast. The sender remains in the room; sidebar tab state, chat draft, presence, and participant A/V controls remain sender-side.
+3. **Stop intent:** Activating Stop Cast sends local stop intent to the Cast controller only. It does not emit room WebSocket messages, mutate room HTTP state, change **`share_state`**, or affect SFU permissions. Full return-to-playback behavior is the #276 continuation.
+4. **Expanded view:** While local Cast is active, expanded view cannot be entered. If an internal expanded flag is still true when active Cast starts, clear it before rendering the active sender stage.
+5. **Other viewers:** No other participant receives a Cast status, stage replacement, stop affordance, room mode change, or playback change because of this sender's active Cast.
+
 ### Presence, typing, and People badges
 
 1. **Roster on join:** Client sends **`presence_request`** after room WebSocket connect; server returns **`presence`** roster (with **`lastActiveAt`** / **`active`**) and requester-only **`chat_history`** (capped durable messages — **excludes** ephemeral join/leave system lines).
@@ -213,10 +221,11 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-interaction-flow
-- Specify Cast start transition ordering: detect support, set local starting state, attempt Cast, and swap to **`Now Casting`** only after confirmed success.
-- Specify failed start behavior: reset to idle or failed, keep normal playback visible, keep chat draft/session state intact, and expose a retryable local error.
-- Specify Stop Cast behavior for sender stop, receiver disconnect, SDK-ended events, room leave, route change, and reload.
-- Define behavior when a user attempts to enter expanded view while local Cast is active.
+- **Resolved for #273:** detect support, set local starting state, attempt Cast, and swap to active Cast only after receiver render confirmation.
+- **Resolved for #273:** failed start resets to local failed/idle state, keeps normal playback visible, keeps chat draft/session state intact, and exposes retryable local error.
+- **Resolved for #274:** active Cast replaces the sender stage with **`Now Casting`** and Stop Cast after confirmed success. Stop activation sends local stop intent only; full normal-playback restoration remains #276.
+- **Resolved for #274:** expanded view is unavailable while local Cast is active, and stale expanded-view state is cleared when active Cast begins.
+- **Out of #274 scope:** receiver disconnect, SDK-ended active sessions, room leave, route change, reload cleanup details, and stop-failure recovery belong to #276 / #278.
 
 ## Primary code pointers (optional)
 
