@@ -10,6 +10,15 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | **Guest viewing** | **WebRTC** **`MediaStream`** from host tab-capture and, when enabled, **participant A/V** over **self-hosted mediasoup SFU** on **`RiffSyncTurn`** — **`POST /v1/webrtc/sfu-token`** + **coturn**. | **SFU mandatory in all environments** (dev, CI, production). **Mesh WebRTC removed.** Multi-producer registry (host screen + N participant cameras/mics). Theater audio mixing is **client-side** (server-side mix **deferred**). Honor browser permission and autoplay policies. |
 | **Thumbnails (optional)** | **`https://img.youtube.com/vi/{id}/{hqdefault|maxresdefault|…}.jpg`** | Reconcile job **`HEAD`** fallback chain; persist resolved URL on catalog row (**`docs/architecture.catalog-images.md`**). No YouTube Data API required for thumbs. |
 
+## Google Cast / Chromecast
+
+| Use | Mechanism | Contract |
+| --- | --- | --- |
+| **Viewer-local Cast** | Browser sender capability detection plus a supported Cast sender/receiver path. Exact SDK calls, receiver application shape, and media/source binding are implementation details. | Optional and availability-gated. Cast entry appears only in normal room view when sender support is present. Cast failure or unavailability leaves normal inline playback/chat/room participation intact. |
+| **Cast presentation** | Reuses the expanded-view composition model: stage-primary/video plus chat overlay, without the sidebar tab strip. | Presentation is local to the sender/receiver pair. It does not create a room-wide Cast mode, change what other participants see, or grant host/admin authority. |
+
+**Boundary:** Cast state is not written to RiffSync HTTP APIs, not sent over the room WebSocket, not represented in **`share_state`**, and not used for SFU token authorization. If a future custom receiver joins RiffSync services directly, that is a new integration/auth review rather than an implied part of this contract.
+
 ## TMDB (The Movie Database)
 
 | Use | Mechanism | Contract |
@@ -82,6 +91,7 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | Record sessions to S3? | **No** MVP — **no** server-side recording of WebRTC as default product posture; future lawful backends remain pluggable. |
 | Mesh dev fallback? | **No** — SFU + TURN in all environments; mesh removed. |
 | Server-side theater audio mix? | **Deferred** — client-side Web Audio remains default (**`api_contracts.md`**). |
+| Chromecast boundary? | **Viewer-local only.** Optional sender/receiver integration; no room API, WebSocket fan-out, `share_state`, or room-authority change. |
 
 ## Decisions (local disposable profile — #136)
 
@@ -103,6 +113,17 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 | **SFU join JWT** | Harness mints join tokens **in-process** via **`signSfuJoinToken`** (**`infra/cdk/lambda/sfu-join-token-sign.ts`**) using bootstrap **`SFU_JWT_SECRET`** — payload shape matches prod **`SfuJoinClaims`**. |
 | **Fan Cognito JWT** | **Not required** for MVP harness scenarios — room WS stub accepts connections without API Gateway authorizer emulation. |
 | **ICE credentials** | Static-auth coturn credentials from **`infra/local-media/`** fixture config — **no** prod **`GET /v1/webrtc/ice`** call in CI. |
+
+## Open implementation decisions
+
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### chromecast-provider-boundary
+- Decide the Cast source architecture: rendered RiffSync receiver page, native YouTube Cast path where available, sender media element/stream Cast, tab mirroring guidance, or another supported Cast mechanism.
+- Validate whether guest inbound **`MediaStream`** playback can be cast directly, requires screen/tab mirroring, or needs a receiver that reconnects to RiffSync media services.
+- Determine sender support detection gates before rendering **Cast to TV**, including browser API availability, HTTPS/origin requirements, receiver availability state, and provider failure states.
+- Identify Google Cast receiver registration, application ID, origin allowlist, CSP, iframe, and YouTube policy requirements.
+- If a custom receiver joins room services directly, define receiver identity, room access, and SFU subscribe authorization before implementation.
 
 ## Primary code pointers (optional)
 

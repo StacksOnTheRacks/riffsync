@@ -214,9 +214,23 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | **Host control bar** | **Remains below the stage** in expanded and standard layouts (host-only). |
 | **State** | **Session-only** client state — **no** `localStorage` persistence; full reload returns to **standard** layout. |
 | **Drawers** | Chat and video-relay drawer status rules **unchanged** — chat banner lives inside the overlay; video-relay status stays on the stage playback surface. |
-| **Chromecast (future)** | Implement expanded layout as a **reusable shell** (stage-primary + chat overlay) suitable as a future Cast receiver target. **No** Cast SDK or receiver work in #259. |
+| **Chromecast composition** | The expanded layout's **stage-primary + chat overlay** shell is the presentation model for optional viewer-local Cast. Cast work reuses this model without making expanded view itself the Cast entry point. |
 
 Implementation: `RoomPage.tsx` owns session-only expanded state, `RoomPageSidebar.tsx` renders the shared chat plane as either sidebar or overlay, and `StageParticipantLayout.tsx` renders Theater cameras in a bottom horizontal row (standard and expanded desktop layouts).
+
+### Chromecast Cast view (viewer-local)
+
+Optional Chromecast support is a local room presentation layer for Cast-capable senders. It is **not** a room mode, not host-authoritative, and not visible to other participants unless they independently Cast from their own device.
+
+| Concern | Contract |
+| --- | --- |
+| **Availability** | Show **Cast to TV** only in **normal room view** when sender support is detected. Cast entry is hidden or inert in expanded view. Missing support must not block normal playback, chat, expanded view, host controls, or room participation. |
+| **Start point** | Cast starts from the standard stage/sidebar room layout only. The sender does not need to enter expanded view before starting Cast. |
+| **Receiver presentation** | Reuse the expanded-view composition model: stage primary/video plus bottom-right chat overlay. The Cast presentation does **not** include the sidebar tab strip; **People**, **Room**, and **Profile** remain sender-side room surfaces. |
+| **Sender active state** | After confirmed Cast start, the sender's normal stage replaces the regular video/playback surface with **`Now Casting`** and a stop affordance. The regular in-page video surface does not remain visible while local Cast is active. |
+| **Chat while casting** | Sender chat remains interactive under existing rules: signed-in fans may send text, GIFs, and reactions when chat is healthy; anonymous guests may read and retain the sign-in gate for send. |
+| **Stop Cast** | Stop returns the sender to normal in-page playback without clearing chat scrollback, compose state, selected sidebar tab, presence, room membership, or authoritative room snapshot state. |
+| **Failure / unavailable** | Cast unavailable, blocked, rejected, or failed start surfaces honest local status and leaves normal in-page playback/chat intact. It never implies the room failed or that other participants changed state. |
 
 ## Accessibility & motion (baseline)
 
@@ -277,8 +291,18 @@ Implementation: `RoomPage.tsx` owns session-only expanded state, `RoomPageSideba
 
 ## Open implementation decisions
 
-- **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; #140 uses implicit gesture resume per **`execution_model.md`**.
-- **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions (#157); not #150.
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### existing-room-polish
+- **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; current room runtime uses implicit gesture resume per **`execution_model.md`**.
+- **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions.
+
+### chromecast-presentation
+- Decide the exact normal-view placement for **Cast to TV** within existing room chrome.
+- Decide whether unavailable Cast is hidden only, disabled with explanatory text, or shown after a failed support check.
+- Define the Cast-active stage details: visible heading/copy beyond **`Now Casting`**, stop action priority, and coexistence with existing video-relay status.
+- Define whether Cast-active mode hides the expanded-view toggle or leaves it inert with explanation while the normal stage is replaced by **`Now Casting`**.
+- Define exact Cast recovery/status copy beyond the settled labels **Cast to TV**, **`Now Casting`**, and stop wording.
 
 ## Primary code pointers (optional)
 

@@ -44,6 +44,14 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - Each toggle's error text is referenced by **`aria-describedby`** when publish fails; errors clear when the user successfully enables or dismisses via a successful retry.
 - Stable **`code`** values and copy templates live in **`error_state.md`** (**Participant A/V error taxonomy**).
 
+### Chromecast Cast status
+
+- **Cast to TV** and Stop Cast are semantic controls with visible labels or accessible names.
+- The sender's **`Now Casting`** state is perceivable as text, not color/icon-only, and associated with the Stop Cast control.
+- Cast-active status uses a visible stage-local **`role="status"`** or equivalent polite live region. It must not duplicate chat drawer or video-relay drawer reconnect announcements.
+- Cast failure/unavailable copy is readable by assistive technology at the local Cast surface and must not imply that the room, host share, chat, or other participants failed.
+- The Cast receiver presentation reuses the expanded-view composition model. If chat overlay content is rendered on the receiver, it remains readable presentation only; chat input and authenticated send affordances remain on the sender.
+
 ### Keyboard verification matrix (#106)
 
 | Surface | Requirement |
@@ -66,7 +74,15 @@ Accessible-by-default contract for presentation and interaction surfaces.
 
 ## Open implementation decisions
 
-- **`THEATER_AUDIO_SUSPENDED` a11y:** whether resume uses implicit gesture only or a keyboard-focusable explicit control with accessible name (pairs with **`presentation.md`** theater audio TW item).
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### existing-room-accessibility
+- **`THEATER_AUDIO_SUSPENDED` a11y:** whether resume uses implicit gesture only or a keyboard-focusable explicit control with accessible name (pairs with **`presentation.md`** theater audio item).
+
+### chromecast-accessibility
+- Choose the exact `role="status"` / `aria-live` placement for local Cast starting, active, failed, and stopped states.
+- Define accessible names and descriptions for Cast start/stop controls, including whether the current receiver/device name is exposed or omitted for privacy.
+- Define focus recovery after failed start, successful stop, and receiver disconnect.
 
 ## Primary code pointers (optional)
 

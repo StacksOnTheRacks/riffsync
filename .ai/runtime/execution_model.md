@@ -36,6 +36,19 @@ Extract three runtime modules with **explicit lifecycle APIs** and **no cross-dr
 | **`SfuMediaSession`** | Direct **SFU signaling WebSocket** per tab (**one session per tab**): ICE/TURN attach, **mandatory per-`producerClass` send transport isolation** (**`host_screen`** and **`participant_av`** each own a send transport within the same signaling socket), mediasoup produce/consume, per-kind unpublish (**#143** / **#144**), **`newProducer`** / **`producerClosed`** dispatch to subscribers. **No** session-level **`close()`** for class-scoped failures — partial unpublish and transport recovery only. | Close room WebSocket or block chat send on SFU failure. |
 | **`TheaterPlayback`** | YouTube iframe lifecycle, **client-side Web Audio** mix graph (host movie audio + **`participant_av`** audio consumers at equal gain **1.0**), **`AudioContext`** suspend/resume policy. | Own SFU signaling socket; must subscribe to **`SfuMediaSession`** for consumer attach/detach. |
 
+### Local Cast controller
+
+Chromecast runtime state belongs to the room shell as a **client-local controller**, not to **`ChatSession`**, **`SfuMediaSession`**, or **`TheaterPlayback`**. It may coordinate with presentation and media/source helpers, but it must not become a drawer in **`RoomRealtimeSdk.getDiagnostics()`** unless a later contract explicitly adds a Cast diagnostics surface.
+
+| Concern | Contract |
+| --- | --- |
+| **State scope** | Per browser tab, session-only; no room document persistence, `localStorage`, room WebSocket fan-out, or SFU token claim. |
+| **Entry gate** | Start only from normal room view after sender support is detected. Expanded view is not a valid start point. |
+| **Start transition** | Keep the normal in-page video visible until Cast start succeeds. Swap the sender stage to **`Now Casting`** only after confirmed success. |
+| **Active state** | While active, the sender remains joined to the room and chat stays controlled by **`ChatSession`**. Cast active state must not close healthy chat or SFU sessions. |
+| **Stop / failure** | Stop, unavailable, rejected start, receiver disconnect, route leave, or reload converges on local cleanup and returns to normal in-page playback without clearing room session or chat state. |
+| **Authority** | Cast state never changes **`roomMode`**, **`avDisabled`**, **`share_state`**, host screen publishing, participant A/V publish eligibility, or other participants' presentation. |
+
 ### Application SDK surface (narrow public API)
 
 Room code outside these modules calls only:
@@ -137,6 +150,7 @@ Each module implements the four drawer lifecycle states. Internal enums may diff
 | SFU signaling **`close`** alone | Room WS **`disconnect()`**, chat log clear |
 | **`share_state: stopped`** | Full SFU session close; participant AV producer teardown |
 | Chat send failure | SFU reconnect or unpublish |
+| Cast failure / stop | ChatSession teardown, SfuMediaSession teardown, host **`share_state`** mutation, room leave, or participant A/V policy change |
 
 ### Decouple destructive hooks (room WebSocket → media)
 
@@ -393,7 +407,17 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 
 ## Open implementation decisions
 
-- **Harness extension (M24)** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`** (**#243**).
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### existing-realtime-harness
+- **Harness extension** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`**.
+
+### chromecast-runtime-controller
+- Define the Cast controller home and public shape, likely a room-shell hook or module owned near `RoomPage` rather than existing realtime session modules.
+- Choose local lifecycle states exposed to UI and diagnostics, such as unavailable, idle, starting, casting, stopping, failed, and receiver disconnected.
+- Decide source binding for the expanded-view-like Cast presentation: hidden/offscreen reusable shell, receiver reconstruction, media element/stream Cast, or provider-native path.
+- Decide playback element behavior while casting: mounted but hidden, detached, or replaced by Cast placeholder without violating **`TheaterPlayback`** cleanup rules.
+- Decide Cast-specific test hooks or diagnostics without overloading `getDiagnostics().drawers.*` unless a later contract adds a Cast drawer.
 
 ## Primary code pointers (optional)
 

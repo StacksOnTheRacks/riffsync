@@ -12,6 +12,8 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 | **`share_state: stopped`** (guest) | **unchanged** | **Partial:** detach **`host_screen`** consumers only; **keep** session + **`participant_av`** | Remove host-screen audio node from mix; **keep** participant mic nodes |
 | **`avDisabled`** | **unchanged** (chat may continue) | Stop participant AV per kill-switch | Remove participant audio from mix |
 
+Local Cast state follows the same independence rule: Cast stop, failure, or receiver disconnect clears local Cast resources and sender **`Now Casting`** UI only. It must not tear down **`ChatSession`**, **`SfuMediaSession`**, or **`TheaterPlayback`** unless the user also leaves the room or another explicit media policy applies.
+
 ## Typing and active teardown (`ChatSession`)
 
 | Trigger | Contract |
@@ -52,6 +54,13 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 - **Theater audio:** Multiple SFU audio consumers (host movie + participant mics) mixed **client-side** via **Web Audio API** at **equal gain (1.0)** — no automatic ducking in MVP. Kill switch on stops subscribing to participant audio and tears down participant consumers.
 - **Kill switch mid-publish:** On authoritative **`avDisabled`** room WebSocket event, immediately **`track.stop()`** on local **`getUserMedia`**, close participant producers, and tear down participant AV consumers locally — do **not** wait for SFU token expiry.
 
+## SPA local Cast
+
+- **Stop Cast:** user stop, receiver disconnect, sender SDK-ended event, or stop failure all converge on one best-effort cleanup path that clears local Cast-active UI and returns to normal in-page playback.
+- **Room leave / navigate / reload:** clear local Cast state and release Cast/source resources best-effort before or alongside global room teardown. Failure to stop an already-ended receiver session must not block room leave.
+- **Cast start failure:** restore or keep normal in-page playback visible, keep chat draft/session state intact, and avoid closing healthy chat or SFU drawers.
+- **Expanded view state:** Cast starts only from normal view. If stale expanded-view local state exists internally, cleanup must not re-enter expanded view after Cast stop unless a later interface contract permits it.
+
 ## Participant A/V errors (client)
 
 | Condition | UX |
@@ -82,6 +91,15 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 | Topic | Decision |
 | --- | --- |
 | **`typing_stop` on tab close** | Browser **`beforeunload`** may emit **`typing_stop`** best-effort only; authoritative clear is server **`$disconnect`** (removes typing fan-out state) plus client teardown. |
+
+## Open implementation decisions
+
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### chromecast-lifecycle-shutdown
+- Specify cleanup ordering for user stop, receiver disconnect, sender SDK-ended event, route change, reload, and room teardown.
+- Decide whether stop failure keeps **`Now Casting`** visible with retry, returns to normal playback with warning, or attempts a second best-effort cleanup.
+- Define how Cast cleanup coordinates with hidden or detached playback/source elements without leaking media handles.
 
 ## Primary code pointers (optional)
 

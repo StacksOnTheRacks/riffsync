@@ -6,6 +6,7 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 
 - **Episode (catalog row):** a stable **`id`** and **`experimentNumber`**, MST-flavored **`title`/`era`**, YouTube linkage, enrichment from TMDB and optional YouTube thumb URL.
 - **Room:** shared viewing session on **`/room/:id`** with a **mutable current catalog episode** (**`catalogEpisodeId`** / **`videoId`** on the room document — seeded when the **signed-in** host creates the room, then changeable via **in-room picker**); the host (**room admin**) renders **embedded YouTube** for that selection and may **publish** a captured **`MediaStream`** to guests over **WebRTC**; guests consume that stream—**not** parallel iframe timelines kept in sync server-side. The room also carries **host-authoritative layout policy**: **`roomMode`** (**Theater** default | **Video Chat**) and **`avDisabled`** (room-wide participant A/V kill switch), both **durable** on the room document and returned on snapshot/join.
+- **Local Cast session:** optional per-viewer Chromecast viewing state for Cast-capable senders. It is **session-only** client state, entered only from the normal room view, and never persisted on the room document, replayed on join, or fanned out as room state. A local Cast session reuses the expanded-view stage-primary plus chat-overlay composition for the receiver while the sender remains joined as the same participant.
 - **Participant A/V (camera / microphone):** optional **signed-in fan** publish of **`getUserMedia`** streams over the same SFU path as host capture; **default off** until the fan explicitly enables each control. **Anonymous guests** may **subscribe** to participant A/V when **`avDisabled`** is false but **must not publish** participant camera or microphone. Participant A/V is **parallel** to host tab-capture movie broadcast—not a replacement for embed/capture lawful playback.
 - **Participant:** **`sessionId`** + display name (**anonymous**) or **`sub`** (**signed-in optional**) with optional **`avatarUrl`** (public HTTPS, one image per **`sub`**).
 - **Presence (online vs active):** every open room WebSocket connection holds a **RoomPresence** roster row. **Online** means the connection is live on the roster (connected participant). **Active** is a derived engagement signal: the participant had at least one **qualifying control-plane action** within the **active idle window** (**2 minutes**). Qualifying actions (union): **typing start**, **chat send**, **GIF post**, **reaction toggle**, and **qualifying ping** within the window. **Typing start** contributes to **active** (not display-only). Idle viewers who keep heartbeating remain **active** while pings continue inside the window. **`lastActiveAt`** (epoch seconds) is **durable on RoomPresence**, updated on each qualifying route; **`presence_request`** and roster fan-out **rehydrate active** for late joiners and refresh after reconnect. Clients derive **`active`** as **`now - lastActiveAt < 120s`** (or the server precomputes a boolean at broadcast time — tier TW in Phase D).
@@ -71,9 +72,10 @@ Three coexisting modes (see **`integration/authorization.md`**):
 4. **Room mode vs kill switch:** while **`avDisabled`** is true, the room behaves as **Theater-equivalent movie + text chat** (pre-initiative participant A/V behavior); **Video Chat** selection is **unavailable or inert** until A/V is re-enabled. Server enforces kill switch: deny new participant producer grants, tear down active participant producers, broadcast authoritative disabled state.
 5. **Theater layout:** shared **host movie stream** (tab-capture or embed-derived WebRTC) stays **primary** in the stage. A **vertical participant strip** immediately right of the video lists **video-on** participants only. **Microphone-only** participants are **audible** alongside movie audio but **not shown** in the strip. When a participant turns **camera off**, their strip tile **removes immediately** for all remotes; **mic-only** audio continues without a visual tile.
 6. **Video Chat layout:** the movie player region is **replaced** by a **grid of video-on participants** only. **Microphone-only** participants are **audible** but **not shown** in the grid (identity via People tab and chat). Camera-off removes grid tiles promptly; no frozen last-frame tiles. Entering **Video Chat** **fully stops** active host tab-capture (not suspend); returning to **Theater** requires the room admin to start **Share Source Tab** again.
-7. **Reconnect privacy:** after refresh or disconnect, each signed-in fan’s camera and microphone **default off**; the fan must manually re-enable.
-8. **Catalog title:** never replaced by TMDB **`title`** / **`original_title`**.
-9. **Public catalog read** does not require authentication.
+7. **Cast locality:** Chromecast is a viewer-local optional presentation. Cast start, stop, failure, unavailability, or receiver disconnect must not mutate **`roomMode`**, **`avDisabled`**, **`share_state`**, durable room playback fields, SFU permissions, host authority, participant roster authority, or any other participant's room experience.
+8. **Reconnect privacy:** after refresh or disconnect, each signed-in fan’s camera and microphone **default off**; the fan must manually re-enable.
+9. **Catalog title:** never replaced by TMDB **`title`** / **`original_title`**.
+10. **Public catalog read** does not require authentication.
 
 ## Decisions (answered)
 
@@ -218,9 +220,23 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | **Speaking VAD** | Client **`AnalyserNode`**: **`fftSize` 512**, normalized RMS **≥ 0.02** enter, **150ms** attack smoothing, **300ms** hang before clear; no speaking when audio producer **`paused`**. |
 | **Mode transition empty-state** | **Video Chat** zero cameras: **`No cameras on yet. Mic-only participants are still audible.`** **Theater** before capture: host **Share Source Tab** prompt in stage chrome. After **3s** layout timeout: keep sparse copy — **do not** vary **Updating room layout…** by direction. |
 
+## Decisions (answered - Chromecast)
+
+| Question | Decision |
+| --- | --- |
+| Who does Cast affect? | **Only the viewer who starts it.** A room admin cannot Cast for everyone; if the admin starts Cast, it remains local to that admin sender and receiver. |
+| Is Cast a room mode or durable field? | **No.** Cast is session-only client state. It does not write the room document, alter **`roomMode`**, change **`share_state`**, or fan out over room WebSocket. |
+| Where can Cast start? | **Normal room view only** when sender support is available. Expanded view may provide the reusable presentation composition, but it is not a Cast entry point. |
+| What does the sender show while casting? | After confirmed Cast start, the normal stage replaces the regular video surface with **`Now Casting`** and a stop affordance. Chat, presence, sidebar state, and room membership remain intact. |
+| What does stop Cast do? | Stop returns the sender to normal in-page playback and the latest authoritative room snapshot/realtime state without clearing room session or chat state. |
+
 ## Open implementation decisions
 
-_(None for M23 #242 scope.)_
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### chromecast-local-cast-lifecycle
+- Define the local Cast status taxonomy for unavailable, start rejected, receiver disconnected, receiver playback blocked, and stop failed. These remain local playback states, not room-wide realtime drawer failures.
+- Define whether Cast start/stop produce local diagnostics or aggregate telemetry. If added, they must not imply room authority, room activity, or identify receiver devices.
 
 ## Decisions (theater mic mix on host_screen close — #145)
 

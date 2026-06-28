@@ -67,6 +67,24 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - **Not offered < 992px:** toggle absent or **`aria-hidden`** / inert — no expanded keyboard path on narrow viewports in MVP.
 - **Implementation:** the overlay reuses the chat plane without rendering `.riffsync-room-page__tabs`; standard sidebar tabs return immediately after exit.
 
+## Chromecast Cast controls
+
+- **Cast to TV** is keyboard-operable when rendered and appears only in normal room view after sender support is detected.
+- Expanded view must not expose a Cast start control in the tab order. If implementation leaves a Cast affordance mounted for layout reasons, it is inert and unavailable to assistive technology while expanded.
+- During Cast start, focus remains stable unless the implementation moves focus to a visible local status region. Failed start returns focus to the Cast entry or nearby room action surface.
+- After successful Cast start, the sender's stage exposes a keyboard-reachable stop control associated with the **`Now Casting`** state.
+- Stop Cast activation by click, **Enter**, or **Space** returns the sender to normal in-page playback without trapping focus or moving focus into a hidden video surface.
+- Chat compose, jump-to-latest, sidebar tabs, and participant A/V toggles keep their existing keyboard paths while local Cast is active.
+
+## Open implementation decisions
+
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### chromecast-input-handling
+- Define whether focus moves to Stop Cast after successful start, returns to **Cast to TV** after stop, or remains on the activating control until the user moves it.
+- Define keyboard and pointer behavior for the expanded-view toggle while local Cast is active.
+- Define touch target placement and hit area for Cast start/stop on narrow normal-view layouts if Cast is supported there.
+
 ## Primary code pointers (optional)
 
 - **`apps/web/src/pages/RoomPage.tsx`** — thin shell; AV toggles and host bar extend existing chat-column and stage handlers.

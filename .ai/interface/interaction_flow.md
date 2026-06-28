@@ -112,6 +112,17 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 
 Implementation note: the expanded toggle is client-local React state in `RoomPage.tsx`; no room snapshot patch or WebSocket fan-out is sent when a viewer enters or exits expanded view.
 
+### Chromecast Cast flow (local UI)
+
+1. **Availability gate:** In normal room view, a Cast-capable sender may see **Cast to TV** after local sender support is detected. Unsupported or unavailable Cast never blocks the normal stage, chat, expanded view, or room controls.
+2. **Expanded-view exclusion:** Expanded view does not expose Cast entry. A viewer starts Cast from normal room view; the implementation may reuse expanded-view composition internally without toggling the sender into expanded view.
+3. **Start Cast:** Activating **Cast to TV** begins a local Cast start attempt. The sender keeps the normal room session joined and chat usable during the attempt.
+4. **Successful start:** Only after Cast start is confirmed, the sender's normal stage replaces the regular video surface with **`Now Casting`** plus a stop affordance. Other participants receive no room event and see no change.
+5. **Receiver presentation:** The TV presentation follows the expanded-view composition model: stage primary/video plus chat overlay, no sidebar tab strip.
+6. **Chat while casting:** Chat send/read/reaction/GIF behavior follows the same signed-in and anonymous rules as normal room view; Cast state must not block chat when the chat plane is healthy.
+7. **Stop Cast:** Stop, receiver disconnect, or equivalent ended-session signal returns the sender to normal in-page playback. Room session, chat state, selected sidebar tab, and latest authoritative room state remain intact.
+8. **Failure / unavailable:** Start rejection, platform policy block, receiver loss before active Cast, or unsupported sender state returns to normal in-page playback with local recoverable status only. Do not leave the room, reset chat, or tear down healthy SFU/video relay state.
+
 ### Presence, typing, and People badges
 
 1. **Roster on join:** Client sends **`presence_request`** after room WebSocket connect; server returns **`presence`** roster (with **`lastActiveAt`** / **`active`**) and requester-only **`chat_history`** (capped durable messages — **excludes** ephemeral join/leave system lines).
@@ -199,7 +210,13 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 
 ## Open implementation decisions
 
-_(None for M23 #242 scope.)_
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### chromecast-interaction-flow
+- Specify Cast start transition ordering: detect support, set local starting state, attempt Cast, and swap to **`Now Casting`** only after confirmed success.
+- Specify failed start behavior: reset to idle or failed, keep normal playback visible, keep chat draft/session state intact, and expose a retryable local error.
+- Specify Stop Cast behavior for sender stop, receiver disconnect, SDK-ended events, room leave, route change, and reload.
+- Define behavior when a user attempts to enter expanded view while local Cast is active.
 
 ## Primary code pointers (optional)
 

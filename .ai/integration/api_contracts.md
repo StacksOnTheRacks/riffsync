@@ -106,6 +106,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Theater participant audio? | **Client-side mixing** — consumers attach multiple SFU audio consumers (host movie + participant mics); no server-side mixer in MVP. |
 | Video Chat vs host screen? | Clients **stop consuming** host screen producer in **`videoChat`** mode; host **fully stops** tab-capture on enter (resume requires **Share Source Tab** again). |
 | Client vs CDK mesh retirement order? | **#134** removes SPA mesh handlers and modules first; **#135** removes API Gateway **`signaling`** route. After **#134** the SPA ignores inbound **`signaling`** envelopes; orphaned route is harmless until **#135**. |
+| Chromecast room API? | **None.** Viewer-local Cast state does not add HTTP fields, WebSocket routes, `share_state` payload fields, SFU token claims, lobby fields, or room snapshot fields. |
 
 ## Decisions (answered — #101 HTTP room AV)
 
