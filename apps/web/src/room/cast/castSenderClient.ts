@@ -14,7 +14,7 @@ export type CastSenderClient = {
 
 export type CastSenderClientFactory = () => CastSenderClient
 
-const CAST_FRAMEWORK_SRC = 'https://www.gstatic.com/cast/sdk/libs/sender/1.0/cast_framework.js'
+const CAST_FRAMEWORK_SRC = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1'
 const CAST_FRAMEWORK_SCRIPT_SELECTOR = 'script[data-riffsync-cast-framework="true"]'
 const CAST_FRAMEWORK_READY_TIMEOUT_MS = 5000
 
@@ -83,8 +83,6 @@ async function waitForCastFramework(): Promise<NonNullable<CastFrameworkWindow['
   const immediate = readCastFramework()?.framework
   if (immediate) return readCastFramework()!
 
-  ensureCastFrameworkScript()
-
   return await new Promise((resolve, reject) => {
     const timeoutId = window.setTimeout(() => reject(new Error('Cast framework load timed out')), CAST_FRAMEWORK_READY_TIMEOUT_MS)
     const win = window as CastFrameworkWindow
@@ -101,6 +99,8 @@ async function waitForCastFramework(): Promise<NonNullable<CastFrameworkWindow['
       }
       resolve(readCastFramework()!)
     }
+
+    ensureCastFrameworkScript()
   })
 }
 
