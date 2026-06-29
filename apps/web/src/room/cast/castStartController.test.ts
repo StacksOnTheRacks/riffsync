@@ -82,6 +82,17 @@ describe('createCastStartController', () => {
     vi.useRealTimers()
   })
 
+  it('stopCast ends the Cast session without mutating snapshot input', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    await controller.stopCast()
+
+    expect(controller.getState().lifecycle).toBe('idle')
+    expect(session.end).toHaveBeenCalledTimes(1)
+  })
+
   it('proxies chat overlay updates while casting', async () => {
     const sent: unknown[] = []
     const session = createMockSession({
