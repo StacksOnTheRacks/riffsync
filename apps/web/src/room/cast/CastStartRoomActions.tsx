@@ -75,7 +75,7 @@ export function CastStartRoomActions({
     )
   }
 
-  if (castStartLifecycle === 'casting') {
+  if (castStartLifecycle === 'casting' || castStartLifecycle === 'stopping') {
     return null
   }
 

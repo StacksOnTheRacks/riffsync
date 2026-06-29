@@ -6,6 +6,7 @@ import { CastActiveStagePanel } from './CastActiveStagePanel'
 import {
   CAST_ACTIVE_HEADING,
   CAST_ACTIVE_SUBCOPY,
+  CAST_STOPPING_SUBCOPY,
   CAST_STOP_BUTTON_LABEL,
   RIFFSYNC_CAST_ACTIVE_STATUS_ID,
 } from './castActiveStatusCopy'
@@ -62,5 +63,18 @@ describe('CastActiveStagePanel', () => {
 
     const stopButton = container.querySelector('.riffsync-room-page__cast-stop-button') as HTMLButtonElement
     expect(stopButton.getAttribute('aria-describedby')).toBe('riffsync-cast-active-heading')
+  })
+
+  it('shows stopping copy and disables Stop Cast while stopping', () => {
+    act(() => {
+      root.render(<CastActiveStagePanel onStopCast={vi.fn()} stopping />)
+    })
+
+    expect(container.textContent).toContain(CAST_STOPPING_SUBCOPY)
+    expect(container.textContent).not.toContain(CAST_ACTIVE_SUBCOPY)
+
+    const stopButton = container.querySelector('.riffsync-room-page__cast-stop-button') as HTMLButtonElement
+    expect(stopButton.disabled).toBe(true)
+    expect(stopButton.getAttribute('aria-disabled')).toBe('true')
   })
 })

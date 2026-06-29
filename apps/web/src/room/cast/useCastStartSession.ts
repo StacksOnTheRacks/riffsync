@@ -9,6 +9,20 @@ import type { CastStartLifecycle } from './castChannelProtocol'
 import { createCastStartController, type CastStartController } from './castStartController'
 import { createDefaultCastSenderClient, type CastSenderClientFactory } from './castSenderClient'
 
+function isFocusRestoreTargetVisible(element: HTMLElement): boolean {
+  if (!element.isConnected) return false
+  const style = window.getComputedStyle(element)
+  return style.visibility !== 'hidden' && style.display !== 'none'
+}
+
+function isCastStageFocusTarget(element: Element | null): boolean {
+  if (!(element instanceof HTMLElement)) return false
+  return (
+    element.matches('[data-testid="cast-active-stage-panel"], [data-testid="cast-active-stage-panel"] *') ||
+    element.classList.contains('riffsync-room-page__cast-stop-button')
+  )
+}
+
 export type UseCastStartSessionInput = {
   enabled: boolean
   expandedViewActive: boolean
@@ -20,6 +34,7 @@ export type UseCastStartSessionInput = {
   chat: ChatLine[]
   chatMemberLabels: Map<string, string>
   createSenderClient?: CastSenderClientFactory
+  stageFocusRestoreRef?: RefObject<HTMLElement | null>
 }
 
 export type UseCastStartSessionResult = {
@@ -41,10 +56,13 @@ export function useCastStartSession({
   chat,
   chatMemberLabels,
   createSenderClient = createDefaultCastSenderClient,
+  stageFocusRestoreRef,
 }: UseCastStartSessionInput): UseCastStartSessionResult {
   const castToTvButtonRef = useRef<HTMLButtonElement | null>(null)
   const stopCastButtonRef = useRef<HTMLButtonElement | null>(null)
   const shouldTransferFocusToStopRef = useRef(false)
+  const shouldRestoreFocusFromCastStageRef = useRef(false)
+  const previousLifecycleRef = useRef<CastStartLifecycle>('idle')
   const [controller] = useState<CastStartController>(() =>
     createCastStartController({ client: createSenderClient() }),
   )
@@ -132,7 +150,48 @@ export function useCastStartSession({
     shouldTransferFocusToStopRef.current = false
   }, [castStartLifecycle])
 
+  useEffect(() => {
+    if (castStartLifecycle !== 'stopping') return
+
+    const handleFocusIn = (event: FocusEvent) => {
+      if (!shouldRestoreFocusFromCastStageRef.current) return
+      const target = event.target
+      if (target instanceof HTMLElement && !isCastStageFocusTarget(target)) {
+        shouldRestoreFocusFromCastStageRef.current = false
+      }
+    }
+
+    document.addEventListener('focusin', handleFocusIn, true)
+    return () => document.removeEventListener('focusin', handleFocusIn, true)
+  }, [castStartLifecycle])
+
+  useEffect(() => {
+    const previousLifecycle = previousLifecycleRef.current
+    previousLifecycleRef.current = castStartLifecycle
+
+    if (castStartLifecycle !== 'idle' || previousLifecycle !== 'stopping') return
+    if (!shouldRestoreFocusFromCastStageRef.current) return
+
+    shouldRestoreFocusFromCastStageRef.current = false
+
+    const stageTarget = stageFocusRestoreRef?.current
+    if (stageTarget && isFocusRestoreTargetVisible(stageTarget)) {
+      stageTarget.focus()
+      return
+    }
+
+    const castToTvTarget = castToTvButtonRef.current
+    if (castToTvTarget && isFocusRestoreTargetVisible(castToTvTarget)) {
+      castToTvTarget.focus()
+    }
+  }, [castStartLifecycle, stageFocusRestoreRef])
+
   const stopCast = useCallback(() => {
+    const active = document.activeElement
+    const stopButton = stopCastButtonRef.current
+    shouldRestoreFocusFromCastStageRef.current =
+      (stopButton !== null && (active === stopButton || stopButton.contains(active))) ||
+      isCastStageFocusTarget(active)
     void controller.stopCast()
   }, [controller])
 

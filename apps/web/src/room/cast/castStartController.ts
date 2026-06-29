@@ -128,6 +128,12 @@ export function createCastStartController({
       emit()
     },
     stopCast: async () => {
+      if (lifecycle === 'idle' || lifecycle === 'starting' || lifecycle === 'start_failed') return
+      if (lifecycle === 'stopping') return
+
+      lifecycle = 'stopping'
+      emit()
+
       await cleanupSession()
       lifecycle = 'idle'
       emit()

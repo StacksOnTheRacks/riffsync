@@ -2,7 +2,7 @@ import type { RoomMode } from '../../api/roomsApi'
 
 export const RIFFSYNC_CAST_NAMESPACE = 'urn:x-cast:com.riffsync.presentation'
 
-export type CastStartLifecycle = 'idle' | 'starting' | 'casting' | 'start_failed'
+export type CastStartLifecycle = 'idle' | 'starting' | 'casting' | 'stopping' | 'start_failed'
 
 export type CastStagePrimaryKind = 'youtube_embed' | 'live_video_placeholder' | 'video_chat_grid'
 

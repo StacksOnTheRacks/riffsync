@@ -230,6 +230,7 @@ export function RoomPage() {
   const activeSidebarTab =
     !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
   const viewportWide = useViewportWide()
+  const expandToggleRef = useRef<HTMLButtonElement>(null)
   const castAvailability = useCastAvailability(Boolean(room))
   const { castStartLifecycle, startCast, stopCast, castToTvButtonRef, stopCastButtonRef } =
     useCastStartSession({
@@ -242,9 +243,10 @@ export function RoomPage() {
       hasGuestRelayStream: Boolean(guestRemote),
       chat,
       chatMemberLabels,
+      stageFocusRestoreRef: expandToggleRef,
     })
-  const castActive = castStartLifecycle === 'casting'
-  const expandedViewActive = expandedView && viewportWide && !castActive
+  const castStageActive = castStartLifecycle === 'casting' || castStartLifecycle === 'stopping'
+  const expandedViewActive = expandedView && viewportWide && !castStageActive
   const onCastToTvClick = useCallback(() => {
     void startCast()
   }, [startCast])
@@ -442,8 +444,9 @@ export function RoomPage() {
           data-expanded-view={expandedViewActive ? 'true' : 'false'}
         >
           <div className={`riffsync-room-page__theater${expandedViewActive ? ' riffsync-room-page__theater--expanded' : ''}`}>
-            {viewportWide && !castActive ? (
+            {viewportWide && !castStageActive ? (
               <button
+                ref={expandToggleRef}
                 type="button"
                 className="riffsync-room-page__expand-toggle"
                 aria-pressed={expandedViewActive}
@@ -461,10 +464,11 @@ export function RoomPage() {
               avSurfacesEnabled={avSurfacesEnabled}
               expandedView={expandedViewActive}
               playback={
-                castActive ? (
+                castStageActive ? (
                   <CastActiveStagePanel
                     onStopCast={onStopCastClick}
                     stopCastButtonRef={stopCastButtonRef}
+                    stopping={castStartLifecycle === 'stopping'}
                   />
                 ) : (
                   <RoomPlaybackPanel
