@@ -36,7 +36,7 @@ User-visible and system-visible failure modes (catalog + room + embed).
 
 ## Local Cast status taxonomy
 
-The availability and Cast-start slices define local Cast status codes only. Later lifecycle issues extend this table for receiver disconnect, receiver playback blocked, and stop failure.
+The availability, Cast-start, and local recovery slices define local Cast status codes only. These statuses stay sender-local and never become room drawer errors or room messages.
 
 | **`code`** | Source | Surface | User-facing copy (template) |
 | --- | --- | --- | --- |
@@ -44,6 +44,9 @@ The availability and Cast-start slices define local Cast status codes only. Late
 | **`CAST_STARTING`** | Sender launches the custom RiffSync Cast receiver and waits for receiver render confirmation. | Local Cast status near the Cast action or stage-local Cast surface. | Starting Cast… |
 | **`CAST_START_REJECTED`** | Sender SDK rejects launch, user cancels the Cast chooser, receiver launch fails, or the receiver does not confirm rendering the stage-primary video plus chat overlay. | Local Cast status near the Cast action or stage-local Cast surface. | Cast could not start. Try again from this browser or device. |
 | **`CAST_ACTIVE`** | Receiver render confirmation succeeded and the local sender is actively casting. | Sender stage-local **`Now Casting`** panel with associated Stop Cast control. | Now Casting. Casting to TV. |
+| **`CAST_SESSION_ENDED`** | An active Cast session ends outside successful user-initiated Stop Cast: receiver disconnect, route loss, sender SDK session-ended callback, receiver app close, or external TV stop. | Sender stage-local Cast surface while cleanup restores normal playback, then the normal Room Cast surface. | Cast ended. Playback is back in this tab. |
+| **`CAST_PLAYBACK_BLOCKED`** | Receiver launches but cannot keep rendering stage-primary playback or reports playback blocked/unavailable after active Cast began. | Sender stage-local Cast surface while keeping chat and room participation available. | Cast playback was interrupted. Playback is available in this tab. |
+| **`CAST_STOP_FAILED`** | User activates Stop Cast but sender SDK stop, receiver close, or route cleanup rejects or times out. | Sender stage-local Cast surface with Stop Cast still retryable when the session is still active; otherwise normal Room Cast surface after cleanup. | Cast could not stop from this tab. Try Stop Cast again or use your TV controls. |
 
 Cast status codes must not appear in chat drawer status, video-relay status, room-level alerts, or **`RoomRealtimeSdk.getDiagnostics().drawers.*`**. They are local UI status for the viewer's browser/session only.
 
@@ -175,7 +178,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### chromecast-local-errors
 - **Resolved for #273:** start uses **`CAST_STARTING`** while waiting for custom receiver render confirmation and **`CAST_START_REJECTED`** when launch is rejected, canceled, or the receiver does not confirm stage-primary video plus chat overlay rendering.
 - **Resolved for #274:** active Cast may use **`CAST_ACTIVE`** for the sender-local **`Now Casting`** stage. It remains local UI status only and must not appear in chat/video-relay drawer health.
-- **Out of #274 scope:** receiver disconnect, receiver playback blocked, and stop failure codes are owned by #278 / #276.
+- **Resolved for #278:** active-session disconnect, SDK-ended sessions, receiver app close, external TV stop, blocked receiver playback, and failed stop map to **`CAST_SESSION_ENDED`**, **`CAST_PLAYBACK_BLOCKED`**, or **`CAST_STOP_FAILED`**. All remain sender-local and keep normal room participation available.
+- **Resolved for #278:** **`CAST_SESSION_ENDED`** and **`CAST_PLAYBACK_BLOCKED`** restore or keep in-page playback visible after local cleanup. **`CAST_STOP_FAILED`** leaves Stop Cast retryable only while the sender still believes a Cast session is active.
 - **Resolved for #273:** start feedback uses local Cast status near the Cast action or stage-local Cast surface and must not merge with chat drawer or video-relay drawer health.
 
 ## Primary code pointers (optional)

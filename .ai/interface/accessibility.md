@@ -97,7 +97,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #274:** focus moves from **Cast to TV** to **Stop Cast** only when the initiating action still owns focus at success; expanded-view controls are inaccessible while casting.
 - **Resolved for #276:** successful post-stop restoration removes the Cast-active panel from the accessibility tree, makes the normal stage perceivable again, and restores focus only when focus still belongs to the removed Cast stage surface.
 - **Resolved for #277:** remote participants receive no Cast-induced live region update, focus movement, drawer status, stage control, or room-mode announcement because another viewer starts, stops, fails, or disconnects Cast.
-- **Out of #276 scope:** receiver-disconnect recovery, SDK-ended active sessions outside successful user stop, failed stop, and unavailable/blocked Cast recovery are owned by #278.
+- **Resolved for #278:** unavailable, failed-start, receiver-ended, playback-blocked, and stop-failed states use the same local Cast **`role="status"`** / stage-local status family. They must not duplicate chat drawer, video-relay, host feedback, global room announcer, or remote participant live regions.
+- **Resolved for #278:** receiver-ended and playback-blocked cleanup removes stale **`Now Casting`** and receiver-bound controls from the accessibility tree once the sender returns to normal in-page playback. Stop failure keeps **Stop Cast** accessible only while retry remains possible.
 
 ## Primary code pointers (optional)
 

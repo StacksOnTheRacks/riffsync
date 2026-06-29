@@ -473,7 +473,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #274:** active Cast renders **`CAST_ACTIVE`** / **`Now Casting`** on the sender stage, exposes local Stop Cast intent, clears/suppresses expanded view, and still does not add drawer diagnostics or active realtime error codes.
 - **Resolved for #276:** successful intentional Stop Cast uses local, idempotent cleanup and restores the normal in-page stage without clearing room, chat, SFU, theater playback, sidebar, or authoritative room state.
 - **Resolved for #277:** Cast controller tests should assert the absence of room HTTP mutations, room WebSocket sends, **`share_state`** changes, SFU token/permission changes, drawer diagnostic changes, and remote participant presentation changes for local Cast lifecycle paths.
-- **Out of #276 scope:** receiver disconnect, SDK-ended sessions that are not successful user stop, stop failure, blocked/unavailable Cast, and failure copy are owned by #278.
+- **Resolved for #278:** extend the local Cast controller lifecycle with distinct unavailable, start-failed, session-ended, playback-blocked, stopping, stop-failed, and cleaned-up states. Receiver disconnect, sender SDK **session-ended**, receiver app close, external TV stop, and blocked receiver playback must drive local cleanup and retry behavior without touching **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, room HTTP APIs, room WebSocket sends, or **`RoomRealtimeSdk.getDiagnostics().drawers.*`**.
+- **Resolved for #278:** tests may use controller-local hooks, fake sender clients, and receiver-channel stubs to simulate unavailable support, launch rejection, active disconnect, playback blocked, stop rejection, and cleanup completion. These hooks must remain outside aggregate room diagnostics and active realtime error codes.
 
 ## Primary code pointers (optional)
 

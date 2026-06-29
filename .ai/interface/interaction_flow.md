@@ -236,7 +236,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #274:** expanded view is unavailable while local Cast is active, and stale expanded-view state is cleared when active Cast begins.
 - **Resolved for #276:** successful intentional Stop Cast restores the sender's normal in-page stage playback and preserves chat, sidebar, room membership, presence, participant A/V, and authoritative room state.
 - **Resolved for #277:** other participants receive no Cast status, stage replacement, stop affordance, room mode change, playback change, chat/sidebar reset, participant A/V change, or drawer-status change because of another viewer's Cast lifecycle.
-- **Out of #276 scope:** receiver disconnect, SDK-ended active sessions outside successful user stop, blocked/unavailable Cast, and stop-failure recovery belong to #278.
+- **Resolved for #278:** unavailable support keeps or returns the viewer to the normal Room Cast action with local unavailable copy. Start failure after the chooser or receiver handshake clears starting state, preserves normal playback/chat/sidebar state, and allows retry when support is still available.
+- **Resolved for #278:** receiver disconnect, SDK-ended active sessions, receiver app close, external TV stop, and blocked receiver playback all end active sender Cast locally, run idempotent cleanup, restore or keep in-page playback visible, and leave room membership, chat, SFU, participant A/V, and authoritative room state unchanged.
+- **Resolved for #278:** stop failure transitions to a retryable local stop-failed state only while the sender still has an active session handle. If the active route is gone, cleanup completes as **`CAST_SESSION_ENDED`** instead of preserving stale active Cast UI.
 
 ## Primary code pointers (optional)
 

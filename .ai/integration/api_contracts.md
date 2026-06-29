@@ -45,6 +45,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 - **Connect context:** **`roomId`** required; **`sessionId`** for guest envelope; fan JWT at **`$connect`** (**query `accessToken`** or **`Authorization`**) stores **`fanSub`** and marks host publisher when **`sub === hostSub`**.
 - **Room-admin only:** durable playback-intent updates, **`roomMode`**, **`avDisabled`**, and **host screen-share** signaling; server validates **`JWT.sub === hostSub`** before accepting host control envelopes or mutating authoritative room fields.
 - **Broadcast:** Lambda uses **`execute-api:ManageConnections`** **`PostToConnection`** to room members after durable room write succeeds for persisted fields (**`roomMode`**, **`avDisabled`**, playback); ordering best-effort (see **`messaging_async.md`**).
+- **Viewer-local Cast:** Cast unavailable, start failure, active receiver disconnect, receiver playback blocked, stop failure, and cleaned-up state are client-only sender lifecycle states. They are not HTTP request fields, room snapshot fields, lobby fields, WebSocket inbound routes, WebSocket fan-out payloads, **`share_state`** variants, SFU token claims, or room diagnostics drawer fields.
 
 ### Presence and typing (control plane)
 

@@ -232,6 +232,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | What does #274 own? | The persistent sender-local active Cast state after receiver render confirmation: perceivable **`Now Casting`** stage copy, a visible Stop Cast control, no receiver-device naming in app-authored copy, and no room-authority side effects. Full post-stop playback restoration remains the #276 slice. |
 | Does active Cast emit diagnostics or telemetry? | **No aggregate telemetry or drawer diagnostics for #274.** Local controller state and test-only hooks may prove active/stop behavior, but Cast must not appear in **`RoomRealtimeSdk.getDiagnostics().drawers.*`**, room activity metrics, or receiver-identifying logs. |
 | What does #277 own? | Guardrails and regression coverage that prove local Cast does not mutate **`roomMode`**, **`avDisabled`**, **`share_state`**, durable room playback fields, host authority, SFU permissions, participant roster authority, or any other participant's room experience. |
+| What does #278 own? | Sender-local recovery when Cast is unavailable, start fails after support was shown, an active receiver disconnects or ends externally, receiver playback becomes blocked, or Stop Cast fails. Recovery keeps room participation, chat, SFU, and authoritative room state intact while restoring or keeping normal in-page playback visible whenever the sender is no longer actively casting. |
 
 ## Open implementation decisions
 
@@ -240,7 +241,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### chromecast-local-cast-lifecycle
 - **Resolved for #274:** active Cast uses sender-local stage state only: **`Now Casting`** plus Stop Cast. It produces no aggregate telemetry and no **`RoomRealtimeSdk`** drawer diagnostics.
 - **Resolved for #277:** local Cast lifecycle transitions must not create room authority or participant-visible side effects. Tests should cover sender start/active/stop/failure paths without any room document write, room WebSocket fan-out, **`share_state`** mutation, SFU permission change, or remote participant stage/status change.
-- **Out of #274 scope:** receiver disconnected, receiver playback blocked, and stop-failed taxonomy remain owned by #278 / #276.
+- **Resolved for #278:** local Cast recovery owns unavailable, failed-start, receiver-disconnected, externally-ended, playback-blocked, and stop-failed states. These states are browser-session state only and must not update durable room documents, room snapshots, lobby rows, **`share_state`**, SFU token claims, or other participants' presentation.
 
 ## Decisions (theater mic mix on host_screen close — #145)
 
