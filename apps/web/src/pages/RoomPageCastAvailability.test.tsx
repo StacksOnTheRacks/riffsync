@@ -4,17 +4,18 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoomPage } from './RoomPage'
-import { ChatSession } from '../room/sessions/ChatSession'
-import { SfuMediaSession } from '../room/sessions/SfuMediaSession'
-import { TheaterPlayback } from '../room/sessions/TheaterPlayback'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
 import {
-  RETIRED_GUEST_NOT_SHARING_PLACEHOLDER,
-  RETIRED_MESH_HOST_SCREEN_COPY,
-} from './roomPageDrawerStatusTestHelpers'
+  CAST_UNAVAILABLE_MESSAGE,
+  RIFFSYNC_CAST_AVAILABILITY_STATUS_ID,
+} from '../room/cast/castAvailabilityTypes'
+import type { CastAvailabilityState } from '../room/cast/castAvailabilityTypes'
 
 const fetchRoom = vi.fn()
 const fetchRtcIceServers = vi.fn()
+const castAvailabilityState = vi.hoisted(() => ({
+  value: 'checking' as CastAvailabilityState,
+}))
 
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
@@ -52,14 +53,14 @@ vi.mock('../config/publicOrigin', () => ({
   getPublicOrigin: () => 'https://www.test.example',
 }))
 
-vi.mock('../room/cast/useCastAvailability', () => ({
-  useCastAvailability: () => 'checking',
-}))
-
 vi.mock('../session/guestSession', () => ({
   ensureGuestSession: () => ({ sessionId: 'sess-test-1', displayName: 'Guest' }),
   setGuestDisplayName: (name: string) => name,
   FAN_DISPLAY_NAME_MAX_LEN: 48,
+}))
+
+vi.mock('../room/cast/useCastAvailability', () => ({
+  useCastAvailability: () => castAvailabilityState.value,
 }))
 
 vi.mock('../room/audio/theaterAudioMix', () => ({
@@ -137,15 +138,13 @@ class MockWebSocket {
   }
 }
 
-describe('RoomPage session integration', () => {
+describe('RoomPage Cast availability', () => {
   let container: HTMLDivElement
   let root: Root
-  let chatDisconnectSpy: ReturnType<typeof vi.spyOn>
-  let sfuDisconnectSpy: ReturnType<typeof vi.spyOn>
-  let theaterDisposeSpy: ReturnType<typeof vi.spyOn>
   let webSocketCtor: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
+    castAvailabilityState.value = 'checking'
     MockWebSocket.instances = []
     webSocketCtor = vi.fn((url: string) => new MockWebSocket(url))
     Object.assign(webSocketCtor, {
@@ -154,10 +153,6 @@ describe('RoomPage session integration', () => {
       CLOSED: MockWebSocket.CLOSED,
     })
     vi.stubGlobal('WebSocket', webSocketCtor)
-
-    chatDisconnectSpy = vi.spyOn(ChatSession.prototype, 'disconnect')
-    sfuDisconnectSpy = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
-    theaterDisposeSpy = vi.spyOn(TheaterPlayback.prototype, 'dispose')
 
     fetchRtcIceServers.mockResolvedValue([{ urls: 'stun:stun.test' }])
     fetchRoom.mockResolvedValue({
@@ -180,7 +175,7 @@ describe('RoomPage session integration', () => {
 
   afterEach(async () => {
     act(() => root.unmount())
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 50))
     container.remove()
     vi.unstubAllGlobals()
     vi.clearAllMocks()
@@ -200,54 +195,77 @@ describe('RoomPage session integration', () => {
     })
   }
 
-  it('does not import legacy session wiring or SFU modules directly', async () => {
-    const fs = await import('node:fs')
-    const path = await import('node:path')
-    const src = fs.readFileSync(path.join(__dirname, 'RoomPage.tsx'), 'utf8')
-    const forbidden = [
-      'useRoomWebSocket',
-      'useRoomSessionWiring',
-      'startSfuRoomSession',
-      'useChatSession',
-      'useSfuMediaSession',
-      'useTheaterPlayback',
-      'mediasoupSharing',
-      'sfuRelayStatusCopy',
-      'sessions/ChatSession',
-      'sessions/SfuMediaSession',
-      'sessions/TheaterPlayback',
-    ]
-    for (const token of forbidden) {
-      expect(src).not.toContain(token)
-    }
-    expect(src).toContain('useRoomMediaEngine')
+  async function openRoomTab() {
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-room-page__tab')).not.toBeNull()
+    })
+    const roomTab = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).find(
+      (node) => node.textContent?.trim() === 'Room',
+    )
+    expect(roomTab).not.toBeUndefined()
+    act(() => {
+      ;(roomTab as HTMLButtonElement).click()
+    })
+  }
+
+  it('shows Cast to TV in the normal-view Room tab when sender support is available', async () => {
+    castAvailabilityState.value = 'available'
+    renderRoom()
+    await openRoomTab()
+
+    expect(container.textContent).toContain('Cast to TV')
+    expect(container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)).toBeNull()
   })
 
-  it('constructs session modules on mount and tears them down on unmount', async () => {
+  it('shows local unavailable copy in the Room tab when sender support is absent', async () => {
+    castAvailabilityState.value = 'unavailable'
     renderRoom()
+    await openRoomTab()
 
-    await vi.waitFor(() => {
-      expect(container.querySelector('#riffsync-video-relay-status')).not.toBeNull()
+    const status = container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)
+    expect(status).not.toBeNull()
+    expect(status?.textContent).toBe(CAST_UNAVAILABLE_MESSAGE)
+    expect(container.textContent).not.toContain('Cast to TV')
+  })
+
+  it('omits Cast availability from expanded view', async () => {
+    castAvailabilityState.value = 'available'
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(min-width: 992px)',
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
     })
 
-    const videoRelayStatus = container.querySelector('#riffsync-video-relay-status')
-    expect(videoRelayStatus).not.toBeNull()
-    expect(videoRelayStatus?.getAttribute('role')).toBe('status')
-    expect(container.textContent).not.toContain(RETIRED_GUEST_NOT_SHARING_PLACEHOLDER)
-    expect(container.querySelector('.riffsync-room-page__guest-video-placeholder')).toBeNull()
-    for (const meshCopy of RETIRED_MESH_HOST_SCREEN_COPY) {
-      expect(container.textContent).not.toContain(meshCopy)
-    }
+    renderRoom()
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-room-page__expand-toggle')).not.toBeNull()
+    })
 
-    const chatDisconnectsBeforeUnmount = chatDisconnectSpy.mock.calls.length
-    const sfuDisconnectsBeforeUnmount = sfuDisconnectSpy.mock.calls.length
-    const theaterDisposesBeforeUnmount = theaterDisposeSpy.mock.calls.length
+    act(() => {
+      ;(container.querySelector('.riffsync-room-page__expand-toggle') as HTMLButtonElement).click()
+    })
 
-    act(() => root.unmount())
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await vi.waitFor(() => {
+      expect(container.querySelector('[data-expanded-view="true"]')).not.toBeNull()
+    })
 
-    expect(chatDisconnectSpy.mock.calls.length).toBeGreaterThan(chatDisconnectsBeforeUnmount)
-    expect(sfuDisconnectSpy.mock.calls.length).toBeGreaterThan(sfuDisconnectsBeforeUnmount)
-    expect(theaterDisposeSpy.mock.calls.length).toBeGreaterThan(theaterDisposesBeforeUnmount)
+    expect(container.textContent).not.toContain('Cast to TV')
+    expect(container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)).toBeNull()
+  })
+
+  it('does not surface Cast unavailable copy in chat drawer status', async () => {
+    castAvailabilityState.value = 'unavailable'
+    renderRoom()
+    await openRoomTab()
+
+    expect(container.textContent).toContain(CAST_UNAVAILABLE_MESSAGE)
+    expect(container.textContent?.includes(CAST_UNAVAILABLE_MESSAGE)).toBe(true)
+    const chatDrawerStatus = container.querySelector('#riffsync-chat-drawer-status')
+    expect(chatDrawerStatus?.textContent ?? '').not.toContain(CAST_UNAVAILABLE_MESSAGE)
   })
 })

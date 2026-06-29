@@ -22,6 +22,8 @@ import {
   RIFFSYNC_CHAT_COMPOSE_STATUS_ID,
   RIFFSYNC_CHAT_DRAWER_STATUS_ID,
 } from './drawerErrorPresentation'
+import { CastAvailabilityRoomActions } from './cast/CastAvailabilityRoomActions'
+import type { CastAvailabilityState } from './cast/castAvailabilityTypes'
 
 type RoomPageSidebarProps = {
   presentation?: 'sidebar' | 'overlay'
@@ -72,6 +74,8 @@ type RoomPageSidebarProps = {
   profileAvatarInputRef: RefObject<HTMLInputElement | null>
   saveProfileDisplayName: () => void
   onProfileAvatarSelected: (e: ChangeEvent<HTMLInputElement>) => void
+  castAvailability: CastAvailabilityState
+  onCastToTvClick: () => void
 }
 
 export function RoomPageSidebar({
@@ -123,6 +127,8 @@ export function RoomPageSidebar({
   profileAvatarInputRef,
   saveProfileDisplayName,
   onProfileAvatarSelected,
+  castAvailability,
+  onCastToTvClick,
 }: RoomPageSidebarProps) {
   const chatPlane = (
     <section
@@ -363,6 +369,10 @@ export function RoomPageSidebar({
                 Hosting Guide
               </Link>
             ) : null}
+            <CastAvailabilityRoomActions
+              castAvailability={castAvailability}
+              onCastToTvClick={onCastToTvClick}
+            />
             <Link className="gen-button gen-button-wide" to="/">
               Leave Party
             </Link>
