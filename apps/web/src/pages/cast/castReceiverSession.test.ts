@@ -17,6 +17,11 @@ type CastReceiverTestWindow = Window & {
         }
       }
       CastReceiverOptions: new () => Record<string, never>
+      system: {
+        MessageType: {
+          JSON: string
+        }
+      }
     }
   }
 }
@@ -50,6 +55,11 @@ function installReceiverFramework() {
       },
       CastReceiverOptions: class {
         [key: string]: never
+      },
+      system: {
+        MessageType: {
+          JSON: 'json',
+        },
       },
     },
   }
@@ -90,6 +100,13 @@ describe('startCastReceiverSession', () => {
   it('accepts presentation snapshots delivered as Cast object payloads', async () => {
     const receiver = await startReceiver()
 
+    expect(receiver.context.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customNamespaces: {
+          [RIFFSYNC_CAST_NAMESPACE]: 'json',
+        },
+      }),
+    )
     receiver.emitMessage({ type: 'presentation_snapshot', snapshot })
 
     expect(receiver.onPresentationSnapshot).toHaveBeenCalledWith(snapshot)

@@ -14,13 +14,22 @@ type CastReceiverFrameworkWindow = Window & {
       CastReceiverContext: {
         getInstance: () => CastReceiverContextInstance
       }
-      CastReceiverOptions: new () => Record<string, never>
+      CastReceiverOptions: new () => CastReceiverOptions
+      system: {
+        MessageType: {
+          JSON: string
+        }
+      }
     }
   }
 }
 
+type CastReceiverOptions = {
+  customNamespaces?: Record<string, string>
+}
+
 type CastReceiverContextInstance = {
-  start: (options?: Record<string, never>) => void
+  start: (options?: CastReceiverOptions) => void
   addCustomMessageListener: (
     namespace: string,
     handler: (event: { data?: unknown }) => void,
@@ -106,7 +115,12 @@ export async function startCastReceiverSession(
     }
   })
 
-  context.start(new framework.CastReceiverOptions())
+  const options = new framework.CastReceiverOptions()
+  options.customNamespaces = {
+    [RIFFSYNC_CAST_NAMESPACE]: framework.system.MessageType.JSON,
+  }
+
+  context.start(options)
 
   return {
     stop: () => {
