@@ -19,6 +19,13 @@ const CAST_FRAMEWORK_SCRIPT_SELECTOR = 'script[data-riffsync-cast-framework="tru
 const CAST_FRAMEWORK_READY_TIMEOUT_MS = 5000
 
 type CastFrameworkWindow = Window & {
+  chrome?: {
+    cast?: {
+      AutoJoinPolicy?: {
+        ORIGIN_SCOPED?: string
+      }
+    }
+  }
   cast?: {
     framework?: {
       CastContext: {
@@ -27,9 +34,6 @@ type CastFrameworkWindow = Window & {
       CastContextEventType: {
         CAST_STATE_CHANGED: string
         SESSION_STATE_CHANGED: string
-      }
-      AutoJoinPolicy: {
-        ORIGIN_SCOPED: string
       }
       SessionState: {
         SESSION_STARTED: string
@@ -62,6 +66,12 @@ type CastFramework = NonNullable<NonNullable<CastFrameworkWindow['cast']>['frame
 function readCastFramework(): CastFrameworkWindow['cast'] | undefined {
   if (typeof window === 'undefined') return undefined
   return (window as CastFrameworkWindow).cast
+}
+
+function readOriginScopedAutoJoinPolicy(): string {
+  const policy = (window as CastFrameworkWindow).chrome?.cast?.AutoJoinPolicy?.ORIGIN_SCOPED
+  if (!policy) throw new Error('Cast auto join policy unavailable')
+  return policy
 }
 
 function ensureCastFrameworkScript(): void {
@@ -173,7 +183,7 @@ export function createDefaultCastSenderClient(): CastSenderClient {
       const context = framework.CastContext.getInstance()
       context.setOptions({
         receiverApplicationId,
-        autoJoinPolicy: framework.AutoJoinPolicy.ORIGIN_SCOPED,
+        autoJoinPolicy: readOriginScopedAutoJoinPolicy(),
       })
 
       return await new Promise<CastSenderSessionHandle>((resolve, reject) => {
