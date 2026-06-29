@@ -231,6 +231,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | What does stop Cast do? | Stop returns the sender to normal in-page playback and the latest authoritative room snapshot/realtime state without clearing room session or chat state. |
 | What does #274 own? | The persistent sender-local active Cast state after receiver render confirmation: perceivable **`Now Casting`** stage copy, a visible Stop Cast control, no receiver-device naming in app-authored copy, and no room-authority side effects. Full post-stop playback restoration remains the #276 slice. |
 | Does active Cast emit diagnostics or telemetry? | **No aggregate telemetry or drawer diagnostics for #274.** Local controller state and test-only hooks may prove active/stop behavior, but Cast must not appear in **`RoomRealtimeSdk.getDiagnostics().drawers.*`**, room activity metrics, or receiver-identifying logs. |
+| What does #277 own? | Guardrails and regression coverage that prove local Cast does not mutate **`roomMode`**, **`avDisabled`**, **`share_state`**, durable room playback fields, host authority, SFU permissions, participant roster authority, or any other participant's room experience. |
 
 ## Open implementation decisions
 
@@ -238,6 +239,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-local-cast-lifecycle
 - **Resolved for #274:** active Cast uses sender-local stage state only: **`Now Casting`** plus Stop Cast. It produces no aggregate telemetry and no **`RoomRealtimeSdk`** drawer diagnostics.
+- **Resolved for #277:** local Cast lifecycle transitions must not create room authority or participant-visible side effects. Tests should cover sender start/active/stop/failure paths without any room document write, room WebSocket fan-out, **`share_state`** mutation, SFU permission change, or remote participant stage/status change.
 - **Out of #274 scope:** receiver disconnected, receiver playback blocked, and stop-failed taxonomy remain owned by #278 / #276.
 
 ## Decisions (theater mic mix on host_screen close — #145)

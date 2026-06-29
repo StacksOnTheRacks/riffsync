@@ -122,6 +122,7 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 6. **Chat while casting:** Chat send/read/reaction/GIF behavior follows the same signed-in and anonymous rules as normal room view; Cast state must not block chat when the chat plane is healthy.
 7. **Stop Cast:** Successful intentional Stop Cast returns the sender to normal in-page playback. Room session, chat state, selected sidebar tab, and latest authoritative room state remain intact.
 8. **Failure / unavailable:** Start rejection, platform policy block, receiver loss before active Cast, or unsupported sender state returns to normal in-page playback with local recoverable status only. Do not leave the room, reset chat, or tear down healthy SFU/video relay state.
+9. **Room authority preservation (#277):** Every Cast lifecycle path is sender-local. Starting, activating, stopping, failing, disconnecting, or clearing Cast must not send room WebSocket messages, change **`share_state`**, call room HTTP mutation APIs, change **`roomMode`** / **`avDisabled`**, alter SFU token eligibility, or change another participant's stage, controls, drawer status, chat state, presence, or playback.
 
 ### Cast-active sender flow (#274)
 
@@ -234,6 +235,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #274:** active Cast replaces the sender stage with **`Now Casting`** and Stop Cast after confirmed success. Stop activation sends local stop intent only; full normal-playback restoration remains #276.
 - **Resolved for #274:** expanded view is unavailable while local Cast is active, and stale expanded-view state is cleared when active Cast begins.
 - **Resolved for #276:** successful intentional Stop Cast restores the sender's normal in-page stage playback and preserves chat, sidebar, room membership, presence, participant A/V, and authoritative room state.
+- **Resolved for #277:** other participants receive no Cast status, stage replacement, stop affordance, room mode change, playback change, chat/sidebar reset, participant A/V change, or drawer-status change because of another viewer's Cast lifecycle.
 - **Out of #276 scope:** receiver disconnect, SDK-ended active sessions outside successful user stop, blocked/unavailable Cast, and stop-failure recovery belong to #278.
 
 ## Primary code pointers (optional)
