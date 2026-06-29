@@ -29,6 +29,7 @@ export function createCastStartController({
   let lifecycle: CastStartLifecycle = 'idle'
   let session: CastSenderSessionHandle | null = null
   let removeMessageListener: (() => void) | null = null
+  let removeSessionEndedListener: (() => void) | null = null
   let confirmationTimer: ReturnType<typeof setTimeout> | null = null
   const listeners = new Set<(state: CastStartControllerState) => void>()
 
@@ -44,10 +45,16 @@ export function createCastStartController({
     }
   }
 
-  const cleanupSession = async () => {
+  const detachSessionListeners = () => {
     clearConfirmationTimer()
     removeMessageListener?.()
     removeMessageListener = null
+    removeSessionEndedListener?.()
+    removeSessionEndedListener = null
+  }
+
+  const cleanupSession = async () => {
+    detachSessionListeners()
     const activeSession = session
     session = null
     if (activeSession) {
@@ -65,10 +72,58 @@ export function createCastStartController({
     emit()
   }
 
+  const recoverFromActiveSession = async (nextLifecycle: Extract<CastStartLifecycle, 'session_ended' | 'playback_blocked'>) => {
+    await cleanupSession()
+    lifecycle = nextLifecycle
+    emit()
+  }
+
   const confirmStart = () => {
     clearConfirmationTimer()
     lifecycle = 'casting'
     emit()
+  }
+
+  const handleReceiverMessage = (raw: unknown) => {
+    const message = parseCastReceiverOutboundMessage(raw)
+    if (!message) return
+    if (message.type === 'render_confirmed') {
+      if (lifecycle === 'starting') confirmStart()
+      return
+    }
+    if (message.type === 'render_failed') {
+      if (lifecycle === 'starting') {
+        void failStart()
+        return
+      }
+      if (lifecycle === 'casting' || lifecycle === 'stop_failed') {
+        void recoverFromActiveSession('playback_blocked')
+      }
+    }
+  }
+
+  const stopActiveSession = async (): Promise<'idle' | 'session_ended' | 'stop_failed'> => {
+    clearConfirmationTimer()
+    const activeSession = session
+    if (!activeSession) {
+      detachSessionListeners()
+      return 'session_ended'
+    }
+
+    try {
+      await activeSession.end()
+    } catch {
+      if (activeSession.hasActiveRoute()) {
+        return 'stop_failed'
+      }
+      detachSessionListeners()
+      session = null
+      return 'session_ended'
+    }
+
+    detachSessionListeners()
+    session = null
+    return 'idle'
   }
 
   return {
@@ -78,7 +133,7 @@ export function createCastStartController({
       return () => listeners.delete(listener)
     },
     startCast: async (snapshot) => {
-      if (lifecycle === 'starting' || lifecycle === 'casting') return
+      if (lifecycle === 'starting' || lifecycle === 'casting' || lifecycle === 'stopping' || lifecycle === 'stop_failed') return
 
       lifecycle = 'starting'
       emit()
@@ -87,15 +142,10 @@ export function createCastStartController({
         const nextSession = await client.requestSession()
         session = nextSession
 
-        removeMessageListener = nextSession.addMessageListener((raw) => {
-          const message = parseCastReceiverOutboundMessage(raw)
-          if (!message) return
-          if (message.type === 'render_confirmed') {
-            confirmStart()
-            return
-          }
-          if (message.type === 'render_failed') {
-            void failStart()
+        removeMessageListener = nextSession.addMessageListener(handleReceiverMessage)
+        removeSessionEndedListener = nextSession.addSessionEndedListener(() => {
+          if (lifecycle === 'casting' || lifecycle === 'stopping' || lifecycle === 'stop_failed') {
+            void recoverFromActiveSession('session_ended')
           }
         })
 
@@ -119,23 +169,30 @@ export function createCastStartController({
           messages: snapshot.chatOverlay.messages,
         })
       } catch {
-        /* Receiver disconnect handling belongs to later slices. */
+        await recoverFromActiveSession('session_ended')
       }
     },
     resetStartFailure: () => {
-      if (lifecycle !== 'start_failed') return
+      if (lifecycle !== 'start_failed' && lifecycle !== 'session_ended' && lifecycle !== 'playback_blocked') return
       lifecycle = 'idle'
       emit()
     },
     stopCast: async () => {
-      if (lifecycle === 'idle' || lifecycle === 'starting' || lifecycle === 'start_failed') return
+      if (
+        lifecycle === 'idle' ||
+        lifecycle === 'starting' ||
+        lifecycle === 'start_failed' ||
+        lifecycle === 'session_ended' ||
+        lifecycle === 'playback_blocked'
+      ) {
+        return
+      }
       if (lifecycle === 'stopping') return
 
       lifecycle = 'stopping'
       emit()
 
-      await cleanupSession()
-      lifecycle = 'idle'
+      lifecycle = await stopActiveSession()
       emit()
     },
   }

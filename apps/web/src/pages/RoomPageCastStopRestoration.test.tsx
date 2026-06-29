@@ -9,6 +9,10 @@ import {
   CAST_ACTIVE_HEADING,
   CAST_STOPPING_SUBCOPY,
 } from '../room/cast/castActiveStatusCopy'
+import {
+  CAST_PLAYBACK_BLOCKED_MESSAGE,
+  CAST_SESSION_ENDED_MESSAGE,
+} from '../room/cast/castStartStatusCopy'
 import type { CastStartLifecycle } from '../room/cast/castChannelProtocol'
 
 const fetchRoom = vi.fn()
@@ -195,6 +199,13 @@ describe('RoomPage Cast stop restoration', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('.riffsync-room-page__tab')).not.toBeNull()
     })
+
+    const roomTab = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).find(
+      (node) => node.textContent?.trim() === 'Room',
+    )
+    act(() => {
+      ;(roomTab as HTMLButtonElement).click()
+    })
   }
 
   it('keeps the Cast stage panel visible while stopping', async () => {
@@ -220,5 +231,25 @@ describe('RoomPage Cast stop restoration', () => {
     await openRoomTab()
 
     expect(container.querySelector('.riffsync-room-page__expand-toggle')).not.toBeNull()
+  })
+
+  it('restores playback and local status after an active Cast session ends externally', async () => {
+    castStartLifecycle.value = 'session_ended'
+    await openRoomTab()
+
+    expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
+    expect(container.textContent).toContain(CAST_SESSION_ENDED_MESSAGE)
+    expect(container.textContent).toContain('Cast to TV')
+  })
+
+  it('restores playback and local status after receiver playback is blocked', async () => {
+    castStartLifecycle.value = 'playback_blocked'
+    await openRoomTab()
+
+    expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
+    expect(container.textContent).toContain(CAST_PLAYBACK_BLOCKED_MESSAGE)
+    expect(container.textContent).toContain('Cast to TV')
   })
 })

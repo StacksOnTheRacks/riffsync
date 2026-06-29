@@ -245,7 +245,8 @@ export function RoomPage() {
       chatMemberLabels,
       stageFocusRestoreRef: expandToggleRef,
     })
-  const castStageActive = castStartLifecycle === 'casting' || castStartLifecycle === 'stopping'
+  const castStageActive =
+    castStartLifecycle === 'casting' || castStartLifecycle === 'stopping' || castStartLifecycle === 'stop_failed'
   const expandedViewActive = expandedView && viewportWide && !castStageActive
   const onCastToTvClick = useCallback(() => {
     void startCast()
@@ -469,6 +470,7 @@ export function RoomPage() {
                     onStopCast={onStopCastClick}
                     stopCastButtonRef={stopCastButtonRef}
                     stopping={castStartLifecycle === 'stopping'}
+                    stopFailed={castStartLifecycle === 'stop_failed'}
                   />
                 ) : (
                   <RoomPlaybackPanel

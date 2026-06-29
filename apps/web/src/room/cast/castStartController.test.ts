@@ -18,8 +18,10 @@ const snapshot: CastPresentationSnapshot = {
 function createMockSession(handlers: {
   onSend?: (message: unknown) => void
   confirmAfterSend?: boolean
-}): CastSenderSessionHandle {
+}): CastSenderSessionHandle & { emitSessionEnded: () => void; emitReceiverMessage: (message: unknown) => void; setActiveRoute: (active: boolean) => void } {
   const listeners = new Set<(message: unknown) => void>()
+  const sessionEndedListeners = new Set<() => void>()
+  let activeRoute = true
   return {
     sendMessage: async (message) => {
       handlers.onSend?.(message)
@@ -31,7 +33,22 @@ function createMockSession(handlers: {
       listeners.add(handler)
       return () => listeners.delete(handler)
     },
+    addSessionEndedListener: (handler) => {
+      sessionEndedListeners.add(handler)
+      return () => sessionEndedListeners.delete(handler)
+    },
+    hasActiveRoute: () => activeRoute,
     end: vi.fn().mockResolvedValue(undefined),
+    emitSessionEnded: () => {
+      activeRoute = false
+      for (const listener of sessionEndedListeners) listener()
+    },
+    emitReceiverMessage: (message) => {
+      for (const listener of listeners) listener(message)
+    },
+    setActiveRoute: (active) => {
+      activeRoute = active
+    },
   }
 }
 
@@ -147,5 +164,61 @@ describe('createCastStartController', () => {
       type: 'chat_overlay_update',
       messages: [{ id: 'm2', kind: 'text', text: 'Host: updated', senderLabel: 'Host' }],
     })
+  })
+
+  it('maps active session-ended callbacks to session_ended recovery', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitSessionEnded()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('session_ended')
+    expect(session.end).toHaveBeenCalledTimes(1)
+  })
+
+  it('maps receiver render failure after active Cast to playback_blocked recovery', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitReceiverMessage({ type: 'render_failed', reason: 'playback_blocked' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('playback_blocked')
+    expect(session.end).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps Stop Cast retryable when stop fails and the route is still active', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    session.end = vi.fn().mockRejectedValue(new Error('stop rejected'))
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    await controller.stopCast()
+
+    expect(controller.getState().lifecycle).toBe('stop_failed')
+    expect(session.end).toHaveBeenCalledTimes(1)
+
+    session.end = vi.fn().mockResolvedValue(undefined)
+    await controller.stopCast()
+
+    expect(controller.getState().lifecycle).toBe('idle')
+    expect(session.end).toHaveBeenCalledTimes(1)
+  })
+
+  it('maps stop failure to session_ended when cleanup observes that the route is gone', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    session.end = vi.fn().mockRejectedValue(new Error('route already gone'))
+    session.setActiveRoute(false)
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    await controller.stopCast()
+
+    expect(controller.getState().lifecycle).toBe('session_ended')
   })
 })

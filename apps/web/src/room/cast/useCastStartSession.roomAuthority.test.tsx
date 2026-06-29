@@ -8,6 +8,8 @@ function TestHarness({ enabled = true }: { enabled?: boolean }) {
   const stopCastSpy = vi.fn()
   const sessionEndSpy = vi.fn().mockResolvedValue(undefined)
   const messageListeners = new Set<(message: unknown) => void>()
+  const sessionEndedListeners = new Set<() => void>()
+  const activeRoute = true
 
   const { castStartLifecycle, startCast, stopCast } = useCastStartSession({
     enabled,
@@ -30,6 +32,11 @@ function TestHarness({ enabled = true }: { enabled?: boolean }) {
           messageListeners.add(handler)
           return () => messageListeners.delete(handler)
         },
+        addSessionEndedListener: (handler: () => void) => {
+          sessionEndedListeners.add(handler)
+          return () => sessionEndedListeners.delete(handler)
+        },
+        hasActiveRoute: () => activeRoute,
         end: sessionEndSpy,
       }),
     }),

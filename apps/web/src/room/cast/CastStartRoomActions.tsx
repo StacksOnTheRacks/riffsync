@@ -1,6 +1,8 @@
 import type { RefObject } from 'react'
 import {
   CAST_STARTING_MESSAGE,
+  CAST_PLAYBACK_BLOCKED_MESSAGE,
+  CAST_SESSION_ENDED_MESSAGE,
   CAST_START_REJECTED_MESSAGE,
   RIFFSYNC_CAST_START_STATUS_ID,
 } from './castStartStatusCopy'
@@ -52,7 +54,16 @@ export function CastStartRoomActions({
     )
   }
 
-  if (castStartLifecycle === 'start_failed') {
+  const recoveryMessage =
+    castStartLifecycle === 'start_failed'
+      ? CAST_START_REJECTED_MESSAGE
+      : castStartLifecycle === 'session_ended'
+        ? CAST_SESSION_ENDED_MESSAGE
+        : castStartLifecycle === 'playback_blocked'
+          ? CAST_PLAYBACK_BLOCKED_MESSAGE
+          : null
+
+  if (recoveryMessage) {
     return (
       <>
         <p
@@ -61,7 +72,7 @@ export function CastStartRoomActions({
           role="status"
           aria-live="polite"
         >
-          {CAST_START_REJECTED_MESSAGE}
+          {recoveryMessage}
         </p>
         <button
           ref={castToTvButtonRef}
@@ -75,7 +86,7 @@ export function CastStartRoomActions({
     )
   }
 
-  if (castStartLifecycle === 'casting' || castStartLifecycle === 'stopping') {
+  if (castStartLifecycle === 'casting' || castStartLifecycle === 'stopping' || castStartLifecycle === 'stop_failed') {
     return null
   }
 

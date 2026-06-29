@@ -17,8 +17,8 @@ function readPage(relativePath: string): string {
 describe('Cast stop restoration wiring (#276)', () => {
   it('castStartController stopCast enters stopping before idle cleanup', () => {
     const src = readCast('castStartController.ts')
-    expect(src).toMatch(/stopCast: async \(\) => \{[\s\S]*lifecycle = 'stopping'[\s\S]*cleanupSession/)
-    expect(src).toMatch(/cleanupSession\(\)[\s\S]*lifecycle = 'idle'/)
+    expect(src).toMatch(/stopCast: async \(\) => \{[\s\S]*lifecycle = 'stopping'[\s\S]*stopActiveSession/)
+    expect(src).toMatch(/stopActiveSession[\s\S]*return 'idle'/)
   })
 
   it('useCastStartSession restores focus only after stopping completes to idle', () => {
@@ -32,7 +32,9 @@ describe('Cast stop restoration wiring (#276)', () => {
 
   it('RoomPage keeps Cast stage mounted through stopping and restores playback after', () => {
     const src = readPage('RoomPage.tsx')
-    expect(src).toContain("castStartLifecycle === 'casting' || castStartLifecycle === 'stopping'")
+    expect(src).toContain("castStartLifecycle === 'casting'")
+    expect(src).toContain("castStartLifecycle === 'stopping'")
+    expect(src).toContain("castStartLifecycle === 'stop_failed'")
     expect(src).toMatch(/stopping=\{castStartLifecycle === 'stopping'\}/)
     expect(src).toMatch(/castStageActive \? \([\s\S]*CastActiveStagePanel[\s\S]*RoomPlaybackPanel/)
   })
