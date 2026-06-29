@@ -99,6 +99,19 @@ describe('createCastStartController', () => {
     vi.useRealTimers()
   })
 
+  it('maps receiver render failure during startup to start_failed', async () => {
+    const session = createMockSession({})
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitReceiverMessage({ type: 'render_failed', reason: 'receiver_render_error' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
+    expect(session.end).toHaveBeenCalledTimes(1)
+  })
+
   it('stopCast ends the Cast session without mutating snapshot input', async () => {
     const session = createMockSession({ confirmAfterSend: true })
     const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
@@ -179,6 +192,20 @@ describe('createCastStartController', () => {
     expect(session.end).toHaveBeenCalledTimes(1)
   })
 
+  it('resets recovery states to idle so Cast can be retried locally', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitSessionEnded()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    controller.resetStartFailure()
+
+    expect(controller.getState().lifecycle).toBe('idle')
+  })
+
   it('maps receiver render failure after active Cast to playback_blocked recovery', async () => {
     const session = createMockSession({ confirmAfterSend: true })
     const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
@@ -220,5 +247,20 @@ describe('createCastStartController', () => {
     await controller.stopCast()
 
     expect(controller.getState().lifecycle).toBe('session_ended')
+  })
+
+  it('detaches receiver listeners after successful cleanup', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    await controller.stopCast()
+    session.emitReceiverMessage({ type: 'render_failed', reason: 'late_receiver_error' })
+    session.emitSessionEnded()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('idle')
+    expect(session.end).toHaveBeenCalledTimes(1)
   })
 })

@@ -286,6 +286,9 @@ const CAST_LIFECYCLE_PATHS: CastStartLifecycle[] = [
   'casting',
   'stopping',
   'start_failed',
+  'session_ended',
+  'playback_blocked',
+  'stop_failed',
 ]
 
 describe('RoomPage Cast room authority (#277)', () => {
@@ -392,7 +395,7 @@ describe('RoomPage Cast room authority (#277)', () => {
 
     const tokenCallsBefore = fetchSfuJoinToken.mock.calls.length
 
-    for (const lifecycle of ['starting', 'casting', 'stopping', 'start_failed', 'idle'] as const) {
+    for (const lifecycle of CAST_LIFECYCLE_PATHS) {
       await rerenderCastLifecycle(lifecycle)
     }
 
@@ -405,9 +408,9 @@ describe('RoomPage Cast room authority (#277)', () => {
 
     const messagesBefore = roomWsMessages().length
 
-    await rerenderCastLifecycle('casting')
-    await rerenderCastLifecycle('stopping')
-    await rerenderCastLifecycle('idle')
+    for (const lifecycle of CAST_LIFECYCLE_PATHS) {
+      await rerenderCastLifecycle(lifecycle)
+    }
 
     expect(roomWsMessages().length).toBe(messagesBefore)
   })
@@ -419,7 +422,7 @@ describe('RoomPage Cast room authority (#277)', () => {
     const chatBefore = chatDisconnectSpy.mock.calls.length
     const sfuBefore = sfuDisconnectSpy.mock.calls.length
 
-    for (const lifecycle of ['starting', 'casting', 'stopping', 'start_failed'] as const) {
+    for (const lifecycle of CAST_LIFECYCLE_PATHS) {
       await rerenderCastLifecycle(lifecycle)
     }
 
