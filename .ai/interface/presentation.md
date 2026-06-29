@@ -232,6 +232,19 @@ Optional Chromecast support is a local room presentation layer for Cast-capable 
 | **Stop Cast** | Stop returns the sender to normal in-page playback without clearing chat scrollback, compose state, selected sidebar tab, presence, room membership, or authoritative room snapshot state. |
 | **Failure / unavailable** | Cast unavailable, blocked, rejected, or failed start surfaces honest local status and leaves normal in-page playback/chat intact. It never implies the room failed or that other participants changed state. |
 
+### Cast stop restoration (#276)
+
+The #276 slice owns the successful intentional Stop Cast return from the active sender stage to the normal room stage.
+
+| Concern | Contract |
+| --- | --- |
+| **Stopping surface** | The active **`Now Casting`** panel may show brief local stopping copy after Stop Cast activation. Use the same stage-local status surface as active Cast; do not use chat drawer, video-relay status, host feedback, room error boundaries, or global room announcer copy. |
+| **Restored stage** | On successful stop cleanup, remove the active Cast panel and restore the normal **`riffsync-room-page__stage`** playback surface for the current room mode. The regular in-page video/playback surface is visible again. |
+| **Sidebar preservation** | Sidebar tabs, selected tab, chat scrollback, compose draft, jump-to-latest state, participant A/V controls, People roster, and Profile/Room tab state remain sender-side room state. Stop Cast must not reset the chat column. |
+| **Expanded view** | Do not re-enter expanded view automatically after stop, even if stale internal expanded state existed before Cast became active. The normal room layout returns with the expanded-view toggle available only when the standard expanded-view contract allows it. |
+| **Other viewers** | Other participants receive no stop status, stage restoration event, room mode change, playback change, or chat/sidebar reset because of this sender's local Stop Cast. |
+| **Failure boundary** | Receiver disconnect, SDK-ended active sessions outside successful user stop, failed stop, blocked/unavailable Cast, and retry copy belong to #278. |
+
 ### Cast-active sender stage (#274)
 
 The #274 slice starts only after #273 receiver render confirmation.
@@ -339,7 +352,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### chromecast-presentation
 - **Resolved for #274:** persistent Cast-active sender stage uses a stage-local **`Now Casting`** panel with Stop Cast, no receiver-device naming, and no room-wide framing.
 - **Resolved for #274:** expanded view is unavailable while local Cast is active; stale expanded-view state is cleared when active Cast begins.
-- **Out of #273 scope:** disconnected, blocked, and stop-failure recovery copy belongs to #278 / #276. #273 covers local start feedback and start failure only.
+- **Resolved for #276:** successful intentional Stop Cast removes the active Cast panel, restores the normal room stage playback surface, and preserves sender sidebar/chat state without notifying other viewers.
+- **Out of #276 scope:** disconnected, blocked, SDK-ended active sessions outside successful user stop, and stop-failure recovery copy belongs to #278.
 
 ## Primary code pointers (optional)
 

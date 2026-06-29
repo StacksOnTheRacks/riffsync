@@ -57,6 +57,9 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - For #274, the Stop Cast control has a visible label or accessible name **Stop Cast**, is programmatically associated with the active **`Now Casting`** text, and remains keyboard reachable while local Cast is active.
 - If active Cast begins from a still-focused **Cast to TV** control, focus moves to **Stop Cast**. If the viewer moved focus elsewhere before confirmation, do not move it unexpectedly.
 - While local Cast is active, expanded-view controls are absent from the accessibility tree or inert. The Cast-active status remains the only stage-local Cast announcement.
+- For #276 successful Stop Cast, the restored normal stage playback surface is perceivable as normal room content again and the removed **`Now Casting`** panel is absent from the accessibility tree.
+- If focus remains on **Stop Cast** or stage-local stopping status when successful cleanup completes, restore focus to a visible normal-room control near the restored stage or Room action group. If focus moved elsewhere during stopping, preserve that focus.
+- Post-stop announcements use the restored stage or local Cast status surface only when useful; they must not duplicate chat drawer, video-relay, host feedback, or global room announcer output.
 
 ### Keyboard verification matrix (#106)
 
@@ -91,7 +94,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #273:** failed start returns focus to **Cast to TV** when still rendered, or to the nearest normal-view Room action.
 - **Resolved for #274:** persistent active state exposes **`Now Casting`** text plus an associated **Stop Cast** control, with stage-local polite status only.
 - **Resolved for #274:** focus moves from **Cast to TV** to **Stop Cast** only when the initiating action still owns focus at success; expanded-view controls are inaccessible while casting.
-- **Out of #274 scope:** successful post-stop focus restoration and receiver-disconnect recovery are owned by #276 / #278.
+- **Resolved for #276:** successful post-stop restoration removes the Cast-active panel from the accessibility tree, makes the normal stage perceivable again, and restores focus only when focus still belongs to the removed Cast stage surface.
+- **Out of #276 scope:** receiver-disconnect recovery, SDK-ended active sessions outside successful user stop, failed stop, and unavailable/blocked Cast recovery are owned by #278.
 
 ## Primary code pointers (optional)
 

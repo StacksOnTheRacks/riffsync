@@ -57,7 +57,8 @@ Local Cast state follows the same independence rule: Cast stop, failure, or rece
 ## SPA local Cast
 
 - **Active Cast UI (#274):** After receiver render confirmation, active Cast owns the sender **`Now Casting`** UI and Stop Cast control. Activating Stop Cast begins local stop intent and may enter a local stopping state, but it must not clear room membership, chat draft/session state, selected sidebar tab, SFU signaling, or **`TheaterPlayback`** by itself.
-- **Stop Cast:** user stop, receiver disconnect, sender SDK-ended event, or stop failure all converge on one best-effort cleanup path that clears local Cast-active UI and returns to normal in-page playback.
+- **Stop Cast restoration (#276):** A successful intentional Stop Cast runs idempotent, best-effort cleanup for sender-side Cast session handles, Cast channel listeners, receiver presentation bindings, and hidden/detached Cast source bindings, then clears local Cast-active UI and returns the sender stage to normal in-page playback. The restored stage uses the latest room shell state already held locally.
+- **Failure and disconnect boundary (#278):** Receiver disconnect, sender SDK-ended active sessions, stop failure, start failure beyond #273, blocked Cast, and unavailable Cast may reuse the same cleanup helper, but #278 owns their user-facing local status, failed/ended states, and retry behavior.
 - **Room leave / navigate / reload:** clear local Cast state and release Cast/source resources best-effort before or alongside global room teardown. Failure to stop an already-ended receiver session must not block room leave.
 - **Cast start failure:** restore or keep normal in-page playback visible, keep chat draft/session state intact, and avoid closing healthy chat or SFU drawers.
 - **Custom receiver launch failure (#273):** if the sender SDK rejects launch, the user cancels the chooser, or the receiver does not confirm rendering stage-primary video plus chat overlay, clear **`CAST_STARTING`**, surface **`CAST_START_REJECTED`**, and keep normal playback visible.
@@ -101,7 +102,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### chromecast-lifecycle-shutdown
 - **Resolved for #273:** launch failure and route leave clear local start state and keep/restore normal playback without closing healthy room, chat, SFU, or theater playback modules.
 - **Resolved for #274:** active Cast cleanup begins with local stop intent only; the Stop Cast control must not tear down healthy room, chat, SFU, or theater playback modules by itself.
-- **Out of #274 scope:** normal in-page playback restoration after successful stop, receiver disconnect after active Cast, sender SDK-ended active sessions, stop failure, and hidden/detached active playback source cleanup are owned by #276 / #278.
+- **Resolved for #276:** successful intentional Stop Cast clears local Cast-active UI, releases sender-side Cast resources best-effort, and restores normal in-page playback while preserving room membership, chat, SFU, theater playback, selected sidebar tab, and authoritative room state.
+- **Out of #276 scope:** receiver disconnect after active Cast, sender SDK-ended active sessions outside successful user stop, stop failure, blocked/unavailable Cast, and recovery copy are owned by #278.
 
 ## Primary code pointers (optional)
 
