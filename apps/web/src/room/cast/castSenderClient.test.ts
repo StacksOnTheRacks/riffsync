@@ -16,6 +16,7 @@ type CastSenderTestWindow = Window & {
         getInstance: () => {
           setOptions: ReturnType<typeof vi.fn>
           requestSession: ReturnType<typeof vi.fn>
+          getCurrentSession: ReturnType<typeof vi.fn>
           addEventListener: ReturnType<typeof vi.fn>
           removeEventListener: ReturnType<typeof vi.fn>
         }
@@ -44,9 +45,11 @@ function installCastFramework({
     removeMessageListener: vi.fn(),
     endSession: vi.fn(),
   }
+  const currentSession = { value: session as typeof session | null }
   const context = {
     setOptions: vi.fn(),
-    requestSession: vi.fn().mockResolvedValue(session),
+    requestSession: vi.fn().mockResolvedValue(undefined),
+    getCurrentSession: vi.fn(() => currentSession.value),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   }
@@ -77,7 +80,7 @@ function installCastFramework({
     },
   }
 
-  return { context, session }
+  return { context, currentSession, session }
 }
 
 describe('createDefaultCastSenderClient', () => {
@@ -98,6 +101,7 @@ describe('createDefaultCastSenderClient', () => {
       autoJoinPolicy: 'origin_scoped',
     })
     expect(context.requestSession).toHaveBeenCalled()
+    expect(context.getCurrentSession).toHaveBeenCalled()
   })
 
   it('fails before requesting a session when the Cast Base API policy is unavailable', async () => {
@@ -108,5 +112,16 @@ describe('createDefaultCastSenderClient', () => {
       'Cast auto join policy unavailable',
     )
     expect(context.requestSession).not.toHaveBeenCalled()
+  })
+
+  it('fails when Cast start completes without an active session', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    const { context, currentSession } = installCastFramework()
+    currentSession.value = null
+
+    await expect(createDefaultCastSenderClient().requestSession()).rejects.toThrow(
+      'Cast session unavailable after start',
+    )
+    expect(context.requestSession).toHaveBeenCalled()
   })
 })

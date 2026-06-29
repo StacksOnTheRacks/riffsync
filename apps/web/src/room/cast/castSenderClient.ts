@@ -49,7 +49,8 @@ type CastFrameworkWindow = Window & {
 
 type CastContextInstance = {
   setOptions: (options: { receiverApplicationId: string; autoJoinPolicy: string }) => void
-  requestSession: () => Promise<CastSessionInstance>
+  requestSession: () => Promise<unknown>
+  getCurrentSession: () => CastSessionInstance | null
   addEventListener: (type: string, handler: (event: { sessionState?: string; castState?: string }) => void) => void
   removeEventListener: (type: string, handler: (event: { sessionState?: string; castState?: string }) => void) => void
 }
@@ -201,8 +202,15 @@ export function createDefaultCastSenderClient(): CastSenderClient {
 
         void context
           .requestSession()
-          .then((session) => {
+          .then(() => {
             if (settled) return
+            const session = context.getCurrentSession()
+            if (!session) {
+              settled = true
+              context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
+              reject(new Error('Cast session unavailable after start'))
+              return
+            }
             settled = true
             context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
             resolve(wrapCastSession(session, context, framework))

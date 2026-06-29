@@ -23,7 +23,7 @@ type CastReceiverContextInstance = {
   start: (options?: Record<string, never>) => void
   addCustomMessageListener: (
     namespace: string,
-    handler: (event: { data?: string }) => void,
+    handler: (event: { data?: unknown }) => void,
   ) => void
   sendCustomMessage: (namespace: string, message: unknown) => void
 }
@@ -91,8 +91,8 @@ export async function startCastReceiverSession(
   context.addCustomMessageListener(RIFFSYNC_CAST_NAMESPACE, (event) => {
     if (!event.data) return
     try {
-      const parsed = JSON.parse(event.data) as unknown
-      const message = parseSenderMessage(parsed)
+      const raw = typeof event.data === 'string' ? JSON.parse(event.data) as unknown : event.data
+      const message = parseSenderMessage(raw)
       if (!message) return
       if (message.type === 'presentation_snapshot') {
         handlers.onPresentationSnapshot(message.snapshot)
