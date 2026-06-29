@@ -58,6 +58,10 @@ vi.mock('../config/publicOrigin', () => ({
   getPublicOrigin: () => 'https://www.test.example',
 }))
 
+vi.mock('../room/cast/useCastAvailability', () => ({
+  useCastAvailability: () => 'checking',
+}))
+
 vi.mock('../session/guestSession', () => ({
   ensureGuestSession: () => ({ sessionId: 'sess-test-1', displayName: 'Guest' }),
   setGuestDisplayName: (name: string) => name,

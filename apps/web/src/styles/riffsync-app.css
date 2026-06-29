@@ -2026,6 +2026,12 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   box-sizing: border-box;
 }
 
+.riffsync-room-page__cast-availability-status {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
 .riffsync-room-page__chat-heading {
   margin: 0;
   font-family: var(--title-fonts);

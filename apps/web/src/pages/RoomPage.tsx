@@ -29,6 +29,7 @@ import { RoomPageSidebar } from '../room/RoomPageSidebar'
 import { RoomRenameModal } from '../room/RoomRenameModal'
 import { RIFFSYNC_SFU_CONFIG_ALERT_ID } from '../room/drawerErrorPresentation'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
+import { useCastAvailability } from '../room/cast/useCastAvailability'
 
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
@@ -226,6 +227,10 @@ export function RoomPage() {
 
   const activeSidebarTab =
     !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
+  const castAvailability = useCastAvailability(Boolean(room))
+  const onCastToTvClick = useCallback(() => {
+    /* Cast start is implemented in #273. */
+  }, [])
   const viewportWide = useViewportWide()
   const expandedViewActive = expandedView && viewportWide
   const { setExpandedViewActive } = useRoomChrome()
@@ -375,6 +380,8 @@ export function RoomPage() {
     profileAvatarInputRef: profile.profileAvatarInputRef,
     saveProfileDisplayName: profile.saveProfileDisplayName,
     onProfileAvatarSelected: profile.onProfileAvatarSelected,
+    castAvailability,
+    onCastToTvClick,
   }
 
   return (
