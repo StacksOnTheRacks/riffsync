@@ -41,6 +41,7 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | `share_state: stopped` tears down SFU for guests? | **No** — **`host_screen` consumer detach only**; preserve SFU session and **`participant_av`**. |
 | Chat outbound retry before **`CHAT_SEND_DROPPED`**? | **No retry queue** — first failed send while chat plane unavailable emits **`CHAT_SEND_DROPPED`** (**#140** / **`api_contracts.md`**). |
 | Cast fan-out? | **No.** Cast is local client state and never posted to room members. #277 verifies this across start, active, stop, failure, disconnect, and cleanup paths. |
+| Cast fan-out verification for #279? | Lifecycle and cleanup tests must assert no room message, durable event, late-join replay, **`share_state`** variant, presence update, drawer status update, or SFU permission message is produced by local Cast paths. |
 
 ## Decisions (answered — presence and AV maturity)
 

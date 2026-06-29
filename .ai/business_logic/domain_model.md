@@ -233,15 +233,17 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Does active Cast emit diagnostics or telemetry? | **No aggregate telemetry or drawer diagnostics for #274.** Local controller state and test-only hooks may prove active/stop behavior, but Cast must not appear in **`RoomRealtimeSdk.getDiagnostics().drawers.*`**, room activity metrics, or receiver-identifying logs. |
 | What does #277 own? | Guardrails and regression coverage that prove local Cast does not mutate **`roomMode`**, **`avDisabled`**, **`share_state`**, durable room playback fields, host authority, SFU permissions, participant roster authority, or any other participant's room experience. |
 | What does #278 own? | Sender-local recovery when Cast is unavailable, start fails after support was shown, an active receiver disconnects or ends externally, receiver playback becomes blocked, or Stop Cast fails. Recovery keeps room participation, chat, SFU, and authoritative room state intact while restoring or keeping normal in-page playback visible whenever the sender is no longer actively casting. |
+| What does #279 own? | Milestone-wide Cast verification across #272-#278. It proves local Cast lifecycle paths, accessibility/focus/status behavior, and sender cleanup preserve the viewer-local boundary without adding new product behavior. |
+| #279 lifecycle coverage | Cover availability, start, active, stop, unavailable, failed-start, receiver-ended, playback-blocked, stop-failed, cleanup completion, room leave, navigation, and reload paths at the most practical automated or manual layer for browser Cast constraints. |
+| #279 negative side effects | Verification must prove Cast lifecycle and cleanup do not write room state, mutate **`roomMode`**, **`avDisabled`**, **`share_state`**, alter host authority, change SFU permission or token state, fan out room messages, affect participant roster authority, or change any other participant's room presentation. |
 
-## Open implementation decisions
+## Decisions (answered - Cast verification #279)
 
-Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
-
-### chromecast-local-cast-lifecycle
-- **Resolved for #274:** active Cast uses sender-local stage state only: **`Now Casting`** plus Stop Cast. It produces no aggregate telemetry and no **`RoomRealtimeSdk`** drawer diagnostics.
-- **Resolved for #277:** local Cast lifecycle transitions must not create room authority or participant-visible side effects. Tests should cover sender start/active/stop/failure paths without any room document write, room WebSocket fan-out, **`share_state`** mutation, SFU permission change, or remote participant stage/status change.
-- **Resolved for #278:** local Cast recovery owns unavailable, failed-start, receiver-disconnected, externally-ended, playback-blocked, and stop-failed states. These states are browser-session state only and must not update durable room documents, room snapshots, lobby rows, **`share_state`**, SFU token claims, or other participants' presentation.
+| Topic | Decision |
+| --- | --- |
+| Verification posture | #279 is a verification umbrella for M25 Cast behavior. It adds test and review coverage for existing contracts rather than introducing a room-wide Cast mode or new authority surface. |
+| Test boundary | Tests may use controller-local state hooks, fake Cast sender clients, receiver-channel stubs, and manual Cast-capable device checks. These verification hooks must remain local to Cast surfaces and must not appear in room diagnostics, active realtime error codes, or room authority payloads. |
+| Completion signal | #279 is complete when lifecycle, accessibility, and cleanup coverage collectively prove the sender-local Cast contract across peer issues #272-#278 and no stale **`Now Casting`**, sender handles, listeners, timers, receiver bindings, or room side effects remain after cleanup paths. |
 
 ## Decisions (theater mic mix on host_screen close — #145)
 

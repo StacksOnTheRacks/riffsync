@@ -232,6 +232,7 @@ Optional Chromecast support is a local room presentation layer for Cast-capable 
 | **Stop Cast** | Stop returns the sender to normal in-page playback without clearing chat scrollback, compose state, selected sidebar tab, presence, room membership, or authoritative room snapshot state. |
 | **Failure / unavailable** | Cast unavailable, blocked, rejected, or failed start surfaces honest local status and leaves normal in-page playback/chat intact. It never implies the room failed or that other participants changed state. |
 | **Other participants (#277)** | Other participants see no Cast status, **`Now Casting`** panel, Stop Cast control, room mode indicator, playback change, drawer status change, chat reset, sidebar reset, participant A/V change, or stage layout change caused by another viewer's local Cast session. |
+| **Verification (#279)** | Cast presentation coverage must assert normal-view availability, receiver-start feedback, active **`Now Casting`**, Stop Cast restoration, failure/recovery copy, and cleanup removal of stale Cast surfaces. Checks must also prove sidebar/chat state and other participants' presentation remain unchanged. |
 
 ### Cast stop restoration (#276)
 
@@ -351,12 +352,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions.
 
 ### chromecast-presentation
-- **Resolved for #274:** persistent Cast-active sender stage uses a stage-local **`Now Casting`** panel with Stop Cast, no receiver-device naming, and no room-wide framing.
-- **Resolved for #274:** expanded view is unavailable while local Cast is active; stale expanded-view state is cleared when active Cast begins.
-- **Resolved for #276:** successful intentional Stop Cast removes the active Cast panel, restores the normal room stage playback surface, and preserves sender sidebar/chat state without notifying other viewers.
-- **Resolved for #277:** Cast presentation state is never rendered from room snapshot fields, room WebSocket payloads, SFU diagnostics, or another participant's local Cast controller. Remote participants keep their current room presentation and status surfaces unchanged.
-- **Resolved for #278:** unavailable and failed-start feedback appears only at the normal-view Cast action or stage-local Cast surface. Receiver disconnected, SDK-ended, externally stopped, and playback-blocked states remove or replace the **`Now Casting`** panel with local recovery copy and keep the normal room stage/playback path visible.
-- **Resolved for #278:** stop failure keeps **Stop Cast** visible and retryable while the sender still believes an active route exists. If cleanup determines the receiver already ended, the UI transitions to the normal room stage with **`CAST_SESSION_ENDED`** instead of leaving stale active Cast chrome.
+- No open implementation decisions remain for M25 Cast presentation verification. See **Chromecast Cast view**, peer slice sections #272-#278, and #279 verification requirements above.
 
 ## Primary code pointers (optional)
 

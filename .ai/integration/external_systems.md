@@ -19,6 +19,8 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 
 **Boundary:** Cast state is not written to RiffSync HTTP APIs, not sent over the room WebSocket, not represented in **`share_state`**, and not used for SFU token authorization. The M25 receiver is sender-proxied only: the sender remains the sole room participant for this Cast session and owns the room snapshot, chat log, and overlay updates it forwards to the receiver. If a future receiver joins RiffSync services directly, that is a new integration/auth review rather than an implied part of this contract.
 
+**Verification (#279):** Cast lifecycle, failure, and cleanup tests must assert the integration boundary above. The receiver must not call room HTTP APIs, open room WebSockets, request SFU tokens, create presence rows, or introduce room-wide Cast payloads. Sender lifecycle and cleanup must not emit room WebSocket messages, mutate **`share_state`**, or change SFU authorization claims.
+
 ### Cast sender availability gate (#272)
 
 The first Cast implementation slice may add a browser-local sender support detector. It reports whether the current normal room view may show **Cast to TV**; it does not start Cast and does not select the final receiver/source architecture.
@@ -143,9 +145,7 @@ The Cast-start slice uses a custom RiffSync Cast receiver page. The receiver ren
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-provider-boundary
-- **Resolved for #273:** custom RiffSync receiver page with sender-proxied local state. Native YouTube Cast, sender media-element Cast, and tab mirroring are outside #273.
-- **Resolved for #273:** the receiver does not join room services directly, so no receiver identity, room access token, SFU subscribe authorization, or receiver presence row is introduced for M25.
-- **Resolved for #273:** Google Cast receiver registration, application ID, origin allowlist, CSP, and iframe policy are required configuration for the custom receiver path and must preserve sender-only room authority.
+- No open implementation decisions remain for M25 Cast provider-boundary verification. See **Google Cast / Chromecast** and **Verification (#279)** above.
 
 ## Primary code pointers (optional)
 

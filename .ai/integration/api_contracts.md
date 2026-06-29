@@ -109,6 +109,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Client vs CDK mesh retirement order? | **#134** removes SPA mesh handlers and modules first; **#135** removes API Gateway **`signaling`** route. After **#134** the SPA ignores inbound **`signaling`** envelopes; orphaned route is harmless until **#135**. |
 | Chromecast room API? | **None.** Viewer-local Cast state does not add HTTP fields, WebSocket routes, `share_state` payload fields, SFU token claims, lobby fields, or room snapshot fields. |
 | Chromecast side effects for #277? | **None.** Local Cast lifecycle paths must not call **`PATCH /v1/rooms/{roomId}`**, add room snapshot fields, emit room WebSocket payloads, alter **`share_state`**, request different SFU token claims, or change other participants' room diagnostics/status through integration surfaces. |
+| Chromecast verification for #279? | Tests must assert Cast lifecycle, failure, and cleanup paths keep Cast out of HTTP room fields, lobby payloads, room WebSocket routes/fan-out, **`share_state`**, SFU token claims, **`activeErrorCodes`**, and **`RoomRealtimeSdk.getDiagnostics().drawers.*`**. |
 
 ## Decisions (answered — #101 HTTP room AV)
 

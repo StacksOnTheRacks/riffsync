@@ -82,18 +82,14 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - While local Cast is active, the expanded-view toggle is not rendered or is inert and unavailable to assistive technology. **Stop Cast** remains the primary stage action and uses the same minimum **44×44** CSS px target posture as other room controls.
 - After successful Stop Cast, if focus is still on **Stop Cast** or on stage-local stopping status, move focus to the restored normal stage's first meaningful control or back to the normal-view Room action group near **Cast to TV**. If the viewer moved focus into chat, sidebar tabs, participant A/V controls, or another room control while stopping, do not steal focus.
 - Post-stop focus restoration must not focus a hidden Cast source, a detached video element, a removed **`Now Casting`** panel, or an expanded-view control that is not currently available.
+- #279 verification covers click, **Enter**, and **Space** activation for rendered Cast controls; tab-order absence when Cast is unsupported, unknown, expanded, or inactive; focus transfer from **Cast to TV** to **Stop Cast** only when appropriate; focus preservation when the viewer moves elsewhere; and focus safety after failed, ended, blocked, stop-failed, cleanup, room leave, navigation, and reload paths.
 
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-input-handling
-- **Resolved for #273:** focus remains on **Cast to TV** during receiver launch; start status uses local status text rather than forced focus movement.
-- **Resolved for #274:** after active Cast appears, focus moves to **Stop Cast** only when focus is still on the initiating **Cast to TV** action; otherwise do not steal focus.
-- **Resolved for #274:** expanded-view toggle is unavailable while casting, and Stop Cast keeps a keyboard-operable **44×44** minimum target posture.
-- **Resolved for #276:** successful Stop Cast restores focus only when it still belongs to the removed Cast stage surface; otherwise it preserves the viewer's current focus in chat/sidebar/room controls and never targets hidden Cast or unavailable expanded-view elements.
-- **Resolved for #278:** failed start, unavailable Cast, receiver-ended cleanup, and playback-blocked cleanup restore focus only if focus still belongs to removed Cast chrome or stage-local recovery text. Prefer the normal-view Cast action or nearest Room action; otherwise preserve current focus in chat, sidebar tabs, participant A/V controls, or other room controls.
-- **Resolved for #278:** stop failure keeps focus on **Stop Cast** when the control remains visible and retryable. If cleanup discovers the receiver has already ended, follow the receiver-ended focus rule instead of focusing hidden or detached Cast controls.
+- No open implementation decisions remain for M25 Cast input verification. See **Chromecast Cast controls** and #279 verification requirements above.
 
 ## Primary code pointers (optional)
 

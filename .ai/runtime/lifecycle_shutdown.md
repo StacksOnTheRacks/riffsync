@@ -65,6 +65,7 @@ Local Cast state follows the same independence rule: Cast stop, failure, or rece
 - **Custom receiver launch failure (#273):** if the sender SDK rejects launch, the user cancels the chooser, or the receiver does not confirm rendering stage-primary video plus chat overlay, clear **`CAST_STARTING`**, surface **`CAST_START_REJECTED`**, and keep normal playback visible.
 - **Expanded view state:** Cast starts only from normal view. If stale expanded-view local state exists internally, cleanup must not re-enter expanded view after Cast stop unless a later interface contract permits it.
 - **Participant isolation (#277):** local Cast cleanup must be idempotent and sender-only. It must not close room WebSocket, close SFU signaling, stop participant **`getUserMedia`**, clear remote consumers, change **`share_state`**, mutate room state, clear other viewers' stage/chrome, or broadcast room cleanup messages.
+- **Verification (#279):** cleanup tests cover successful stop, failed stop, receiver disconnect, SDK-ended active sessions, blocked playback, start failure, unavailable Cast, room leave, navigation, and reload. They assert idempotent release of sender-side Cast session handles, Cast channel listeners, receiver presentation bindings, hidden/detached Cast source bindings, timers, and stale UI state while preserving healthy room modules and authority.
 
 ## Participant A/V errors (client)
 
@@ -102,11 +103,7 @@ Local Cast state follows the same independence rule: Cast stop, failure, or rece
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-lifecycle-shutdown
-- **Resolved for #273:** launch failure and route leave clear local start state and keep/restore normal playback without closing healthy room, chat, SFU, or theater playback modules.
-- **Resolved for #274:** active Cast cleanup begins with local stop intent only; the Stop Cast control must not tear down healthy room, chat, SFU, or theater playback modules by itself.
-- **Resolved for #276:** successful intentional Stop Cast clears local Cast-active UI, releases sender-side Cast resources best-effort, and restores normal in-page playback while preserving room membership, chat, SFU, theater playback, selected sidebar tab, and authoritative room state.
-- **Resolved for #277:** cleanup and teardown tests must prove local Cast cleanup is idempotent and does not close room WebSocket, close SFU signaling, stop participant A/V, clear remote consumers, mutate **`share_state`**, write room state, or broadcast room cleanup messages.
-- **Resolved for #278:** receiver disconnect after active Cast, sender SDK-ended active sessions outside successful user stop, receiver playback blocked, start-failed recovery after a visible Cast affordance, unavailable Cast, and stop failure use sender-local cleanup/status paths only. They must preserve room membership, chat draft/session state, selected sidebar tab, SFU signaling, participant A/V state, theater playback ownership, and authoritative room state.
+- No open implementation decisions remain for M25 Cast lifecycle cleanup verification. See **SPA local Cast** and **Verification (#279)** above.
 
 ## Primary code pointers (optional)
 

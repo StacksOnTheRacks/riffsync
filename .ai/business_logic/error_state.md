@@ -50,6 +50,10 @@ The availability, Cast-start, and local recovery slices define local Cast status
 
 Cast status codes must not appear in chat drawer status, video-relay status, room-level alerts, or **`RoomRealtimeSdk.getDiagnostics().drawers.*`**. They are local UI status for the viewer's browser/session only.
 
+### Cast status verification (#279)
+
+Issue #279 verifies the full local status taxonomy above across availability, start, active, stop, failure, disconnect, blocked playback, cleanup completion, room leave, navigation, and reload paths. Coverage must assert correct user-facing copy surface, stale status removal, retryability where contracted, and absence of Cast codes from room drawer health, room alerts, chat messages, WebSocket fan-out, and other participants' UI.
+
 ## Auth — fan
 
 | State | UX |
@@ -176,11 +180,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Kill-switch toggle affordance:** visible-disabled with host explanation per **`presentation.md`** (resolved).
 
 ### chromecast-local-errors
-- **Resolved for #273:** start uses **`CAST_STARTING`** while waiting for custom receiver render confirmation and **`CAST_START_REJECTED`** when launch is rejected, canceled, or the receiver does not confirm stage-primary video plus chat overlay rendering.
-- **Resolved for #274:** active Cast may use **`CAST_ACTIVE`** for the sender-local **`Now Casting`** stage. It remains local UI status only and must not appear in chat/video-relay drawer health.
-- **Resolved for #278:** active-session disconnect, SDK-ended sessions, receiver app close, external TV stop, blocked receiver playback, and failed stop map to **`CAST_SESSION_ENDED`**, **`CAST_PLAYBACK_BLOCKED`**, or **`CAST_STOP_FAILED`**. All remain sender-local and keep normal room participation available.
-- **Resolved for #278:** **`CAST_SESSION_ENDED`** and **`CAST_PLAYBACK_BLOCKED`** restore or keep in-page playback visible after local cleanup. **`CAST_STOP_FAILED`** leaves Stop Cast retryable only while the sender still believes a Cast session is active.
-- **Resolved for #273:** start feedback uses local Cast status near the Cast action or stage-local Cast surface and must not merge with chat drawer or video-relay drawer health.
+- No open implementation decisions remain for M25 Cast error/status verification. See **Local Cast status taxonomy** and **Cast status verification (#279)** above.
 
 ## Primary code pointers (optional)
 
