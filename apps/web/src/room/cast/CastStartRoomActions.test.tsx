@@ -29,7 +29,7 @@ describe('CastStartRoomActions', () => {
 
   function renderActions(
     castAvailability: 'checking' | 'available' | 'unavailable',
-    castStartLifecycle: 'idle' | 'starting' | 'casting' | 'start_failed' = 'idle',
+    castStartLifecycle: 'idle' | 'starting' | 'casting' | 'stopping' | 'start_failed' = 'idle',
   ) {
     act(() => {
       root.render(
@@ -69,6 +69,11 @@ describe('CastStartRoomActions', () => {
 
   it('hides Cast to TV while casting', () => {
     renderActions('available', 'casting')
+    expect(container.textContent).not.toContain('Cast to TV')
+  })
+
+  it('hides Cast to TV while stopping', () => {
+    renderActions('available', 'stopping')
     expect(container.textContent).not.toContain('Cast to TV')
   })
 })

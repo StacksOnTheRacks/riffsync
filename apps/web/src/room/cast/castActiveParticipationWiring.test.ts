@@ -52,8 +52,8 @@ describe('Cast active participation wiring (#275)', () => {
     expect(src).toContain('useCastStartSession')
     expect(src).toContain('useRoomMediaEngine')
     expect(mediaEngineCall).not.toContain('castStartLifecycle')
-    expect(mediaEngineCall).not.toContain('castActive')
-    expect(src).toMatch(/castActive \? \([\s\S]*CastActiveStagePanel/)
+    expect(mediaEngineCall).not.toContain('castStageActive')
+    expect(src).toMatch(/castStageActive \? \([\s\S]*CastActiveStagePanel/)
     expect(src).toMatch(/const roomSidebarProps = \{[\s\S]*castStartLifecycle,/)
   })
 
@@ -77,6 +77,6 @@ describe('Cast active participation wiring (#275)', () => {
     expect(src).toMatch(/disabled=\{!fanToken \|\| chatComposeStatus\.disableSubmit\}/)
     expect(src).not.toMatch(/disableSubmit[\s\S]{0,80}castStartLifecycle/)
     expect(src).not.toMatch(/castStartLifecycle[\s\S]{0,80}disableSubmit/)
-    expect(src).not.toMatch(/castActive/)
+    expect(src).not.toMatch(/castStageActive/)
   })
 })

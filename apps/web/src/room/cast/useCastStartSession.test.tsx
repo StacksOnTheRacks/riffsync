@@ -1,10 +1,16 @@
 // @vitest-environment happy-dom
-import { act } from 'react'
+import { act, useRef, type RefObject } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCastStartSession } from './useCastStartSession'
 
-function TestHarness({ expandedViewActive = false }: { expandedViewActive?: boolean }) {
+function TestHarness({
+  expandedViewActive = false,
+  stageFocusRestoreRef,
+}: {
+  expandedViewActive?: boolean
+  stageFocusRestoreRef?: RefObject<HTMLButtonElement | null>
+}) {
   const messageListeners = new Set<(message: unknown) => void>()
 
   const { castStartLifecycle, startCast, stopCast, castToTvButtonRef, stopCastButtonRef } =
@@ -18,6 +24,7 @@ function TestHarness({ expandedViewActive = false }: { expandedViewActive?: bool
       hasGuestRelayStream: false,
       chat: [],
       chatMemberLabels: new Map(),
+      stageFocusRestoreRef,
       createSenderClient: () => ({
         requestSession: vi.fn().mockResolvedValue({
           sendMessage: async () => {
@@ -44,9 +51,14 @@ function TestHarness({ expandedViewActive = false }: { expandedViewActive?: bool
       ) : castStartLifecycle === 'starting' ? (
         <p data-testid="cast-starting-status">Starting Cast…</p>
       ) : null}
-      {castStartLifecycle === 'casting' ? (
+      {castStartLifecycle === 'casting' || castStartLifecycle === 'stopping' ? (
         <button ref={stopCastButtonRef} type="button" data-testid="stop-cast" onClick={() => stopCast()}>
           Stop Cast
+        </button>
+      ) : null}
+      {stageFocusRestoreRef ? (
+        <button ref={stageFocusRestoreRef} type="button" data-testid="stage-restore">
+          Expand view
         </button>
       ) : null}
     </div>
@@ -70,9 +82,19 @@ describe('useCastStartSession focus transfer', () => {
     container.remove()
   })
 
-  async function renderHarness(expandedViewActive = false) {
+  async function renderHarness(expandedViewActive = false, withStageRestore = false) {
+    function HarnessWrapper() {
+      const stageFocusRestoreRef = useRef<HTMLButtonElement | null>(null)
+      return (
+        <TestHarness
+          expandedViewActive={expandedViewActive}
+          stageFocusRestoreRef={withStageRestore ? stageFocusRestoreRef : undefined}
+        />
+      )
+    }
+
     act(() => {
-      root.render(<TestHarness expandedViewActive={expandedViewActive} />)
+      root.render(withStageRestore ? <HarnessWrapper /> : <TestHarness expandedViewActive={expandedViewActive} />)
     })
   }
 
@@ -166,5 +188,66 @@ describe('useCastStartSession focus transfer', () => {
     })
 
     expect(container.querySelector('[data-testid="lifecycle"]')?.textContent).toBe('idle')
+  })
+
+  it('restores focus to the stage control when Stop Cast still owns focus at success', async () => {
+    await renderHarness(false, true)
+
+    const castButton = container.querySelector('[data-testid="cast-to-tv"]') as HTMLButtonElement
+    await act(async () => {
+      castButton.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const stopButton = container.querySelector('[data-testid="stop-cast"]') as HTMLButtonElement
+    act(() => {
+      stopButton.focus()
+    })
+
+    await act(async () => {
+      stopButton.click()
+      await Promise.resolve()
+    })
+
+    const stageRestore = container.querySelector('[data-testid="stage-restore"]') as HTMLButtonElement
+    expect(document.activeElement).toBe(stageRestore)
+  })
+
+  it('preserves focus when the viewer moves away from the Cast stage during stopping', async () => {
+    await renderHarness(false, true)
+
+    const castButton = container.querySelector('[data-testid="cast-to-tv"]') as HTMLButtonElement
+    await act(async () => {
+      castButton.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const stopButton = container.querySelector('[data-testid="stop-cast"]') as HTMLButtonElement
+    act(() => {
+      stopButton.focus()
+    })
+
+    const other = document.createElement('button')
+    other.type = 'button'
+    other.textContent = 'Chat compose'
+    document.body.appendChild(other)
+
+    await act(async () => {
+      stopButton.click()
+      await Promise.resolve()
+    })
+
+    act(() => {
+      other.focus()
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(document.activeElement).toBe(other)
+    other.remove()
   })
 })

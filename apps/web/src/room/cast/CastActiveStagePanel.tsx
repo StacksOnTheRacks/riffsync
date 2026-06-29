@@ -2,6 +2,7 @@ import type { RefObject } from 'react'
 import {
   CAST_ACTIVE_HEADING,
   CAST_ACTIVE_SUBCOPY,
+  CAST_STOPPING_SUBCOPY,
   CAST_STOP_BUTTON_LABEL,
   RIFFSYNC_CAST_ACTIVE_STATUS_ID,
 } from './castActiveStatusCopy'
@@ -9,9 +10,14 @@ import {
 type CastActiveStagePanelProps = {
   onStopCast: () => void
   stopCastButtonRef?: RefObject<HTMLButtonElement | null>
+  stopping?: boolean
 }
 
-export function CastActiveStagePanel({ onStopCast, stopCastButtonRef }: CastActiveStagePanelProps) {
+export function CastActiveStagePanel({
+  onStopCast,
+  stopCastButtonRef,
+  stopping = false,
+}: CastActiveStagePanelProps) {
   return (
     <section
       className="riffsync-room-page__cast-active-stage"
@@ -27,7 +33,7 @@ export function CastActiveStagePanel({ onStopCast, stopCastButtonRef }: CastActi
         role="status"
         aria-live="polite"
       >
-        {CAST_ACTIVE_SUBCOPY}
+        {stopping ? CAST_STOPPING_SUBCOPY : CAST_ACTIVE_SUBCOPY}
       </p>
       <button
         ref={stopCastButtonRef}
@@ -35,6 +41,8 @@ export function CastActiveStagePanel({ onStopCast, stopCastButtonRef }: CastActi
         className="gen-button riffsync-room-page__cast-stop-button"
         aria-describedby="riffsync-cast-active-heading"
         onClick={onStopCast}
+        disabled={stopping}
+        aria-disabled={stopping ? 'true' : undefined}
       >
         {CAST_STOP_BUTTON_LABEL}
       </button>

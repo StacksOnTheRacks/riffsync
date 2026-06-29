@@ -93,6 +93,40 @@ describe('createCastStartController', () => {
     expect(session.end).toHaveBeenCalledTimes(1)
   })
 
+  it('transitions through stopping before idle on stopCast', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+
+    const states: string[] = []
+    controller.subscribe((state) => states.push(state.lifecycle))
+    await controller.stopCast()
+
+    expect(states).toEqual(['stopping', 'idle'])
+  })
+
+  it('stopCast is idempotent while stopping', async () => {
+    let resolveEnd: (() => void) | undefined
+    const session = createMockSession({ confirmAfterSend: true })
+    session.end = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveEnd = resolve
+        }),
+    )
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    const firstStop = controller.stopCast()
+    await controller.stopCast()
+    resolveEnd?.()
+    await firstStop
+
+    expect(controller.getState().lifecycle).toBe('idle')
+    expect(session.end).toHaveBeenCalledTimes(1)
+  })
+
   it('proxies chat overlay updates while casting', async () => {
     const sent: unknown[] = []
     const session = createMockSession({
