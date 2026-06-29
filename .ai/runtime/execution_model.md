@@ -101,6 +101,17 @@ The #276 slice completes the intentional sender Stop Cast path after active Cast
 | **Sibling boundary** | Receiver disconnects, sender SDK-ended sessions outside explicit Stop Cast success, start/stop failure copy, and blocked/unavailable recovery are refined by #278. #276 may share the cleanup helper but does not define those failure states. |
 | **Diagnostics** | Stop restoration remains local controller state. It must not add Cast drawer diagnostics, active realtime error codes, room WebSocket messages, room HTTP mutations, or SFU token changes. |
 
+### Cast verification controller hooks (#279)
+
+The #279 verification slice may add test-only hooks or fakes around the local Cast controller, Cast sender client, and receiver channel to exercise lifecycle paths that browser Cast APIs cannot reliably drive in CI.
+
+| Concern | Contract |
+| --- | --- |
+| **Covered states** | Availability checking, unavailable, idle, starting, start-failed, casting/active, stopping, stop-failed, session-ended, playback-blocked, cleaned-up, room leave, navigation, and reload. |
+| **Allowed test seams** | Controller-local state inspection, fake sender clients, fake receiver-channel acknowledgements/errors, fake timer control, and receiver presentation stubs. |
+| **Forbidden promotion** | Test hooks must not become fan-visible drawer diagnostics, **`activeErrorCodes`**, room WebSocket payloads, room HTTP fields, SFU token claims, or persistent room state. |
+| **Side-effect assertions** | Tests assert no destructive calls into **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, room mutation APIs, room WebSocket send paths, **`share_state`**, or remote participant presentation/state. |
+
 ### Application SDK surface (narrow public API)
 
 Room code outside these modules calls only:
@@ -465,16 +476,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Harness extension** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`**.
 
 ### chromecast-runtime-controller
-- **Resolved for #273:** the controller is room-shell local and launches a custom RiffSync receiver page with sender-proxied state.
-- **Resolved for #273:** local lifecycle must cover **`idle`**, **`starting`**, **`casting`**, and **`start_failed`**; stop/disconnect refinements extend this in sibling issues.
-- **Resolved for #273:** the receiver reconstructs the expanded-view-like presentation from sender-proxied snapshots and updates; provider-native media Cast and tab mirroring are outside this slice.
-- **Resolved for #273:** normal in-page playback remains visible during **`starting`** and the #274 sender-stage replacement owns the full **`Now Casting`** placeholder behavior.
-- **Resolved for #273:** Cast-specific launch/render test hooks may be local to the Cast controller or receiver harness, but they must not overload **`getDiagnostics().drawers.*`**.
-- **Resolved for #274:** active Cast renders **`CAST_ACTIVE`** / **`Now Casting`** on the sender stage, exposes local Stop Cast intent, clears/suppresses expanded view, and still does not add drawer diagnostics or active realtime error codes.
-- **Resolved for #276:** successful intentional Stop Cast uses local, idempotent cleanup and restores the normal in-page stage without clearing room, chat, SFU, theater playback, sidebar, or authoritative room state.
-- **Resolved for #277:** Cast controller tests should assert the absence of room HTTP mutations, room WebSocket sends, **`share_state`** changes, SFU token/permission changes, drawer diagnostic changes, and remote participant presentation changes for local Cast lifecycle paths.
-- **Resolved for #278:** extend the local Cast controller lifecycle with distinct unavailable, start-failed, session-ended, playback-blocked, stopping, stop-failed, and cleaned-up states. Receiver disconnect, sender SDK **session-ended**, receiver app close, external TV stop, and blocked receiver playback must drive local cleanup and retry behavior without touching **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, room HTTP APIs, room WebSocket sends, or **`RoomRealtimeSdk.getDiagnostics().drawers.*`**.
-- **Resolved for #278:** tests may use controller-local hooks, fake sender clients, and receiver-channel stubs to simulate unavailable support, launch rejection, active disconnect, playback blocked, stop rejection, and cleanup completion. These hooks must remain outside aggregate room diagnostics and active realtime error codes.
+- No open implementation decisions remain for M25 Cast runtime-controller verification. See **Local Cast controller**, peer controller sections #272-#276, and **Cast verification controller hooks (#279)** above.
 
 ## Primary code pointers (optional)
 

@@ -123,6 +123,7 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 7. **Stop Cast:** Successful intentional Stop Cast returns the sender to normal in-page playback. Room session, chat state, selected sidebar tab, and latest authoritative room state remain intact.
 8. **Failure / unavailable:** Start rejection, platform policy block, receiver loss before active Cast, or unsupported sender state returns to normal in-page playback with local recoverable status only. Do not leave the room, reset chat, or tear down healthy SFU/video relay state.
 9. **Room authority preservation (#277):** Every Cast lifecycle path is sender-local. Starting, activating, stopping, failing, disconnecting, or clearing Cast must not send room WebSocket messages, change **`share_state`**, call room HTTP mutation APIs, change **`roomMode`** / **`avDisabled`**, alter SFU token eligibility, or change another participant's stage, controls, drawer status, chat state, presence, or playback.
+10. **Verification (#279):** Automated and manual checks cover the lifecycle from availability through cleanup: support detection, start, active, stop, unavailable, failed-start, receiver-ended, playback-blocked, stop-failed, cleanup completion, room leave, navigation, and reload. Each path preserves sender chat/sidebar/room state and proves other participants receive no Cast-induced UI, messaging, or media change.
 
 ### Cast-active sender flow (#274)
 
@@ -230,15 +231,7 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-interaction-flow
-- **Resolved for #273:** detect support, set local starting state, attempt Cast, and swap to active Cast only after receiver render confirmation.
-- **Resolved for #273:** failed start resets to local failed/idle state, keeps normal playback visible, keeps chat draft/session state intact, and exposes retryable local error.
-- **Resolved for #274:** active Cast replaces the sender stage with **`Now Casting`** and Stop Cast after confirmed success. Stop activation sends local stop intent only; full normal-playback restoration remains #276.
-- **Resolved for #274:** expanded view is unavailable while local Cast is active, and stale expanded-view state is cleared when active Cast begins.
-- **Resolved for #276:** successful intentional Stop Cast restores the sender's normal in-page stage playback and preserves chat, sidebar, room membership, presence, participant A/V, and authoritative room state.
-- **Resolved for #277:** other participants receive no Cast status, stage replacement, stop affordance, room mode change, playback change, chat/sidebar reset, participant A/V change, or drawer-status change because of another viewer's Cast lifecycle.
-- **Resolved for #278:** unavailable support keeps or returns the viewer to the normal Room Cast action with local unavailable copy. Start failure after the chooser or receiver handshake clears starting state, preserves normal playback/chat/sidebar state, and allows retry when support is still available.
-- **Resolved for #278:** receiver disconnect, SDK-ended active sessions, receiver app close, external TV stop, and blocked receiver playback all end active sender Cast locally, run idempotent cleanup, restore or keep in-page playback visible, and leave room membership, chat, SFU, participant A/V, and authoritative room state unchanged.
-- **Resolved for #278:** stop failure transitions to a retryable local stop-failed state only while the sender still has an active session handle. If the active route is gone, cleanup completes as **`CAST_SESSION_ENDED`** instead of preserving stale active Cast UI.
+- No open implementation decisions remain for M25 Cast interaction-flow verification. See **Chromecast Cast flow** and peer slice flows #274, #276, #278 above.
 
 ## Primary code pointers (optional)
 

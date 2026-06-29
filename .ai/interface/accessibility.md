@@ -61,6 +61,7 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - For #276 successful Stop Cast, the restored normal stage playback surface is perceivable as normal room content again and the removed **`Now Casting`** panel is absent from the accessibility tree.
 - If focus remains on **Stop Cast** or stage-local stopping status when successful cleanup completes, restore focus to a visible normal-room control near the restored stage or Room action group. If focus moved elsewhere during stopping, preserve that focus.
 - Post-stop announcements use the restored stage or local Cast status surface only when useful; they must not duplicate chat drawer, video-relay, host feedback, or global room announcer output.
+- For #279 verification, automated and manual checks must cover accessible names for **Cast to TV** and **Stop Cast**, keyboard reachability, local **`role="status"`** / stage-local announcement behavior, focus transfer and restoration across success/failure/cleanup, removal of stale Cast controls from the accessibility tree, and absence of Cast-induced live regions or focus movement for other participants.
 
 ### Keyboard verification matrix (#106)
 
@@ -90,15 +91,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **`THEATER_AUDIO_SUSPENDED` a11y:** whether resume uses implicit gesture only or a keyboard-focusable explicit control with accessible name (pairs with **`presentation.md`** theater audio item).
 
 ### chromecast-accessibility
-- **Resolved for #273:** local Cast starting and start-failed text uses a visible **`role="status"`** with polite announcement near the Cast action or stage-local Cast surface. It must not duplicate chat drawer, video-relay, or global room announcer output.
-- **Resolved for #273:** **Cast to TV** has a visible label or accessible name; receiver/device name is omitted from app-authored accessible copy for privacy.
-- **Resolved for #273:** failed start returns focus to **Cast to TV** when still rendered, or to the nearest normal-view Room action.
-- **Resolved for #274:** persistent active state exposes **`Now Casting`** text plus an associated **Stop Cast** control, with stage-local polite status only.
-- **Resolved for #274:** focus moves from **Cast to TV** to **Stop Cast** only when the initiating action still owns focus at success; expanded-view controls are inaccessible while casting.
-- **Resolved for #276:** successful post-stop restoration removes the Cast-active panel from the accessibility tree, makes the normal stage perceivable again, and restores focus only when focus still belongs to the removed Cast stage surface.
-- **Resolved for #277:** remote participants receive no Cast-induced live region update, focus movement, drawer status, stage control, or room-mode announcement because another viewer starts, stops, fails, or disconnects Cast.
-- **Resolved for #278:** unavailable, failed-start, receiver-ended, playback-blocked, and stop-failed states use the same local Cast **`role="status"`** / stage-local status family. They must not duplicate chat drawer, video-relay, host feedback, global room announcer, or remote participant live regions.
-- **Resolved for #278:** receiver-ended and playback-blocked cleanup removes stale **`Now Casting`** and receiver-bound controls from the accessibility tree once the sender returns to normal in-page playback. Stop failure keeps **Stop Cast** accessible only while retry remains possible.
+- No open implementation decisions remain for M25 Cast accessibility verification. See **Chromecast Cast status** and #279 verification requirements above.
 
 ## Primary code pointers (optional)
 
