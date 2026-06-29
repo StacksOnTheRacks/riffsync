@@ -92,6 +92,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #274:** after active Cast appears, focus moves to **Stop Cast** only when focus is still on the initiating **Cast to TV** action; otherwise do not steal focus.
 - **Resolved for #274:** expanded-view toggle is unavailable while casting, and Stop Cast keeps a keyboard-operable **44×44** minimum target posture.
 - **Resolved for #276:** successful Stop Cast restores focus only when it still belongs to the removed Cast stage surface; otherwise it preserves the viewer's current focus in chat/sidebar/room controls and never targets hidden Cast or unavailable expanded-view elements.
+- **Resolved for #278:** failed start, unavailable Cast, receiver-ended cleanup, and playback-blocked cleanup restore focus only if focus still belongs to removed Cast chrome or stage-local recovery text. Prefer the normal-view Cast action or nearest Room action; otherwise preserve current focus in chat, sidebar tabs, participant A/V controls, or other room controls.
+- **Resolved for #278:** stop failure keeps focus on **Stop Cast** when the control remains visible and retryable. If cleanup discovers the receiver has already ended, follow the receiver-ended focus rule instead of focusing hidden or detached Cast controls.
 
 ## Primary code pointers (optional)
 

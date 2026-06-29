@@ -355,7 +355,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #274:** expanded view is unavailable while local Cast is active; stale expanded-view state is cleared when active Cast begins.
 - **Resolved for #276:** successful intentional Stop Cast removes the active Cast panel, restores the normal room stage playback surface, and preserves sender sidebar/chat state without notifying other viewers.
 - **Resolved for #277:** Cast presentation state is never rendered from room snapshot fields, room WebSocket payloads, SFU diagnostics, or another participant's local Cast controller. Remote participants keep their current room presentation and status surfaces unchanged.
-- **Out of #276 scope:** disconnected, blocked, SDK-ended active sessions outside successful user stop, and stop-failure recovery copy belongs to #278.
+- **Resolved for #278:** unavailable and failed-start feedback appears only at the normal-view Cast action or stage-local Cast surface. Receiver disconnected, SDK-ended, externally stopped, and playback-blocked states remove or replace the **`Now Casting`** panel with local recovery copy and keep the normal room stage/playback path visible.
+- **Resolved for #278:** stop failure keeps **Stop Cast** visible and retryable while the sender still believes an active route exists. If cleanup determines the receiver already ended, the UI transitions to the normal room stage with **`CAST_SESSION_ENDED`** instead of leaving stale active Cast chrome.
 
 ## Primary code pointers (optional)
 
