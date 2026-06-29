@@ -3,6 +3,8 @@ import { RIFFSYNC_CAST_NAMESPACE } from './castChannelProtocol'
 export type CastSenderSessionHandle = {
   sendMessage: (message: unknown) => Promise<void>
   addMessageListener: (handler: (message: unknown) => void) => () => void
+  addSessionEndedListener: (handler: () => void) => () => void
+  hasActiveRoute: () => boolean
   end: () => Promise<void>
 }
 
@@ -55,6 +57,8 @@ type CastSessionInstance = {
   endSession: (stopCasting?: boolean) => void
 }
 
+type CastFramework = NonNullable<NonNullable<CastFrameworkWindow['cast']>['framework']>
+
 function readCastFramework(): CastFrameworkWindow['cast'] | undefined {
   if (typeof window === 'undefined') return undefined
   return (window as CastFrameworkWindow).cast
@@ -100,8 +104,14 @@ async function waitForCastFramework(): Promise<NonNullable<CastFrameworkWindow['
   })
 }
 
-function wrapCastSession(session: CastSessionInstance): CastSenderSessionHandle {
+function wrapCastSession(
+  session: CastSessionInstance,
+  context: CastContextInstance,
+  framework: CastFramework,
+): CastSenderSessionHandle {
   const listeners = new Set<(message: unknown) => void>()
+  const sessionEndedListeners = new Set<() => void>()
+  let activeRoute = true
 
   const frameworkListener = (_namespace: string, message: string) => {
     try {
@@ -114,6 +124,15 @@ function wrapCastSession(session: CastSessionInstance): CastSenderSessionHandle 
 
   session.addMessageListener(RIFFSYNC_CAST_NAMESPACE, frameworkListener)
 
+  const sessionStateListener = (event: { sessionState?: string }) => {
+    if (event.sessionState !== framework.SessionState.SESSION_ENDED) return
+    if (!activeRoute) return
+    activeRoute = false
+    for (const listener of sessionEndedListeners) listener()
+  }
+
+  context.addEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, sessionStateListener)
+
   return {
     sendMessage: async (message) => {
       await session.sendMessage(RIFFSYNC_CAST_NAMESPACE, message)
@@ -122,8 +141,15 @@ function wrapCastSession(session: CastSessionInstance): CastSenderSessionHandle 
       listeners.add(handler)
       return () => listeners.delete(handler)
     },
+    addSessionEndedListener: (handler) => {
+      sessionEndedListeners.add(handler)
+      return () => sessionEndedListeners.delete(handler)
+    },
+    hasActiveRoute: () => activeRoute,
     end: async () => {
       session.removeMessageListener(RIFFSYNC_CAST_NAMESPACE, frameworkListener)
+      context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, sessionStateListener)
+      activeRoute = false
       session.endSession(true)
     },
   }
@@ -169,7 +195,7 @@ export function createDefaultCastSenderClient(): CastSenderClient {
             if (settled) return
             settled = true
             context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
-            resolve(wrapCastSession(session))
+            resolve(wrapCastSession(session, context, framework))
           })
           .catch((error: unknown) => {
             if (settled) return

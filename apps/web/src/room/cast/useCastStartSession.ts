@@ -94,7 +94,20 @@ export function useCastStartSession({
     [snapshotInput],
   )
 
-  useEffect(() => controller.subscribe((state) => setCastStartLifecycle(state.lifecycle)), [controller])
+  useEffect(
+    () =>
+      controller.subscribe((state) => {
+        const currentLifecycle = previousLifecycleRef.current
+        if (
+          (currentLifecycle === 'casting' || currentLifecycle === 'stopping' || currentLifecycle === 'stop_failed') &&
+          (state.lifecycle === 'session_ended' || state.lifecycle === 'playback_blocked')
+        ) {
+          shouldRestoreFocusFromCastStageRef.current = isCastStageFocusTarget(document.activeElement)
+        }
+        setCastStartLifecycle(state.lifecycle)
+      }),
+    [controller],
+  )
 
   useEffect(() => {
     if (!enabled) return
@@ -169,7 +182,27 @@ export function useCastStartSession({
     const previousLifecycle = previousLifecycleRef.current
     previousLifecycleRef.current = castStartLifecycle
 
-    if (castStartLifecycle !== 'idle' || previousLifecycle !== 'stopping') return
+    if (castStartLifecycle === 'stop_failed' && previousLifecycle === 'stopping') {
+      if (shouldRestoreFocusFromCastStageRef.current) {
+        stopCastButtonRef.current?.focus()
+      }
+      return
+    }
+
+    if (
+      castStartLifecycle !== 'idle' &&
+      castStartLifecycle !== 'session_ended' &&
+      castStartLifecycle !== 'playback_blocked'
+    ) {
+      return
+    }
+    if (
+      previousLifecycle !== 'stopping' &&
+      previousLifecycle !== 'casting' &&
+      previousLifecycle !== 'stop_failed'
+    ) {
+      return
+    }
     if (!shouldRestoreFocusFromCastStageRef.current) return
 
     shouldRestoreFocusFromCastStageRef.current = false

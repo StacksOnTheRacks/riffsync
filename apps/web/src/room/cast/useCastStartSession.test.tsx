@@ -4,15 +4,65 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCastStartSession } from './useCastStartSession'
 
+type HarnessSession = {
+  end: ReturnType<typeof vi.fn>
+  sendMessage: () => Promise<void>
+  addMessageListener: (handler: (message: unknown) => void) => () => void
+  addSessionEndedListener: (handler: () => void) => () => void
+  hasActiveRoute: () => boolean
+  emitReceiverMessage: (message: unknown) => void
+  emitSessionEnded: () => void
+  setActiveRoute: (active: boolean) => void
+}
+
+let latestSession: HarnessSession | null = null
+
+function createHarnessSession(): HarnessSession {
+  const messageListeners = new Set<(message: unknown) => void>()
+  const sessionEndedListeners = new Set<() => void>()
+  const route = { active: true }
+  const end = vi.fn().mockImplementation(async () => {
+    route.active = false
+  })
+
+  return {
+    sendMessage: async () => {
+      queueMicrotask(() => {
+        for (const listener of messageListeners) listener({ type: 'render_confirmed' })
+      })
+    },
+    addMessageListener: (handler: (message: unknown) => void) => {
+      messageListeners.add(handler)
+      return () => messageListeners.delete(handler)
+    },
+    addSessionEndedListener: (handler: () => void) => {
+      sessionEndedListeners.add(handler)
+      return () => sessionEndedListeners.delete(handler)
+    },
+    hasActiveRoute: () => route.active,
+    end,
+    emitReceiverMessage: (message) => {
+      for (const listener of messageListeners) listener(message)
+    },
+    emitSessionEnded: () => {
+      route.active = false
+      for (const listener of sessionEndedListeners) listener()
+    },
+    setActiveRoute: (active) => {
+      route.active = active
+    },
+  }
+}
+
 function TestHarness({
   expandedViewActive = false,
   stageFocusRestoreRef,
+  session,
 }: {
   expandedViewActive?: boolean
   stageFocusRestoreRef?: RefObject<HTMLButtonElement | null>
+  session: HarnessSession
 }) {
-  const messageListeners = new Set<(message: unknown) => void>()
-
   const { castStartLifecycle, startCast, stopCast, castToTvButtonRef, stopCastButtonRef } =
     useCastStartSession({
       enabled: true,
@@ -26,18 +76,7 @@ function TestHarness({
       chatMemberLabels: new Map(),
       stageFocusRestoreRef,
       createSenderClient: () => ({
-        requestSession: vi.fn().mockResolvedValue({
-          sendMessage: async () => {
-            queueMicrotask(() => {
-              for (const listener of messageListeners) listener({ type: 'render_confirmed' })
-            })
-          },
-          addMessageListener: (handler: (message: unknown) => void) => {
-            messageListeners.add(handler)
-            return () => messageListeners.delete(handler)
-          },
-          end: vi.fn().mockResolvedValue(undefined),
-        }),
+        requestSession: vi.fn().mockResolvedValue(session),
       }),
     })
 
@@ -51,8 +90,15 @@ function TestHarness({
       ) : castStartLifecycle === 'starting' ? (
         <p data-testid="cast-starting-status">Starting Cast…</p>
       ) : null}
-      {castStartLifecycle === 'casting' || castStartLifecycle === 'stopping' ? (
-        <button ref={stopCastButtonRef} type="button" data-testid="stop-cast" onClick={() => stopCast()}>
+      {castStartLifecycle === 'casting' || castStartLifecycle === 'stopping' || castStartLifecycle === 'stop_failed' ? (
+        <button
+          ref={stopCastButtonRef}
+          type="button"
+          data-testid="stop-cast"
+          className="riffsync-room-page__cast-stop-button"
+          disabled={castStartLifecycle === 'stopping'}
+          onClick={() => stopCast()}
+        >
           Stop Cast
         </button>
       ) : null}
@@ -72,6 +118,7 @@ describe('useCastStartSession focus transfer', () => {
   let root: Root
 
   beforeEach(() => {
+    latestSession = null
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -83,10 +130,14 @@ describe('useCastStartSession focus transfer', () => {
   })
 
   async function renderHarness(expandedViewActive = false, withStageRestore = false) {
+    const session = createHarnessSession()
+    latestSession = session
+
     function HarnessWrapper() {
       const stageFocusRestoreRef = useRef<HTMLButtonElement | null>(null)
       return (
         <TestHarness
+          session={session}
           expandedViewActive={expandedViewActive}
           stageFocusRestoreRef={withStageRestore ? stageFocusRestoreRef : undefined}
         />
@@ -94,7 +145,13 @@ describe('useCastStartSession focus transfer', () => {
     }
 
     act(() => {
-      root.render(withStageRestore ? <HarnessWrapper /> : <TestHarness expandedViewActive={expandedViewActive} />)
+      root.render(
+        withStageRestore ? (
+          <HarnessWrapper />
+        ) : (
+          <TestHarness session={session} expandedViewActive={expandedViewActive} />
+        ),
+      )
     })
   }
 
@@ -249,5 +306,62 @@ describe('useCastStartSession focus transfer', () => {
 
     expect(document.activeElement).toBe(other)
     other.remove()
+  })
+
+  it('restores focus to the stage control when active Cast ends externally', async () => {
+    await renderHarness(false, true)
+
+    const castButton = container.querySelector('[data-testid="cast-to-tv"]') as HTMLButtonElement
+    await act(async () => {
+      castButton.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const stopButton = container.querySelector('[data-testid="stop-cast"]') as HTMLButtonElement
+    act(() => {
+      stopButton.focus()
+    })
+
+    await act(async () => {
+      latestSession?.emitSessionEnded()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const stageRestore = container.querySelector('[data-testid="stage-restore"]') as HTMLButtonElement
+    expect(container.querySelector('[data-testid="lifecycle"]')?.textContent).toBe('session_ended')
+    expect(document.activeElement).toBe(stageRestore)
+  })
+
+  it('keeps focus on retryable Stop Cast when stop fails with an active route', async () => {
+    await renderHarness(false, true)
+
+    const castButton = container.querySelector('[data-testid="cast-to-tv"]') as HTMLButtonElement
+    await act(async () => {
+      castButton.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    latestSession?.end.mockRejectedValueOnce(new Error('stop rejected'))
+
+    const stopButton = container.querySelector('[data-testid="stop-cast"]') as HTMLButtonElement
+    act(() => {
+      stopButton.focus()
+    })
+
+    await act(async () => {
+      stopButton.click()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const retryStopButton = container.querySelector('[data-testid="stop-cast"]') as HTMLButtonElement
+    expect(container.querySelector('[data-testid="lifecycle"]')?.textContent).toBe('stop_failed')
+    expect(retryStopButton.disabled).toBe(false)
+    expect(document.activeElement).toBe(retryStopButton)
   })
 })

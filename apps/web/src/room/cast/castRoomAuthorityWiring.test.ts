@@ -81,7 +81,9 @@ describe('Cast room authority wiring (#277)', () => {
 
   it('castChannelProtocol defines session-only lifecycle without persistence fields', () => {
     const src = readCast('castChannelProtocol.ts')
-    expect(src).toContain("export type CastStartLifecycle = 'idle'")
+    expect(src).toContain('export type CastStartLifecycle =')
+    expect(src).toContain("| 'idle'")
+    expect(src).toContain("| 'session_ended'")
     expect(src).not.toMatch(/castStartLifecycle[\s\S]{0,120}localStorage/)
     expect(src).not.toContain('castLifecycle')
     expect(src).not.toContain('share_state')
@@ -126,7 +128,7 @@ describe('Cast room authority wiring (#277)', () => {
 
   it('castStartController lifecycle paths use Cast channel only', () => {
     const src = readCast('castStartController.ts')
-    expect(src).toMatch(/stopCast: async \(\) => \{[\s\S]*cleanupSession/)
+    expect(src).toMatch(/stopCast: async \(\) => \{[\s\S]*stopActiveSession/)
     expect(src).not.toContain('fetch(')
     expect(src).not.toContain('WebSocket')
     expect(src).not.toContain('share_state')

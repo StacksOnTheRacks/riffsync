@@ -21,6 +21,8 @@ function createMockSession(handlers: {
   failAfterSend?: boolean
 }): CastSenderSessionHandle {
   const listeners = new Set<(message: unknown) => void>()
+  const sessionEndedListeners = new Set<() => void>()
+  const activeRoute = true
   return {
     sendMessage: async (message) => {
       handlers.onSend?.(message)
@@ -35,6 +37,11 @@ function createMockSession(handlers: {
       listeners.add(handler)
       return () => listeners.delete(handler)
     },
+    addSessionEndedListener: (handler) => {
+      sessionEndedListeners.add(handler)
+      return () => sessionEndedListeners.delete(handler)
+    },
+    hasActiveRoute: () => activeRoute,
     end: vi.fn().mockResolvedValue(undefined),
   }
 }
@@ -132,6 +139,8 @@ describe('createCastStartController room authority (#277)', () => {
         listeners.add(handler)
         return () => listeners.delete(handler)
       },
+      addSessionEndedListener: () => () => undefined,
+      hasActiveRoute: () => true,
       end: vi.fn().mockResolvedValue(undefined),
     }
     const controller = createCastStartController({
@@ -142,8 +151,8 @@ describe('createCastStartController room authority (#277)', () => {
     await controller.startCast(snapshot)
     await controller.sendChatOverlayUpdate(snapshot)
 
-    expect(controller.getState().lifecycle).toBe('casting')
-    expect(session.end).not.toHaveBeenCalled()
+    expect(controller.getState().lifecycle).toBe('session_ended')
+    expect(session.end).toHaveBeenCalledTimes(1)
   })
 
   it('launch rejection maps to start_failed without an active session handle', async () => {

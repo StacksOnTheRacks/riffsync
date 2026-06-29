@@ -8,6 +8,7 @@ import { RoomChromeProvider } from '../room/RoomChromeProvider'
 import {
   CAST_ACTIVE_HEADING,
   CAST_ACTIVE_SUBCOPY,
+  CAST_STOP_FAILED_SUBCOPY,
   CAST_STOP_BUTTON_LABEL,
 } from '../room/cast/castActiveStatusCopy'
 import type { CastStartLifecycle } from '../room/cast/castChannelProtocol'
@@ -247,5 +248,23 @@ describe('RoomPage Cast active stage', () => {
     await openRoomTab()
 
     expect(container.textContent).not.toContain('Cast to TV')
+  })
+
+  it('keeps Stop Cast retryable while stop failure is local and active', async () => {
+    castStartLifecycle.value = 'stop_failed'
+    await openRoomTab()
+
+    expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).not.toBeNull()
+    expect(container.textContent).toContain(CAST_STOP_FAILED_SUBCOPY)
+    expect(container.querySelector('.riffsync-room-page__playback')).toBeNull()
+
+    const stopButton = container.querySelector('.riffsync-room-page__cast-stop-button') as HTMLButtonElement
+    expect(stopButton.disabled).toBe(false)
+
+    act(() => {
+      stopButton.click()
+    })
+
+    expect(stopCast).toHaveBeenCalledTimes(1)
   })
 })

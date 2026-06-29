@@ -67,7 +67,7 @@ describe('Cast active participation wiring (#275)', () => {
 
   it('castStartController stop path ends Cast session without room APIs', () => {
     const src = readCast('castStartController.ts')
-    expect(src).toMatch(/stopCast: async \(\) => \{[\s\S]*cleanupSession/)
+    expect(src).toMatch(/stopCast: async \(\) => \{[\s\S]*stopActiveSession/)
     expect(src).not.toContain('fetch(')
     expect(src).not.toContain('WebSocket')
   })
