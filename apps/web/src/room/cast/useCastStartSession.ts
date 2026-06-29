@@ -25,7 +25,9 @@ export type UseCastStartSessionInput = {
 export type UseCastStartSessionResult = {
   castStartLifecycle: CastStartLifecycle
   startCast: () => Promise<void>
+  stopCast: () => void
   castToTvButtonRef: RefObject<HTMLButtonElement | null>
+  stopCastButtonRef: RefObject<HTMLButtonElement | null>
 }
 
 export function useCastStartSession({
@@ -41,6 +43,7 @@ export function useCastStartSession({
   createSenderClient = createDefaultCastSenderClient,
 }: UseCastStartSessionInput): UseCastStartSessionResult {
   const castToTvButtonRef = useRef<HTMLButtonElement | null>(null)
+  const stopCastButtonRef = useRef<HTMLButtonElement | null>(null)
   const [controller] = useState<CastStartController>(() =>
     createCastStartController({ client: createSenderClient() }),
   )
@@ -101,9 +104,22 @@ export function useCastStartSession({
     castToTvButtonRef.current?.focus()
   }, [castStartLifecycle])
 
+  useEffect(() => {
+    if (castStartLifecycle !== 'casting') return
+    if (castToTvButtonRef.current === document.activeElement) {
+      stopCastButtonRef.current?.focus()
+    }
+  }, [castStartLifecycle])
+
+  const stopCast = useCallback(() => {
+    void controller.stopCast()
+  }, [controller])
+
   return {
     castStartLifecycle,
     startCast,
+    stopCast,
     castToTvButtonRef,
+    stopCastButtonRef,
   }
 }

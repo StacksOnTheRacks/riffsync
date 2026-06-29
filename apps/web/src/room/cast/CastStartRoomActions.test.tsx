@@ -66,4 +66,9 @@ describe('CastStartRoomActions', () => {
     const status = container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)
     expect(status?.textContent).toBe(CAST_UNAVAILABLE_MESSAGE)
   })
+
+  it('hides Cast to TV while casting', () => {
+    renderActions('available', 'casting')
+    expect(container.textContent).not.toContain('Cast to TV')
+  })
 })

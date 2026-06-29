@@ -31,6 +31,7 @@ import { RIFFSYNC_SFU_CONFIG_ALERT_ID } from '../room/drawerErrorPresentation'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
 import { useCastAvailability } from '../room/cast/useCastAvailability'
 import { useCastStartSession } from '../room/cast/useCastStartSession'
+import { CastActiveStagePanel } from '../room/cast/CastActiveStagePanel'
 
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
@@ -229,22 +230,27 @@ export function RoomPage() {
   const activeSidebarTab =
     !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
   const viewportWide = useViewportWide()
-  const expandedViewActive = expandedView && viewportWide
   const castAvailability = useCastAvailability(Boolean(room))
-  const { castStartLifecycle, startCast, castToTvButtonRef } = useCastStartSession({
-    enabled: Boolean(room) && castAvailability === 'available',
-    expandedViewActive,
-    roomMode,
-    youtubeVideoId,
-    isPublisher,
-    hasHostCaptureStream: Boolean(captureStream),
-    hasGuestRelayStream: Boolean(guestRemote),
-    chat,
-    chatMemberLabels,
-  })
+  const { castStartLifecycle, startCast, stopCast, castToTvButtonRef, stopCastButtonRef } =
+    useCastStartSession({
+      enabled: Boolean(room) && castAvailability === 'available',
+      expandedViewActive: expandedView && viewportWide,
+      roomMode,
+      youtubeVideoId,
+      isPublisher,
+      hasHostCaptureStream: Boolean(captureStream),
+      hasGuestRelayStream: Boolean(guestRemote),
+      chat,
+      chatMemberLabels,
+    })
+  const castActive = castStartLifecycle === 'casting'
+  const expandedViewActive = expandedView && viewportWide && !castActive
   const onCastToTvClick = useCallback(() => {
     void startCast()
   }, [startCast])
+  const onStopCastClick = useCallback(() => {
+    stopCast()
+  }, [stopCast])
   const { setExpandedViewActive } = useRoomChrome()
 
   useEffect(() => {
@@ -436,7 +442,7 @@ export function RoomPage() {
           data-expanded-view={expandedViewActive ? 'true' : 'false'}
         >
           <div className={`riffsync-room-page__theater${expandedViewActive ? ' riffsync-room-page__theater--expanded' : ''}`}>
-            {viewportWide ? (
+            {viewportWide && !castActive ? (
               <button
                 type="button"
                 className="riffsync-room-page__expand-toggle"
@@ -455,24 +461,31 @@ export function RoomPage() {
               avSurfacesEnabled={avSurfacesEnabled}
               expandedView={expandedViewActive}
               playback={
-                <RoomPlaybackPanel
-                  isPublisher={isPublisher}
-                  captureStream={captureStream}
-                  captureErr={captureErr}
-                  patchErr={patchErr}
-                  renameModalOpen={renameModalOpen}
-                  guestRemote={guestRemote}
-                  fanToken={fanToken}
-                  theaterPlaybackSnapshot={theaterPlaybackSnapshot}
-                  videoRelayStatus={videoRelayStatus}
-                  theaterAudioStatus={theaterAudioStatus}
-                  bindHostCaptureVideo={bindHostCaptureVideo}
-                  bindGuestVideo={bindGuestVideo}
-                  playHostCapturePreview={playHostCapturePreview}
-                  playGuestVideo={playGuestVideo}
-                  startCapture={startCapture}
-                  openCapturePlayerTab={openCapturePlayerTab}
-                />
+                castActive ? (
+                  <CastActiveStagePanel
+                    onStopCast={onStopCastClick}
+                    stopCastButtonRef={stopCastButtonRef}
+                  />
+                ) : (
+                  <RoomPlaybackPanel
+                    isPublisher={isPublisher}
+                    captureStream={captureStream}
+                    captureErr={captureErr}
+                    patchErr={patchErr}
+                    renameModalOpen={renameModalOpen}
+                    guestRemote={guestRemote}
+                    fanToken={fanToken}
+                    theaterPlaybackSnapshot={theaterPlaybackSnapshot}
+                    videoRelayStatus={videoRelayStatus}
+                    theaterAudioStatus={theaterAudioStatus}
+                    bindHostCaptureVideo={bindHostCaptureVideo}
+                    bindGuestVideo={bindGuestVideo}
+                    playHostCapturePreview={playHostCapturePreview}
+                    playGuestVideo={playGuestVideo}
+                    startCapture={startCapture}
+                    openCapturePlayerTab={openCapturePlayerTab}
+                  />
+                )
               }
             />
           </div>
