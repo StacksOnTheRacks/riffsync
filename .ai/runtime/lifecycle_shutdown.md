@@ -63,6 +63,7 @@ Local Cast state follows the same independence rule: Cast stop, failure, or rece
 - **Cast start failure:** restore or keep normal in-page playback visible, keep chat draft/session state intact, and avoid closing healthy chat or SFU drawers.
 - **Custom receiver launch failure (#273):** if the sender SDK rejects launch, the user cancels the chooser, or the receiver does not confirm rendering stage-primary video plus chat overlay, clear **`CAST_STARTING`**, surface **`CAST_START_REJECTED`**, and keep normal playback visible.
 - **Expanded view state:** Cast starts only from normal view. If stale expanded-view local state exists internally, cleanup must not re-enter expanded view after Cast stop unless a later interface contract permits it.
+- **Participant isolation (#277):** local Cast cleanup must be idempotent and sender-only. It must not close room WebSocket, close SFU signaling, stop participant **`getUserMedia`**, clear remote consumers, change **`share_state`**, mutate room state, clear other viewers' stage/chrome, or broadcast room cleanup messages.
 
 ## Participant A/V errors (client)
 
@@ -103,6 +104,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #273:** launch failure and route leave clear local start state and keep/restore normal playback without closing healthy room, chat, SFU, or theater playback modules.
 - **Resolved for #274:** active Cast cleanup begins with local stop intent only; the Stop Cast control must not tear down healthy room, chat, SFU, or theater playback modules by itself.
 - **Resolved for #276:** successful intentional Stop Cast clears local Cast-active UI, releases sender-side Cast resources best-effort, and restores normal in-page playback while preserving room membership, chat, SFU, theater playback, selected sidebar tab, and authoritative room state.
+- **Resolved for #277:** cleanup and teardown tests must prove local Cast cleanup is idempotent and does not close room WebSocket, close SFU signaling, stop participant A/V, clear remote consumers, mutate **`share_state`**, write room state, or broadcast room cleanup messages.
 - **Out of #276 scope:** receiver disconnect after active Cast, sender SDK-ended active sessions outside successful user stop, stop failure, blocked/unavailable Cast, and recovery copy are owned by #278.
 
 ## Primary code pointers (optional)

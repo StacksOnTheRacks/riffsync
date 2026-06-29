@@ -49,6 +49,7 @@ Chromecast runtime state belongs to the room shell as a **client-local controlle
 | **Stop / failure** | Stop, unavailable, rejected start, receiver disconnect, route leave, or reload converges on local cleanup and returns to normal in-page playback without clearing room session or chat state. |
 | **Authority** | Cast state never changes **`roomMode`**, **`avDisabled`**, **`share_state`**, host screen publishing, participant A/V publish eligibility, or other participants' presentation. |
 | **Receiver model** | The receiver is a custom RiffSync Cast page fed by sender-proxied local state over the Cast channel. It does not join the room, create a participant session, open room/SFU sockets, or own room authority. |
+| **Participant isolation (#277)** | Other participants' **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, drawer diagnostics, stage presentation, controls, and chat/sidebar state remain unchanged when one viewer enters, exits, fails, or cleans up local Cast. |
 
 ### Cast availability detector (#272)
 
@@ -471,6 +472,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #273:** Cast-specific launch/render test hooks may be local to the Cast controller or receiver harness, but they must not overload **`getDiagnostics().drawers.*`**.
 - **Resolved for #274:** active Cast renders **`CAST_ACTIVE`** / **`Now Casting`** on the sender stage, exposes local Stop Cast intent, clears/suppresses expanded view, and still does not add drawer diagnostics or active realtime error codes.
 - **Resolved for #276:** successful intentional Stop Cast uses local, idempotent cleanup and restores the normal in-page stage without clearing room, chat, SFU, theater playback, sidebar, or authoritative room state.
+- **Resolved for #277:** Cast controller tests should assert the absence of room HTTP mutations, room WebSocket sends, **`share_state`** changes, SFU token/permission changes, drawer diagnostic changes, and remote participant presentation changes for local Cast lifecycle paths.
 - **Out of #276 scope:** receiver disconnect, SDK-ended sessions that are not successful user stop, stop failure, blocked/unavailable Cast, and failure copy are owned by #278.
 
 ## Primary code pointers (optional)

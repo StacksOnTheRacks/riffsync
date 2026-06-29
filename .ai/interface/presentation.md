@@ -231,6 +231,7 @@ Optional Chromecast support is a local room presentation layer for Cast-capable 
 | **Chat while casting** | Sender chat remains interactive under existing rules: signed-in fans may send text, GIFs, and reactions when chat is healthy; anonymous guests may read and retain the sign-in gate for send. |
 | **Stop Cast** | Stop returns the sender to normal in-page playback without clearing chat scrollback, compose state, selected sidebar tab, presence, room membership, or authoritative room snapshot state. |
 | **Failure / unavailable** | Cast unavailable, blocked, rejected, or failed start surfaces honest local status and leaves normal in-page playback/chat intact. It never implies the room failed or that other participants changed state. |
+| **Other participants (#277)** | Other participants see no Cast status, **`Now Casting`** panel, Stop Cast control, room mode indicator, playback change, drawer status change, chat reset, sidebar reset, participant A/V change, or stage layout change caused by another viewer's local Cast session. |
 
 ### Cast stop restoration (#276)
 
@@ -353,6 +354,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #274:** persistent Cast-active sender stage uses a stage-local **`Now Casting`** panel with Stop Cast, no receiver-device naming, and no room-wide framing.
 - **Resolved for #274:** expanded view is unavailable while local Cast is active; stale expanded-view state is cleared when active Cast begins.
 - **Resolved for #276:** successful intentional Stop Cast removes the active Cast panel, restores the normal room stage playback surface, and preserves sender sidebar/chat state without notifying other viewers.
+- **Resolved for #277:** Cast presentation state is never rendered from room snapshot fields, room WebSocket payloads, SFU diagnostics, or another participant's local Cast controller. Remote participants keep their current room presentation and status surfaces unchanged.
 - **Out of #276 scope:** disconnected, blocked, SDK-ended active sessions outside successful user stop, and stop-failure recovery copy belongs to #278.
 
 ## Primary code pointers (optional)
