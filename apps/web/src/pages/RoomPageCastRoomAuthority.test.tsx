@@ -26,14 +26,6 @@ vi.mock('../room/experimentalRoomFeatures', () => ({
   detectExperimentalRoomFeatures: () => false,
 }))
 
-function mockFanJwt(sub = 'fan-sub-1'): string {
-  const payload = btoa(JSON.stringify({ sub }))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-  return `eyJhbGciOiJIUzI1NiJ9.${payload}.sig`
-}
-
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
   return {
