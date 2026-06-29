@@ -20,6 +20,8 @@ interface ImportMetaEnv {
    * When set, takes precedence over token-embedded **`wsUrl`** from **`POST /v1/webrtc/sfu-token`** (local disposable SFU).
    */
   readonly VITE_PUBLIC_SFU_WS_URL?: string
+  /** Google Cast custom receiver application id for sender launch (#273). */
+  readonly VITE_CAST_RECEIVER_APP_ID?: string
 }
 
 interface ImportMeta {

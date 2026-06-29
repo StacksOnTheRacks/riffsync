@@ -6,16 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoomPage } from './RoomPage'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
 import {
-  CAST_UNAVAILABLE_MESSAGE,
-  RIFFSYNC_CAST_AVAILABILITY_STATUS_ID,
-} from '../room/cast/castAvailabilityTypes'
-import type { CastAvailabilityState } from '../room/cast/castAvailabilityTypes'
+  CAST_STARTING_MESSAGE,
+  CAST_START_REJECTED_MESSAGE,
+  RIFFSYNC_CAST_START_STATUS_ID,
+} from '../room/cast/castStartStatusCopy'
+import type { CastStartLifecycle } from '../room/cast/castChannelProtocol'
 
 const fetchRoom = vi.fn()
 const fetchRtcIceServers = vi.fn()
-const castAvailabilityState = vi.hoisted(() => ({
-  value: 'checking' as CastAvailabilityState,
-}))
+const castStartLifecycle = vi.hoisted(() => ({ value: 'idle' as CastStartLifecycle }))
+const startCast = vi.hoisted(() => vi.fn())
 
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
@@ -60,13 +60,13 @@ vi.mock('../session/guestSession', () => ({
 }))
 
 vi.mock('../room/cast/useCastAvailability', () => ({
-  useCastAvailability: () => castAvailabilityState.value,
+  useCastAvailability: () => 'available',
 }))
 
 vi.mock('../room/cast/useCastStartSession', () => ({
   useCastStartSession: () => ({
-    castStartLifecycle: 'idle',
-    startCast: vi.fn(),
+    castStartLifecycle: castStartLifecycle.value,
+    startCast,
     castToTvButtonRef: { current: null },
   }),
 }))
@@ -109,8 +109,6 @@ vi.mock('../api/webrtcSfuApi', () => ({
   }),
 }))
 
-type WsListener = (ev?: { data?: string; code?: number; reason?: string }) => void
-
 class MockWebSocket {
   static instances: MockWebSocket[] = []
   static CONNECTING = 0
@@ -118,49 +116,32 @@ class MockWebSocket {
   static CLOSED = 3
 
   readyState = MockWebSocket.CONNECTING
-  private listeners = new Map<string, Set<WsListener>>()
 
   constructor(url: string) {
     void url
     MockWebSocket.instances.push(this)
     queueMicrotask(() => {
       this.readyState = MockWebSocket.OPEN
-      for (const fn of this.listeners.get('open') ?? []) fn()
     })
   }
 
-  addEventListener(type: string, fn: WsListener) {
-    if (!this.listeners.has(type)) this.listeners.set(type, new Set())
-    this.listeners.get(type)!.add(fn)
-  }
-
-  removeEventListener(type: string, fn: WsListener) {
-    this.listeners.get(type)?.delete(fn)
-  }
-
+  addEventListener() {}
+  removeEventListener() {}
   send() {}
-
   close() {
     this.readyState = MockWebSocket.CLOSED
-    for (const fn of this.listeners.get('close') ?? []) fn({ code: 1000, reason: '' })
   }
 }
 
-describe('RoomPage Cast availability', () => {
+describe('RoomPage Cast start', () => {
   let container: HTMLDivElement
   let root: Root
-  let webSocketCtor: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    castAvailabilityState.value = 'checking'
+    castStartLifecycle.value = 'idle'
+    startCast.mockReset()
     MockWebSocket.instances = []
-    webSocketCtor = vi.fn((url: string) => new MockWebSocket(url))
-    Object.assign(webSocketCtor, {
-      CONNECTING: MockWebSocket.CONNECTING,
-      OPEN: MockWebSocket.OPEN,
-      CLOSED: MockWebSocket.CLOSED,
-    })
-    vi.stubGlobal('WebSocket', webSocketCtor)
+    vi.stubGlobal('WebSocket', MockWebSocket)
 
     fetchRtcIceServers.mockResolvedValue([{ urls: 'stun:stun.test' }])
     fetchRoom.mockResolvedValue({
@@ -189,7 +170,7 @@ describe('RoomPage Cast availability', () => {
     vi.clearAllMocks()
   })
 
-  function renderRoom() {
+  async function openRoomTab() {
     act(() => {
       root.render(
         <MemoryRouter initialEntries={['/room/room-test-1']}>
@@ -201,79 +182,33 @@ describe('RoomPage Cast availability', () => {
         </MemoryRouter>,
       )
     })
-  }
 
-  async function openRoomTab() {
     await vi.waitFor(() => {
       expect(container.querySelector('.riffsync-room-page__tab')).not.toBeNull()
     })
+
     const roomTab = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).find(
       (node) => node.textContent?.trim() === 'Room',
     )
-    expect(roomTab).not.toBeUndefined()
     act(() => {
       ;(roomTab as HTMLButtonElement).click()
     })
   }
 
-  it('shows Cast to TV in the normal-view Room tab when sender support is available', async () => {
-    castAvailabilityState.value = 'available'
-    renderRoom()
+  it('shows local starting status when Cast start is in progress', async () => {
+    castStartLifecycle.value = 'starting'
     await openRoomTab()
 
+    const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
+    expect(status?.textContent).toBe(CAST_STARTING_MESSAGE)
+  })
+
+  it('shows rejected status after failed Cast start', async () => {
+    castStartLifecycle.value = 'start_failed'
+    await openRoomTab()
+
+    const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
+    expect(status?.textContent).toBe(CAST_START_REJECTED_MESSAGE)
     expect(container.textContent).toContain('Cast to TV')
-    expect(container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)).toBeNull()
-  })
-
-  it('shows local unavailable copy in the Room tab when sender support is absent', async () => {
-    castAvailabilityState.value = 'unavailable'
-    renderRoom()
-    await openRoomTab()
-
-    const status = container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)
-    expect(status).not.toBeNull()
-    expect(status?.textContent).toBe(CAST_UNAVAILABLE_MESSAGE)
-    expect(container.textContent).not.toContain('Cast to TV')
-  })
-
-  it('omits Cast availability from expanded view', async () => {
-    castAvailabilityState.value = 'available'
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      configurable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: query === '(min-width: 992px)',
-        media: query,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      })),
-    })
-
-    renderRoom()
-    await vi.waitFor(() => {
-      expect(container.querySelector('.riffsync-room-page__expand-toggle')).not.toBeNull()
-    })
-
-    act(() => {
-      ;(container.querySelector('.riffsync-room-page__expand-toggle') as HTMLButtonElement).click()
-    })
-
-    await vi.waitFor(() => {
-      expect(container.querySelector('[data-expanded-view="true"]')).not.toBeNull()
-    })
-
-    expect(container.textContent).not.toContain('Cast to TV')
-    expect(container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)).toBeNull()
-  })
-
-  it('does not surface Cast unavailable copy in chat drawer status', async () => {
-    castAvailabilityState.value = 'unavailable'
-    renderRoom()
-    await openRoomTab()
-
-    expect(container.textContent).toContain(CAST_UNAVAILABLE_MESSAGE)
-    expect(container.textContent?.includes(CAST_UNAVAILABLE_MESSAGE)).toBe(true)
-    const chatDrawerStatus = container.querySelector('#riffsync-chat-drawer-status')
-    expect(chatDrawerStatus?.textContent ?? '').not.toContain(CAST_UNAVAILABLE_MESSAGE)
   })
 })

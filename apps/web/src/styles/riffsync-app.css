@@ -2032,6 +2032,86 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   line-height: 1.35;
 }
 
+.riffsync-room-page__cast-start-status {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.riffsync-cast-receiver {
+  min-height: 100dvh;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+.riffsync-cast-receiver__waiting {
+  margin: 0;
+  padding: 2rem;
+}
+
+.riffsync-cast-receiver__stage {
+  position: relative;
+  min-height: 100dvh;
+  background: #000;
+}
+
+.riffsync-cast-receiver__stage-primary {
+  position: absolute;
+  inset: 0;
+}
+
+.riffsync-cast-receiver__youtube {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.riffsync-cast-receiver__stage-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  margin: 0;
+  padding: 2rem;
+  text-align: center;
+}
+
+.riffsync-cast-receiver__chat-overlay {
+  position: absolute;
+  right: clamp(0.75rem, 1.4vw, 1.1rem);
+  bottom: clamp(0.75rem, 1.4vw, 1.1rem);
+  z-index: 2;
+  width: clamp(16rem, 30%, 24rem);
+  max-height: 40%;
+  min-height: 8rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgb(7 10 14 / 0.42);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 8px;
+  box-shadow: 0 14px 40px rgb(0 0 0 / 0.38);
+  backdrop-filter: blur(6px);
+}
+
+.riffsync-cast-receiver__chat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.riffsync-cast-receiver__chat-line {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.riffsync-cast-receiver__chat-line--system {
+  color: rgb(255 255 255 / 0.62);
+  font-style: italic;
+}
+
 .riffsync-room-page__chat-heading {
   margin: 0;
   font-family: var(--title-fonts);

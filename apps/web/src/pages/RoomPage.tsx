@@ -30,6 +30,7 @@ import { RoomRenameModal } from '../room/RoomRenameModal'
 import { RIFFSYNC_SFU_CONFIG_ALERT_ID } from '../room/drawerErrorPresentation'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
 import { useCastAvailability } from '../room/cast/useCastAvailability'
+import { useCastStartSession } from '../room/cast/useCastStartSession'
 
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
@@ -227,12 +228,23 @@ export function RoomPage() {
 
   const activeSidebarTab =
     !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
-  const castAvailability = useCastAvailability(Boolean(room))
-  const onCastToTvClick = useCallback(() => {
-    /* Cast start is implemented in #273. */
-  }, [])
   const viewportWide = useViewportWide()
   const expandedViewActive = expandedView && viewportWide
+  const castAvailability = useCastAvailability(Boolean(room))
+  const { castStartLifecycle, startCast, castToTvButtonRef } = useCastStartSession({
+    enabled: Boolean(room) && castAvailability === 'available',
+    expandedViewActive,
+    roomMode,
+    youtubeVideoId,
+    isPublisher,
+    hasHostCaptureStream: Boolean(captureStream),
+    hasGuestRelayStream: Boolean(guestRemote),
+    chat,
+    chatMemberLabels,
+  })
+  const onCastToTvClick = useCallback(() => {
+    void startCast()
+  }, [startCast])
   const { setExpandedViewActive } = useRoomChrome()
 
   useEffect(() => {
@@ -381,7 +393,9 @@ export function RoomPage() {
     saveProfileDisplayName: profile.saveProfileDisplayName,
     onProfileAvatarSelected: profile.onProfileAvatarSelected,
     castAvailability,
+    castStartLifecycle,
     onCastToTvClick,
+    castToTvButtonRef,
   }
 
   return (
