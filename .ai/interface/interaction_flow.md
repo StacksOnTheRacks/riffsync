@@ -120,7 +120,7 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 4. **Successful start:** Only after Cast start is confirmed, the sender's normal stage replaces the regular video surface with **`Now Casting`** plus a stop affordance. Other participants receive no room event and see no change.
 5. **Receiver presentation:** The TV presentation follows the expanded-view composition model: stage primary/video plus chat overlay, no sidebar tab strip.
 6. **Chat while casting:** Chat send/read/reaction/GIF behavior follows the same signed-in and anonymous rules as normal room view; Cast state must not block chat when the chat plane is healthy.
-7. **Stop Cast:** Stop, receiver disconnect, or equivalent ended-session signal returns the sender to normal in-page playback. Room session, chat state, selected sidebar tab, and latest authoritative room state remain intact.
+7. **Stop Cast:** Successful intentional Stop Cast returns the sender to normal in-page playback. Room session, chat state, selected sidebar tab, and latest authoritative room state remain intact.
 8. **Failure / unavailable:** Start rejection, platform policy block, receiver loss before active Cast, or unsupported sender state returns to normal in-page playback with local recoverable status only. Do not leave the room, reset chat, or tear down healthy SFU/video relay state.
 
 ### Cast-active sender flow (#274)
@@ -130,6 +130,14 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 3. **Stop intent:** Activating Stop Cast sends local stop intent to the Cast controller only. It does not emit room WebSocket messages, mutate room HTTP state, change **`share_state`**, or affect SFU permissions. Full return-to-playback behavior is the #276 continuation.
 4. **Expanded view:** While local Cast is active, expanded view cannot be entered. If an internal expanded flag is still true when active Cast starts, clear it before rendering the active sender stage.
 5. **Other viewers:** No other participant receives a Cast status, stage replacement, stop affordance, room mode change, or playback change because of this sender's active Cast.
+
+### Cast stop restoration flow (#276)
+
+1. **Stop entry:** The sender activates **Stop Cast** from the active **`Now Casting`** panel. The action enters only the local Cast controller stop path; it does not send room WebSocket messages, mutate room HTTP state, or change SFU permissions.
+2. **Stopping feedback:** The active Cast panel may show local stopping feedback while cleanup runs. Chat, sidebar tabs, participant A/V controls, and room presence remain usable according to their existing health rules.
+3. **Return target:** After successful stop cleanup, replace the **`Now Casting`** panel with the normal room stage playback surface for the current room mode and latest locally held authoritative room snapshot.
+4. **State preservation:** Preserve chat scrollback, compose draft, selected sidebar tab, room membership, presence, participant A/V toggle state, and current room shell state. Do not enter expanded view automatically after stop.
+5. **Sibling boundary:** Receiver disconnect, Cast SDK-ended active sessions outside explicit successful stop, stop failure, blocked Cast, and retryable failure copy are handled by #278. #276 may leave hooks for those states but does not define their UX.
 
 ### Presence, typing, and People badges
 
@@ -225,7 +233,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #273:** failed start resets to local failed/idle state, keeps normal playback visible, keeps chat draft/session state intact, and exposes retryable local error.
 - **Resolved for #274:** active Cast replaces the sender stage with **`Now Casting`** and Stop Cast after confirmed success. Stop activation sends local stop intent only; full normal-playback restoration remains #276.
 - **Resolved for #274:** expanded view is unavailable while local Cast is active, and stale expanded-view state is cleared when active Cast begins.
-- **Out of #274 scope:** receiver disconnect, SDK-ended active sessions, room leave, route change, reload cleanup details, and stop-failure recovery belong to #276 / #278.
+- **Resolved for #276:** successful intentional Stop Cast restores the sender's normal in-page stage playback and preserves chat, sidebar, room membership, presence, participant A/V, and authoritative room state.
+- **Out of #276 scope:** receiver disconnect, SDK-ended active sessions outside successful user stop, blocked/unavailable Cast, and stop-failure recovery belong to #278.
 
 ## Primary code pointers (optional)
 

@@ -86,6 +86,20 @@ The #274 slice extends the local Cast controller from confirmed start into persi
 | **Expanded state** | Active Cast clears or suppresses expanded-view local state. The controller must not re-enter expanded view after stop unless a later interface contract permits it. |
 | **Diagnostics** | Active/stopping Cast state remains outside **`RoomRealtimeSdk.getDiagnostics().drawers.*`** and **`activeErrorCodes`**. Test-only controller state or local component assertions are acceptable. |
 
+### Cast stop restoration controller (#276)
+
+The #276 slice completes the intentional sender Stop Cast path after active Cast has already been confirmed.
+
+| Concern | Contract |
+| --- | --- |
+| **Stop trigger** | A user-initiated Stop Cast from the sender's active **`Now Casting`** panel invokes the local Cast controller stop path. |
+| **State transition** | The controller may expose a local **`stopping`** state while the sender SDK stop request and local cleanup run. Successful stop returns to the same idle/available posture used before Cast start, subject to the current sender-support result. |
+| **Resource cleanup** | Release sender-side Cast session handles, Cast channel listeners, receiver presentation bindings, and any hidden or detached Cast playback/source binding created for the active session. Cleanup is best-effort and idempotent. |
+| **Playback restoration** | Restore the normal in-page stage playback surface after cleanup completes. The restored surface uses the latest local room state and authoritative room snapshot already held by the room shell; it does not require a room refetch solely because Cast stopped. |
+| **Preserved room state** | Do not clear room membership, chat scrollback, compose draft, selected sidebar tab, presence state, participant A/V controls, **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, **`share_state`**, **`roomMode`**, or **`avDisabled`** for Stop Cast alone. |
+| **Sibling boundary** | Receiver disconnects, sender SDK-ended sessions outside explicit Stop Cast success, start/stop failure copy, and blocked/unavailable recovery are refined by #278. #276 may share the cleanup helper but does not define those failure states. |
+| **Diagnostics** | Stop restoration remains local controller state. It must not add Cast drawer diagnostics, active realtime error codes, room WebSocket messages, room HTTP mutations, or SFU token changes. |
+
 ### Application SDK surface (narrow public API)
 
 Room code outside these modules calls only:
@@ -456,6 +470,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Resolved for #273:** normal in-page playback remains visible during **`starting`** and the #274 sender-stage replacement owns the full **`Now Casting`** placeholder behavior.
 - **Resolved for #273:** Cast-specific launch/render test hooks may be local to the Cast controller or receiver harness, but they must not overload **`getDiagnostics().drawers.*`**.
 - **Resolved for #274:** active Cast renders **`CAST_ACTIVE`** / **`Now Casting`** on the sender stage, exposes local Stop Cast intent, clears/suppresses expanded view, and still does not add drawer diagnostics or active realtime error codes.
+- **Resolved for #276:** successful intentional Stop Cast uses local, idempotent cleanup and restores the normal in-page stage without clearing room, chat, SFU, theater playback, sidebar, or authoritative room state.
+- **Out of #276 scope:** receiver disconnect, SDK-ended sessions that are not successful user stop, stop failure, blocked/unavailable Cast, and failure copy are owned by #278.
 
 ## Primary code pointers (optional)
 
