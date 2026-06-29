@@ -37,12 +37,18 @@ function TestHarness({ expandedViewActive = false }: { expandedViewActive?: bool
   return (
     <div>
       <span data-testid="lifecycle">{castStartLifecycle}</span>
-      <button ref={castToTvButtonRef} type="button" data-testid="cast-to-tv" onClick={() => void startCast()}>
-        Cast to TV
-      </button>
-      <button ref={stopCastButtonRef} type="button" data-testid="stop-cast" onClick={() => stopCast()}>
-        Stop Cast
-      </button>
+      {castStartLifecycle === 'idle' || castStartLifecycle === 'start_failed' ? (
+        <button ref={castToTvButtonRef} type="button" data-testid="cast-to-tv" onClick={() => void startCast()}>
+          Cast to TV
+        </button>
+      ) : castStartLifecycle === 'starting' ? (
+        <p data-testid="cast-starting-status">Starting Cast…</p>
+      ) : null}
+      {castStartLifecycle === 'casting' ? (
+        <button ref={stopCastButtonRef} type="button" data-testid="stop-cast" onClick={() => stopCast()}>
+          Stop Cast
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -85,6 +91,7 @@ describe('useCastStartSession focus transfer', () => {
     })
 
     const stopButton = container.querySelector('[data-testid="stop-cast"]') as HTMLButtonElement
+    expect(stopButton).not.toBeNull()
     expect(document.activeElement).toBe(stopButton)
   })
 
@@ -103,6 +110,36 @@ describe('useCastStartSession focus transfer', () => {
     await act(async () => {
       castButton.click()
       await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(document.activeElement).toBe(other)
+    other.remove()
+  })
+
+  it('does not steal focus when the viewer moves focus elsewhere during startup', async () => {
+    await renderHarness()
+
+    const castButton = container.querySelector('[data-testid="cast-to-tv"]') as HTMLButtonElement
+    act(() => {
+      castButton.focus()
+    })
+
+    const other = document.createElement('button')
+    other.type = 'button'
+    other.textContent = 'Other'
+    document.body.appendChild(other)
+
+    await act(async () => {
+      castButton.click()
+      await Promise.resolve()
+    })
+
+    act(() => {
+      other.focus()
+    })
+
+    await act(async () => {
       await Promise.resolve()
     })
 
