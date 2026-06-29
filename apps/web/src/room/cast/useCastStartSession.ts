@@ -25,7 +25,9 @@ export type UseCastStartSessionInput = {
 export type UseCastStartSessionResult = {
   castStartLifecycle: CastStartLifecycle
   startCast: () => Promise<void>
+  stopCast: () => void
   castToTvButtonRef: RefObject<HTMLButtonElement | null>
+  stopCastButtonRef: RefObject<HTMLButtonElement | null>
 }
 
 export function useCastStartSession({
@@ -41,6 +43,8 @@ export function useCastStartSession({
   createSenderClient = createDefaultCastSenderClient,
 }: UseCastStartSessionInput): UseCastStartSessionResult {
   const castToTvButtonRef = useRef<HTMLButtonElement | null>(null)
+  const stopCastButtonRef = useRef<HTMLButtonElement | null>(null)
+  const shouldTransferFocusToStopRef = useRef(false)
   const [controller] = useState<CastStartController>(() =>
     createCastStartController({ client: createSenderClient() }),
   )
@@ -93,6 +97,10 @@ export function useCastStartSession({
       controller.resetStartFailure()
     }
 
+    shouldTransferFocusToStopRef.current =
+      castToTvButtonRef.current !== null &&
+      castToTvButtonRef.current === document.activeElement
+
     await controller.startCast(buildSnapshot())
   }, [buildSnapshot, controller, enabled, expandedViewActive])
 
@@ -101,9 +109,38 @@ export function useCastStartSession({
     castToTvButtonRef.current?.focus()
   }, [castStartLifecycle])
 
+  useEffect(() => {
+    if (castStartLifecycle !== 'starting') return
+
+    const handleFocusIn = (event: FocusEvent) => {
+      if (!shouldTransferFocusToStopRef.current) return
+      const target = event.target
+      if (target instanceof HTMLElement && target !== castToTvButtonRef.current) {
+        shouldTransferFocusToStopRef.current = false
+      }
+    }
+
+    document.addEventListener('focusin', handleFocusIn, true)
+    return () => document.removeEventListener('focusin', handleFocusIn, true)
+  }, [castStartLifecycle])
+
+  useEffect(() => {
+    if (castStartLifecycle !== 'casting') return
+    if (shouldTransferFocusToStopRef.current) {
+      stopCastButtonRef.current?.focus()
+    }
+    shouldTransferFocusToStopRef.current = false
+  }, [castStartLifecycle])
+
+  const stopCast = useCallback(() => {
+    void controller.stopCast()
+  }, [controller])
+
   return {
     castStartLifecycle,
     startCast,
+    stopCast,
     castToTvButtonRef,
+    stopCastButtonRef,
   }
 }

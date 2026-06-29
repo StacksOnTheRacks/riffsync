@@ -2038,6 +2038,39 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   line-height: 1.35;
 }
 
+.riffsync-room-page__cast-active-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: min(52vh, 28rem);
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  background: rgb(13 17 23 / 0.72);
+  text-align: center;
+}
+
+.riffsync-room-page__cast-active-heading {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.riffsync-room-page__cast-active-subcopy {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: rgb(230 237 243 / 0.82);
+}
+
+.riffsync-room-page__cast-stop-button {
+  min-width: 11rem;
+  min-height: 2.75rem;
+  margin-top: 0.25rem;
+}
+
 .riffsync-cast-receiver {
   min-height: 100dvh;
   background: #0d1117;
