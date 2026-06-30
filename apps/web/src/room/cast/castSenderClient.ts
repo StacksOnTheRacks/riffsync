@@ -75,6 +75,23 @@ function readOriginScopedAutoJoinPolicy(): string {
   return policy
 }
 
+function configureCastContext(cast: NonNullable<CastFrameworkWindow['cast']>): {
+  context: CastContextInstance
+  framework: CastFramework
+} {
+  const receiverApplicationId = getCastReceiverApplicationId()
+  if (!receiverApplicationId) {
+    throw new Error('Cast receiver application id is not configured')
+  }
+  const framework = cast.framework!
+  const context = framework.CastContext.getInstance()
+  context.setOptions({
+    receiverApplicationId,
+    autoJoinPolicy: readOriginScopedAutoJoinPolicy(),
+  })
+  return { context, framework }
+}
+
 function ensureCastFrameworkScript(): void {
   if (typeof document === 'undefined') return
   if (document.querySelector(CAST_FRAMEWORK_SCRIPT_SELECTOR)) return
@@ -171,23 +188,26 @@ export function getCastReceiverApplicationId(): string | null {
   return configured || null
 }
 
+export async function prepareDefaultCastSenderClient(): Promise<boolean> {
+  try {
+    const cast = await waitForCastFramework()
+    configureCastContext(cast)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function createDefaultCastSenderClient(): CastSenderClient {
   return {
-    requestSession: async () => {
-      const receiverApplicationId = getCastReceiverApplicationId()
-      if (!receiverApplicationId) {
-        throw new Error('Cast receiver application id is not configured')
+    requestSession: () => {
+      const cast = readCastFramework()
+      if (!cast?.framework) {
+        throw new Error('Cast framework unavailable')
       }
+      const { context, framework } = configureCastContext(cast)
 
-      const cast = await waitForCastFramework()
-      const framework = cast.framework!
-      const context = framework.CastContext.getInstance()
-      context.setOptions({
-        receiverApplicationId,
-        autoJoinPolicy: readOriginScopedAutoJoinPolicy(),
-      })
-
-      return await new Promise<CastSenderSessionHandle>((resolve, reject) => {
+      return new Promise<CastSenderSessionHandle>((resolve, reject) => {
         let settled = false
 
         const onSessionStateChanged = (event: { sessionState?: string }) => {

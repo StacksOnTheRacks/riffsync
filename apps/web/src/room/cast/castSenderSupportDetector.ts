@@ -1,4 +1,5 @@
 import type { CastSenderSupportDetector } from './castAvailabilityTypes'
+import { prepareDefaultCastSenderClient } from './castSenderClient'
 
 const CAST_FRAMEWORK_SRC = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1'
 const CAST_FRAMEWORK_SCRIPT_SELECTOR = 'script[data-riffsync-cast-framework="true"]'
@@ -43,6 +44,11 @@ function waitForCastFrameworkCallback(): Promise<boolean> {
   })
 }
 
+async function confirmCastSenderStartReady(isAvailable: boolean): Promise<boolean> {
+  if (!isAvailable) return false
+  return prepareDefaultCastSenderClient()
+}
+
 function ensureCastFrameworkScript(): void {
   if (typeof document === 'undefined') return
   if (document.querySelector(CAST_FRAMEWORK_SCRIPT_SELECTOR)) return
@@ -63,7 +69,7 @@ export const detectCastSenderSupport: CastSenderSupportDetector = async () => {
   if (typeof window === 'undefined') return false
 
   const immediate = readCastIsAvailable()
-  if (immediate !== undefined) return immediate
+  if (immediate !== undefined) return confirmCastSenderStartReady(immediate)
 
-  return waitForCastFrameworkCallback()
+  return confirmCastSenderStartReady(await waitForCastFrameworkCallback())
 }

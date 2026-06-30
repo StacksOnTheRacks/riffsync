@@ -2,9 +2,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { detectCastSenderSupport } from './castSenderSupportDetector'
 
+const prepareDefaultCastSenderClient = vi.hoisted(() => vi.fn().mockResolvedValue(true))
+
+vi.mock('./castSenderClient', () => ({
+  prepareDefaultCastSenderClient,
+}))
+
 describe('detectCastSenderSupport', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+    prepareDefaultCastSenderClient.mockReset()
+    prepareDefaultCastSenderClient.mockResolvedValue(true)
     document.head.innerHTML = ''
     delete (window as Window & { __onGCastApiAvailable?: (isAvailable: boolean) => void }).__onGCastApiAvailable
     delete (window as Window & { chrome?: { cast?: { isAvailable?: boolean } } }).chrome
@@ -16,11 +24,22 @@ describe('detectCastSenderSupport', () => {
     }
 
     await expect(detectCastSenderSupport()).resolves.toBe(true)
+    expect(prepareDefaultCastSenderClient).toHaveBeenCalled()
   })
 
   it('returns false when chrome.cast.isAvailable is already false', async () => {
     ;(window as Window & { chrome?: { cast?: { isAvailable?: boolean } } }).chrome = {
       cast: { isAvailable: false },
+    }
+
+    await expect(detectCastSenderSupport()).resolves.toBe(false)
+    expect(prepareDefaultCastSenderClient).not.toHaveBeenCalled()
+  })
+
+  it('returns false when Cast is available but sender start is not ready', async () => {
+    prepareDefaultCastSenderClient.mockResolvedValue(false)
+    ;(window as Window & { chrome?: { cast?: { isAvailable?: boolean } } }).chrome = {
+      cast: { isAvailable: true },
     }
 
     await expect(detectCastSenderSupport()).resolves.toBe(false)

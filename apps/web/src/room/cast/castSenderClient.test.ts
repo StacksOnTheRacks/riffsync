@@ -104,11 +104,21 @@ describe('createDefaultCastSenderClient', () => {
     expect(context.getCurrentSession).toHaveBeenCalled()
   })
 
+  it('requests the Cast session synchronously for the user gesture', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    const { context } = installCastFramework()
+
+    const promise = createDefaultCastSenderClient().requestSession()
+
+    expect(context.requestSession).toHaveBeenCalled()
+    await promise
+  })
+
   it('fails before requesting a session when the Cast Base API policy is unavailable', async () => {
     vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
     const { context } = installCastFramework({ includeAutoJoinPolicy: false })
 
-    await expect(createDefaultCastSenderClient().requestSession()).rejects.toThrow(
+    expect(() => createDefaultCastSenderClient().requestSession()).toThrow(
       'Cast auto join policy unavailable',
     )
     expect(context.requestSession).not.toHaveBeenCalled()
