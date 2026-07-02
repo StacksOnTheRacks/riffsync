@@ -3,6 +3,7 @@ import type { ChatLine } from '../roomPageTypes'
 import { formatChatSystemText } from '../chatSystemLine'
 import { isEmojiOnlyChatMessage } from '../chatEmojiDisplay'
 import type { CastChatOverlayLine, CastPresentationSnapshot } from './castChannelProtocol'
+import { createCastSnapshotId } from './castChannelProtocol'
 
 export type BuildCastPresentationSnapshotInput = {
   roomMode: RoomMode
@@ -83,12 +84,14 @@ function toOverlayLine(line: ChatLine, chatMemberLabels: Map<string, string>): C
 
 export function buildCastPresentationSnapshot(
   input: BuildCastPresentationSnapshotInput,
+  options?: { snapshotId?: string },
 ): CastPresentationSnapshot {
   const messages = input.chat
     .map((line) => toOverlayLine(line, input.chatMemberLabels))
     .filter((line): line is CastChatOverlayLine => line !== null)
 
   return {
+    snapshotId: options?.snapshotId ?? createCastSnapshotId(),
     roomMode: input.roomMode,
     stagePrimary: resolveStagePrimary(input),
     chatOverlay: { messages },

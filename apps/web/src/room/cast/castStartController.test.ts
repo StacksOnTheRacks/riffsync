@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
+import { buildReceiverRenderedAcknowledgement } from './castChannelProtocol'
 import { createCastStartController } from './castStartController'
 import type { CastPresentationSnapshot } from './castChannelProtocol'
 import type { CastSenderClient, CastSenderSessionHandle } from './castSenderClient'
 
 const snapshot: CastPresentationSnapshot = {
+  snapshotId: 'snap-test-1',
   roomMode: 'theater',
   stagePrimary: {
     kind: 'youtube_embed',
@@ -33,8 +35,12 @@ function createMockSession(handlers: {
   return {
     sendMessage: async (message) => {
       handlers.onSend?.(message)
-      if (handlers.confirmAfterSend) {
-        for (const listener of listeners) listener({ type: 'render_confirmed' })
+      if (handlers.confirmAfterSend && typeof message === 'object' && message !== null) {
+        const outbound = message as { type?: string; snapshot?: CastPresentationSnapshot }
+        if (outbound.type === 'presentation_snapshot' && outbound.snapshot?.snapshotId) {
+          const ack = buildReceiverRenderedAcknowledgement(outbound.snapshot.snapshotId)
+          for (const listener of listeners) listener(ack)
+        }
       }
     },
     addMessageListener: (handler) => {
@@ -143,7 +149,7 @@ describe('createCastStartController', () => {
     vi.useRealTimers()
   })
 
-  it('transitions to casting after receiver render confirmation', async () => {
+  it('transitions to casting after a valid receiver_rendered acknowledgement', async () => {
     const session = createMockSession({ confirmAfterSend: true })
     const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
@@ -183,6 +189,83 @@ describe('createCastStartController', () => {
     vi.useRealTimers()
   })
 
+  it('maps stale snapshotId acknowledgement to start_failed', async () => {
+    const session = createMockSession({})
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitReceiverMessage(buildReceiverRenderedAcknowledgement('stale-id'))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
+    expect(session.end).toHaveBeenCalledTimes(1)
+  })
+
+  it('maps missing stagePrimaryRendered to start_failed', async () => {
+    const session = createMockSession({})
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitReceiverMessage({
+      type: 'receiver_rendered',
+      schemaVersion: 1,
+      snapshotId: snapshot.snapshotId,
+      chatOverlayRendered: true,
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
+  })
+
+  it('maps missing chatOverlayRendered to start_failed', async () => {
+    const session = createMockSession({})
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitReceiverMessage({
+      type: 'receiver_rendered',
+      schemaVersion: 1,
+      snapshotId: snapshot.snapshotId,
+      stagePrimaryRendered: true,
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
+  })
+
+  it('maps false render flags to start_failed', async () => {
+    const session = createMockSession({})
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitReceiverMessage({
+      type: 'receiver_rendered',
+      schemaVersion: 1,
+      snapshotId: snapshot.snapshotId,
+      stagePrimaryRendered: false,
+      chatOverlayRendered: true,
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
+  })
+
+  it('maps unknown acknowledgement type to start_failed during pending render', async () => {
+    const session = createMockSession({})
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitReceiverMessage({ type: 'render_confirmed' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
+  })
+
   it('maps receiver render failure during startup to start_failed', async () => {
     const session = createMockSession({})
     const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
@@ -214,13 +297,25 @@ describe('createCastStartController', () => {
     expect(session.messageListenerCount()).toBe(0)
     expect(session.sessionEndedListenerCount()).toBe(0)
 
-    session.emitReceiverMessage({ type: 'render_confirmed' })
+    session.emitReceiverMessage(buildReceiverRenderedAcknowledgement(snapshot.snapshotId))
     session.emitSessionEnded()
     await vi.advanceTimersByTimeAsync(60)
 
     expect(controller.getState().lifecycle).toBe('start_failed')
     expect(session.end).toHaveBeenCalledTimes(1)
     vi.useRealTimers()
+  })
+
+  it('maps Cast channel close before active Cast to start_failed', async () => {
+    const session = createMockSession({})
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
+
+    await controller.startCast(snapshot)
+    session.emitSessionEnded()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
   })
 
   it('stopCast ends the Cast session without mutating snapshot input', async () => {
@@ -364,7 +459,7 @@ describe('createCastStartController', () => {
     expect(session.messageListenerCount()).toBe(0)
     expect(session.sessionEndedListenerCount()).toBe(0)
 
-    session.emitReceiverMessage({ type: 'render_confirmed' })
+    session.emitReceiverMessage(buildReceiverRenderedAcknowledgement(snapshot.snapshotId))
     session.emitSessionEnded()
     await controller.stopCast()
 

@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CastPresentationSnapshot } from '../../room/cast/castChannelProtocol'
 import { RIFFSYNC_CAST_NAMESPACE } from '../../room/cast/castChannelProtocol'
-import { startCastReceiverSession } from './castReceiverSession'
+import { startCastReceiverSession, sendCastReceiverRendered } from './castReceiverSession'
 
 type ReceiverMessageHandler = (event: { data?: unknown }) => void
 
@@ -27,6 +27,7 @@ type CastReceiverTestWindow = Window & {
 }
 
 const snapshot: CastPresentationSnapshot = {
+  snapshotId: 'snap-receiver-1',
   roomMode: 'theater',
   stagePrimary: {
     kind: 'youtube_embed',
@@ -126,5 +127,22 @@ describe('startCastReceiverSession', () => {
     receiver.emitMessage(JSON.stringify({ type: 'chat_overlay_update', messages }))
 
     expect(receiver.onChatOverlayUpdate).toHaveBeenCalledWith(messages)
+  })
+
+  it('sendCastReceiverRendered emits receiver_rendered with snapshotId and render flags', async () => {
+    const receiver = await startReceiver()
+
+    sendCastReceiverRendered(receiver.context, 'snap-receiver-1')
+
+    expect(receiver.context.sendCustomMessage).toHaveBeenCalledWith(
+      RIFFSYNC_CAST_NAMESPACE,
+      JSON.stringify({
+        type: 'receiver_rendered',
+        schemaVersion: 1,
+        snapshotId: 'snap-receiver-1',
+        stagePrimaryRendered: true,
+        chatOverlayRendered: true,
+      }),
+    )
   })
 })

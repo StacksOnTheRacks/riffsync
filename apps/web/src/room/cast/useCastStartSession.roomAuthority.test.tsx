@@ -2,6 +2,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildReceiverRenderedAcknowledgement } from './castChannelProtocol'
+import type { CastPresentationSnapshot } from './castChannelProtocol'
 import { useCastStartSession } from './useCastStartSession'
 
 function TestHarness({ enabled = true }: { enabled?: boolean }) {
@@ -23,9 +25,15 @@ function TestHarness({ enabled = true }: { enabled?: boolean }) {
     chatMemberLabels: new Map(),
     createSenderClient: () => ({
       requestSession: vi.fn().mockResolvedValue({
-        sendMessage: async () => {
+        sendMessage: async (message: unknown) => {
           queueMicrotask(() => {
-            for (const listener of messageListeners) listener({ type: 'render_confirmed' })
+            if (typeof message === 'object' && message !== null) {
+              const outbound = message as { type?: string; snapshot?: CastPresentationSnapshot }
+              if (outbound.type === 'presentation_snapshot' && outbound.snapshot?.snapshotId) {
+                const ack = buildReceiverRenderedAcknowledgement(outbound.snapshot.snapshotId)
+                for (const listener of messageListeners) listener(ack)
+              }
+            }
           })
         },
         addMessageListener: (handler: (message: unknown) => void) => {

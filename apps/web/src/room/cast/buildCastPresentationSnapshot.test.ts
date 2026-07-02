@@ -1,7 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { buildCastPresentationSnapshot } from './buildCastPresentationSnapshot'
+import { resetCastSnapshotIdCounterForTests } from './castChannelProtocol'
 
 describe('buildCastPresentationSnapshot', () => {
+  it('assigns a snapshotId to each presentation snapshot', () => {
+    resetCastSnapshotIdCounterForTests()
+    const snapshot = buildCastPresentationSnapshot({
+      roomMode: 'theater',
+      youtubeVideoId: 'abc123',
+      isPublisher: false,
+      hasHostCaptureStream: false,
+      hasGuestRelayStream: false,
+      chat: [],
+      chatMemberLabels: new Map(),
+    })
+
+    expect(snapshot.snapshotId).toBe('cast-snapshot-1')
+  })
+
   it('uses youtube embed metadata for theater guests without relay video', () => {
     const snapshot = buildCastPresentationSnapshot({
       roomMode: 'theater',

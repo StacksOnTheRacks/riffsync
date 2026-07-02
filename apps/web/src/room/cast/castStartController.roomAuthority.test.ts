@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
+import { buildReceiverRenderedAcknowledgement } from './castChannelProtocol'
 import { createCastStartController } from './castStartController'
 import type { CastPresentationSnapshot } from './castChannelProtocol'
 import type { CastSenderClient, CastSenderSessionHandle } from './castSenderClient'
 
 const snapshot: CastPresentationSnapshot = {
+  snapshotId: 'snap-authority-1',
   roomMode: 'theater',
   stagePrimary: {
     kind: 'youtube_embed',
@@ -26,8 +28,12 @@ function createMockSession(handlers: {
   return {
     sendMessage: async (message) => {
       handlers.onSend?.(message)
-      if (handlers.confirmAfterSend) {
-        for (const listener of listeners) listener({ type: 'render_confirmed' })
+      if (handlers.confirmAfterSend && typeof message === 'object' && message !== null) {
+        const outbound = message as { type?: string; snapshot?: CastPresentationSnapshot }
+        if (outbound.type === 'presentation_snapshot' && outbound.snapshot?.snapshotId) {
+          const ack = buildReceiverRenderedAcknowledgement(outbound.snapshot.snapshotId)
+          for (const listener of listeners) listener(ack)
+        }
       }
       if (handlers.failAfterSend) {
         for (const listener of listeners) listener({ type: 'render_failed' })
@@ -131,8 +137,13 @@ describe('createCastStartController room authority (#277)', () => {
       sendMessage: vi
         .fn()
         .mockImplementationOnce(async (message) => {
-          for (const listener of listeners) listener({ type: 'render_confirmed' })
-          void message
+          if (typeof message === 'object' && message !== null) {
+            const outbound = message as { type?: string; snapshot?: CastPresentationSnapshot }
+            if (outbound.type === 'presentation_snapshot' && outbound.snapshot?.snapshotId) {
+              const ack = buildReceiverRenderedAcknowledgement(outbound.snapshot.snapshotId)
+              for (const listener of listeners) listener(ack)
+            }
+          }
         })
         .mockRejectedValueOnce(new Error('receiver disconnected')),
       addMessageListener: (handler) => {
