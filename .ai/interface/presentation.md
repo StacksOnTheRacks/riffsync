@@ -226,8 +226,8 @@ Optional Chromecast support is a local room presentation layer for Cast-capable 
 | --- | --- |
 | **Availability** | Show **Cast to TV** only in **normal room view** when sender support is detected. Cast entry is hidden or inert in expanded view. Missing support must not block normal playback, chat, expanded view, host controls, or room participation. |
 | **Start point** | Cast starts from the standard stage/sidebar room layout only. The sender does not need to enter expanded view before starting Cast. |
-| **Receiver presentation** | The custom RiffSync Cast receiver must render the expanded-view composition model: stage primary/video plus bottom-right chat overlay. The Cast presentation does **not** include the sidebar tab strip; **People**, **Room**, and **Profile** remain sender-side room surfaces. |
-| **Sender active state** | After confirmed Cast start, the sender's normal stage replaces the regular video/playback surface with **`Now Casting`** and a stop affordance. The regular in-page video surface does not remain visible while local Cast is active. |
+| **Receiver presentation** | The custom RiffSync Cast receiver must render the expanded-view composition model: stage primary/video plus bottom-right chat overlay. The Cast presentation does **not** include the sidebar tab strip; **People**, **Room**, and **Profile** remain sender-side room surfaces. Native media-only or YouTube-only Cast does not satisfy this presentation contract. |
+| **Sender active state** | After receiver render confirmation, the sender's normal stage replaces the regular video/playback surface with **`Now Casting`** and a stop affordance. The regular in-page video surface does not remain visible while local Cast is active. **`requestSession()`** resolution alone must not show **`Now Casting`**. |
 | **Chat while casting** | Sender chat remains interactive under existing rules: signed-in fans may send text, GIFs, and reactions when chat is healthy; anonymous guests may read and retain the sign-in gate for send. |
 | **Stop Cast** | Stop returns the sender to normal in-page playback without clearing chat scrollback, compose state, selected sidebar tab, presence, room membership, or authoritative room snapshot state. |
 | **Failure / unavailable** | Cast unavailable, blocked, rejected, or failed start surfaces honest local status and leaves normal in-page playback/chat intact. It never implies the room failed or that other participants changed state. |
@@ -269,6 +269,7 @@ The Cast-start slice proves an actual custom receiver view, not just a sender-si
 | **Receiver shell** | Render a receiver route/page that uses the expanded-view shell structure: stage-primary video area plus bottom-right chat overlay. Header/footer/sidebar tab chrome are omitted from the receiver. |
 | **Sender-proxied content** | The sender sends the receiver a presentation snapshot and subsequent chat-overlay updates over the Cast channel. The receiver does not fetch room state, join chat, or expose sender-only tabs. |
 | **Overlay requirement** | The chat overlay is required on the receiver for #273. A native media-only Cast path, tab mirroring guidance, or receiver view without chat overlay does not satisfy this slice. |
+| **Custom receiver identity** | The receiver is launched by the configured Custom Web Receiver app id and hosted at the registered TLS receiver URL, currently **`/cast/receiver`**. The receiver uses custom namespace **`urn:x-cast:com.riffsync.presentation`** for sender-proxied presentation messages. |
 | **Receiver interactions** | Receiver chat overlay is presentation-only. Chat compose, GIF/emoji pickers, reactions, participant A/V toggles, People, Room, and Profile controls remain on the sender. |
 | **Start feedback** | While the sender is waiting for receiver render confirmation, keep normal in-page playback visible and use local Cast status near the Cast surface or stage-local Cast status. Do not use chat drawer, video-relay status, room error, or host feedback surfaces. |
 | **Success transition** | The sender treats Cast start as confirmed only after the receiver reports that stage-primary video and the bottom-right chat overlay rendered. The #274 slice owns the persistent **`Now Casting`** sender-stage details after confirmation. |
@@ -352,7 +353,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions.
 
 ### chromecast-presentation
-- No open implementation decisions remain for M25 Cast presentation verification. See **Chromecast Cast view**, peer slice sections #272-#278, and #279 verification requirements above.
+- Specify the exact receiver shell layout constraints for the stage-primary video area and bottom-right chat overlay at common TV resolutions.
+- Specify placeholder copy when the receiver shell renders but stage-primary playback is not yet available or becomes blocked.
+- Specify screenshot or component-test coverage that proves native media-only and YouTube-only Cast paths do not satisfy the receiver presentation acceptance criteria.
 
 ## Primary code pointers (optional)
 

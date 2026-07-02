@@ -39,6 +39,18 @@ Manual workflow **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)**
 
 **Operator onboarding (MVP):** invite-only staff accounts via Cognito console (**`AdminCreateUser`**) and **`admin`** / **`curator`** group assignment — no self-service registration.
 
+## Viewer-local Cast deployment readiness
+
+Viewer-local Cast uses the production SPA origin and a Google Cast Custom Web Receiver registration. It does not add a hosted RiffSync backend stack or a room-authoritative service.
+
+| Concern | Contract |
+| --- | --- |
+| **Production receiver URL** | **`https://riffsync.tv/cast/receiver`** is the registered custom receiver URL unless a later deployment contract changes the public domain. It must be reachable by Cast devices over TLS. |
+| **Receiver app id** | Public build-time receiver app id is baked into the SPA build and must match the Cast SDK Developer Console registration used for production smoke tests. |
+| **Origin allowlist** | When Google Cast registration or policy uses sender origin restrictions, include **`https://riffsync.tv`** and only approved test origins. Ordinary localhost is not a production origin. |
+| **CSP / headers** | CloudFront and SPA headers must permit the Google Cast sender/receiver scripts, receiver route loading, necessary frame/script policies, and YouTube/player resources needed for the receiver presentation. |
+| **Smoke band** | Physical Cast-device smoke testing is a production release-readiness check. CI verifies local controller behavior and receiver route rendering but does not replace device discovery and receiver launch tests. |
+
 ## GitHub Actions and OIDC
 
 - **CI:** **[`ci.yml`](../../.github/workflows/ci.yml)** — synth + lint; **no** AWS deploy credentials.
@@ -147,6 +159,11 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 ## Open implementation decisions
 
 - (none for #136 / #137 local disposable + config-error scope)
+
+### chromecast-deployment-readiness
+- Specify where the Cast SDK Developer Console registration details are recorded for maintainers without committing secrets or private device information.
+- Specify the exact CloudFront response header/CSP changes needed for the sender SDK, receiver SDK, receiver route, and embedded playback resources.
+- Specify the physical-device smoke test matrix across Chrome sender, Cast-capable receiver, signed-in sender, anonymous sender, and active room media source.
 
 ## Primary code pointers (optional)
 

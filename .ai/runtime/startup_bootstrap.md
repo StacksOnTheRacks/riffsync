@@ -16,7 +16,8 @@
 - **Media API separation:** Host lawful movie path uses **`getDisplayMedia`** (tab capture). Participant AV uses **`getUserMedia`**. Never substitute one for the other.
 - **Reconnect:** After refresh or disconnect, participant camera and microphone default **off**; fan must re-enable manually (privacy-first). **Drawer-independent:** room WS reconnect does not reset SFU session (and vice versa) unless that drawer failed — healthy module stays **`connected`**.
 - **Anonymous guests:** Subscribe-only for participant AV; no **`getUserMedia`** publish bootstrap. Attach participant AV SFU consumers **eagerly** after room snapshot + WebSocket open when **`avDisabled === false`**.
-- **Local Cast detection:** Chromecast sender support detection is optional and runs after the normal room shell can render. Missing Cast support or Cast SDK load failure must not block room snapshot, chat join, SFU bootstrap, normal playback, expanded view, or host controls.
+- **Local Cast detection:** Chromecast sender support detection is optional and runs after the normal room shell can render. Missing Cast support, missing receiver app id, or Cast SDK load failure must not block room snapshot, chat join, SFU bootstrap, normal playback, expanded view, or host controls.
+- **Google Cast sender bootstrap:** When Cast is configured, the sender assigns **`window.__onGCastApiAvailable`** before loading **`https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1`**. Once the framework is available, the sender calls **`cast.framework.CastContext.getInstance().setOptions`** with the configured receiver app id and **`chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`**. The device chooser opens through **`CastContext.requestSession()`** only after this setup succeeds.
 - **General:** read **`sessionId`** / display name from **localStorage**; configure API Gateway **WebSocket URL** + HTTP **API base URL** from build-time env (**`architecture.frontend.md`**). **Production** SPA canonical page origin is **`https://riffsync.tv`** (**`.ai/runtime/configuration.md`**, **`.ai/project.json`** **`public_domain`**).
 - **Fan auth:** Hosted UI + PKCE on **`/auth/callback`**; fan tokens in the fan **localStorage** namespace; fan refresh and API attachment independent of staff.
 
@@ -56,7 +57,7 @@ Developers **cannot** exercise watch-party media without a running SFU (+ TURN w
 | Roster GSI race on participant token? | Reuse **`SfuMediaSession`** backoff — suppress user-visible token error for roster **403** on attempts **1–3** (same as host/guest race handling). |
 | Mesh vs SFU local? | **SFU only.** Mesh removed. Local + CI use disposable SFU + TURN profile (above). |
 | Drawer reconnect? | **Independent** — bootstrap/reconnect loops are per module; see **`execution_model.md`**. |
-| Cast bootstrap? | **Post-render optional detection.** Cast availability gates only the local **Cast to TV** affordance; it is not part of the required room bootstrap chain. |
+| Cast bootstrap? | **Post-render optional detection and framework setup.** Cast availability gates only the local **Cast to TV** affordance; it is not part of the required room bootstrap chain. **`requestSession()`** opens the Cast chooser and does not by itself mean the receiver rendered. |
 
 ## Decisions (local media bootstrap — #136)
 
@@ -87,6 +88,11 @@ Developers **cannot** exercise watch-party media without a running SFU (+ TURN w
 
 - **`webrtc-sfu-token`** branches for participant producer grant and **`avDisabled`** check at mint time (**#102** / **`integration/api_contracts.md`**).
 - Rate limits on participant producer token mint per **`sub`** (**#102** / **`operations/security.md`**).
+
+### chromecast-bootstrap
+- Specify the SDK loader ownership, duplicate-load behavior, and cleanup behavior if multiple room mounts occur in one browser tab.
+- Specify the local timeout and retry policy for Cast SDK availability and **`CastContext.setOptions`** failure.
+- Specify how unit tests fake **`window.__onGCastApiAvailable`**, **`cast.framework.CastContext`**, and **`chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`** without loading Google scripts in CI.
 
 ## Primary code pointers (optional)
 

@@ -73,6 +73,7 @@ Viewer-local Cast state is not a realtime drawer and is not room authority.
 | --- | --- |
 | **#274 active state** | **No CloudWatch metric, aggregate product telemetry, or drawer diagnostic is required.** Unit/component tests may assert local Cast controller state and Stop Cast callback behavior. |
 | **Drawer vocabulary** | Do not emit active Cast or Stop Cast as **`drawer: chat`**, **`drawer: signaling`**, **`drawer: connectivity`**, or **`drawer: produce_consume`**. Those labels remain reserved for room WebSocket, SFU, ICE/TURN, and mediasoup producer/consumer behavior. |
+| **Receiver render confirmation** | Tests and local support output may record that the receiver confirmed render, timed out, or reported blocked playback. This remains local Cast controller evidence and must not become room drawer status, room activity, or CloudWatch product telemetry by default. |
 | **Privacy** | App-authored logs and status copy must not include receiver device names or receiver identifiers. Browser-owned Cast UI may display device names outside RiffSync control. |
 | **Future metrics** | If later milestones add aggregate Cast counters, they must use low-cardinality dimensions only and still not imply room activity or identify receiver devices. |
 
@@ -255,6 +256,10 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 
 - **Health probe scrape Lambda** — Periodic **`/healthz`** scrape emitting **`HealthProbeSuccess`** / gauge metrics — deferred past M21 (cost and IAM guardrails).
 - **Optional aggregate client counters** — **`IceGatheringFailed`**, **`ProducerLifecycleEvent`**, **`ChatSendDropped`** — design only in runbook until a server-side aggregation path exists (no browser **`PutMetricData`**).
+
+### chromecast-local-observability
+- Specify privacy-safe support copy and optional dev-only console events for sender SDK readiness, receiver render confirmation timeout, receiver loss, blocked playback, and stop failure.
+- Specify how manual physical-device smoke results are recorded without logging receiver device names or identifiers in committed docs or app-authored output.
 
 ## Primary code pointers (optional)
 
