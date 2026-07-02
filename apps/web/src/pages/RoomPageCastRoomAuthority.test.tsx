@@ -7,6 +7,7 @@ import { RoomPage } from './RoomPage'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
 import { ChatSession } from '../room/sessions/ChatSession'
 import { SfuMediaSession } from '../room/sessions/SfuMediaSession'
+import { TheaterPlayback } from '../room/sessions/TheaterPlayback'
 import {
   CAST_ACTIVE_HEADING,
   RIFFSYNC_CAST_ACTIVE_STATUS_ID,
@@ -292,11 +293,12 @@ const CAST_LIFECYCLE_PATHS: CastStartLifecycle[] = [
   'stop_failed',
 ]
 
-describe('RoomPage Cast room authority (#277)', () => {
+describe('RoomPage Cast room authority (#305)', () => {
   let container: HTMLDivElement
   let root: Root
   let chatDisconnectSpy: ReturnType<typeof vi.spyOn>
   let sfuDisconnectSpy: ReturnType<typeof vi.spyOn>
+  let theaterDisposeSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     castStartLifecycle.value = 'idle'
@@ -313,6 +315,7 @@ describe('RoomPage Cast room authority (#277)', () => {
 
     chatDisconnectSpy = vi.spyOn(ChatSession.prototype, 'disconnect')
     sfuDisconnectSpy = vi.spyOn(SfuMediaSession.prototype, 'disconnect')
+    theaterDisposeSpy = vi.spyOn(TheaterPlayback.prototype, 'dispose')
 
     fetchRtcIceServers.mockResolvedValue([{ urls: 'stun:stun.test' }])
     fetchFanProfile.mockResolvedValue({ displayName: 'Fan One', avatarUrl: null })
@@ -453,6 +456,38 @@ describe('RoomPage Cast room authority (#277)', () => {
     expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
   })
 
+  it('does not dispose TheaterPlayback across Cast lifecycle re-renders', async () => {
+    renderRoom()
+    await waitForSidebarTabs()
+
+    const disposeBefore = theaterDisposeSpy.mock.calls.length
+
+    for (const lifecycle of CAST_LIFECYCLE_PATHS) {
+      await rerenderCastLifecycle(lifecycle)
+    }
+
+    expect(theaterDisposeSpy.mock.calls.length).toBe(disposeBefore)
+  })
+
+  it('keeps activeErrorCodes empty across Cast lifecycle re-renders', async () => {
+    renderRoom()
+    await waitForSidebarTabs()
+
+    for (const lifecycle of CAST_LIFECYCLE_PATHS) {
+      await rerenderCastLifecycle(lifecycle)
+    }
+
+    expect(drawerStatusMockConfig.get().diagnostics.activeErrorCodes).toEqual([])
+  })
+
+  it('does not show Now Casting stage while session_pending_render', async () => {
+    await rerenderCastLifecycle('session_pending_render')
+
+    expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
+    expect(container.textContent).not.toContain(CAST_ACTIVE_HEADING)
+    expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
+  })
+
   it('invokes local stopCast without room mutation or websocket fan-out', async () => {
     castStartLifecycle.value = 'casting'
     renderRoom()
@@ -473,5 +508,24 @@ describe('RoomPage Cast room authority (#277)', () => {
     expect(roomWsMessages().length).toBe(messagesBefore)
     expect(chatDisconnectSpy.mock.calls.length).toBe(chatBefore)
     expect(sfuDisconnectSpy.mock.calls.length).toBe(sfuBefore)
+  })
+
+  it('allows repeated Stop Cast clicks without room mutation side effects', async () => {
+    castStartLifecycle.value = 'casting'
+    renderRoom()
+    await waitForSidebarTabs()
+
+    const patchBefore = patchRoom.mock.calls.length
+    const messagesBefore = roomWsMessages().length
+
+    const stopButton = container.querySelector('.riffsync-room-page__cast-stop-button') as HTMLButtonElement
+    act(() => {
+      stopButton.click()
+      stopButton.click()
+    })
+
+    expect(stopCast).toHaveBeenCalledTimes(2)
+    expect(patchRoom.mock.calls.length).toBe(patchBefore)
+    expect(roomWsMessages().length).toBe(messagesBefore)
   })
 })
