@@ -77,6 +77,19 @@ Viewer-local Cast state is not a realtime drawer and is not room authority.
 | **Privacy** | App-authored logs and status copy must not include receiver device names or receiver identifiers. Browser-owned Cast UI may display device names outside RiffSync control. |
 | **Future metrics** | If later milestones add aggregate Cast counters, they must use low-cardinality dimensions only and still not imply room activity or identify receiver devices. |
 
+### Local Cast lifecycle evidence (#305)
+
+Issue #305 uses privacy-safe local evidence to prove Cast does not mutate room authority or other participants. Evidence may appear in unit/component assertions, local dev console output, manual smoke notes, or CI failure summaries, but not as production CloudWatch metrics or room drawer diagnostics.
+
+| Evidence class | Allowed fields | Forbidden fields / effects |
+| --- | --- | --- |
+| **Controller lifecycle** | Low-cardinality local event names such as **`cast_start_requested`**, **`receiver_render_confirmed`**, **`cast_stop_requested`**, **`cast_session_ended`**, **`cast_playback_blocked`**, **`cast_stop_failed`**, **`cast_cleanup_completed`**; local state before/after; timer outcome. | Receiver device names, receiver ids, Cast route ids, room ids, session ids, fan subs, provider error payloads, JWTs, SDP/ICE, CloudWatch emission. |
+| **Room-boundary assertions** | Counts or booleans proving no room HTTP mutation, room WebSocket outbound frame, `share_state`, SFU token request, presence write, chat send, drawer diagnostic change, or active error code occurred. | New room payload fields, room WebSocket messages, `RoomRealtimeSdk.getDiagnostics().drawers.cast`, or active Cast codes in `activeErrorCodes`. |
+| **Other-participant assertions** | Before/after snapshots that another viewer's stage, chat log, People roster, drawer banners, participant A/V tiles, controls, and playback are unchanged. | Identifying participant labels in committed smoke notes beyond generic actor labels such as "casting sender", "host", and "guest". |
+| **Manual physical smoke** | Date, environment, browser family/version, receiver class without name or id, lifecycle rows exercised, expected local UI state, and pass/fail notes. | Real device names, receiver serials, Cast account identifiers, room ids, session ids, fan emails/subs, or raw provider error codes. |
+
+Manual smoke evidence for #305 is acceptable as a checklist row or issue comment summary using generic device classes, for example "Chrome sender + physical Cast receiver". Detailed device identifiers stay out of committed docs and app-authored output. Full production readiness evidence and app id/origin/CSP checks remain with #306.
+
 ## Media plane (SFU + TURN)
 
 Participant AV increases silent degradation risk on the **singleton** mediasoup worker (limits hit, worker death, RTC port exhaustion). Observability stays **aggregate** — same OSS posture as chat/API.
@@ -259,7 +272,7 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 
 ### chromecast-local-observability
 - No open decisions remain for #304 receiver render confirmation timeout evidence. Tests and optional dev-only console output may record privacy-safe local Cast controller events such as **`receiver_render_confirmed`**, **`receiver_render_timeout`**, and **`receiver_render_invalid`** without receiver device names, receiver identifiers, room ids, session ids, fan subs, Cast provider error codes, or CloudWatch emission. Receiver loss after active Cast, blocked playback, and stop failure remain with later lifecycle issues.
-- Specify how manual physical-device smoke results are recorded without logging receiver device names or identifiers in committed docs or app-authored output.
+- No open decisions remain for #305 lifecycle evidence. Manual physical-device smoke results use generic device classes, environment, browser version, lifecycle rows, and pass/fail notes only; committed notes and app-authored output omit receiver device names, receiver identifiers, room ids, session ids, fan subs, Cast account identifiers, and raw provider error payloads.
 
 ## Primary code pointers (optional)
 
