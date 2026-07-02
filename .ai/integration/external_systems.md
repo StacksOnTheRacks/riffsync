@@ -47,6 +47,19 @@ The Cast-start slice uses a custom RiffSync Cast receiver page. The receiver ren
 | **Chat overlay** | The receiver overlay is required for #273. Native media Cast without the RiffSync chat overlay is outside #273 and not an acceptable M25 substitute. |
 | **Provider metadata** | Google Cast receiver registration, application id, origin allowlist, CSP, and iframe policy are configuration concerns for this custom receiver path. They must not introduce receiver room authority. |
 
+### Cast launch sender boundary (#302)
+
+The launch slice starts a Cast Framework sender session from normal room view without changing room authority.
+
+| Concern | Contract |
+| --- | --- |
+| **Entry** | Only a user gesture on **Cast to TV** when sender availability is **`available`** invokes **`CastContext.requestSession()`**. |
+| **Custom receiver path** | Launch uses the configured **`VITE_CAST_RECEIVER_APP_ID`** and **`ORIGIN_SCOPED`** policy from #301. Browser-native tab Cast, raw media Cast, and YouTube-only Cast are out of scope and must not satisfy this slice. |
+| **Launch timer** | Abort unresolved **`requestSession()`** attempts after **45 seconds** from the initiating click; map to local **`CAST_START_REJECTED`**. |
+| **Pending render window** | Successful **`requestSession()`** enters **`session_pending_render`** with normal in-page playback still visible until #304 receiver render confirmation or #304 render timeout. |
+| **Module ownership** | **`castLaunchController.ts`** (or equivalent) owns **`requestSession()`**, launch timer, chooser cancel/reject handling, and launch-state transitions. **`castSenderClient.ts`** remains the **`CastContext`** configuration owner. |
+| **No authority side effects** | Launch, cancel, reject, timeout, and session-pending states must not call room HTTP mutation APIs, publish room WebSocket messages, request SFU tokens, alter **`share_state`**, or change durable room fields. |
+
 ## TMDB (The Movie Database)
 
 | Use | Mechanism | Contract |

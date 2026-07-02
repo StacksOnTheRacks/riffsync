@@ -288,6 +288,19 @@ The Cast availability slice exposes availability only after the normal room shel
 | **Explainable unavailable state** | If an implementation briefly renders or evaluates the Cast affordance and then learns Cast is unavailable, show a local status line at the Cast surface with copy **Cast is not available in this browser or device.** Do not use the chat drawer banner, video-relay status, room error, global announcer, or host feedback surfaces. |
 | **Stage impact** | #272 does not replace the stage, hide the player, or show **`Now Casting`**. The regular **`RoomPlaybackPanel`** remains the active playback surface until a later start-Cast slice confirms a Cast session. |
 
+### Cast launch status in normal room view (#302)
+
+The launch slice adds local status while **`requestSession()`** is in flight or the sender waits in **`session_pending_render`**.
+
+| Concern | Contract |
+| --- | --- |
+| **Status placement** | Render **`CAST_STARTING`** and **`CAST_START_REJECTED`** copy in the normal-view **Room** sidebar Cast action group at the same surface as **Cast to TV** and **`CAST_UNAVAILABLE`**. Do not use chat drawer, video-relay status, host feedback, room error boundaries, or **`#riffsync-a11y-announcer`**. |
+| **Starting copy** | While **`launching`** or **`session_pending_render`**, show **Starting Cast…** with an associated polite **`role="status"`** region near the Cast action. |
+| **Failure copy** | On chooser cancel, SDK reject, or **45s** launch timeout, show **Cast could not start. Try again from this browser or device.** and restore **Cast to TV** when sender support remains **`available`**. |
+| **Stage during launch** | **`RoomPlaybackPanel`** and normal room controls stay visible through launch, cancel, reject, timeout, and **`session_pending_render`**. Do not show **`Now Casting`** or replace the stage in #302. |
+| **Retry affordance** | After failure, **Cast to TV** stays enabled when availability is **`available`**. No separate retry button is required in MVP. |
+| **Provider privacy** | Launch status must not expose Cast SDK error codes, receiver device names, or raw provider metadata in room surfaces. |
+
 ## Accessibility & motion (baseline)
 
 - Prefer **semantic headings** and **focus order** that match visual flow; **keyboard** paths for **Play**, **share**, **lobby join** before shipping broadly.

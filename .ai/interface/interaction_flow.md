@@ -133,6 +133,19 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 4. **No launch in this slice:** #301 does not call **`CastContext.requestSession()`** as part of availability detection. User gesture launch, chooser cancellation, start rejection, receiver render timeout, active **`Now Casting`**, stop, and cleanup focus behavior are handled by later M26 slices.
 5. **Room isolation:** Availability probing does not call room HTTP APIs, publish room WebSocket messages, request SFU tokens, change **`share_state`**, alter **`roomMode`** / **`avDisabled`**, change presence, reset chat/sidebar state, or expose receiver/device identifiers to the room.
 
+### Cast launch flow (#302)
+
+1. **Entry:** Only a user gesture on **Cast to TV** in normal room view when availability is **`available`** may call **`CastContext.requestSession()`**. Availability probing and expanded view must not invoke launch.
+2. **Launching:** On click, enter local **`launching`** state, show **`CAST_STARTING`** copy (**Starting Cast…**) at the Room sidebar Cast surface, and start a **45-second** launch timer. Keep **`RoomPlaybackPanel`** and normal room controls visible. Do not show **`Now Casting`**, replace the stage, or enter expanded view.
+3. **Chooser behavior:** **`requestSession()`** opens the Google Cast device chooser for the configured **`VITE_CAST_RECEIVER_APP_ID`**. The sender must not delegate launch to browser-native tab Cast, raw media Cast, or YouTube-only Cast controls.
+4. **Chooser cancel:** When the user dismisses the chooser without selecting a device, clear the launch timer, return to **`idle`**, show **`CAST_START_REJECTED`** copy (**Cast could not start. Try again from this browser or device.**) at the Cast surface, and restore **Cast to TV** for retry. Room authority is unchanged.
+5. **Launch reject / SDK error:** When **`requestSession()`** rejects or the Cast SDK reports a start error before session resolve, clear the launch timer, return to **`idle`**, show **`CAST_START_REJECTED`** at the Cast surface, and keep normal in-page playback. Do not expose provider error codes, receiver device names, or Cast app ids in room surfaces.
+6. **Launch timeout:** If **`requestSession()`** does not resolve or reject within **45 seconds** of the initiating click, abort the pending launch attempt, return to **`idle`**, show **`CAST_START_REJECTED`** at the Cast surface, and keep normal in-page playback. This timeout covers chooser open, device selection, and session establishment only.
+7. **Session pending render:** When **`requestSession()`** resolves successfully, transition to **`session_pending_render`**, keep **`CAST_STARTING`** copy and normal in-page playback visible, and wait for receiver render confirmation per #304. **`requestSession()`** resolution alone must not show **`Now Casting`** or hide the regular playback surface.
+8. **Retry:** After cancel, reject, or launch timeout, **Cast to TV** remains available when sender support is still **`available`**. The viewer may retry immediately; no cooldown or room-side lockout.
+9. **Focus:** During launch, focus stays on **Cast to TV** unless the viewer moves it. After failed launch, return focus to **Cast to TV** when still rendered. Do not move focus to **Stop Cast** in #302.
+10. **Room isolation:** Launch, cancel, reject, timeout, and session-pending states do not call room HTTP mutation APIs, publish room WebSocket messages, request SFU tokens, change **`share_state`**, alter **`roomMode`** / **`avDisabled`**, change presence, reset chat/sidebar state, or change other participants' UI.
+
 ### Cast-active sender flow (#274)
 
 1. **Active entry:** #274 begins when the local Cast controller reaches active Cast after receiver render confirmation. Do not show **`Now Casting`** before that confirmation.
@@ -239,9 +252,9 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-interaction-flow
-- Specify local copy and status placement for starting, chooser cancel, start rejected, receiver render timeout, session ended, playback blocked, stop failed, and cleanup complete.
-- Specify focus behavior for chooser cancel, receiver confirmation success, Stop Cast success, stop failure, navigation, reload, and external receiver end.
-- Specify tests that prove **`Now Casting`** is absent until receiver render confirmation and removed on cleanup without resetting sidebar/chat state.
+- Launch-phase copy and status placement for **`CAST_STARTING`**, chooser cancel, start rejected, and launch timeout are specified in **Cast launch flow (#302)** and **`error_state.md`** Local Cast status taxonomy.
+- Launch-phase focus behavior is specified in **Cast launch flow (#302)** and **`input_handling.md`** Chromecast Cast controls. Focus on receiver confirmation success, Stop Cast success, stop failure, navigation, reload, and external receiver end remain in #304, #276, and #278.
+- Tests that prove **`Now Casting`** is absent until receiver render confirmation and removed on cleanup without resetting sidebar/chat state are specified in **`.ai/specs/viewer-local-cast.spec.md`** and owned by #304 / #279 verification slices.
 
 ## Primary code pointers (optional)
 
