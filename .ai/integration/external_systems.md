@@ -41,7 +41,8 @@ The Cast-start slice uses a custom RiffSync Cast receiver page. The receiver ren
 | --- | --- |
 | **Receiver application** | A RiffSync receiver route/page reconstructs the expanded-view presentation shell for Cast. It renders stage-primary video plus bottom-right chat overlay and omits the sidebar tab strip. |
 | **Sender framework** | The sender uses the Cast Framework **`CastContext`** APIs above, including configured receiver application id and **`ORIGIN_SCOPED`** auto-join policy. Browser-native Cast controls or raw media Cast flows do not satisfy the custom receiver start contract. |
-| **Receiver registration** | The receiver is launched by the registered app id from the Cast SDK Developer Console. The production receiver URL is reachable by Cast devices over TLS, and the receiver registers **`urn:x-cast:com.riffsync.presentation`** as a custom namespace before receiver context start. |
+| **Receiver registration** | The receiver is launched by the registered app id from the Cast SDK Developer Console. The production receiver URL is reachable by Cast devices over TLS, and **`apps/web/src/pages/cast/castReceiverSession.ts`** registers **`urn:x-cast:com.riffsync.presentation`** as a JSON custom namespace before receiver context start. |
+| **Receiver bootstrap fixture** | **`apps/web/src/pages/cast/castReceiverSession.test.ts`** owns a fake Cast receiver framework fixture that records call order and options. The fixture must prove **`addCustomMessageListener(RIFFSYNC_CAST_NAMESPACE, ...)`** and **`CastReceiverOptions.customNamespaces[RIFFSYNC_CAST_NAMESPACE] = MessageType.JSON`** occur before **`context.start(options)`**. It must also prove sender-proxied **`presentation_snapshot`** and **`chat_overlay_update`** messages are accepted over the custom namespace without room HTTP, room WebSocket, SFU token, presence, or chat-publish calls. |
 | **Sender authority** | The sender stays joined to the room and remains the only RiffSync participant involved in the Cast session. The receiver receives sender-proxied presentation data over the Cast channel. |
 | **Room access** | The receiver does not call room HTTP APIs, open the room WebSocket, request SFU tokens, create a presence row, publish chat, or subscribe to room media services directly in M25. |
 | **Chat overlay** | The receiver overlay is required for #273. Native media Cast without the RiffSync chat overlay is outside #273 and not an acceptable M25 substitute. |
@@ -160,7 +161,7 @@ The launch slice starts a Cast Framework sender session from normal room view wi
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-provider-boundary
-- Specify the exact receiver route bootstrap module and the test fixture that proves the custom namespace is configured before receiver context start.
+- No open decisions remain for #303 receiver bootstrap. **`apps/web/src/pages/cast/castReceiverSession.ts`** owns Cast receiver framework loading, namespace listener registration, custom namespace options, and context start; **`apps/web/src/pages/cast/castReceiverSession.test.ts`** proves the RiffSync namespace is registered before start and that sender-proxied presentation messages do not introduce room-service access.
 - No open decisions remain for sender availability provider errors. Availability-time sender failures map to local **`CAST_UNAVAILABLE`**; later start/session failures map to local Cast start/lifecycle statuses in the issue that owns that path. Provider errors, receiver identifiers, and device names are not exposed in room surfaces or room diagnostics.
 
 ## Primary code pointers (optional)

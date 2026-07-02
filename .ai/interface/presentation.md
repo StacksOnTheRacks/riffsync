@@ -266,13 +266,16 @@ The Cast-start slice proves an actual custom receiver view, not just a sender-si
 
 | Concern | Contract |
 | --- | --- |
-| **Receiver shell** | Render a receiver route/page that uses the expanded-view shell structure: stage-primary video area plus bottom-right chat overlay. Header/footer/sidebar tab chrome are omitted from the receiver. |
+| **Receiver shell** | Render **`/cast/receiver`** as a receiver-only page using **`CastReceiverPage`** and **`CastReceiverPresentation`** under **`apps/web/src/pages/cast/`**. It uses the expanded-view shell structure: stage-primary video area plus bottom-right chat overlay. Header, footer, sidebar tab chrome, compose controls, People, Room, Profile, host controls, and participant A/V controls are omitted from the receiver. |
+| **TV layout constraints** | The receiver root fills **100vw x 100vh** on a dark, chrome-free background. The stage primary occupies the full available 16:9 TV canvas using contained media/object sizing so it is not cropped on **1280x720**, **1920x1080**, or **3840x2160** displays. The chat overlay is anchored bottom-right inside a TV-safe inset of at least **24px** at 720p, **32px** at 1080p, and **64px** at 4K. Its width is **clamp(22rem, 34vw, 42rem)** and never exceeds **40%** of the stage width; its height never exceeds **45%** of the stage height. The overlay scrolls internally and never covers the center of the stage-primary video. |
 | **Sender-proxied content** | The sender sends the receiver a presentation snapshot and subsequent chat-overlay updates over the Cast channel. The receiver does not fetch room state, join chat, or expose sender-only tabs. |
 | **Overlay requirement** | The chat overlay is required on the receiver for #273. A native media-only Cast path, tab mirroring guidance, or receiver view without chat overlay does not satisfy this slice. |
 | **Custom receiver identity** | The receiver is launched by the configured Custom Web Receiver app id and hosted at the registered TLS receiver URL, currently **`/cast/receiver`**. The receiver uses custom namespace **`urn:x-cast:com.riffsync.presentation`** for sender-proxied presentation messages. |
 | **Receiver interactions** | Receiver chat overlay is presentation-only. Chat compose, GIF/emoji pickers, reactions, participant A/V toggles, People, Room, and Profile controls remain on the sender. |
+| **Receiver placeholder copy** | Before the first sender presentation snapshot, the receiver shows **`Waiting for party presentation...`** in a polite status surface. When stage-primary playback is not yet available, the stage placeholder uses **`Waiting for room video...`**. When receiver playback is blocked by provider or autoplay policy, the stage placeholder uses **`Playback needs attention on the sender.`** and does not expose provider error codes, receiver device names, or participant identifiers. Empty chat overlay state may show **`Chat will appear here.`** |
 | **Start feedback** | While the sender is waiting for receiver render confirmation, keep normal in-page playback visible and use local Cast status near the Cast surface or stage-local Cast status. Do not use chat drawer, video-relay status, room error, or host feedback surfaces. |
 | **Success transition** | The sender treats Cast start as confirmed only after the receiver reports that stage-primary video and the bottom-right chat overlay rendered. The #274 slice owns the persistent **`Now Casting`** sender-stage details after confirmation. |
+| **Presentation coverage** | Component tests and visual/screenshot fixtures for **`CastReceiverPresentation`** must render the stage primary plus required chat overlay at **1280x720**, **1920x1080**, and **3840x2160** receiver viewport sizes. Regression coverage must fail if the route renders a native media-only surface, a YouTube-only iframe without the RiffSync overlay, sidebar tab chrome, or sender-only interactive controls. |
 
 ### Cast availability in normal room view (#272)
 
@@ -367,9 +370,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Telemetry / UX story event names** for layout transition timeout — deferred; per-drawer reconnect and tile lifecycle client log **`event`** names are normative in **`operations/observability.md`** Decisions.
 
 ### chromecast-presentation
-- Specify the exact receiver shell layout constraints for the stage-primary video area and bottom-right chat overlay at common TV resolutions.
-- Specify placeholder copy when the receiver shell renders but stage-primary playback is not yet available or becomes blocked.
-- Specify screenshot or component-test coverage that proves native media-only and YouTube-only Cast paths do not satisfy the receiver presentation acceptance criteria.
+- No open decisions remain for #303 receiver presentation. The receiver shell uses the route and component contracts above, TV-safe 720p/1080p/4K overlay constraints, explicit waiting/blocked playback copy, and component or screenshot coverage proving native media-only and YouTube-only Cast paths do not satisfy the required RiffSync stage-primary plus chat-overlay presentation.
 
 ## Primary code pointers (optional)
 
