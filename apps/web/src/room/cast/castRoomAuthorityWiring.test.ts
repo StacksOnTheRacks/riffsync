@@ -60,7 +60,7 @@ const FORBIDDEN_CAST_SIDE_EFFECTS = [
   'WebSocket',
 ]
 
-describe('Cast room authority wiring (#277)', () => {
+describe('Cast room authority wiring (#305)', () => {
   it('keeps Cast runtime modules free of room mutation and fan-out hooks', () => {
     for (const file of CAST_RUNTIME_SOURCES) {
       const src = readCast(file)
