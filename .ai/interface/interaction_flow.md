@@ -125,6 +125,14 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 9. **Room authority preservation (#277):** Every Cast lifecycle path is sender-local. Starting, activating, stopping, failing, disconnecting, or clearing Cast must not send room WebSocket messages, change **`share_state`**, call room HTTP mutation APIs, change **`roomMode`** / **`avDisabled`**, alter SFU token eligibility, or change another participant's stage, controls, drawer status, chat state, presence, or playback.
 10. **Verification (#279):** Automated and manual checks cover the lifecycle from availability through cleanup: support detection, start, active, stop, unavailable, failed-start, receiver-ended, playback-blocked, stop-failed, cleanup completion, room leave, navigation, and reload. Each path preserves sender chat/sidebar/room state and proves other participants receive no Cast-induced UI, messaging, or media change.
 
+### Cast sender availability flow (#301)
+
+1. **Probe timing:** After the normal room shell exists, the sender availability hook loads the Google Cast sender SDK, installs **`window.__onGCastApiAvailable`** before script append, and attempts to configure **`CastContext`** for the custom receiver app id.
+2. **Available:** Render **Cast to TV** only in the normal-view **Room** sidebar action group when the SDK reports availability and **`CastContext.setOptions`** succeeds with **`VITE_CAST_RECEIVER_APP_ID`** and **`ORIGIN_SCOPED`** auto-join policy.
+3. **Checking / unavailable:** While checking, render no Cast action. When unavailable because the SDK is absent, blocked, timed out, missing **`VITE_CAST_RECEIVER_APP_ID`**, or cannot configure **`CastContext`**, show only local **`CAST_UNAVAILABLE`** copy at the Cast surface if the implementation renders evaluated status. Do not use chat drawer, video-relay status, host feedback, room error boundaries, or global announcer copy for availability failure.
+4. **No launch in this slice:** #301 does not call **`CastContext.requestSession()`** as part of availability detection. User gesture launch, chooser cancellation, start rejection, receiver render timeout, active **`Now Casting`**, stop, and cleanup focus behavior are handled by later M26 slices.
+5. **Room isolation:** Availability probing does not call room HTTP APIs, publish room WebSocket messages, request SFU tokens, change **`share_state`**, alter **`roomMode`** / **`avDisabled`**, change presence, reset chat/sidebar state, or expose receiver/device identifiers to the room.
+
 ### Cast-active sender flow (#274)
 
 1. **Active entry:** #274 begins when the local Cast controller reaches active Cast after receiver render confirmation. Do not show **`Now Casting`** before that confirmation.
@@ -231,7 +239,7 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-interaction-flow
-- Specify local copy and status placement for unsupported sender, missing app id, starting, chooser cancel, start rejected, receiver render timeout, session ended, playback blocked, stop failed, and cleanup complete.
+- Specify local copy and status placement for starting, chooser cancel, start rejected, receiver render timeout, session ended, playback blocked, stop failed, and cleanup complete.
 - Specify focus behavior for chooser cancel, receiver confirmation success, Stop Cast success, stop failure, navigation, reload, and external receiver end.
 - Specify tests that prove **`Now Casting`** is absent until receiver render confirmation and removed on cleanup without resetting sidebar/chat state.
 

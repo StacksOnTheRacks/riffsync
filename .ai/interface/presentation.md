@@ -276,15 +276,16 @@ The Cast-start slice proves an actual custom receiver view, not just a sender-si
 
 ### Cast availability in normal room view (#272)
 
-The first Cast slice exposes availability only after the normal room shell has rendered and local sender support is confirmed.
+The Cast availability slice exposes availability only after the normal room shell has rendered and local sender support is confirmed for the configured RiffSync Custom Web Receiver.
 
 | Concern | Contract |
 | --- | --- |
 | **Primary placement** | Place **Cast to TV** in the normal-view **Room** sidebar action group near existing room actions such as **Copy Party Link** and **Leave Party**. It is a viewer-local room action, not a host-authoritative control. |
 | **Host control separation** | Do **not** place Cast availability in **`HostControlBar`** or gate it on **`JWT.sub === hostSub`**. Room admins and guests follow the same local sender-support rule. |
 | **Expanded view** | Do not render a Cast start action in expanded view. If normal-view state changes while expanded, the expanded toggle and overlay remain unchanged; the viewer exits expanded view before using Cast. |
-| **Unsupported sender default** | When sender support is absent, unknown, blocked by platform policy, or still checking, omit **Cast to TV**. Normal playback, chat, expanded view, host controls, and participant A/V remain unchanged. |
-| **Explainable unavailable state** | If an implementation briefly renders or evaluates the Cast affordance and then learns Cast is unavailable, show a local status line at the Cast surface with copy such as **Cast is not available in this browser or device.** Do not use the chat drawer banner, video-relay status, room error, or host feedback surfaces. |
+| **Required ready state** | Render **Cast to TV** only when the Cast sender SDK reports availability and the sender can configure **`CastContext`** with **`VITE_CAST_RECEIVER_APP_ID`** and **`chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`** for the custom receiver. |
+| **Unsupported sender default** | When sender support is absent, unknown, blocked by platform policy, missing receiver app id, unable to configure **`CastContext`**, or still checking, omit **Cast to TV**. Normal playback, chat, expanded view, host controls, and participant A/V remain unchanged. |
+| **Explainable unavailable state** | If an implementation briefly renders or evaluates the Cast affordance and then learns Cast is unavailable, show a local status line at the Cast surface with copy **Cast is not available in this browser or device.** Do not use the chat drawer banner, video-relay status, room error, global announcer, or host feedback surfaces. |
 | **Stage impact** | #272 does not replace the stage, hide the player, or show **`Now Casting`**. The regular **`RoomPlaybackPanel`** remains the active playback surface until a later start-Cast slice confirms a Cast session. |
 
 ## Accessibility & motion (baseline)

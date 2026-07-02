@@ -47,9 +47,10 @@ The SPA build includes the custom receiver route and public receiver app id conf
 | Concern | Contract |
 | --- | --- |
 | **Receiver route** | **`/cast/receiver`** is part of the same Vite SPA artifact and must be reachable from the production CloudFront origin over HTTPS. |
-| **Receiver app id** | Public build-time value, expected as **`VITE_CAST_RECEIVER_APP_ID`** unless refinement chooses a repo-consistent alternative. It is safe in the bundle and must not be handled as a secret. |
+| **Receiver app id** | Public build-time value **`VITE_CAST_RECEIVER_APP_ID`**. Production deploy wiring reads the Cast Developer Console app id from a non-secret GitHub Actions variable such as **`PROD_CAST_RECEIVER_APP_ID`** and exports it as **`VITE_CAST_RECEIVER_APP_ID`** for the SPA build. It is safe in the bundle and must not be handled as a secret. |
 | **Sender SDK** | The production bundle may load Google's Cast sender SDK from **`www.gstatic.com`** with **`loadCastFramework=1`**. Build and CSP policy must permit the required script path where Cast is enabled. |
 | **Custom receiver** | Release readiness requires the Cast SDK Developer Console app id to point at the deployed receiver URL and any applicable sender origin allowlist to include **`https://riffsync.tv`**. |
+| **Missing prod app id** | Missing production **`VITE_CAST_RECEIVER_APP_ID`** does not fail unrelated room deploys. The SPA must hide or locally fail Cast availability, and #306 release readiness records the missing app id as a blocker before announcing Cast-ready production behavior. |
 
 ### Deploy ordering vs build
 
@@ -251,6 +252,4 @@ The informal **SFU deploy checklist — hardening deltas** table above is supers
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-build-packaging
-- Specify deploy workflow wiring for the public receiver app id and placeholder CI value.
-- Specify whether production deploy fails when receiver app id is missing or records a release-check failure while hiding Cast.
-- Specify the web-app test split for Cast: SDK loader unit tests, receiver route rendering tests, and manual physical-device smoke evidence.
+- No open decisions remain for sender availability build packaging. Production wiring uses a non-secret GitHub Actions variable exported as **`VITE_CAST_RECEIVER_APP_ID`** for the SPA build; missing app id hides or locally fails Cast and blocks release readiness, not unrelated room deploys; #301 web-app tests cover SDK loader, app id, **`CastContext.setOptions`**, availability UI, and no room-authority side effects. Receiver route rendering tests belong to #303, and physical-device smoke evidence belongs to #306.
