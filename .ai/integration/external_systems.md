@@ -61,6 +61,18 @@ The launch slice starts a Cast Framework sender session from normal room view wi
 | **Module ownership** | **`castLaunchController.ts`** (or equivalent) owns **`requestSession()`**, launch timer, chooser cancel/reject handling, and launch-state transitions. **`castSenderClient.ts`** remains the **`CastContext`** configuration owner. |
 | **No authority side effects** | Launch, cancel, reject, timeout, and session-pending states must not call room HTTP mutation APIs, publish room WebSocket messages, request SFU tokens, alter **`share_state`**, or change durable room fields. |
 
+### Cast receiver render-confirmation boundary (#304)
+
+The receiver render-confirmation acknowledgement is Google Cast sender/receiver channel traffic only. It is not a RiffSync HTTP request, room WebSocket route, room fan-out payload, **`share_state`** variant, durable event, SFU token claim, presence event, or room diagnostics field.
+
+| Concern | Contract |
+| --- | --- |
+| **Namespace** | Use **`urn:x-cast:com.riffsync.presentation`**, the same custom namespace as sender-proxied presentation messages. |
+| **Positive acknowledgement** | Receiver sends **`{ type: "receiver_rendered", schemaVersion: 1, snapshotId, stagePrimaryRendered: true, chatOverlayRendered: true }`** after both required presentation surfaces rendered. |
+| **Sender validation** | Sender accepts only the latest **`snapshotId`**. Missing flags, false flags, stale ids, malformed payloads, receiver launch, page load, and **`requestSession()`** resolution do not activate Cast. |
+| **Timeout** | Sender waits **30 seconds** after **`requestSession()`** resolves, then treats missing or invalid confirmation as **`CAST_START_REJECTED`** with normal playback still visible. |
+| **Room boundary** | Confirmation success, timeout, invalid acknowledgement, and retry do not call RiffSync room HTTP APIs, open or publish to room WebSockets, request SFU tokens, create presence rows, mutate **`share_state`**, or change durable room fields. |
+
 ## TMDB (The Movie Database)
 
 | Use | Mechanism | Contract |

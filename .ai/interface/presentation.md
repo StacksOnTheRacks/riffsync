@@ -304,6 +304,19 @@ The launch slice adds local status while **`requestSession()`** is in flight or 
 | **Retry affordance** | After failure, **Cast to TV** stays enabled when availability is **`available`**. No separate retry button is required in MVP. |
 | **Provider privacy** | Launch status must not expose Cast SDK error codes, receiver device names, or raw provider metadata in room surfaces. |
 
+### Cast render confirmation gate (#304)
+
+The render-confirmation slice gates the sender's active Cast UI after #302 reaches `session_pending_render`.
+
+| Concern | Contract |
+| --- | --- |
+| **Pending surface** | While waiting for receiver render confirmation, keep **Starting Cast…** at the normal-view Room sidebar Cast surface and keep the normal **RoomPlaybackPanel** visible. Do not replace the stage, show **Now Casting**, render **Stop Cast**, suppress expanded view, or move focus to Stop Cast while only pending. |
+| **Acknowledgement payload** | Treat the receiver as rendered only after a JSON `receiver_rendered` acknowledgement over `urn:x-cast:com.riffsync.presentation` includes `schemaVersion: 1`, the latest sender presentation `snapshotId`, `stagePrimaryRendered: true`, and `chatOverlayRendered: true`. Stale ids, missing flags, partial flags, receiver page load, and Cast session resolution do not satisfy the gate. |
+| **Timeout and failure copy** | If no valid acknowledgement arrives within **30 seconds** after `requestSession()` resolves, or if the receiver channel closes or reports partial render before active Cast, return to local idle/start-failed posture with **Cast could not start. Try again from this browser or device.** at the Cast surface. Normal playback remains visible throughout. |
+| **Retry** | After timeout or invalid acknowledgement, **Cast to TV** is available again when sender support is still `available`. No separate retry button is required in MVP. |
+| **Success transition** | Only a valid positive acknowledgement transitions to active Cast. The sender stage then shows **Now Casting** and **Stop Cast**, regular in-page video is hidden while active, expanded view is unavailable, and sender chat/sidebar state remains intact. |
+| **Privacy and surface isolation** | Pending, timeout, invalid acknowledgement, and success copy must not expose receiver device names, Cast provider error codes, app ids, participant identifiers, or room-authority language. Do not use chat drawer, video-relay status, host feedback, room error boundaries, or global room announcer copy. |
+
 ## Accessibility & motion (baseline)
 
 - Prefer **semantic headings** and **focus order** that match visual flow; **keyboard** paths for **Play**, **share**, **lobby join** before shipping broadly.
