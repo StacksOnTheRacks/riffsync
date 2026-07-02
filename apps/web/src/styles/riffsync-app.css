@@ -75,6 +75,11 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   padding-top: 0;
 }
 
+.riffsync-main:has(.riffsync-solo-watch-page:not(.riffsync-solo-watch-page--party-capture)) {
+  padding-top: 0.75rem;
+  padding-bottom: 1.5rem;
+}
+
 /* Static legal pages (Terms, future Privacy, etc.) */
 .riffsync-legal {
   color: var(--white-color);
@@ -265,40 +270,6 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   z-index: 1;
   width: min(1280px, calc(100% - clamp(40px, 7vw, 120px)));
   margin-inline: auto;
-}
-
-.riffsync-solo-watch-page .container:last-of-type .riffsync-solo-watch__fineprint {
-  margin-top: 1.75rem;
-}
-
-.riffsync-solo-watch__header {
-  margin-bottom: 0.35rem;
-}
-
-.riffsync-solo-watch .riffsync-theater-heading {
-  margin-bottom: 0.65rem;
-}
-
-.riffsync-solo-watch__toolbar {
-  margin: 0;
-  padding: 0;
-  font-size: 0.8rem;
-  line-height: 1.35;
-  opacity: 0.92;
-}
-
-.riffsync-solo-watch__toolbar a {
-  color: inherit;
-}
-
-.riffsync-solo-watch__toolbar-era {
-  text-transform: capitalize;
-}
-
-.riffsync-solo-watch__fineprint {
-  margin-top: 2rem;
-  font-size: 0.9rem;
-  opacity: 0.85;
 }
 
 /* `/watch/:id?partyCapture=1`: host broadcast tab — no site header/footer, stretch player vertically */

@@ -3,7 +3,6 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { EPISODE_UNAVAILABLE_MESSAGE, formatCatalogUserError } from '../catalog/catalogLoadError'
-import { formatCatalogEraLabel } from '../catalog/catalogTypes'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 
 const PARTY_CAPTURE_ANIMATION = 'riffsyncPartyCaptureBannerFadeOut'
@@ -161,6 +160,7 @@ export function SoloWatchPage() {
       ? `riffsync-solo-watch-page riffsync-solo-watch-page--backdrop${partyCapture ? ' riffsync-solo-watch-page--party-capture' : ''}`
       : `riffsync-solo-watch-page${partyCapture ? ' riffsync-solo-watch-page--party-capture' : ''}`
   const innerChrome = partyCapture ? 'riffsync-solo-watch riffsync-solo-watch--capture' : 'container riffsync-solo-watch'
+  const playbackBlocked = !vid || !canEmbed
 
   return (
     <div className={pageRoot}>
@@ -182,50 +182,31 @@ export function SoloWatchPage() {
           aria-hidden
         />
       ) : null}
-      <div className={innerChrome}>
-        {partyCapture ? <h1 className="sr-only">{episode.title}</h1> : null}
-        {!partyCapture ? (
-          <header className="riffsync-solo-watch__header">
-            <nav aria-label="Breadcrumb" className="riffsync-solo-watch__toolbar">
-              <Link to="/">Home</Link>
-              <span aria-hidden> · </span>
-              <Link to="/catalog">Catalog</Link>
-              <span aria-hidden> · </span>
-              <span>Experiment #{episode.experimentNumber}</span>
-              <span aria-hidden> · </span>
-              <span className="riffsync-solo-watch__toolbar-era">{formatCatalogEraLabel(episode.era)}</span>
-            </nav>
-          </header>
-        ) : null}
-        {!partyCapture ? <h1 className="riffsync-theater-heading">{episode.title}</h1> : null}
-        {!vid && (
-          <p role="status">Playback unavailable — no YouTube video is linked for this catalog entry.</p>
-        )}
-        {vid && !canEmbed && (
-          <p role="alert">
-            This episode is not available for in-app playback (<code>embedAllows</code>). Open on YouTube if you have a
-            watch URL.
-            {episode.youtubeWatchUrl && (
-              <>
-                {' '}
-                <a href={episode.youtubeWatchUrl} rel="noreferrer" target="_blank">
-                  Watch on YouTube
-                </a>
-              </>
-            )}
-          </p>
-        )}
-      </div>
+      <h1 className="sr-only">{episode.title}</h1>
+      {playbackBlocked ? (
+        <div className={innerChrome}>
+          {!vid && (
+            <p role="status">Playback unavailable — no YouTube video is linked for this catalog entry.</p>
+          )}
+          {vid && !canEmbed && (
+            <p role="alert">
+              This episode is not available for in-app playback (<code>embedAllows</code>). Open on YouTube if you have a
+              watch URL.
+              {episode.youtubeWatchUrl && (
+                <>
+                  {' '}
+                  <a href={episode.youtubeWatchUrl} rel="noreferrer" target="_blank">
+                    Watch on YouTube
+                  </a>
+                </>
+              )}
+            </p>
+          )}
+        </div>
+      ) : null}
       {vid && canEmbed ? (
         <div className="riffsync-solo-watch__player-shell">
           <SoloYouTubePlayer videoId={vid} titleHint={episode.title} autoPlay={false} />
-        </div>
-      ) : null}
-      {!partyCapture ? (
-        <div className="container riffsync-solo-watch">
-          <p className="riffsync-solo-watch__fineprint">
-            Embedded YouTube player. Browse more episodes in the <Link to="/catalog">catalog</Link>.
-          </p>
         </div>
       ) : null}
     </div>
