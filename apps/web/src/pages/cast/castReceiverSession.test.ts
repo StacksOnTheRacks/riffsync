@@ -100,12 +100,19 @@ describe('startCastReceiverSession', () => {
   it('accepts presentation snapshots delivered as Cast object payloads', async () => {
     const receiver = await startReceiver()
 
+    expect(receiver.context.addCustomMessageListener).toHaveBeenCalledWith(
+      RIFFSYNC_CAST_NAMESPACE,
+      expect.any(Function),
+    )
     expect(receiver.context.start).toHaveBeenCalledWith(
       expect.objectContaining({
         customNamespaces: {
           [RIFFSYNC_CAST_NAMESPACE]: 'json',
         },
       }),
+    )
+    expect(receiver.context.addCustomMessageListener.mock.invocationCallOrder[0]).toBeLessThan(
+      receiver.context.start.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
     )
     receiver.emitMessage({ type: 'presentation_snapshot', snapshot })
 

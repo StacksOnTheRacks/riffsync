@@ -3,9 +3,16 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CastReceiverPresentation } from './CastReceiverPresentation'
+import { CAST_RECEIVER_COPY } from './castReceiverCopy'
 import type { CastPresentationSnapshot } from '../../room/cast/castChannelProtocol'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
+const RECEIVER_VIEWPORTS = [
+  { label: '1280x720', width: 1280, height: 720 },
+  { label: '1920x1080', width: 1920, height: 1080 },
+  { label: '3840x2160', width: 3840, height: 2160 },
+] as const
 
 describe('CastReceiverPresentation', () => {
   let container: HTMLDivElement
@@ -28,36 +35,80 @@ describe('CastReceiverPresentation', () => {
     })
   }
 
-  it('renders stage-primary video and chat overlay from sender snapshot', () => {
-    const snapshot: CastPresentationSnapshot = {
-      roomMode: 'theater',
-      stagePrimary: {
-        kind: 'youtube_embed',
-        youtubeVideoId: 'abc123',
-        label: 'Party video',
-      },
-      chatOverlay: {
-        messages: [{ id: 'm1', kind: 'text', text: 'Fan: hello', senderLabel: 'Fan' }],
-      },
-    }
+  const youtubeSnapshot: CastPresentationSnapshot = {
+    roomMode: 'theater',
+    stagePrimary: {
+      kind: 'youtube_embed',
+      youtubeVideoId: 'abc123',
+      label: 'Party video',
+    },
+    chatOverlay: {
+      messages: [{ id: 'm1', kind: 'text', text: 'Fan: hello', senderLabel: 'Fan' }],
+    },
+  }
 
-    renderPresentation(snapshot)
+  it('shows waiting copy before the first sender snapshot', () => {
+    renderPresentation(null)
+    expect(container.textContent).toContain(CAST_RECEIVER_COPY.waitingForPresentation)
+  })
+
+  it('renders stage-primary video and chat overlay from sender snapshot', () => {
+    renderPresentation(youtubeSnapshot)
     expect(container.querySelector('[data-testid="cast-receiver-stage-primary"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="cast-receiver-chat-overlay"]')).not.toBeNull()
     expect(container.textContent).toContain('Fan: hello')
     expect(container.querySelector('iframe')?.getAttribute('src')).toContain('abc123')
   })
 
+  it('shows empty chat overlay copy when chat messages are absent', () => {
+    renderPresentation(youtubeSnapshot, [])
+    expect(container.textContent).toContain(CAST_RECEIVER_COPY.emptyChat)
+  })
+
+  it('maps waiting stage labels to receiver room-video copy', () => {
+    renderPresentation({
+      roomMode: 'theater',
+      stagePrimary: { kind: 'live_video_placeholder', label: 'Waiting for party video' },
+      chatOverlay: { messages: [] },
+    })
+
+    expect(container.textContent).toContain(CAST_RECEIVER_COPY.waitingForRoomVideo)
+  })
+
   it('does not render sidebar tabs or compose controls', () => {
-    const snapshot: CastPresentationSnapshot = {
+    renderPresentation({
       roomMode: 'theater',
       stagePrimary: { kind: 'live_video_placeholder', label: 'Party video' },
       chatOverlay: { messages: [] },
-    }
-
-    renderPresentation(snapshot)
+    })
     expect(container.querySelector('.riffsync-room-page__tabs')).toBeNull()
     expect(container.querySelector('input[type="text"]')).toBeNull()
     expect(container.querySelector('button')).toBeNull()
   })
+
+  it.each(RECEIVER_VIEWPORTS)(
+    'keeps stage primary and chat overlay within TV layout constraints at $label',
+    ({ width, height }) => {
+      container.style.width = `${width}px`
+      container.style.height = `${height}px`
+      renderPresentation(youtubeSnapshot)
+
+      const stage = container.querySelector('.riffsync-cast-receiver__stage') as HTMLElement
+      const overlay = container.querySelector('.riffsync-cast-receiver__chat-overlay') as HTMLElement
+      const iframe = container.querySelector('.riffsync-cast-receiver__youtube') as HTMLElement
+
+      expect(stage).not.toBeNull()
+      expect(overlay).not.toBeNull()
+      expect(iframe).not.toBeNull()
+
+      const stageRect = stage.getBoundingClientRect()
+      const overlayRect = overlay.getBoundingClientRect()
+      const iframeRect = iframe.getBoundingClientRect()
+
+      expect(overlayRect.width).toBeLessThanOrEqual(stageRect.width * 0.4 + 1)
+      expect(overlayRect.height).toBeLessThanOrEqual(stageRect.height * 0.45 + 1)
+      expect(iframeRect.width).toBeLessThanOrEqual(stageRect.width + 1)
+      expect(iframeRect.height).toBeLessThanOrEqual(stageRect.height + 1)
+    },
+  )
 })
