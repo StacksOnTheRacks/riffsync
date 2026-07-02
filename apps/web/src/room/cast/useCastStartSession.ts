@@ -141,7 +141,7 @@ export function useCastStartSession({
   }, [castStartLifecycle])
 
   useEffect(() => {
-    if (castStartLifecycle !== 'starting') return
+    if (castStartLifecycle !== 'launching') return
 
     const handleFocusIn = (event: FocusEvent) => {
       if (!shouldTransferFocusToStopRef.current) return

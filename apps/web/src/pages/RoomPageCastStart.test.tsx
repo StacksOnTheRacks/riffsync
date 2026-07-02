@@ -196,7 +196,15 @@ describe('RoomPage Cast start', () => {
   }
 
   it('shows local starting status when Cast start is in progress', async () => {
-    castStartLifecycle.value = 'starting'
+    castStartLifecycle.value = 'launching'
+    await openRoomTab()
+
+    const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
+    expect(status?.textContent).toBe(CAST_STARTING_MESSAGE)
+  })
+
+  it('shows local starting status while session render is pending', async () => {
+    castStartLifecycle.value = 'session_pending_render'
     await openRoomTab()
 
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)

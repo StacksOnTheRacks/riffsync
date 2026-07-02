@@ -87,7 +87,7 @@ function TestHarness({
         <button ref={castToTvButtonRef} type="button" data-testid="cast-to-tv" onClick={() => void startCast()}>
           Cast to TV
         </button>
-      ) : castStartLifecycle === 'starting' ? (
+      ) : castStartLifecycle === 'launching' || castStartLifecycle === 'session_pending_render' ? (
         <p data-testid="cast-starting-status">Starting Cast…</p>
       ) : null}
       {castStartLifecycle === 'casting' || castStartLifecycle === 'stopping' || castStartLifecycle === 'stop_failed' ? (
