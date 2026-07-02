@@ -4,7 +4,7 @@ export function formatCatalogEpisodeInUseMessage(references: {
 }): string {
   const segments: string[] = []
   if (references.rooms > 0) {
-    segments.push(`${references.rooms} room(s)`)
+    segments.push(`${references.rooms} active watch party room(s)`)
   }
   if (references.lists > 0) {
     segments.push(`${references.lists} list(s)`)
