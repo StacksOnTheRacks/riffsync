@@ -146,6 +146,16 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 9. **Focus:** During launch, focus stays on **Cast to TV** unless the viewer moves it. After failed launch, return focus to **Cast to TV** when still rendered. Do not move focus to **Stop Cast** in #302.
 10. **Room isolation:** Launch, cancel, reject, timeout, and session-pending states do not call room HTTP mutation APIs, publish room WebSocket messages, request SFU tokens, change **`share_state`**, alter **`roomMode`** / **`avDisabled`**, change presence, reset chat/sidebar state, or change other participants' UI.
 
+### Cast render confirmation flow (#304)
+
+1. **Pending entry:** When **`requestSession()`** resolves, the sender is in **`session_pending_render`** and starts a **30-second** receiver render-confirmation timer. Normal in-page playback, chat, sidebar tabs, participant A/V controls, and room controls remain visible and usable.
+2. **Receiver acknowledgement:** The receiver sends a JSON **`receiver_rendered`** acknowledgement over **`urn:x-cast:com.riffsync.presentation`** only after stage-primary video and the bottom-right chat overlay rendered. The acknowledgement must include **`schemaVersion: 1`**, the latest presentation **`snapshotId`**, **`stagePrimaryRendered: true`**, and **`chatOverlayRendered: true`**.
+3. **Invalid acknowledgement:** Missing booleans, false booleans, stale **`snapshotId`**, malformed payloads, unknown acknowledgement type, receiver page load, or **`requestSession()`** resolution alone keep the sender out of active Cast.
+4. **Timeout / pre-active failure:** If the 30-second timer expires, the Cast channel closes, or the receiver reports partial render before active Cast, clear the timer, return to **`idle`**, show **`CAST_START_REJECTED`** copy at the Cast surface, keep normal in-page playback visible, and leave **Cast to TV** retryable when availability remains **`available`**.
+5. **Successful confirmation:** A valid positive acknowledgement clears the timer and transitions to active Cast. The sender replaces the normal stage with **Now Casting** and Stop Cast, suppresses expanded view while active, and preserves chat scrollback, compose draft, selected sidebar tab, room membership, presence, and participant A/V state.
+6. **Focus:** If focus is still on the initiating **Cast to TV** action when active Cast begins, move focus to **Stop Cast**. If the viewer moved focus elsewhere during pending render, do not steal focus.
+7. **Room isolation:** Pending render, invalid acknowledgement, timeout, retry, and successful confirmation do not call RiffSync room HTTP mutation APIs, publish room WebSocket messages, request SFU tokens, change **`share_state`**, change **`roomMode`** / **`avDisabled`**, alter presence, write durable Cast fields, or change other participants' UI.
+
 ### Cast-active sender flow (#274)
 
 1. **Active entry:** #274 begins when the local Cast controller reaches active Cast after receiver render confirmation. Do not show **`Now Casting`** before that confirmation.

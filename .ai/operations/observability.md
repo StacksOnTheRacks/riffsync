@@ -258,7 +258,7 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 - **Optional aggregate client counters** — **`IceGatheringFailed`**, **`ProducerLifecycleEvent`**, **`ChatSendDropped`** — design only in runbook until a server-side aggregation path exists (no browser **`PutMetricData`**).
 
 ### chromecast-local-observability
-- Specify privacy-safe support copy and optional dev-only console events for sender SDK readiness, receiver render confirmation timeout, receiver loss, blocked playback, and stop failure.
+- No open decisions remain for #304 receiver render confirmation timeout evidence. Tests and optional dev-only console output may record privacy-safe local Cast controller events such as **`receiver_render_confirmed`**, **`receiver_render_timeout`**, and **`receiver_render_invalid`** without receiver device names, receiver identifiers, room ids, session ids, fan subs, Cast provider error codes, or CloudWatch emission. Receiver loss after active Cast, blocked playback, and stop failure remain with later lifecycle issues.
 - Specify how manual physical-device smoke results are recorded without logging receiver device names or identifiers in committed docs or app-authored output.
 
 ## Primary code pointers (optional)

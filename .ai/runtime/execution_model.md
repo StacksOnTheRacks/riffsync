@@ -52,6 +52,8 @@ Chromecast runtime state belongs to the room shell as a **client-local controlle
 | **Receiver model** | The receiver is a registered Custom Web Receiver, currently hosted at **`/cast/receiver`**, fed by sender-proxied local state over custom namespace **`urn:x-cast:com.riffsync.presentation`**. It configures the namespace before receiver context start and does not join the room, create a participant session, open room/SFU sockets, publish chat, or own room authority. |
 | **Participant isolation (#277)** | Other participants' **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, drawer diagnostics, stage presentation, controls, and chat/sidebar state remain unchanged when one viewer enters, exits, fails, or cleans up local Cast. |
 
+The #304 receiver render-confirmation state runs between `session_pending_render` and `casting`. It validates a receiver-channel JSON acknowledgement shaped as **`{ type: "receiver_rendered", schemaVersion: 1, snapshotId, stagePrimaryRendered: true, chatOverlayRendered: true }`** on **`urn:x-cast:com.riffsync.presentation`**. The sender accepts only the latest `snapshotId` and starts a **30-second** timer after `requestSession()` resolves. Timeout, stale/partial/malformed acknowledgement, or pre-active channel close returns to `idle` with `CAST_START_REJECTED` while normal playback stays visible. Only a valid positive acknowledgement transitions to `casting`.
+
 ### Cast availability detector (#272)
 
 The #272 slice may introduce the first local Cast controller shape as a capability detector only.
@@ -501,7 +503,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 | Receiver render confirmation | **30s** after session resolve | #304 | **`idle`** + **`CAST_START_REJECTED`**; normal playback |
 | Stop cleanup, route-ended cleanup, stale receiver-channel listeners | — | #276–#278 | Deferred |
 
-- Specify the receiver render-confirmation payload shape and fake receiver-channel acknowledgement used by unit/component tests (#304).
+- No open decisions remain for the #304 receiver render-confirmation payload, validation, timer, or retry behavior. Unit/component tests use fake receiver-channel acknowledgements matching the **`receiver_rendered`** shape above.
 - Specify cleanup ordering when global room leave or navigation overlaps active Cast or failed Stop Cast (#278).
 
 ## Primary code pointers (optional)
