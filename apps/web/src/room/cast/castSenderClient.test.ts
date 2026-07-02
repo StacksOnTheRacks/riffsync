@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDefaultCastSenderClient } from './castSenderClient'
+import { createDefaultCastSenderClient, prepareDefaultCastSenderClient } from './castSenderClient'
 
 type CastSenderTestWindow = Window & {
   chrome?: {
@@ -82,6 +82,43 @@ function installCastFramework({
 
   return { context, currentSession, session }
 }
+
+describe('prepareDefaultCastSenderClient', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    document.head.innerHTML = ''
+    delete (window as CastSenderTestWindow).chrome
+    delete (window as CastSenderTestWindow).cast
+    delete (window as Window & { __onGCastApiAvailable?: (isAvailable: boolean) => void }).__onGCastApiAvailable
+  })
+
+  it('configures CastContext for availability without requesting a session', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    const { context } = installCastFramework()
+
+    await expect(prepareDefaultCastSenderClient()).resolves.toBe(true)
+
+    expect(context.setOptions).toHaveBeenCalledWith({
+      receiverApplicationId: 'receiver-app-id',
+      autoJoinPolicy: 'origin_scoped',
+    })
+    expect(context.requestSession).not.toHaveBeenCalled()
+  })
+
+  it('returns false when the receiver application id is missing', async () => {
+    installCastFramework()
+
+    await expect(prepareDefaultCastSenderClient()).resolves.toBe(false)
+  })
+
+  it('returns false when CastContext configuration fails', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    const { context } = installCastFramework({ includeAutoJoinPolicy: false })
+
+    await expect(prepareDefaultCastSenderClient()).resolves.toBe(false)
+    expect(context.requestSession).not.toHaveBeenCalled()
+  })
+})
 
 describe('createDefaultCastSenderClient', () => {
   afterEach(() => {
