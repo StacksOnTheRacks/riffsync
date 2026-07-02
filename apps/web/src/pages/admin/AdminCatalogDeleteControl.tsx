@@ -104,8 +104,8 @@ export function AdminCatalogDeleteControl({
         Danger zone
       </h2>
       <p className="riffsync-admin-catalog-delete__lede">
-        Permanently remove this episode from the catalog. Deletion is blocked while rooms or lists
-        reference the episode.
+        Permanently remove this episode from the catalog. Deletion is blocked while active watch
+        parties or lists reference the episode.
       </p>
       <button type="button" className="btn btn-danger" onClick={openDialog} disabled={deleting}>
         Delete episode
@@ -130,8 +130,8 @@ export function AdminCatalogDeleteControl({
               Delete episode?
             </h2>
             <p className="riffsync-admin-modal__lede">
-              This action is permanent. You cannot delete while rooms or lists still reference this
-              episode.
+              This action is permanent. You cannot delete while active watch parties or lists still
+              reference this episode.
             </p>
             <div className="riffsync-admin-modal__form">
               <label className="riffsync-admin-modal__label" htmlFor={confirmInputId}>

@@ -29,6 +29,7 @@ vi.mock('./riffsync-observability', async (importOriginal) => {
   };
 });
 
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { handler as deleteHandler } from './admin-catalog-delete';
 
 function deleteEvent(
@@ -125,7 +126,7 @@ describe('admin-catalog-delete handler', () => {
     );
   });
 
-  it('returns 409 when room scan returns matches', async () => {
+  it('returns 409 when active room scan returns matches', async () => {
     mocks.docSend
       .mockResolvedValueOnce({ Item: { id: 'ep-1' } })
       .mockResolvedValueOnce({ Count: 2 });
@@ -146,6 +147,11 @@ describe('admin-catalog-delete handler', () => {
       code: 'catalog_episode_in_use',
       references: { rooms: 2, lists: 0 },
     });
+    expect(ScanCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        FilterExpression: 'catalogEpisodeId = :id AND lastActivityAt > :cutoff',
+      }),
+    );
     expect(mocks.recordAdminCatalogRoute).toHaveBeenCalledWith(
       'AdminCatalogDelete',
       'conflict',
