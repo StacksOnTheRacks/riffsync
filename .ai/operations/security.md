@@ -50,11 +50,22 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | **TURN credentials** | **`GET /v1/webrtc/ice`** REST credentials via **`riffsync/turn-static-auth-secret`**; more publishers increase relay load on the shared TURN instance. |
 | **Transport** | TLS on API Gateway; **`wss://`** SFU signaling via Caddy when **`PROD_SFU_SIGNALING_HOSTNAME`** is set. |
 
+## Viewer-local Cast
+
+| Topic | Contract |
+| --- | --- |
+| **Receiver app id** | Public Google Cast receiver application id is not a secret. Treat it like other SPA public config, not like an API token. |
+| **Custom receiver route** | **`/cast/receiver`** is a public TLS route. It must not expose room API credentials, fan/staff JWTs, SFU join tokens, or privileged room state. |
+| **Receiver authority** | The receiver is sender-proxied only. It must not call RiffSync HTTP room APIs, open room WebSockets, request SFU tokens, create presence rows, publish chat, subscribe to room media services, mutate room state, or infer host authority. |
+| **CSP and framing** | CSP/script/frame policy must allow only the Google Cast and playback resources required by the sender and receiver presentation. Changes for Cast should be explicit and reviewed rather than broad wildcard allowances. |
+| **Privacy** | App-authored logs, status copy, and support output must not include receiver device names, identifiers, or room participant identifiers. Browser-owned Cast UI may display device names outside RiffSync control. |
+
 ## Compliance cues
 
 | Topic | Contract |
 | --- | --- |
 | **Third-party ToS** | YouTube embed + TMDB attribution + **Giphy** usage + Meta login rules documented for operators (**Giphy:** [`docs/operations/giphy.md`](../../docs/operations/giphy.md)). |
+| **Google Cast** | Sender and receiver behavior follows Google Cast SDK requirements for registered custom receivers, namespace naming, sender origins, and receiver URL reachability. Native media-only Cast is not used as the current custom receiver maturity substitute. |
 
 ## SFU token mint abuse controls
 

@@ -117,7 +117,7 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 1. **Availability gate:** In normal room view, a Cast-capable sender may see **Cast to TV** after local sender support is detected. Unsupported or unavailable Cast never blocks the normal stage, chat, expanded view, or room controls.
 2. **Expanded-view exclusion:** Expanded view does not expose Cast entry. A viewer starts Cast from normal room view; the implementation may reuse expanded-view composition internally without toggling the sender into expanded view.
 3. **Start Cast:** Activating **Cast to TV** begins a local Cast start attempt. The sender keeps the normal room session joined and chat usable during the attempt.
-4. **Successful start:** Only after Cast start is confirmed, the sender's normal stage replaces the regular video surface with **`Now Casting`** plus a stop affordance. Other participants receive no room event and see no change.
+4. **Successful start:** Only after the custom receiver confirms that stage-primary video and the chat overlay rendered, the sender's normal stage replaces the regular video surface with **`Now Casting`** plus a stop affordance. **`requestSession()`** resolution or receiver launch alone must not trigger **`Now Casting`**. Other participants receive no room event and see no change.
 5. **Receiver presentation:** The TV presentation follows the expanded-view composition model: stage primary/video plus chat overlay, no sidebar tab strip.
 6. **Chat while casting:** Chat send/read/reaction/GIF behavior follows the same signed-in and anonymous rules as normal room view; Cast state must not block chat when the chat plane is healthy.
 7. **Stop Cast:** Successful intentional Stop Cast returns the sender to normal in-page playback. Room session, chat state, selected sidebar tab, and latest authoritative room state remain intact.
@@ -231,7 +231,9 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-interaction-flow
-- No open implementation decisions remain for M25 Cast interaction-flow verification. See **Chromecast Cast flow** and peer slice flows #274, #276, #278 above.
+- Specify local copy and status placement for unsupported sender, missing app id, starting, chooser cancel, start rejected, receiver render timeout, session ended, playback blocked, stop failed, and cleanup complete.
+- Specify focus behavior for chooser cancel, receiver confirmation success, Stop Cast success, stop failure, navigation, reload, and external receiver end.
+- Specify tests that prove **`Now Casting`** is absent until receiver render confirmation and removed on cleanup without resetting sidebar/chat state.
 
 ## Primary code pointers (optional)
 

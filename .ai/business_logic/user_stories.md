@@ -49,7 +49,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P1-03 | fan | federated login (e.g. Facebook) | I can **host** rooms and retain continuity across devices |
 | US-P1-04 | operator | admin catalog + lists | I can curate without editing raw JSON in prod (**depends on US-P1-05**) |
 | US-P1-06 | signed-in fan in room | my **active** badge to persist across brief reconnects when I was recently engaged | late joiners and refresh see accurate engagement state on **People** |
-| US-P1-07 | Cast-capable room viewer | start a viewer-local Cast session from normal room view | I can watch the party on a TV while continuing to chat from my sender device |
+| US-P1-07 | Cast-capable room viewer | start a viewer-local Cast session from normal room view | I can watch the RiffSync room presentation on a TV while continuing to chat from my sender device |
 
 ## Out of scope (MVP)
 
@@ -67,6 +67,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 - **Supplementary mic-only stage chrome** (avatar chips, audible-only tile badges) — speaking on **People** rows only for mic-only
 - **Guest join/leave system lines** (signed-in fans only; anonymous guests connect silently)
 - Room-wide Chromecast or host-controlled casting for all participants (Cast is viewer-local only)
+- Native media-only Cast or YouTube-only Cast as the current Cast maturity substitute; the current Cast scope is the custom RiffSync receiver presentation with chat overlay.
 
 ## Decisions (answered — realtime hardening)
 
@@ -99,6 +100,10 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### existing-room-polish
 - **Video Chat empty grid:** copy and layout when **no participant has camera on** (placeholder vs audio-only affordance).
 - **Kill switch control affordance:** participant camera/mic toggles **visible but disabled** with short explanation vs hidden when **`avDisabled`** is true (accessibility vs minimal chrome).
+
+### viewer-local-cast
+- Specify acceptance tests for "mature and diagnosable" Cast without adding room-wide metrics, room diagnostics, or aggregate product telemetry.
+- Specify story-level proof that failed, unsupported, ended, blocked, stopped, reloaded, and cleaned-up Cast states preserve normal room participation and do not affect other participants.
 
 ## Decisions (answered — M25 Chromecast delivery slices)
 

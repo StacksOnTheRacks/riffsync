@@ -44,11 +44,12 @@ Chromecast runtime state belongs to the room shell as a **client-local controlle
 | --- | --- |
 | **State scope** | Per browser tab, session-only; no room document persistence, `localStorage`, room WebSocket fan-out, or SFU token claim. |
 | **Entry gate** | Start only from normal room view after sender support is detected. Expanded view is not a valid start point. |
-| **Start transition** | Keep the normal in-page video visible until Cast start succeeds. Swap the sender stage to **`Now Casting`** only after confirmed success. |
+| **Sender framework** | Load the Google Cast sender SDK with **`loadCastFramework=1`**, assign **`window.__onGCastApiAvailable`** before script load, configure **`CastContext.setOptions`** with receiver app id and **`ORIGIN_SCOPED`**, then use **`CastContext.requestSession()`** for the chooser. |
+| **Start transition** | Keep the normal in-page video visible until the receiver confirms render. Swap the sender stage to **`Now Casting`** only after the Custom Web Receiver reports that stage-primary video plus the bottom-right chat overlay rendered. |
 | **Active state** | While active, the sender remains joined to the room and chat stays controlled by **`ChatSession`**. Cast active state must not close healthy chat or SFU sessions. |
 | **Stop / failure** | Stop, unavailable, rejected start, receiver disconnect, route leave, or reload converges on local cleanup and returns to normal in-page playback without clearing room session or chat state. |
 | **Authority** | Cast state never changes **`roomMode`**, **`avDisabled`**, **`share_state`**, host screen publishing, participant A/V publish eligibility, or other participants' presentation. |
-| **Receiver model** | The receiver is a custom RiffSync Cast page fed by sender-proxied local state over the Cast channel. It does not join the room, create a participant session, open room/SFU sockets, or own room authority. |
+| **Receiver model** | The receiver is a registered Custom Web Receiver, currently hosted at **`/cast/receiver`**, fed by sender-proxied local state over custom namespace **`urn:x-cast:com.riffsync.presentation`**. It configures the namespace before receiver context start and does not join the room, create a participant session, open room/SFU sockets, publish chat, or own room authority. |
 | **Participant isolation (#277)** | Other participants' **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, drawer diagnostics, stage presentation, controls, and chat/sidebar state remain unchanged when one viewer enters, exits, fails, or cleans up local Cast. |
 
 ### Cast availability detector (#272)
@@ -72,7 +73,7 @@ The #273 slice extends the local Cast controller from availability into custom r
 | **Minimum lifecycle states** | Add local states equivalent to **`idle`**, **`starting`**, **`casting`**, and **`start_failed`**. Later stop, receiver-disconnect, receiver-playback-blocked, and stop-failed refinements may extend the state machine without changing room authority. |
 | **Launch source** | Cast starts the custom RiffSync receiver page, then sends a presentation snapshot that includes the current stage-primary video source/binding metadata needed by the receiver plus chat overlay state. |
 | **Receiver updates** | While launch is active, the sender sends chat-overlay updates over the Cast channel. The receiver renders overlay content only; compose, authenticated chat send, People, Room, and Profile interactions stay on the sender. |
-| **Success condition** | Cast start is successful only when the receiver confirms it is rendering the stage-primary video plus bottom-right chat overlay. A launch-only or model-pass-only acknowledgement is insufficient for #273. |
+| **Success condition** | Cast start is successful only when the receiver confirms it is rendering the stage-primary video plus bottom-right chat overlay. **`requestSession()`** resolution, receiver launch, or model-pass-only acknowledgement is insufficient for #273. |
 | **Playback surface** | The sender keeps normal in-page playback visible during **`starting`**. After receiver render confirmation, the sender may transition to the later **`Now Casting`** state owned by #274. |
 
 ### Cast-active controller (#274)
@@ -476,7 +477,10 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Harness extension** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`**.
 
 ### chromecast-runtime-controller
-- No open implementation decisions remain for M25 Cast runtime-controller verification. See **Local Cast controller**, peer controller sections #272-#276, and **Cast verification controller hooks (#279)** above.
+- Specify the local Cast controller state names and transition table for checking, unavailable, idle, starting, start_failed, casting, stopping, stop_failed, session_ended, playback_blocked, cleaned_up, room leave, navigation, and reload.
+- Specify timeout ownership for SDK readiness, receiver render confirmation, stop cleanup, route-ended cleanup, and stale receiver-channel listeners.
+- Specify the receiver render-confirmation payload shape and fake receiver-channel acknowledgement used by unit/component tests.
+- Specify cleanup ordering when global room leave or navigation overlaps active Cast or failed Stop Cast.
 
 ## Primary code pointers (optional)
 

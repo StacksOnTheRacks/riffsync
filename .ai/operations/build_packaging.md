@@ -40,6 +40,17 @@ Read from **`RiffSyncStaffAuth-prod`** outputs in the **same** SPA build step (p
 
 **Local dev:** **`.env.local`** under **`apps/web`** may set staff **`VITE_*`** vars pointing at the prod staff pool (localhost OAuth callbacks mirror fan **`localDevCallbackLogoutBase`**). Missing staff env should fail loudly on admin login entry only; fan flows remain usable.
 
+### Viewer-local Cast receiver (same build)
+
+The SPA build includes the custom receiver route and public receiver app id configuration for optional viewer-local Cast.
+
+| Concern | Contract |
+| --- | --- |
+| **Receiver route** | **`/cast/receiver`** is part of the same Vite SPA artifact and must be reachable from the production CloudFront origin over HTTPS. |
+| **Receiver app id** | Public build-time value, expected as **`VITE_CAST_RECEIVER_APP_ID`** unless refinement chooses a repo-consistent alternative. It is safe in the bundle and must not be handled as a secret. |
+| **Sender SDK** | The production bundle may load Google's Cast sender SDK from **`www.gstatic.com`** with **`loadCastFramework=1`**. Build and CSP policy must permit the required script path where Cast is enabled. |
+| **Custom receiver** | Release readiness requires the Cast SDK Developer Console app id to point at the deployed receiver URL and any applicable sender origin allowlist to include **`https://riffsync.tv`**. |
+
 ### Deploy ordering vs build
 
 Staff Cognito outputs must exist **before** the SPA build that includes admin routes:
@@ -58,6 +69,8 @@ See **[`deployment_environments.md`](deployment_environments.md)** for the full 
 | **`infra-cdk`** | **`cdk synth`**, **`cfn-lint`** on **`cdk.out`** | PR |
 | **`web-app`** | **`apps/web`** **`npm run build`** + unit tests + lint (may use placeholder env in CI; production deploy reads live Cfn outputs) | PR |
 | **`realtime-conformance`** | Disposable SFU + TURN integration harness (see below) | **PR** when path filters match |
+
+Viewer-local Cast browser/unit tests live under the **`web-app`** job. Physical Google Cast discovery and receiver launch are manual smoke checks because CI cannot reliably emulate Cast devices.
 
 PR CI **does not deploy** to AWS and **must not** touch the production **`RiffSyncTurn`** footprint.
 
@@ -143,6 +156,18 @@ Harness failures must name the **drawer** (chat, signaling, connectivity, produc
 - **Production:** manual **[`deploy-prod.yml`](../../.github/workflows/deploy-prod.yml)** on **`main`** only.
 - **Deploy identity:** GitHub OIDC → IAM role (**`AWS_DEPLOY_ROLE_ARN_PROD`**) — prefer over long-lived access keys ([`docs/architecture.server.md`](../../docs/architecture.server.md) Delivery pipeline §).
 
+### Viewer-local Cast release readiness
+
+Before announcing Cast-ready production behavior, operators verify:
+
+| Check | Contract |
+| --- | --- |
+| **Developer Console** | Custom Web Receiver app is registered, published for the intended test/prod audience, and its application id matches the public SPA build value. |
+| **Receiver URL** | Registered URL reaches **`https://riffsync.tv/cast/receiver`** over TLS from a network a Cast device can access. |
+| **Origin policy** | Sender origin allowlist, if configured, includes **`https://riffsync.tv`** and any approved test origins. |
+| **Headers / CSP** | CloudFront/S3 response headers allow the receiver route, Google Cast sender/receiver scripts, required framing or embed behavior, and YouTube/player resources needed by the receiver presentation. |
+| **Physical smoke** | A Cast-capable Chrome sender opens the chooser from normal room view, launches the custom receiver on a physical Cast device, receives render confirmation, enters **`Now Casting`**, stops or recovers locally, and leaves chat/SFU/other participants unaffected. |
+
 ## Participant AV (watch-party rooms) — SFU-only artifact graph
 
 All watch-party media (host screen + participant camera/microphone) ships through **one** mediasoup SFU path. **No** mesh WebRTC artifact or build flag.
@@ -220,3 +245,12 @@ The informal **SFU deploy checklist — hardening deltas** table above is supers
 
 - [`apps/web/src/auth/fanHostedUiPkce.ts`](../../apps/web/src/auth/fanHostedUiPkce.ts) — fan **`VITE_COGNITO_*`** consumption pattern
 - [`infra/cdk/lib/fan-auth-stack.ts`](../../infra/cdk/lib/fan-auth-stack.ts) — template for staff stack outputs and SES wiring
+
+## Open implementation decisions
+
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### chromecast-build-packaging
+- Specify deploy workflow wiring for the public receiver app id and placeholder CI value.
+- Specify whether production deploy fails when receiver app id is missing or records a release-check failure while hiding Cast.
+- Specify the web-app test split for Cast: SDK loader unit tests, receiver route rendering tests, and manual physical-device smoke evidence.
