@@ -477,10 +477,32 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **Harness extension** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`**.
 
 ### chromecast-runtime-controller
-- Specify the local Cast controller state names and transition table for checking, unavailable, idle, starting, start_failed, casting, stopping, stop_failed, session_ended, playback_blocked, cleaned_up, room leave, navigation, and reload.
-- Specify timeout ownership for SDK readiness, receiver render confirmation, stop cleanup, route-ended cleanup, and stale receiver-channel listeners.
-- Specify the receiver render-confirmation payload shape and fake receiver-channel acknowledgement used by unit/component tests.
-- Specify cleanup ordering when global room leave or navigation overlaps active Cast or failed Stop Cast.
+
+**Local Cast controller states (launch slice #302):**
+
+| State | Meaning | Visible copy / UI |
+| --- | --- | --- |
+| **`checking`** | Sender availability probe in flight (#301) | No **Cast to TV** |
+| **`unavailable`** | Sender unsupported, blocked, or misconfigured (#301) | **`CAST_UNAVAILABLE`** at Cast surface |
+| **`idle`** | Sender ready; no active launch or Cast session | **Cast to TV** when **`available`** |
+| **`launching`** | **`requestSession()`** in flight; chooser may be open | **`CAST_STARTING`**; normal playback |
+| **`session_pending_render`** | Session resolved; awaiting receiver render ack (#304) | **`CAST_STARTING`**; normal playback |
+| **`casting`** | Receiver render confirmed (#304+) | **`Now Casting`** sender stage |
+| **`stopping`**, **`stop_failed`**, **`session_ended`**, **`playback_blocked`**, **`cleaned_up`** | Post-active lifecycle (#276–#278) | Per **`error_state.md`** |
+
+**Launch transitions (#302):** **`idle`** → **`launching`** on **Cast to TV** click → **`session_pending_render`** on **`requestSession()`** resolve, or back to **`idle`** on chooser cancel, SDK reject, or **45s** launch timeout. **`session_pending_render`** → **`casting`** is #304 only.
+
+**Timeout ownership:**
+
+| Timer | Duration | Owner | Outcome |
+| --- | --- | --- | --- |
+| SDK availability callback | **10s** | #301 | **`unavailable`** |
+| **`requestSession()`** launch | **45s** from click | #302 | **`idle`** + **`CAST_START_REJECTED`** |
+| Receiver render confirmation | **30s** after session resolve | #304 | **`idle`** + **`CAST_START_REJECTED`**; normal playback |
+| Stop cleanup, route-ended cleanup, stale receiver-channel listeners | — | #276–#278 | Deferred |
+
+- Specify the receiver render-confirmation payload shape and fake receiver-channel acknowledgement used by unit/component tests (#304).
+- Specify cleanup ordering when global room leave or navigation overlaps active Cast or failed Stop Cast (#278).
 
 ## Primary code pointers (optional)
 
