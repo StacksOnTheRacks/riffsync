@@ -1,8 +1,7 @@
-import type { CatalogEra } from './catalogTypes'
+import { CATALOG_ERAS, type CatalogEra } from './catalogTypes'
 
 const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
 const YOUTUBE_VIDEO_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/
-const CATALOG_ERAS: readonly CatalogEra[] = ['joel', 'mike', 'jonah', 'emily', 'other']
 
 export type CatalogEpisodeFormMode = 'create' | 'edit'
 

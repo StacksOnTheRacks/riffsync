@@ -14,9 +14,8 @@ import {
   filterStaffCatalogEntries,
   type StaffCatalogFilterEra,
 } from '../../catalog/filterStaffCatalogEntries'
-import { formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTypes'
+import { CATALOG_ERAS, formatCatalogEraLabel } from '../../catalog/catalogTypes'
 
-const CATALOG_ERAS: CatalogEra[] = ['joel', 'mike', 'jonah', 'emily', 'other']
 const SAVED_BANNER_TIMEOUT_MS = 5000
 
 function posterThumbUrl(entry: StaffCatalogEpisode): string | null {

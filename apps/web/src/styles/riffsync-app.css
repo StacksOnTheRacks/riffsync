@@ -3424,16 +3424,35 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   background: none;
   border: 0;
   padding: 0;
+  margin: 0;
   font: inherit;
-  color: inherit;
+  font-family: var(--title-fonts);
+  color: var(--white-color);
   cursor: pointer;
   text-transform: capitalize;
+  text-decoration: none;
+  text-align: inherit;
 }
 
 #gen-main-menu .riffsync-site-nav-sign-in:hover,
 #gen-main-menu .riffsync-site-nav-sign-in:focus {
   color: var(--primary-color);
   text-decoration: none;
+}
+
+@media (max-width: 1023px) {
+  #gen-main-menu .menu-item .riffsync-site-nav-sign-in {
+    width: 100%;
+    display: inline-block;
+    padding: 15px;
+    text-align: left;
+  }
+
+  #gen-main-menu .menu-item .riffsync-site-nav-sign-in:hover,
+  #gen-main-menu .menu-item .riffsync-site-nav-sign-in:focus {
+    background: var(--primary-color);
+    color: var(--white-color);
+  }
 }
 
 /* Fan account page */

@@ -23,7 +23,14 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function asEra(v: unknown): CatalogEra {
   const s = typeof v === 'string' ? v : ''
-  if (s === 'joel' || s === 'mike' || s === 'jonah' || s === 'emily' || s === 'other') {
+  if (
+    s === 'joel' ||
+    s === 'mike' ||
+    s === 'jonah' ||
+    s === 'emily' ||
+    s === 'community' ||
+    s === 'other'
+  ) {
     return s
   }
   return 'other'

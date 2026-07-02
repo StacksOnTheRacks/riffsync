@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CatalogEpisode } from './catalogTypes'
-import { compareByTmdbPopularity, topEpisodesByTmdbPopularity } from './mockCatalog'
+import { compareByTmdbPopularity, topEpisodesByTmdbPopularity, topEpisodesForHomeMostPopular } from './mockCatalog'
 
 function ep(
   id: string,
@@ -55,5 +55,26 @@ describe('topEpisodesByTmdbPopularity', () => {
     ]
     expect(topEpisodesByTmdbPopularity(entries, 2).map((e) => e.id)).toEqual(['a', 'b'])
     expect(topEpisodesByTmdbPopularity(entries, 2, 2).map((e) => e.id)).toEqual(['c', 'd'])
+  })
+})
+
+describe('topEpisodesForHomeMostPopular', () => {
+  it('excludes other-era rows from the home Most Popular row', () => {
+    const entries = [
+      { ...ep('other-hit', 1, 100), era: 'other' as const },
+      { ...ep('joel-hit', 2, 50), era: 'joel' as const },
+    ]
+    expect(topEpisodesForHomeMostPopular(entries, 12).map((e) => e.id)).toEqual(['joel-hit'])
+  })
+
+  it('includes community-era rows in the home Most Popular row', () => {
+    const entries = [
+      { ...ep('community-hit', 1, 80), era: 'community' as const },
+      { ...ep('joel-hit', 2, 50), era: 'joel' as const },
+    ]
+    expect(topEpisodesForHomeMostPopular(entries, 12).map((e) => e.id)).toEqual([
+      'community-hit',
+      'joel-hit',
+    ])
   })
 })

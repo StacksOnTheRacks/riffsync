@@ -10,7 +10,7 @@ import {
   buildHeroSlides,
   catalogEntriesWithYoutubeLink,
   firstEpisodesWithYoutubeForEra,
-  topEpisodesByTmdbPopularity,
+  topEpisodesForHomeMostPopular,
 } from '../catalog/mockCatalog'
 import { HomeHeroBanner } from './home/HomeHeroBanner'
 import { HomeMovieRowSection } from './home/HomeMovieRowSection'
@@ -22,7 +22,7 @@ import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
  * when **`VITE_PUBLIC_API_BASE_URL`** is set.
  * In **`vite dev`** without that var, all load from **`data/catalog/episodes.json`** (filtered client-side).
  * Rows use only episodes that include a **YouTube** id (same filter as **`/catalog`**).
- * **Most Popular** ranks playable episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order).
+ * **Most Popular** ranks playable episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order); **`other`** era rows are excluded.
  * Era strips take the first **10** per Joel / Mike / Jonah from that playable set.
  */
 export function HomePage() {
@@ -92,7 +92,7 @@ export function HomePage() {
       <HomeMovieRowSection
         sectionId="home-most-popular"
         title="Most Popular"
-        episodes={topEpisodesByTmdbPopularity(playableEntries, 12)}
+        episodes={topEpisodesForHomeMostPopular(playableEntries, 12)}
       />
       <HomeSpotlightBanner episodes={spotlightWithYoutube} />
       {joelYoutubeRow.length > 0 ? (

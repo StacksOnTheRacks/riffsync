@@ -15,7 +15,7 @@ import {
   StaffSessionForbiddenError,
   StaffSessionUnauthorizedError,
 } from '../../api/staffAdminSessionApi'
-import { formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTypes'
+import { CATALOG_ERAS, formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTypes'
 import {
   mapValidationDetailsToFieldErrors,
   normalizeNullableTextField,
@@ -27,8 +27,6 @@ import {
 } from '../../catalog/validateCatalogEpisodeForm'
 import { invalidatePublicCatalogQueries } from '../../catalog/catalogQueries'
 import { AdminCatalogDeleteControl } from './AdminCatalogDeleteControl'
-
-const CATALOG_ERAS: CatalogEra[] = ['joel', 'mike', 'jonah', 'emily', 'other']
 
 const RECONCILE_HELPER =
   'These fields are updated by the scheduled reconcile job. Pin a TMDB movie id or set a search title in Curator hints; art and tagline refresh on the next reconcile run.'

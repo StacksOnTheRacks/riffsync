@@ -2,9 +2,16 @@
  * Shape aligned with `data/catalog/catalog.schema.json` episode `$defs.episode`
  * plus optional API-only hints (**`docs/api.catalog.md`**, **`architecture.frontend.md`**).
  */
-export type CatalogEra = 'joel' | 'mike' | 'jonah' | 'emily' | 'other'
+export type CatalogEra = 'joel' | 'mike' | 'jonah' | 'emily' | 'community' | 'other'
 
-export const CATALOG_ERAS: readonly CatalogEra[] = ['joel', 'mike', 'jonah', 'emily', 'other']
+export const CATALOG_ERAS: readonly CatalogEra[] = [
+  'joel',
+  'mike',
+  'jonah',
+  'emily',
+  'community',
+  'other',
+]
 
 /** Title-case label for chips and banners (e.g. `joel` → Joel). */
 export function formatCatalogEraLabel(era: CatalogEra): string {

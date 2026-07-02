@@ -105,6 +105,9 @@ export function compareByTmdbPopularity(a: CatalogEpisode, b: CatalogEpisode): n
   return a.experimentNumber - b.experimentNumber
 }
 
+/** Eras omitted from the home page Most Popular row. */
+export const HOME_MOST_POPULAR_EXCLUDED_ERAS: readonly CatalogEra[] = ['other']
+
 /** Playable episodes ranked by **`tmdbPopularity`** (reconcile), with optional offset for a second row. */
 export function topEpisodesByTmdbPopularity(
   entries: CatalogEpisode[],
@@ -112,4 +115,14 @@ export function topEpisodesByTmdbPopularity(
   offset = 0,
 ): CatalogEpisode[] {
   return [...entries].sort(compareByTmdbPopularity).slice(offset, offset + limit)
+}
+
+/** Most Popular home row: ranked popularity, excluding configured eras (e.g. `other`). */
+export function topEpisodesForHomeMostPopular(
+  entries: CatalogEpisode[],
+  limit: number,
+): CatalogEpisode[] {
+  const excluded = new Set(HOME_MOST_POPULAR_EXCLUDED_ERAS)
+  const eligible = entries.filter((entry) => !excluded.has(entry.era))
+  return topEpisodesByTmdbPopularity(eligible, limit)
 }
