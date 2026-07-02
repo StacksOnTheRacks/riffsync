@@ -54,9 +54,9 @@ The Cast receiver application id is public build-time configuration for the SPA.
 
 | Config | Contract |
 | --- | --- |
-| **Receiver app id** | A public Vite value, expected to be named **`VITE_CAST_RECEIVER_APP_ID`** unless refinement finds an existing naming convention conflict. Missing or invalid prod configuration hides or locally fails Cast; it must not degrade room bootstrap, chat, SFU media, or host controls. |
-| **Receiver URL** | Production registration points to the Custom Web Receiver route on **`https://riffsync.tv/cast/receiver`**. Local/dev receiver URLs may be used only where Cast device reachability and TLS requirements are satisfied. |
-| **Sender SDK** | The sender loads the Google Cast sender SDK with **`loadCastFramework=1`** and configures **`CastContext`** from build-time receiver app id before opening the chooser. |
+| **Receiver app id** | The public Vite value is **`VITE_CAST_RECEIVER_APP_ID`**. Missing or invalid configuration hides or locally fails Cast; it must not degrade room bootstrap, chat, SFU media, host controls, expanded view, or normal playback. |
+| **Receiver URL** | Production registration points to the Custom Web Receiver route on **`https://riffsync.tv/cast/receiver`**. Local/dev physical Cast tests require a Cast-device-reachable HTTPS origin; ordinary **`localhost`** Vite dev is suitable for unit/component tests but is not a physical receiver target unless tunneled or otherwise exposed over trusted TLS. |
+| **Sender SDK** | The sender loads the Google Cast sender SDK with **`loadCastFramework=1`**, assigns **`window.__onGCastApiAvailable`** before appending the SDK script, and configures **`CastContext`** from the build-time receiver app id with **`chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`** before exposing the normal-view **Cast to TV** start action. |
 | **No secrets** | Receiver app id and public origin values may appear in the browser bundle. They must not be treated as credentials or included in private secret rotation plans. |
 
 ## Secrets
@@ -143,9 +143,7 @@ When mediasoup signaling cannot be reached, the SPA surfaces an **honest configu
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-configuration
-- Confirm the final Vite env var name for the public receiver app id and update **`apps/web/.env.example`**, CI placeholders, and deploy workflow output wiring consistently.
-- Specify the production behavior when the receiver app id is absent: build failure, deploy checklist failure with hidden Cast UI, or explicit runtime local failure copy.
-- Specify local development guidance for Cast testing where physical receivers require reachable TLS origins rather than ordinary localhost.
+- No open decisions remain for sender availability configuration. The public app id env var is **`VITE_CAST_RECEIVER_APP_ID`**; missing prod configuration keeps Cast hidden or locally unavailable and is a release-readiness blocker before announcing Cast-ready behavior, not a room bootstrap failure; local physical Cast testing requires reachable TLS rather than ordinary **`localhost`**.
 
 ## Primary code pointers (optional)
 

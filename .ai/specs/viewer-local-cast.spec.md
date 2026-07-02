@@ -20,6 +20,10 @@ Every lifecycle outcome is local and recoverable: unavailable sender, chooser ca
 
 The web sender uses the current Google Cast Web Sender Framework. It loads `https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1`, assigns `window.__onGCastApiAvailable` before the SDK script loads, calls `cast.framework.CastContext.getInstance().setOptions(...)` with the configured receiver application id and `autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`, and invokes `CastContext.requestSession()` to open the Cast chooser.
 
+Sender availability is owned by the room Cast modules under `apps/web/src/room/cast/`. `castSenderSupportDetector.ts` owns one-time SDK script injection, the `data-riffsync-cast-framework="true"` script marker, callback registration order, callback timeout handling, and conversion of SDK load/configuration failures into unavailable sender support. `castSenderClient.ts` owns reading public `VITE_CAST_RECEIVER_APP_ID`, configuring `CastContext`, wrapping later `requestSession()` calls, and hiding provider internals from room UI. `useCastAvailability` runs after normal room bootstrap and exposes only `checking`, `available`, or `unavailable` to React room surfaces.
+
+The public receiver application id is `VITE_CAST_RECEIVER_APP_ID`. Missing or invalid configuration is local Cast unavailability, not a room configuration failure. It must not block room snapshot loading, chat WebSocket bootstrap, SFU media bootstrap, host controls, expanded view, or normal playback.
+
 The receiver is a Custom Web Receiver registered in the Cast SDK Developer Console. It is launched by the configured app id, served from a public HTTPS receiver URL, and configures custom namespace `urn:x-cast:com.riffsync.presentation` in receiver options before `context.start(options)`.
 
 The receiver remains sender-proxied only. It must not call RiffSync room HTTP APIs, open room WebSockets, request SFU tokens, create presence rows, publish chat, subscribe to room media services, mutate `share_state`, or change durable room fields. A future direct-joining receiver would require a separate integration and authorization review.
@@ -31,6 +35,8 @@ Relevant repository versions from package metadata: `@riffsync/web` uses React `
 ## Testing Strategy
 
 Unit and component tests prove sender SDK bootstrap order, support gating, `CastContext.setOptions`, `requestSession()` use, local status mapping, focus behavior, `Now Casting` gating on receiver render confirmation, stop restoration, failed stop behavior, and idempotent cleanup.
+
+The sender availability slice specifically verifies that the SDK callback is installed before script append, duplicate SDK scripts are not appended, script load failure or callback timeout resolves to unavailable, missing `VITE_CAST_RECEIVER_APP_ID` resolves to unavailable, `CastContext.setOptions` receives the configured receiver app id and `ORIGIN_SCOPED` auto-join policy, `Cast to TV` is hidden while checking or unavailable, unavailable copy stays at the normal-view Cast surface, expanded view exposes no Cast start action, and availability probing does not call room HTTP APIs, room WebSocket send paths, SFU token paths, or room mutation callbacks.
 
 Receiver tests or stubs prove the custom namespace is configured before receiver context start, the receiver renders the stage-primary plus chat-overlay shell, and sender-proxied updates do not introduce direct room API, room WebSocket, SFU token, presence, or chat publishing behavior.
 

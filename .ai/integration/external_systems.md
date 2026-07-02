@@ -23,14 +23,14 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 
 ### Cast sender availability gate (#272)
 
-The first Cast implementation slice may add a browser-local sender support detector. It reports whether the current normal room view may show **Cast to TV**; it does not start Cast and does not select the final receiver/source architecture.
+The first Cast implementation slice adds a browser-local sender support detector for the registered RiffSync Custom Web Receiver. It reports whether the current normal room view may show **Cast to TV**; it does not start Cast, render the receiver, or send presentation data.
 
 | Gate | Contract |
 | --- | --- |
 | **Runtime phase** | Run after normal room shell render/bootstrap. Detection must not block room snapshot, chat WebSocket, SFU bootstrap, normal playback, expanded view, or host controls. |
-| **Required support** | Show **Cast to TV** only when the browser/session exposes a usable sender capability for the chosen implementation path and the current context satisfies origin/security requirements. |
-| **Unsupported / unknown** | Omit the Cast entry while support is unknown or absent. If the detector fails after evaluation, map to local **`CAST_UNAVAILABLE`** copy in **`error_state.md`**. |
-| **No receiver architecture commitment** | #272 does not require custom receiver registration, receiver application id, receiver service identity, direct SFU subscribe authorization, YouTube-native Cast binding, or MediaStream Cast support. Those choices belong to the Cast-start slice. |
+| **Required support** | Show **Cast to TV** only when the browser/session exposes the Cast Framework sender API, the public **`VITE_CAST_RECEIVER_APP_ID`** is configured, and **`CastContext.setOptions({ receiverApplicationId, autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED })`** succeeds for the custom receiver. |
+| **Unsupported / unknown** | Omit the Cast entry while support is unknown or absent. Missing receiver app id, sender SDK load failure, callback timeout, absent **`ORIGIN_SCOPED`** policy, or failed **`CastContext`** configuration map to local **`CAST_UNAVAILABLE`** copy in **`error_state.md`**. |
+| **Sender module ownership** | **`apps/web/src/room/cast/castSenderSupportDetector.ts`** owns sender SDK script injection and **`window.__onGCastApiAvailable`** registration before script append. **`apps/web/src/room/cast/castSenderClient.ts`** owns receiver app id reads, **`CastContext.setOptions`**, and later **`requestSession()`** wrapping. **`useCastAvailability`** exposes the post-render React state used by normal room view. |
 | **No authority side effects** | Detection must not call RiffSync HTTP APIs, publish WebSocket messages, request SFU tokens, alter **`roomMode`**, alter **`share_state`**, or inspect/identify receiver devices in room state. |
 
 ### Cast start receiver boundary (#273)
@@ -147,9 +147,8 @@ The Cast-start slice uses a custom RiffSync Cast receiver page. The receiver ren
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### chromecast-provider-boundary
-- Confirm the exact sender module ownership for SDK script injection, global callback registration, and idempotent **`CastContext.setOptions`** during `/refine-issue`.
 - Specify the exact receiver route bootstrap module and the test fixture that proves the custom namespace is configured before receiver context start.
-- Specify how Google Cast sender error objects and session state callbacks map into local Cast status codes without exposing receiver identifiers or provider internals in room surfaces.
+- No open decisions remain for sender availability provider errors. Availability-time sender failures map to local **`CAST_UNAVAILABLE`**; later start/session failures map to local Cast start/lifecycle statuses in the issue that owns that path. Provider errors, receiver identifiers, and device names are not exposed in room surfaces or room diagnostics.
 
 ## Primary code pointers (optional)
 
