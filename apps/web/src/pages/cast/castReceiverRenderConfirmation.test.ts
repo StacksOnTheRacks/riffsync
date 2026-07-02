@@ -6,6 +6,7 @@ describe('canConfirmCastReceiverRender', () => {
     expect(canConfirmCastReceiverRender(null)).toBe(false)
     expect(
       canConfirmCastReceiverRender({
+        snapshotId: 'snap-1',
         roomMode: 'theater',
         stagePrimary: { kind: 'youtube_embed', youtubeVideoId: 'abc123' },
         chatOverlay: { messages: [] },

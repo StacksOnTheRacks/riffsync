@@ -36,6 +36,7 @@ describe('CastReceiverPresentation', () => {
   }
 
   const youtubeSnapshot: CastPresentationSnapshot = {
+    snapshotId: 'snap-youtube-1',
     roomMode: 'theater',
     stagePrimary: {
       kind: 'youtube_embed',
@@ -67,6 +68,7 @@ describe('CastReceiverPresentation', () => {
 
   it('maps waiting stage labels to receiver room-video copy', () => {
     renderPresentation({
+      snapshotId: 'snap-waiting-1',
       roomMode: 'theater',
       stagePrimary: { kind: 'live_video_placeholder', label: 'Waiting for party video' },
       chatOverlay: { messages: [] },
@@ -77,6 +79,7 @@ describe('CastReceiverPresentation', () => {
 
   it('does not render sidebar tabs or compose controls', () => {
     renderPresentation({
+      snapshotId: 'snap-waiting-1',
       roomMode: 'theater',
       stagePrimary: { kind: 'live_video_placeholder', label: 'Party video' },
       chatOverlay: { messages: [] },

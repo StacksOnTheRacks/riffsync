@@ -1,5 +1,8 @@
 import type { CastPresentationSnapshot, CastStartLifecycle } from './castChannelProtocol'
-import { parseCastReceiverOutboundMessage } from './castChannelProtocol'
+import {
+  isPositiveReceiverRenderedAcknowledgement,
+  parseCastReceiverOutboundMessage,
+} from './castChannelProtocol'
 import type { CastSenderClient, CastSenderSessionHandle } from './castSenderClient'
 
 export const CAST_LAUNCH_TIMEOUT_MS = 45_000
@@ -31,6 +34,7 @@ export function createCastStartController({
 }: CreateCastStartControllerOptions): CastStartController {
   let lifecycle: CastStartLifecycle = 'idle'
   let session: CastSenderSessionHandle | null = null
+  let pendingSnapshotId: string | null = null
   let removeMessageListener: (() => void) | null = null
   let removeSessionEndedListener: (() => void) | null = null
   let launchTimer: ReturnType<typeof setTimeout> | null = null
@@ -79,6 +83,7 @@ export function createCastStartController({
 
   const failStart = async () => {
     clearLaunchTimer()
+    pendingSnapshotId = null
     await cleanupSession()
     lifecycle = 'start_failed'
     emit()
@@ -92,17 +97,29 @@ export function createCastStartController({
 
   const confirmStart = () => {
     clearConfirmationTimer()
+    pendingSnapshotId = null
     lifecycle = 'casting'
     emit()
   }
 
   const handleReceiverMessage = (raw: unknown) => {
     const message = parseCastReceiverOutboundMessage(raw)
-    if (!message) return
-    if (message.type === 'render_confirmed') {
-      if (lifecycle === 'session_pending_render') confirmStart()
+    if (message === 'unrecognized') {
+      if (lifecycle === 'session_pending_render') void failStart()
       return
     }
+    if (!message) return
+
+    if (message.type === 'receiver_rendered') {
+      if (lifecycle !== 'session_pending_render') return
+      if (isPositiveReceiverRenderedAcknowledgement(message, pendingSnapshotId)) {
+        confirmStart()
+      } else {
+        void failStart()
+      }
+      return
+    }
+
     if (message.type === 'render_failed') {
       if (lifecycle === 'session_pending_render') {
         void failStart()
@@ -188,6 +205,7 @@ export function createCastStartController({
         if (lifecycle !== 'launching') return
 
         lifecycle = 'session_pending_render'
+        pendingSnapshotId = snapshot.snapshotId
         emit()
 
         attachSession(nextSession)

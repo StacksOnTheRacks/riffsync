@@ -129,8 +129,17 @@ export async function startCastReceiverSession(
   }
 }
 
-export function sendCastReceiverRenderConfirmed(context: CastReceiverContextInstance): void {
-  context.sendCustomMessage(RIFFSYNC_CAST_NAMESPACE, JSON.stringify({ type: 'render_confirmed' }))
+export function sendCastReceiverRendered(context: CastReceiverContextInstance, snapshotId: string): void {
+  context.sendCustomMessage(
+    RIFFSYNC_CAST_NAMESPACE,
+    JSON.stringify({
+      type: 'receiver_rendered',
+      schemaVersion: 1,
+      snapshotId,
+      stagePrimaryRendered: true,
+      chatOverlayRendered: true,
+    }),
+  )
 }
 
 export function sendCastReceiverRenderFailed(

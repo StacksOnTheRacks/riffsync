@@ -2,11 +2,13 @@
 import { act, useRef, type RefObject } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildReceiverRenderedAcknowledgement } from './castChannelProtocol'
+import type { CastPresentationSnapshot } from './castChannelProtocol'
 import { useCastStartSession } from './useCastStartSession'
 
 type HarnessSession = {
   end: ReturnType<typeof vi.fn>
-  sendMessage: () => Promise<void>
+  sendMessage: (message: unknown) => Promise<void>
   addMessageListener: (handler: (message: unknown) => void) => () => void
   addSessionEndedListener: (handler: () => void) => () => void
   hasActiveRoute: () => boolean
@@ -26,9 +28,15 @@ function createHarnessSession(): HarnessSession {
   })
 
   return {
-    sendMessage: async () => {
+    sendMessage: async (message: unknown) => {
       queueMicrotask(() => {
-        for (const listener of messageListeners) listener({ type: 'render_confirmed' })
+        if (typeof message === 'object' && message !== null) {
+          const outbound = message as { type?: string; snapshot?: CastPresentationSnapshot }
+          if (outbound.type === 'presentation_snapshot' && outbound.snapshot?.snapshotId) {
+            const ack = buildReceiverRenderedAcknowledgement(outbound.snapshot.snapshotId)
+            for (const listener of messageListeners) listener(ack)
+          }
+        }
       })
     },
     addMessageListener: (handler: (message: unknown) => void) => {

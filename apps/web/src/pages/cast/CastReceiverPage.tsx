@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CastChatOverlayLine, CastPresentationSnapshot } from '../../room/cast/castChannelProtocol'
 import {
   CastReceiverPresentation,
@@ -6,15 +6,15 @@ import {
 import { canConfirmCastReceiverRender } from './castReceiverRenderConfirmation'
 import {
   getCastReceiverContextForTests,
-  sendCastReceiverRenderConfirmed,
   sendCastReceiverRenderFailed,
+  sendCastReceiverRendered,
   startCastReceiverSession,
 } from './castReceiverSession'
 
 export function CastReceiverPage() {
   const [snapshot, setSnapshot] = useState<CastPresentationSnapshot | null>(null)
   const [chatMessages, setChatMessages] = useState<CastChatOverlayLine[]>([])
-  const renderConfirmedRef = useRef(false)
+  const confirmedSnapshotIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -39,15 +39,19 @@ export function CastReceiverPage() {
     }
   }, [])
 
-  useEffect(() => {
-    if (renderConfirmedRef.current) return
-    if (!canConfirmCastReceiverRender(snapshot)) return
+  useLayoutEffect(() => {
+    if (!snapshot || !canConfirmCastReceiverRender(snapshot)) return
+    if (confirmedSnapshotIdRef.current === snapshot.snapshotId) return
+
+    const stagePrimary = document.querySelector('[data-testid="cast-receiver-stage-primary"]')
+    const chatOverlay = document.querySelector('[data-testid="cast-receiver-chat-overlay"]')
+    if (!stagePrimary || !chatOverlay) return
 
     const context = getCastReceiverContextForTests()
     if (!context) return
 
-    renderConfirmedRef.current = true
-    sendCastReceiverRenderConfirmed(context)
+    confirmedSnapshotIdRef.current = snapshot.snapshotId
+    sendCastReceiverRendered(context, snapshot.snapshotId)
   }, [snapshot, chatMessages])
 
   return <CastReceiverPresentation snapshot={snapshot} chatMessages={chatMessages} />
