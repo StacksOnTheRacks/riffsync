@@ -159,7 +159,7 @@ describe('AdminCatalogDeleteControl', () => {
 
     await vi.waitFor(() => {
       const alert = container.querySelector('[role="alert"]')
-      expect(alert?.textContent).toContain('2 room(s)')
+      expect(alert?.textContent).toContain('2 active watch party room(s)')
       expect(alert?.textContent).toContain('1 list(s)')
     })
   })
