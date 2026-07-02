@@ -69,16 +69,90 @@ function createMockClient(session: CastSenderSessionHandle): CastSenderClient {
 }
 
 describe('createCastStartController', () => {
-  it('transitions to casting after receiver render confirmation', async () => {
-    const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+  it('maps launch timeout to start_failed without an active session handle', async () => {
+    vi.useFakeTimers()
+    let resolveSession: ((session: CastSenderSessionHandle) => void) | undefined
+    const session = createMockSession({})
+    const client: CastSenderClient = {
+      requestSession: vi.fn(
+        () =>
+          new Promise<CastSenderSessionHandle>((resolve) => {
+            resolveSession = resolve
+          }),
+      ),
+    }
+    const controller = createCastStartController({
+      client,
+      launchTimeoutMs: 50,
+      confirmationTimeoutMs: 1000,
+    })
+
+    const promise = controller.startCast(snapshot)
+    await vi.advanceTimersByTimeAsync(50)
+    await promise
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
+    expect(session.end).not.toHaveBeenCalled()
+    resolveSession?.(session)
+    vi.useRealTimers()
+  })
+
+  it('enters session_pending_render after requestSession without transitioning to casting', async () => {
+    const session = createMockSession({})
+    const controller = createCastStartController({
+      client: createMockClient(session),
+      launchTimeoutMs: 1000,
+      confirmationTimeoutMs: 1000,
+    })
 
     const states: string[] = []
     controller.subscribe((state) => states.push(state.lifecycle))
 
     await controller.startCast(snapshot)
 
-    expect(states).toEqual(['starting', 'casting'])
+    expect(states).toEqual(['launching', 'session_pending_render'])
+    expect(controller.getState().lifecycle).toBe('session_pending_render')
+  })
+
+  it('ignores late requestSession resolve after launch timeout', async () => {
+    vi.useFakeTimers()
+    let resolveSession: ((session: CastSenderSessionHandle) => void) | undefined
+    const session = createMockSession({})
+    const client: CastSenderClient = {
+      requestSession: vi.fn(
+        () =>
+          new Promise<CastSenderSessionHandle>((resolve) => {
+            resolveSession = resolve
+          }),
+      ),
+    }
+    const controller = createCastStartController({
+      client,
+      launchTimeoutMs: 50,
+      confirmationTimeoutMs: 1000,
+    })
+
+    const promise = controller.startCast(snapshot)
+    await vi.advanceTimersByTimeAsync(60)
+    await promise
+
+    resolveSession?.(session)
+    await Promise.resolve()
+
+    expect(controller.getState().lifecycle).toBe('start_failed')
+    vi.useRealTimers()
+  })
+
+  it('transitions to casting after receiver render confirmation', async () => {
+    const session = createMockSession({ confirmAfterSend: true })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
+
+    const states: string[] = []
+    controller.subscribe((state) => states.push(state.lifecycle))
+
+    await controller.startCast(snapshot)
+
+    expect(states).toEqual(['launching', 'session_pending_render', 'casting'])
     expect(session.end).not.toHaveBeenCalled()
   })
 
@@ -111,7 +185,7 @@ describe('createCastStartController', () => {
 
   it('maps receiver render failure during startup to start_failed', async () => {
     const session = createMockSession({})
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     session.emitReceiverMessage({ type: 'render_failed', reason: 'receiver_render_error' })
@@ -151,7 +225,7 @@ describe('createCastStartController', () => {
 
   it('stopCast ends the Cast session without mutating snapshot input', async () => {
     const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     await controller.stopCast()
@@ -162,7 +236,7 @@ describe('createCastStartController', () => {
 
   it('transitions through stopping before idle on stopCast', async () => {
     const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
 
@@ -182,7 +256,7 @@ describe('createCastStartController', () => {
           resolveEnd = resolve
         }),
     )
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     const firstStop = controller.stopCast()
@@ -200,7 +274,7 @@ describe('createCastStartController', () => {
       confirmAfterSend: true,
       onSend: (message) => sent.push(message),
     })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     await controller.sendChatOverlayUpdate({
@@ -218,7 +292,7 @@ describe('createCastStartController', () => {
 
   it('maps active session-ended callbacks to session_ended recovery', async () => {
     const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     session.emitSessionEnded()
@@ -231,7 +305,7 @@ describe('createCastStartController', () => {
 
   it('cleans up active session-ended callbacks idempotently', async () => {
     const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     session.emitSessionEnded()
@@ -252,7 +326,7 @@ describe('createCastStartController', () => {
 
   it('resets recovery states to idle so Cast can be retried locally', async () => {
     const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     session.emitSessionEnded()
@@ -266,7 +340,7 @@ describe('createCastStartController', () => {
 
   it('maps receiver render failure after active Cast to playback_blocked recovery', async () => {
     const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     session.emitReceiverMessage({ type: 'render_failed', reason: 'playback_blocked' })
@@ -279,7 +353,7 @@ describe('createCastStartController', () => {
 
   it('releases active receiver bindings after playback-blocked cleanup', async () => {
     const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     session.emitReceiverMessage({ type: 'render_failed', reason: 'playback_blocked' })
@@ -301,7 +375,7 @@ describe('createCastStartController', () => {
   it('keeps Stop Cast retryable when stop fails and the route is still active', async () => {
     const session = createMockSession({ confirmAfterSend: true })
     session.end = vi.fn().mockRejectedValue(new Error('stop rejected'))
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     await controller.stopCast()
@@ -320,7 +394,7 @@ describe('createCastStartController', () => {
     const session = createMockSession({ confirmAfterSend: true })
     session.end = vi.fn().mockRejectedValue(new Error('route already gone'))
     session.setActiveRoute(false)
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     await controller.stopCast()
@@ -336,7 +410,7 @@ describe('createCastStartController', () => {
 
   it('detaches receiver listeners after successful cleanup', async () => {
     const session = createMockSession({ confirmAfterSend: true })
-    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000 })
+    const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
     await controller.stopCast()

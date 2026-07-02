@@ -51,7 +51,14 @@ describe('CastStartRoomActions', () => {
   })
 
   it('shows starting status without replacing playback surfaces', () => {
-    renderActions('available', 'starting')
+    renderActions('available', 'launching')
+    const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
+    expect(status?.textContent).toBe(CAST_STARTING_MESSAGE)
+    expect(container.textContent).not.toContain('Cast to TV')
+  })
+
+  it('shows starting status while session render is pending', () => {
+    renderActions('available', 'session_pending_render')
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
     expect(status?.textContent).toBe(CAST_STARTING_MESSAGE)
     expect(container.textContent).not.toContain('Cast to TV')

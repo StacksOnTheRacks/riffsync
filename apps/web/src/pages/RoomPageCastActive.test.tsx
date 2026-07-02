@@ -217,7 +217,7 @@ describe('RoomPage Cast active stage', () => {
   })
 
   it('keeps the regular playback surface visible while Cast is starting', async () => {
-    castStartLifecycle.value = 'starting'
+    castStartLifecycle.value = 'launching'
     await openRoomTab()
 
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()

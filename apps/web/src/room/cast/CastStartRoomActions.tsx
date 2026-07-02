@@ -41,7 +41,7 @@ export function CastStartRoomActions({
     )
   }
 
-  if (castStartLifecycle === 'starting') {
+  if (castStartLifecycle === 'launching' || castStartLifecycle === 'session_pending_render') {
     return (
       <p
         id={RIFFSYNC_CAST_START_STATUS_ID}

@@ -4,7 +4,8 @@ export const RIFFSYNC_CAST_NAMESPACE = 'urn:x-cast:com.riffsync.presentation'
 
 export type CastStartLifecycle =
   | 'idle'
-  | 'starting'
+  | 'launching'
+  | 'session_pending_render'
   | 'casting'
   | 'stopping'
   | 'start_failed'

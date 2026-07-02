@@ -282,7 +282,8 @@ class MockWebSocket {
 
 const CAST_LIFECYCLE_PATHS: CastStartLifecycle[] = [
   'idle',
-  'starting',
+  'launching',
+  'session_pending_render',
   'casting',
   'stopping',
   'start_failed',
