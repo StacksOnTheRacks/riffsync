@@ -125,6 +125,21 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 9. **Room authority preservation (#277):** Every Cast lifecycle path is sender-local. Starting, activating, stopping, failing, disconnecting, or clearing Cast must not send room WebSocket messages, change **`share_state`**, call room HTTP mutation APIs, change **`roomMode`** / **`avDisabled`**, alter SFU token eligibility, or change another participant's stage, controls, drawer status, chat state, presence, or playback.
 10. **Verification (#279):** Automated and manual checks cover the lifecycle from availability through cleanup: support detection, start, active, stop, unavailable, failed-start, receiver-ended, playback-blocked, stop-failed, cleanup completion, room leave, navigation, and reload. Each path preserves sender chat/sidebar/room state and proves other participants receive no Cast-induced UI, messaging, or media change.
 
+### Cast lifecycle authority matrix (#305)
+
+The #305 refinement turns the broad authority invariant into executable lifecycle rows. All rows are sender-local and must be testable without adding room-wide Cast controls, durable Cast fields, receiver participant identity, host/guest playback-authority changes, or new room fan-out.
+
+| Lifecycle path | Sender-local UI / recovery | Room and participant boundary |
+| --- | --- | --- |
+| Start attempt | **Cast to TV** enters local launch/pending status and keeps normal playback visible. | No room HTTP mutation, WebSocket send, SFU token request, presence write, chat send, `share_state`, or other-participant render change. |
+| Active Cast | Only after receiver render confirmation, the casting sender stage shows **Now Casting** and Stop Cast. | Other participants see the same room snapshot, playback, chat, People roster, drawer status, SFU media, and controls as before Cast. |
+| Normal Stop Cast | Stop returns the casting sender to normal in-page playback using the latest locally held authoritative room state. | Stop does not refetch or patch room state solely for Cast, emit room messages, close chat/SFU drawers, or affect other viewers. |
+| Receiver loss / ended session | Sender exits active Cast with local `CAST_SESSION_ENDED` recovery and restores or keeps normal playback visible. | Receiver loss is not a room leave, host disconnect, `share_state: stopped`, presence change, chat event, or SFU policy change. |
+| Blocked receiver playback | Sender shows local `CAST_PLAYBACK_BLOCKED` recovery and keeps room participation available. | Provider or autoplay failures stay off room drawer status, room logs, and other participant surfaces. |
+| Failed Stop Cast | Sender keeps Stop Cast retryable while the route remains active, or performs local cleanup if the route has already ended. | Failed stop does not clear chat/sidebar state, close healthy SFU/theater modules, mutate room state, or imply the room stopped. |
+| Sender navigation / reload | Best-effort Cast cleanup runs before or alongside normal room teardown. A new page load starts without persisted Cast state. | Cleanup does not block navigation, create late-join replay, persist Cast state, or broadcast room cleanup messages. |
+| Cleanup idempotency | Repeated cleanup clears local timers, listeners, receiver bindings, hidden Cast source bindings, stale **Now Casting**, and detached focus targets. | No Cast cleanup path may synthesize HTTP, room WebSocket, SFU, chat, presence, or other-viewer state changes. |
+
 ### Cast sender availability flow (#301)
 
 1. **Probe timing:** After the normal room shell exists, the sender availability hook loads the Google Cast sender SDK, installs **`window.__onGCastApiAvailable`** before script append, and attempts to configure **`CastContext`** for the custom receiver app id.

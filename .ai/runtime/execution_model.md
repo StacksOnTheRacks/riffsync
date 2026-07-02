@@ -115,6 +115,18 @@ The #279 verification slice may add test-only hooks or fakes around the local Ca
 | **Forbidden promotion** | Test hooks must not become fan-visible drawer diagnostics, **`activeErrorCodes`**, room WebSocket payloads, room HTTP fields, SFU token claims, or persistent room state. |
 | **Side-effect assertions** | Tests assert no destructive calls into **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, room mutation APIs, room WebSocket send paths, **`share_state`**, or remote participant presentation/state. |
 
+### Cast lifecycle authority verification (#305)
+
+Issue #305 verifies the local Cast controller as an isolated runtime overlay around the room shell. The controller may observe room snapshot, presentation, chat overlay, and media/source state needed to feed the receiver, but lifecycle events must not become inputs to room authority.
+
+| Lifecycle family | Runtime contract |
+| --- | --- |
+| **Start / pending / confirmed active** | The controller may move through `launching`, `session_pending_render`, and `casting` based on Cast sender/receiver channel events only. These transitions do not call room HTTP mutation APIs, room WebSocket send paths, SFU token paths, or session-module teardown APIs. |
+| **Stop / ended / blocked / failed stop** | Stop and recovery states run local Cast cleanup and sender UI updates only. `CAST_SESSION_ENDED`, `CAST_PLAYBACK_BLOCKED`, and `CAST_STOP_FAILED` are local Cast statuses, not drawer lifecycle states, room alerts, or active realtime error codes. |
+| **Navigation / reload / room leave overlap** | If navigation, reload, or room leave overlaps active Cast, blocked playback, receiver loss, or failed Stop Cast, execute local Cast cleanup best-effort before or alongside normal room teardown. Failure to stop an already-ended receiver route must not delay the global leave path or cause synthetic room fan-out. |
+| **Diagnostics proof** | Tests may compare `RoomRealtimeSdk.getDiagnostics()` snapshots before and after Cast transitions to prove drawer stability, but Cast state itself remains absent from `drawers.*`, health sub-fields, and `activeErrorCodes`. |
+| **Other participant proof** | Multi-viewer fixtures assert that a non-casting participant's stage, controls, drawer banners, chat log, People roster, participant A/V tiles, and playback remain unchanged across each Cast transition. |
+
 ### Application SDK surface (narrow public API)
 
 Room code outside these modules calls only:
@@ -504,7 +516,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 | Stop cleanup, route-ended cleanup, stale receiver-channel listeners | — | #276–#278 | Deferred |
 
 - No open decisions remain for the #304 receiver render-confirmation payload, validation, timer, or retry behavior. Unit/component tests use fake receiver-channel acknowledgements matching the **`receiver_rendered`** shape above.
-- Specify cleanup ordering when global room leave or navigation overlaps active Cast or failed Stop Cast (#278).
+- No open decisions remain for #305 cleanup overlap verification. Navigation, reload, and room leave run local Cast cleanup best-effort before or alongside normal room teardown; Cast cleanup failure does not block leave, emit room messages, or promote Cast state into room diagnostics.
 
 ## Primary code pointers (optional)
 
