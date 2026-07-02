@@ -104,4 +104,36 @@ describe('detectCastSenderSupport', () => {
 
     await expect(promise).resolves.toBe(false)
   })
+
+  it('returns false when the Cast availability callback times out', async () => {
+    vi.useFakeTimers()
+
+    const promise = detectCastSenderSupport()
+    await Promise.resolve()
+
+    await vi.advanceTimersByTimeAsync(5000)
+
+    await expect(promise).resolves.toBe(false)
+    expect(prepareDefaultCastSenderClient).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('does not append duplicate Cast sender scripts on repeated probes', async () => {
+    vi.useFakeTimers()
+
+    const first = detectCastSenderSupport()
+    await Promise.resolve()
+    expect(document.querySelectorAll('script[data-riffsync-cast-framework="true"]')).toHaveLength(1)
+
+    const second = detectCastSenderSupport()
+    await Promise.resolve()
+    expect(document.querySelectorAll('script[data-riffsync-cast-framework="true"]')).toHaveLength(1)
+
+    ;(window as Window & { __onGCastApiAvailable?: (isAvailable: boolean) => void }).__onGCastApiAvailable?.(
+      true,
+    )
+
+    await Promise.all([first, second])
+    vi.useRealTimers()
+  })
 })

@@ -64,7 +64,7 @@ function ensureCastFrameworkScript(): void {
   document.head.appendChild(script)
 }
 
-/** Post-render Google Cast sender support probe for #272 availability only. */
+/** Post-render Google Cast sender availability probe for #301. */
 export const detectCastSenderSupport: CastSenderSupportDetector = async () => {
   if (typeof window === 'undefined') return false
 
