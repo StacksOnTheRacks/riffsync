@@ -142,6 +142,47 @@ export class StaticSiteStack extends cdk.Stack {
           })
         : undefined;
 
+    const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'WebResponseHeadersPolicy', {
+      comment: 'RiffSync fan SPA security headers',
+      securityHeadersBehavior: {
+        contentSecurityPolicy: {
+          contentSecurityPolicy:
+            [
+              "default-src 'self'",
+              "base-uri 'self'",
+              "object-src 'none'",
+              "frame-ancestors 'none'",
+              "script-src 'self' https://www.gstatic.com",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https: wss:",
+              "media-src 'self' blob: https:",
+              "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+              "child-src https://www.youtube.com https://www.youtube-nocookie.com",
+              "worker-src 'self' blob:",
+            ].join('; '),
+          override: true,
+        },
+        contentTypeOptions: { override: true },
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+        strictTransportSecurity: {
+          accessControlMaxAge: cdk.Duration.days(365),
+          includeSubdomains: true,
+          preload: true,
+          override: true,
+        },
+        xssProtection: {
+          protection: true,
+          modeBlock: true,
+          override: true,
+        },
+      },
+    });
+
     this.distribution = new cloudfront.Distribution(this, 'WebDistribution', {
       comment: 'RiffSync prod fan SPA',
       defaultRootObject: 'index.html',
@@ -175,6 +216,7 @@ export class StaticSiteStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         compress: true,
+        responseHeadersPolicy,
         functionAssociations: canonicalRedirectFn
           ? [
               {

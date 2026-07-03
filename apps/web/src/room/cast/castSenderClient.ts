@@ -60,6 +60,8 @@ type CastSessionInstance = {
   addMessageListener: (namespace: string, handler: (namespace: string, message: string) => void) => void
   removeMessageListener: (namespace: string, handler: (namespace: string, message: string) => void) => void
   endSession: (stopCasting?: boolean) => void
+  getSessionObj?: () => { appId?: string }
+  getApplicationMetadata?: () => { applicationId?: string }
 }
 
 type CastFramework = NonNullable<NonNullable<CastFrameworkWindow['cast']>['framework']>
@@ -78,6 +80,7 @@ function readOriginScopedAutoJoinPolicy(): string {
 function configureCastContext(cast: NonNullable<CastFrameworkWindow['cast']>): {
   context: CastContextInstance
   framework: CastFramework
+  receiverApplicationId: string
 } {
   const receiverApplicationId = getCastReceiverApplicationId()
   if (!receiverApplicationId) {
@@ -89,7 +92,7 @@ function configureCastContext(cast: NonNullable<CastFrameworkWindow['cast']>): {
     receiverApplicationId,
     autoJoinPolicy: readOriginScopedAutoJoinPolicy(),
   })
-  return { context, framework }
+  return { context, framework, receiverApplicationId }
 }
 
 function ensureCastFrameworkScript(): void {
@@ -183,6 +186,27 @@ function wrapCastSession(
   }
 }
 
+function readCastSessionApplicationId(session: CastSessionInstance): string | null {
+  const sessionObjAppId = session.getSessionObj?.().appId?.trim()
+  if (sessionObjAppId) return sessionObjAppId
+
+  const metadataApplicationId = session.getApplicationMetadata?.().applicationId?.trim()
+  return metadataApplicationId || null
+}
+
+function validateCastSessionApplicationId(
+  session: CastSessionInstance,
+  receiverApplicationId: string,
+): void {
+  const actualApplicationId = readCastSessionApplicationId(session)
+  if (actualApplicationId === receiverApplicationId) return
+
+  if (!actualApplicationId) {
+    throw new Error('Cast session application id unavailable after start')
+  }
+  throw new Error('Cast session application id mismatch after start')
+}
+
 export function getCastReceiverApplicationId(): string | null {
   const configured = import.meta.env.VITE_CAST_RECEIVER_APP_ID?.trim()
   return configured || null
@@ -205,7 +229,7 @@ export function createDefaultCastSenderClient(): CastSenderClient {
       if (!cast?.framework) {
         throw new Error('Cast framework unavailable')
       }
-      const { context, framework } = configureCastContext(cast)
+      const { context, framework, receiverApplicationId } = configureCastContext(cast)
 
       return new Promise<CastSenderSessionHandle>((resolve, reject) => {
         let settled = false
@@ -229,6 +253,14 @@ export function createDefaultCastSenderClient(): CastSenderClient {
               settled = true
               context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
               reject(new Error('Cast session unavailable after start'))
+              return
+            }
+            try {
+              validateCastSessionApplicationId(session, receiverApplicationId)
+            } catch (error) {
+              settled = true
+              context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
+              reject(error instanceof Error ? error : new Error('Cast session validation failed'))
               return
             }
             settled = true

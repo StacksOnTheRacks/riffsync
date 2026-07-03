@@ -56,6 +56,8 @@ export function RoomPlaybackPanel({
               className="riffsync-room-page__guest-video"
               playsInline
               controls
+              controlsList="nodownload noremoteplayback"
+              disableRemotePlayback
               muted={false}
             />
           ) : (
@@ -168,6 +170,8 @@ export function RoomPlaybackPanel({
           className="riffsync-room-page__guest-video"
           playsInline
           controls
+          controlsList="nodownload noremoteplayback"
+          disableRemotePlayback
           muted={false}
           hidden={!guestRemote}
         />

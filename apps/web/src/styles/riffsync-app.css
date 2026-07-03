@@ -2074,6 +2074,7 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
 
 .riffsync-cast-receiver__stage-primary--youtube {
   padding: 0;
+  background: #000;
 }
 
 .riffsync-cast-receiver__youtube {
@@ -2082,6 +2083,20 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   max-width: 100%;
   max-height: 100%;
   border: 0;
+}
+
+.riffsync-cast-receiver__stage-primary--grid {
+  display: grid;
+  align-content: center;
+  grid-template-columns: repeat(auto-fill, minmax(min(26rem, 100%), 1fr));
+  gap: clamp(0.75rem, 1.6vw, 1.5rem);
+  overflow: hidden;
+  padding: clamp(1rem, 3vw, 4rem);
+}
+
+.riffsync-cast-receiver__stage-primary--grid .riffsync-room-page__participant-grid-empty {
+  align-self: center;
+  justify-self: center;
 }
 
 .riffsync-cast-receiver__stage-placeholder {

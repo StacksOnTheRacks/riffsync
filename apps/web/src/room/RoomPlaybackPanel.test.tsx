@@ -82,6 +82,15 @@ describe('RoomPlaybackPanel guest #riffsync-video-relay-status (#210)', () => {
     expect(container.querySelector('.riffsync-room-page__guest-video-placeholder')).toBeNull()
   })
 
+  it('prevents native remote playback on the guest relay video', () => {
+    renderGuest({ videoRelayStatus: null })
+
+    const video = container.querySelector('video') as HTMLVideoElement
+    expect(video).not.toBeNull()
+    expect(video.getAttribute('controlsList')).toBe('nodownload noremoteplayback')
+    expect(video.disableRemotePlayback).toBe(true)
+  })
+
   it('does not regress host captureErr alerts when guest path is inactive', () => {
     act(() => {
       root.render(
@@ -136,5 +145,26 @@ describe('RoomPlaybackPanel host video-relay status (#210)', () => {
     expect(el?.getAttribute('role')).toBe('status')
     expect(el?.classList.contains('riffsync-room-page__share-status')).toBe(true)
     expect(el?.classList.contains('riffsync-muted')).toBe(false)
+  })
+
+  it('prevents native remote playback on the host preview video', () => {
+    const stream = new MediaStream()
+    act(() => {
+      root.render(
+        <MemoryRouter>
+          <RoomPlaybackPanel
+            isPublisher
+            videoRelayStatus={null}
+            {...baseProps}
+            captureStream={stream}
+          />
+        </MemoryRouter>,
+      )
+    })
+
+    const video = container.querySelector('video') as HTMLVideoElement
+    expect(video).not.toBeNull()
+    expect(video.getAttribute('controlsList')).toBe('nodownload noremoteplayback')
+    expect(video.disableRemotePlayback).toBe(true)
   })
 })

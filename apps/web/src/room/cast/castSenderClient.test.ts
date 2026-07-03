@@ -36,14 +36,17 @@ type CastSenderTestWindow = Window & {
 
 function installCastFramework({
   includeAutoJoinPolicy = true,
+  sessionApplicationId = 'receiver-app-id',
 }: {
   includeAutoJoinPolicy?: boolean
+  sessionApplicationId?: string | null
 } = {}) {
   const session = {
     sendMessage: vi.fn().mockResolvedValue(undefined),
     addMessageListener: vi.fn(),
     removeMessageListener: vi.fn(),
     endSession: vi.fn(),
+    getSessionObj: vi.fn(() => (sessionApplicationId ? { appId: sessionApplicationId } : {})),
   }
   const currentSession = { value: session as typeof session | null }
   const context = {
@@ -170,5 +173,26 @@ describe('createDefaultCastSenderClient', () => {
       'Cast session unavailable after start',
     )
     expect(context.requestSession).toHaveBeenCalled()
+  })
+
+  it('rejects a resolved session for a different receiver application id', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    const { context, session } = installCastFramework({ sessionApplicationId: 'default-media-receiver' })
+
+    await expect(createDefaultCastSenderClient().requestSession()).rejects.toThrow(
+      'Cast session application id mismatch after start',
+    )
+    expect(context.requestSession).toHaveBeenCalled()
+    expect(session.addMessageListener).not.toHaveBeenCalled()
+  })
+
+  it('rejects a resolved session when the receiver application id cannot be read', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    const { session } = installCastFramework({ sessionApplicationId: null })
+
+    await expect(createDefaultCastSenderClient().requestSession()).rejects.toThrow(
+      'Cast session application id unavailable after start',
+    )
+    expect(session.addMessageListener).not.toHaveBeenCalled()
   })
 })

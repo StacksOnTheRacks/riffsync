@@ -1,4 +1,5 @@
 import type { CastChatOverlayLine, CastPresentationSnapshot } from '../../room/cast/castChannelProtocol'
+import { ChatOverlayMessageList, type ChatOverlayMessage } from '../../room/ChatOverlayMessageList'
 import { CAST_RECEIVER_COPY, resolveCastReceiverStagePlaceholder } from './castReceiverCopy'
 
 type CastReceiverChatOverlayProps = {
@@ -6,28 +7,24 @@ type CastReceiverChatOverlayProps = {
 }
 
 export function CastReceiverChatOverlay({ messages }: CastReceiverChatOverlayProps) {
+  const overlayMessages: ChatOverlayMessage[] = messages.map((line) => ({
+    id: line.id,
+    kind: line.kind,
+    text: line.text,
+    senderLabel: line.senderLabel,
+  }))
+
   return (
     <section
       className="riffsync-cast-receiver__chat-overlay"
       aria-label="Chat overlay"
       data-testid="cast-receiver-chat-overlay"
     >
-      {messages.length === 0 ? (
-        <p className="riffsync-cast-receiver__chat-empty" role="status">
-          {CAST_RECEIVER_COPY.emptyChat}
-        </p>
-      ) : (
-        <ul className="riffsync-cast-receiver__chat-log">
-          {messages.map((line) => (
-            <li
-              key={line.id}
-              className={`riffsync-cast-receiver__chat-line riffsync-cast-receiver__chat-line--${line.kind}`}
-            >
-              {line.text}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ChatOverlayMessageList
+        variant="cast"
+        messages={overlayMessages}
+        emptyMessage={CAST_RECEIVER_COPY.emptyChat}
+      />
     </section>
   )
 }
@@ -60,12 +57,13 @@ export function CastReceiverStagePrimary({ snapshot }: CastReceiverStagePrimaryP
   if (stagePrimary.kind === 'video_chat_grid') {
     return (
       <div
-        className="riffsync-cast-receiver__stage-primary riffsync-cast-receiver__stage-primary--grid"
+        className="riffsync-cast-receiver__stage-primary riffsync-cast-receiver__stage-primary--grid riffsync-room-page__participant-grid"
         data-testid="cast-receiver-stage-primary"
-        role="img"
         aria-label={stagePrimary.label ?? 'Participant cameras'}
       >
-        <p className="riffsync-cast-receiver__stage-placeholder">{stagePrimary.label ?? 'Participant cameras'}</p>
+        <p className="riffsync-room-page__participant-grid-empty" role="status">
+          {stagePrimary.label ?? 'Participant cameras'}
+        </p>
       </div>
     )
   }

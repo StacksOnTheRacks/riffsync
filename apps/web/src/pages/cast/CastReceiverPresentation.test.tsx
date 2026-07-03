@@ -89,6 +89,21 @@ describe('CastReceiverPresentation', () => {
     expect(container.querySelector('button')).toBeNull()
   })
 
+  it('renders video-chat mode using the room participant-grid primary surface', () => {
+    renderPresentation({
+      snapshotId: 'snap-video-chat-1',
+      roomMode: 'videoChat',
+      stagePrimary: { kind: 'video_chat_grid', label: 'Participant cameras' },
+      chatOverlay: { messages: [] },
+    })
+
+    const stagePrimary = container.querySelector('[data-testid="cast-receiver-stage-primary"]')
+    expect(stagePrimary?.classList.contains('riffsync-room-page__participant-grid')).toBe(true)
+    expect(container.querySelector('.riffsync-room-page__participant-grid-empty')?.textContent).toContain(
+      'Participant cameras',
+    )
+  })
+
   it.each(RECEIVER_VIEWPORTS)(
     'keeps stage primary and chat overlay within TV layout constraints at $label',
     ({ width, height }) => {
