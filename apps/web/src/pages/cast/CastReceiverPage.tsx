@@ -12,11 +12,20 @@ import {
   startCastReceiverSession,
 } from './castReceiverSession'
 
+type LiveStreamState = {
+  snapshotId: string
+  stream: MediaStream | null
+}
+
 export function CastReceiverPage() {
   const [snapshot, setSnapshot] = useState<CastPresentationSnapshot | null>(null)
   const [chatMessages, setChatMessages] = useState<CastChatOverlayLine[]>([])
-  const [liveStream, setLiveStream] = useState<MediaStream | null>(null)
+  const [liveStreamState, setLiveStreamState] = useState<LiveStreamState | null>(null)
   const confirmedSnapshotIdRef = useRef<string | null>(null)
+  const liveStream =
+    snapshot?.stagePrimary.kind === 'live_stream' && liveStreamState?.snapshotId === snapshot.snapshotId
+      ? liveStreamState.stream
+      : null
 
   useEffect(() => {
     let cancelled = false
@@ -43,18 +52,17 @@ export function CastReceiverPage() {
 
   useEffect(() => {
     if (snapshot?.stagePrimary.kind !== 'live_stream' || !snapshot.stagePrimary.livePlayback) {
-      setLiveStream(null)
       return
     }
 
     let cancelled = false
     let liveSession: CastReceiverLiveStreamSession | null = null
-    setLiveStream(null)
+    const snapshotId = snapshot.snapshotId
 
     void startCastReceiverLiveStream({
       livePlayback: snapshot.stagePrimary.livePlayback,
       onRemoteStream: (stream) => {
-        if (!cancelled) setLiveStream(stream)
+        if (!cancelled) setLiveStreamState({ snapshotId, stream })
       },
       onPlaybackUnavailable: () => {
         const context = getActiveCastReceiverContext()
@@ -76,7 +84,6 @@ export function CastReceiverPage() {
     return () => {
       cancelled = true
       liveSession?.close()
-      setLiveStream(null)
     }
   }, [snapshot])
 
