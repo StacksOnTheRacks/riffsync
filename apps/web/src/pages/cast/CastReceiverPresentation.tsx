@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { CastChatOverlayLine, CastPresentationSnapshot } from '../../room/cast/castChannelProtocol'
 import { ChatOverlayMessageList, type ChatOverlayMessage } from '../../room/ChatOverlayMessageList'
 import { CAST_RECEIVER_COPY, resolveCastReceiverStagePlaceholder } from './castReceiverCopy'
@@ -31,10 +32,54 @@ export function CastReceiverChatOverlay({ messages }: CastReceiverChatOverlayPro
 
 type CastReceiverStagePrimaryProps = {
   snapshot: CastPresentationSnapshot
+  liveStream: MediaStream | null
 }
 
-export function CastReceiverStagePrimary({ snapshot }: CastReceiverStagePrimaryProps) {
+export function CastReceiverStagePrimary({ snapshot, liveStream }: CastReceiverStagePrimaryProps) {
   const { stagePrimary } = snapshot
+  const liveVideoRef = useRef<HTMLVideoElement | null>(null)
+
+  useEffect(() => {
+    const video = liveVideoRef.current
+    if (!video) return
+    video.srcObject = liveStream
+    if (!liveStream) return
+    if (typeof video.play === 'function') {
+      void video.play().catch(() => undefined)
+    }
+    return () => {
+      if (video.srcObject === liveStream) video.srcObject = null
+    }
+  }, [liveStream])
+
+  if (stagePrimary.kind === 'live_stream') {
+    const placeholderCopy = resolveCastReceiverStagePlaceholder({
+      kind: 'live_video_placeholder',
+      label: stagePrimary.label,
+    })
+    return (
+      <div
+        className="riffsync-cast-receiver__stage-primary riffsync-cast-receiver__stage-primary--live"
+        data-testid="cast-receiver-stage-primary"
+        aria-label={stagePrimary.label ?? 'Party video'}
+      >
+        <video
+          ref={liveVideoRef}
+          className="riffsync-cast-receiver__live-video"
+          data-testid="cast-receiver-live-video"
+          playsInline
+          autoPlay
+          controls={false}
+          muted={false}
+        />
+        {liveStream ? null : (
+          <p className="riffsync-cast-receiver__stage-placeholder" role="status">
+            {placeholderCopy}
+          </p>
+        )}
+      </div>
+    )
+  }
 
   if (stagePrimary.kind === 'youtube_embed' && stagePrimary.youtubeVideoId) {
     const src = `https://www.youtube.com/embed/${encodeURIComponent(stagePrimary.youtubeVideoId)}?playsinline=1`
@@ -85,9 +130,10 @@ export function CastReceiverStagePrimary({ snapshot }: CastReceiverStagePrimaryP
 type CastReceiverPresentationProps = {
   snapshot: CastPresentationSnapshot | null
   chatMessages: CastChatOverlayLine[]
+  liveStream?: MediaStream | null
 }
 
-export function CastReceiverPresentation({ snapshot, chatMessages }: CastReceiverPresentationProps) {
+export function CastReceiverPresentation({ snapshot, chatMessages, liveStream = null }: CastReceiverPresentationProps) {
   if (!snapshot) {
     return (
       <div className="riffsync-cast-receiver" aria-busy="true">
@@ -101,7 +147,7 @@ export function CastReceiverPresentation({ snapshot, chatMessages }: CastReceive
   return (
     <div className="riffsync-cast-receiver" data-testid="cast-receiver-presentation">
       <div className="riffsync-cast-receiver__stage">
-        <CastReceiverStagePrimary snapshot={snapshot} />
+        <CastReceiverStagePrimary snapshot={snapshot} liveStream={liveStream} />
         <CastReceiverChatOverlay messages={chatMessages} />
       </div>
     </div>

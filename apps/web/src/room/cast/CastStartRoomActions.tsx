@@ -1,6 +1,7 @@
-import type { RefObject } from 'react'
+import { createElement, type RefObject } from 'react'
 import {
-  CAST_STARTING_MESSAGE,
+  CAST_CHOOSING_DEVICE_MESSAGE,
+  CAST_CONNECTING_TO_TV_MESSAGE,
   CAST_PLAYBACK_BLOCKED_MESSAGE,
   CAST_SESSION_ENDED_MESSAGE,
   CAST_START_REJECTED_MESSAGE,
@@ -42,6 +43,10 @@ export function CastStartRoomActions({
   }
 
   if (castStartLifecycle === 'launching' || castStartLifecycle === 'session_pending_render') {
+    const statusCopy =
+      castStartLifecycle === 'launching'
+        ? CAST_CHOOSING_DEVICE_MESSAGE
+        : CAST_CONNECTING_TO_TV_MESSAGE
     return (
       <p
         id={RIFFSYNC_CAST_START_STATUS_ID}
@@ -49,7 +54,7 @@ export function CastStartRoomActions({
         role="status"
         aria-live="polite"
       >
-        {CAST_STARTING_MESSAGE}
+        {statusCopy}
       </p>
     )
   }
@@ -94,9 +99,14 @@ export function CastStartRoomActions({
     <button
       ref={castToTvButtonRef}
       type="button"
-      className="gen-button gen-button-wide"
+      className="gen-button gen-button-wide riffsync-room-page__cast-launch-button"
       onClick={onCastToTvClick}
     >
+      {createElement('google-cast-launcher', {
+        'aria-hidden': 'true',
+        className: 'riffsync-room-page__cast-launcher-glyph',
+        tabIndex: -1,
+      })}
       Cast to TV
     </button>
   )

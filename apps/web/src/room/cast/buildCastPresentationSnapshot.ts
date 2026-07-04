@@ -2,7 +2,7 @@ import type { RoomMode } from '../../api/roomsApi'
 import type { ChatLine } from '../roomPageTypes'
 import { formatChatSystemText } from '../chatSystemLine'
 import { isEmojiOnlyChatMessage } from '../chatEmojiDisplay'
-import type { CastChatOverlayLine, CastPresentationSnapshot } from './castChannelProtocol'
+import type { CastChatOverlayLine, CastLivePlaybackConfig, CastPresentationSnapshot } from './castChannelProtocol'
 import { createCastSnapshotId } from './castChannelProtocol'
 
 export type BuildCastPresentationSnapshotInput = {
@@ -11,6 +11,7 @@ export type BuildCastPresentationSnapshotInput = {
   isPublisher: boolean
   hasHostCaptureStream: boolean
   hasGuestRelayStream: boolean
+  livePlayback?: CastLivePlaybackConfig | null
   chat: ChatLine[]
   chatMemberLabels: Map<string, string>
 }
@@ -25,15 +26,17 @@ function resolveStagePrimary(input: BuildCastPresentationSnapshotInput): CastPre
 
   if (input.isPublisher && input.hasHostCaptureStream) {
     return {
-      kind: 'live_video_placeholder',
+      kind: input.livePlayback ? 'live_stream' : 'live_video_placeholder',
       label: 'Host shared stream',
+      livePlayback: input.livePlayback ?? undefined,
     }
   }
 
   if (!input.isPublisher && input.hasGuestRelayStream) {
     return {
-      kind: 'live_video_placeholder',
+      kind: input.livePlayback ? 'live_stream' : 'live_video_placeholder',
       label: 'Party video',
+      livePlayback: input.livePlayback ?? undefined,
     }
   }
 

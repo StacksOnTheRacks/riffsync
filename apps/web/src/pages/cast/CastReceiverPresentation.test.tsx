@@ -29,9 +29,13 @@ describe('CastReceiverPresentation', () => {
     container.remove()
   })
 
-  function renderPresentation(snapshot: CastPresentationSnapshot | null, chatMessages = snapshot?.chatOverlay.messages ?? []) {
+  function renderPresentation(
+    snapshot: CastPresentationSnapshot | null,
+    chatMessages = snapshot?.chatOverlay.messages ?? [],
+    liveStream: MediaStream | null = null,
+  ) {
     act(() => {
-      root.render(<CastReceiverPresentation snapshot={snapshot} chatMessages={chatMessages} />)
+      root.render(<CastReceiverPresentation snapshot={snapshot} chatMessages={chatMessages} liveStream={liveStream} />)
     })
   }
 
@@ -75,6 +79,28 @@ describe('CastReceiverPresentation', () => {
     })
 
     expect(container.textContent).toContain(CAST_RECEIVER_COPY.waitingForRoomVideo)
+  })
+
+  it('renders live party video for cast receiver live streams', () => {
+    const liveStream = new MediaStream()
+    renderPresentation(
+      {
+        snapshotId: 'snap-live-1',
+        roomMode: 'theater',
+        stagePrimary: {
+          kind: 'live_stream',
+          label: 'Party video',
+          livePlayback: { roomId: 'room-1', sessionId: 'session-1' },
+        },
+        chatOverlay: { messages: [] },
+      },
+      [],
+      liveStream,
+    )
+
+    const video = container.querySelector('[data-testid="cast-receiver-live-video"]') as HTMLVideoElement | null
+    expect(video).not.toBeNull()
+    expect(container.textContent).not.toContain(CAST_RECEIVER_COPY.waitingForRoomVideo)
   })
 
   it('does not render sidebar tabs or compose controls', () => {

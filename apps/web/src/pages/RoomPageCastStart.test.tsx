@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoomPage } from './RoomPage'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
 import {
-  CAST_STARTING_MESSAGE,
+  CAST_CHOOSING_DEVICE_MESSAGE,
+  CAST_CONNECTING_TO_TV_MESSAGE,
   CAST_START_REJECTED_MESSAGE,
   RIFFSYNC_CAST_START_STATUS_ID,
 } from '../room/cast/castStartStatusCopy'
@@ -200,7 +201,7 @@ describe('RoomPage Cast start', () => {
     await openRoomTab()
 
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
-    expect(status?.textContent).toBe(CAST_STARTING_MESSAGE)
+    expect(status?.textContent).toBe(CAST_CHOOSING_DEVICE_MESSAGE)
   })
 
   it('shows local starting status while session render is pending', async () => {
@@ -208,7 +209,7 @@ describe('RoomPage Cast start', () => {
     await openRoomTab()
 
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
-    expect(status?.textContent).toBe(CAST_STARTING_MESSAGE)
+    expect(status?.textContent).toBe(CAST_CONNECTING_TO_TV_MESSAGE)
   })
 
   it('shows rejected status after failed Cast start', async () => {

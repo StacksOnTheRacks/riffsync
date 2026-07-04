@@ -14,7 +14,13 @@ export type CastStartLifecycle =
   | 'playback_blocked'
   | 'stop_failed'
 
-export type CastStagePrimaryKind = 'youtube_embed' | 'live_video_placeholder' | 'video_chat_grid'
+export type CastStagePrimaryKind = 'youtube_embed' | 'live_stream' | 'live_video_placeholder' | 'video_chat_grid'
+
+export type CastLivePlaybackConfig = {
+  roomId: string
+  sessionId: string
+  apiBaseUrl?: string
+}
 
 export type CastChatOverlayLine = {
   id: string
@@ -30,6 +36,7 @@ export type CastPresentationSnapshot = {
     kind: CastStagePrimaryKind
     youtubeVideoId?: string
     label?: string
+    livePlayback?: CastLivePlaybackConfig
   }
   chatOverlay: {
     messages: CastChatOverlayLine[]

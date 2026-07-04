@@ -13,4 +13,22 @@ describe('canConfirmCastReceiverRender', () => {
       }),
     ).toBe(true)
   })
+
+  it('requires a live track before confirming live-stream receiver playback', () => {
+    const snapshot = {
+      snapshotId: 'snap-live-1',
+      roomMode: 'theater' as const,
+      stagePrimary: {
+        kind: 'live_stream' as const,
+        livePlayback: { roomId: 'room-1', sessionId: 'session-1' },
+      },
+      chatOverlay: { messages: [] },
+    }
+    const stream = {
+      getTracks: () => [{ readyState: 'live' }],
+    } as unknown as MediaStream
+
+    expect(canConfirmCastReceiverRender(snapshot)).toBe(false)
+    expect(canConfirmCastReceiverRender(snapshot, stream)).toBe(true)
+  })
 })

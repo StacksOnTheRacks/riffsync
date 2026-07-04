@@ -5,6 +5,7 @@ import { fetchFanProfile } from '../api/fanProfileApi'
 import { patchRoom } from '../api/roomsApi'
 import { ensureGuestSession, setGuestDisplayName } from '../session/guestSession'
 import { getPublicWsUrl } from '../config/wsUrl'
+import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import { getPublicOrigin } from '../config/publicOrigin'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { announceWebrtcDebugOnRoomMount } from '../room/webrtcDebug'
@@ -60,6 +61,7 @@ export function RoomPage() {
   const prevRoomModeRef = useRef<RoomMode>('theater')
 
   const wsBase = getPublicWsUrl()
+  const apiBaseUrl = getPublicApiBaseUrl()
 
   const {
     room,
@@ -237,6 +239,9 @@ export function RoomPage() {
       enabled: Boolean(room) && castAvailability === 'available',
       expandedViewActive: expandedView && viewportWide,
       roomMode,
+      roomId: canonicalRoomId,
+      sessionId,
+      apiBaseUrl,
       youtubeVideoId,
       isPublisher,
       hasHostCaptureStream: Boolean(captureStream),

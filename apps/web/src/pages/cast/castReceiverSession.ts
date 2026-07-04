@@ -37,6 +37,8 @@ type CastReceiverContextInstance = {
   sendCustomMessage: (namespace: string, message: unknown) => void
 }
 
+let activeReceiverContext: CastReceiverContextInstance | null = null
+
 function parseSenderMessage(raw: unknown): CastSenderOutboundMessage | null {
   if (!raw || typeof raw !== 'object') return null
   const type = (raw as { type?: unknown }).type
@@ -96,6 +98,7 @@ export async function startCastReceiverSession(
   }
 
   const context = framework.CastReceiverContext.getInstance()
+  activeReceiverContext = context
 
   context.addCustomMessageListener(RIFFSYNC_CAST_NAMESPACE, (event) => {
     if (!event.data) return
@@ -152,7 +155,11 @@ export function sendCastReceiverRenderFailed(
   )
 }
 
-export function getCastReceiverContextForTests(): CastReceiverContextInstance | null {
+export function getActiveCastReceiverContext(): CastReceiverContextInstance | null {
+  if (activeReceiverContext) return activeReceiverContext
   const framework = (window as CastReceiverFrameworkWindow).cast?.framework
   return framework?.CastReceiverContext.getInstance() ?? null
 }
+
+/** @deprecated Use getActiveCastReceiverContext. */
+export const getCastReceiverContextForTests = getActiveCastReceiverContext

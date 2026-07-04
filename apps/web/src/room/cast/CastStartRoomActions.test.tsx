@@ -4,9 +4,10 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CastStartRoomActions } from './CastStartRoomActions'
 import {
+  CAST_CHOOSING_DEVICE_MESSAGE,
+  CAST_CONNECTING_TO_TV_MESSAGE,
   CAST_PLAYBACK_BLOCKED_MESSAGE,
   CAST_SESSION_ENDED_MESSAGE,
-  CAST_STARTING_MESSAGE,
   CAST_START_REJECTED_MESSAGE,
   RIFFSYNC_CAST_START_STATUS_ID,
 } from './castStartStatusCopy'
@@ -48,19 +49,20 @@ describe('CastStartRoomActions', () => {
   it('renders Cast to TV when available and idle', () => {
     renderActions('available', 'idle')
     expect(container.textContent).toContain('Cast to TV')
+    expect(container.querySelector('google-cast-launcher')).not.toBeNull()
   })
 
-  it('shows starting status without replacing playback surfaces', () => {
+  it('shows device chooser status without replacing playback surfaces', () => {
     renderActions('available', 'launching')
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
-    expect(status?.textContent).toBe(CAST_STARTING_MESSAGE)
+    expect(status?.textContent).toBe(CAST_CHOOSING_DEVICE_MESSAGE)
     expect(container.textContent).not.toContain('Cast to TV')
   })
 
-  it('shows starting status while session render is pending', () => {
+  it('shows TV connection status while session render is pending', () => {
     renderActions('available', 'session_pending_render')
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
-    expect(status?.textContent).toBe(CAST_STARTING_MESSAGE)
+    expect(status?.textContent).toBe(CAST_CONNECTING_TO_TV_MESSAGE)
     expect(container.textContent).not.toContain('Cast to TV')
   })
 

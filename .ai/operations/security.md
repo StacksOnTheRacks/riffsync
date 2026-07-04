@@ -55,8 +55,8 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | Topic | Contract |
 | --- | --- |
 | **Receiver app id** | Public Google Cast receiver application id is not a secret. Treat it like other SPA public config, not like an API token. |
-| **Custom receiver route** | **`/cast/receiver`** is a public TLS route. It must not expose room API credentials, fan/staff JWTs, SFU join tokens, or privileged room state. |
-| **Receiver authority** | The receiver is sender-proxied only. It must not call RiffSync HTTP room APIs, open room WebSockets, request SFU tokens, create presence rows, publish chat, subscribe to room media services, mutate room state, or infer host authority. |
+| **Custom receiver route** | **`/cast/receiver`** is a public TLS route. It must not expose room API credentials, fan/staff JWTs, raw SFU join tokens, receiver device identifiers, or privileged room state. |
+| **Receiver authority** | The receiver is sender-controlled and may only request a cast-scoped, read-only SFU consumer token for `host_screen` playback. It must not call RiffSync room mutation APIs, open room WebSockets, create presence rows, publish chat, publish media, subscribe to participant A/V control surfaces, mutate room state, or infer host authority. |
 | **CSP and framing** | CSP/script/frame policy must allow only the Google Cast and playback resources required by the sender and receiver presentation. Changes for Cast should be explicit and reviewed rather than broad wildcard allowances. |
 | **Privacy** | App-authored logs, status copy, and support output must not include receiver device names, identifiers, or room participant identifiers. Browser-owned Cast UI may display device names outside RiffSync control. |
 

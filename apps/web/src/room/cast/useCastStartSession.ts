@@ -27,6 +27,9 @@ export type UseCastStartSessionInput = {
   enabled: boolean
   expandedViewActive: boolean
   roomMode: RoomMode
+  roomId: string
+  sessionId: string
+  apiBaseUrl?: string
   youtubeVideoId: string | null | undefined
   isPublisher: boolean
   hasHostCaptureStream: boolean
@@ -49,6 +52,9 @@ export function useCastStartSession({
   enabled,
   expandedViewActive,
   roomMode,
+  roomId,
+  sessionId,
+  apiBaseUrl,
   youtubeVideoId,
   isPublisher,
   hasHostCaptureStream,
@@ -71,6 +77,10 @@ export function useCastStartSession({
   const snapshotInput = useMemo<BuildCastPresentationSnapshotInput>(
     () => ({
       roomMode,
+      livePlayback:
+        (hasHostCaptureStream || hasGuestRelayStream) && roomId && sessionId
+          ? { roomId, sessionId, apiBaseUrl }
+          : null,
       youtubeVideoId,
       isPublisher,
       hasHostCaptureStream,
@@ -80,6 +90,9 @@ export function useCastStartSession({
     }),
     [
       roomMode,
+      roomId,
+      sessionId,
+      apiBaseUrl,
       youtubeVideoId,
       isPublisher,
       hasHostCaptureStream,

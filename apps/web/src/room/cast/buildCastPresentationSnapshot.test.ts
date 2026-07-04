@@ -50,4 +50,31 @@ describe('buildCastPresentationSnapshot', () => {
 
     expect(snapshot.stagePrimary.kind).toBe('live_video_placeholder')
   })
+
+  it('uses live stream metadata when cast playback can consume the host screen', () => {
+    const snapshot = buildCastPresentationSnapshot({
+      roomMode: 'theater',
+      youtubeVideoId: 'abc123',
+      isPublisher: false,
+      hasHostCaptureStream: false,
+      hasGuestRelayStream: true,
+      livePlayback: {
+        roomId: 'room-1',
+        sessionId: 'session-1',
+        apiBaseUrl: 'https://api.test.example',
+      },
+      chat: [],
+      chatMemberLabels: new Map(),
+    })
+
+    expect(snapshot.stagePrimary).toEqual({
+      kind: 'live_stream',
+      label: 'Party video',
+      livePlayback: {
+        roomId: 'room-1',
+        sessionId: 'session-1',
+        apiBaseUrl: 'https://api.test.example',
+      },
+    })
+  })
 })

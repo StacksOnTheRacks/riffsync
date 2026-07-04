@@ -55,7 +55,7 @@ The Cast receiver application id is public build-time configuration for the SPA.
 | Config | Contract |
 | --- | --- |
 | **Receiver app id** | The public Vite value is **`VITE_CAST_RECEIVER_APP_ID`**. Missing or invalid configuration hides or locally fails Cast; it must not degrade room bootstrap, chat, SFU media, host controls, expanded view, or normal playback. |
-| **Receiver URL** | Production registration points to the Custom Web Receiver route on **`https://riffsync.tv/cast/receiver`**. Local/dev physical Cast tests require a Cast-device-reachable HTTPS origin; ordinary **`localhost`** Vite dev is suitable for unit/component tests but is not a physical receiver target unless tunneled or otherwise exposed over trusted TLS. |
+| **Receiver URL** | Production registration points to the Custom Web Receiver route on the canonical production origin, currently **`https://www.riffsync.tv/cast/receiver`**. Local/dev physical Cast tests require a Cast-device-reachable HTTPS origin; ordinary **`localhost`** Vite dev is suitable for unit/component tests but is not a physical receiver target unless tunneled or otherwise exposed over trusted TLS. |
 | **Sender SDK** | The sender loads the Google Cast sender SDK with **`loadCastFramework=1`**, assigns **`window.__onGCastApiAvailable`** before appending the SDK script, and configures **`CastContext`** from the build-time receiver app id with **`chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`** before exposing the normal-view **Cast to TV** start action. |
 | **No secrets** | Receiver app id and public origin values may appear in the browser bundle. They must not be treated as credentials or included in private secret rotation plans. |
 
