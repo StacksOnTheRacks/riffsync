@@ -65,7 +65,7 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - **People / Room / Profile:** reachable only after **exit expanded view** (or via site chrome navigation).
 - **Touch targets:** expand/exit control minimum **44×44** CSS px.
 - **Not offered < 992px:** toggle absent or **`aria-hidden`** / inert — no expanded keyboard path on narrow viewports in MVP.
-- **Implementation:** the overlay reuses the chat plane without rendering `.riffsync-room-page__tabs`; standard sidebar tabs return immediately after exit.
+- **Implementation:** the overlay reuses the interactive room chat plane without rendering `.riffsync-room-page__tabs`; standard sidebar tabs return immediately after exit. Do not substitute the Chromecast receiver read-only overlay for regular Expanded View (#318).
 
 ## Chromecast Cast controls
 
