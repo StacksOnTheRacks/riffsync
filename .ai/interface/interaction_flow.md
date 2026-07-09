@@ -109,6 +109,7 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 5. **Exit expanded:** Restore standard side-by-side stage + sidebar grid; active sidebar tab unchanged (defaults to last tab before expand if implementation tracks it; **Chat** tab content remains wired).
 6. **Room mode change while expanded:** Apply new mode to stage primary **without** forcing exit — overlay chat rules stay the same.
 7. **Reload / navigate away:** Expanded state **clears** — standard layout on return.
+8. **Chat interactivity:** Regular Expanded View keeps the same sender-side room chat capabilities as normal view. Signed-in fans can compose text, GIFs, and reactions when the chat plane is healthy; anonymous guests can read chat and keep the existing sign-in gate for send. The read-only Chromecast receiver overlay must not be used as the regular Expanded View chat overlay (#318).
 
 Implementation note: the expanded toggle is client-local React state in `RoomPage.tsx`; no room snapshot patch or WebSocket fan-out is sent when a viewer enters or exits expanded view.
 

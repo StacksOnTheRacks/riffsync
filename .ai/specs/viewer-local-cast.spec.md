@@ -14,6 +14,8 @@ Starting Cast opens the Google Cast device chooser through the Cast Framework se
 
 The receiver is a registered Custom Web Receiver launched by receiver application id and hosted at a reachable TLS URL, currently `/cast/receiver` on the canonical production RiffSync origin. The receiver receives sender-proxied presentation snapshots and overlay updates over the Cast channel. For active Theater share, it may also use a cast-scoped, read-only SFU consumer to play the same `host_screen` stream guests see. It does not expose chat compose, reactions, participant A/V controls, People, Room, Profile, or host-only controls.
 
+The read-only receiver behavior is scoped to the Chromecast receiver/source presentation only. Regular Expanded View on a computer remains an interactive room surface: the sender stays on `/room/:roomId`, the overlay uses the normal room chat plane, and chat send, GIF, reaction, typing, scrollback, jump-to-latest, and signed-in / anonymous gates continue under the same rules as normal view (#318).
+
 Every lifecycle outcome is local and recoverable: unavailable sender, chooser cancel, rejected start, receiver render timeout, receiver loss, blocked receiver playback, failed stop, navigation, reload, room leave, and cleanup. These states do not disrupt chat, room session, SFU state, host screen share, participant A/V, room mode, kill switch, presence, or other participants.
 
 ## Technical Specification
@@ -57,6 +59,8 @@ The receiver render-confirmation slice (#304) specifically verifies that success
 Receiver tests or stubs prove the custom namespace is configured before receiver context start, the receiver renders the stage-primary plus chat-overlay shell, sender-proxied updates do not introduce room mutation or chat publishing behavior, and `live_stream` confirmation waits for a live media track before entering active Cast.
 
 The receiver slice (#303) specifically verifies that `/cast/receiver` renders through `CastReceiverPage`, `castReceiverSession.test.ts` records namespace listener and `customNamespaces` setup before `context.start(options)`, `CastReceiverPresentation` renders stage-primary content plus a required chat overlay without sidebar tabs or compose controls, and component or screenshot fixtures cover 1280x720, 1920x1080, and 3840x2160 receiver viewports. Regression coverage must fail native media-only, tab-mirroring-only, and YouTube-only receiver paths that lack the RiffSync chat overlay or send render confirmation before both stage primary and overlay are present.
+
+Regression coverage for #318 proves the split between the two overlay paths: regular `/room/:roomId` Expanded View renders the interactive room chat overlay with compose/send, GIF, reaction, jump-to-latest, and typing behavior under normal chat health gates, while the Chromecast receiver/source presentation remains read-only and lacks compose, reactions, participant A/V controls, People, Room, Profile, and host controls.
 
 Integration and regression coverage prove every Cast lifecycle path leaves room authority untouched: no room HTTP mutations, no room WebSocket fan-out, no `share_state` variants, no SFU token claim changes, no drawer diagnostics, no active realtime error codes, and no presentation changes for other participants.
 

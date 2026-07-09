@@ -216,6 +216,8 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | **Drawers** | Chat and video-relay drawer status rules **unchanged** — chat banner lives inside the overlay; video-relay status stays on the stage playback surface. |
 | **Chromecast composition** | The expanded layout's **stage-primary + chat overlay** shell is the presentation model for optional viewer-local Cast. Cast work reuses this model without making expanded view itself the Cast entry point. |
 
+Regular Expanded View remains a live room surface. Its chat overlay uses the normal room chat plane and must keep compose, GIF posts, reactions, typing indicators, jump-to-latest, chat drawer status, and signed-in / anonymous gates interactive exactly as they are in the standard sidebar. Treating `presentation="overlay"` or `expandedViewActive` as a Chromecast receiver/source mode is a contract violation (#318).
+
 Implementation: `RoomPage.tsx` owns session-only expanded state, `RoomPageSidebar.tsx` renders the shared chat plane as either sidebar or overlay, and `StageParticipantLayout.tsx` renders Theater cameras in a bottom horizontal row (standard and expanded desktop layouts).
 
 ### Chromecast Cast view (viewer-local)
@@ -276,6 +278,8 @@ The Cast-start slice proves an actual custom receiver view, not just a sender-si
 | **Start feedback** | While the sender is waiting for receiver render confirmation, keep normal in-page playback visible and use local Cast status near the Cast surface or stage-local Cast status. Do not use chat drawer, video-relay status, room error, or host feedback surfaces. |
 | **Success transition** | The sender treats Cast start as confirmed only after the receiver reports that stage-primary video and the bottom-right chat overlay rendered. The #274 slice owns the persistent **`Now Casting`** sender-stage details after confirmation. |
 | **Presentation coverage** | Component tests and visual/screenshot fixtures for **`CastReceiverPresentation`** must render the stage primary plus required chat overlay at **1280x720**, **1920x1080**, and **3840x2160** receiver viewport sizes. Regression coverage must fail if the route renders a native media-only surface, a YouTube-only iframe without the RiffSync overlay, sidebar tab chrome, or sender-only interactive controls. |
+
+The read-only receiver rule applies only to the Chromecast receiver/source presentation. It must not be implemented by disabling the regular Expanded View overlay on the sender's computer. Regression coverage for #318 must prove that the normal `/room/:roomId` Expanded View still renders interactive chat controls while `/cast/receiver` remains presentation-only.
 
 ### Cast availability in normal room view (#272)
 
