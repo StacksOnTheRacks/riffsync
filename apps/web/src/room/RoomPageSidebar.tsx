@@ -449,12 +449,14 @@ export function RoomPageSidebar({
                 Hosting Guide
               </Link>
             ) : null}
-            <CastStartRoomActions
-              castAvailability={castAvailability}
-              castStartLifecycle={castStartLifecycle}
-              onCastToTvClick={onCastToTvClick}
-              castToTvButtonRef={castToTvButtonRef}
-            />
+            {experimentalFeatures ? (
+              <CastStartRoomActions
+                castAvailability={castAvailability}
+                castStartLifecycle={castStartLifecycle}
+                onCastToTvClick={onCastToTvClick}
+                castToTvButtonRef={castToTvButtonRef}
+              />
+            ) : null}
             <Link className="gen-button gen-button-wide" to="/">
               Leave Party
             </Link>

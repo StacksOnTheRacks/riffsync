@@ -23,6 +23,10 @@ const stopCast = vi.hoisted(() => vi.fn())
 const castToTvButtonRef = vi.hoisted(() => ({ current: null as HTMLButtonElement | null }))
 const stopCastButtonRef = vi.hoisted(() => ({ current: null as HTMLButtonElement | null }))
 
+vi.mock('../room/experimentalRoomFeatures', () => ({
+  detectExperimentalRoomFeatures: () => true,
+}))
+
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
   return {
