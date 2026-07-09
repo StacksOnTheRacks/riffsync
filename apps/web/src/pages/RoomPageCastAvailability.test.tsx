@@ -16,6 +16,11 @@ const fetchRtcIceServers = vi.fn()
 const castAvailabilityState = vi.hoisted(() => ({
   value: 'checking' as CastAvailabilityState,
 }))
+const experimentalEnabled = vi.hoisted(() => ({ value: true }))
+
+vi.mock('../room/experimentalRoomFeatures', () => ({
+  detectExperimentalRoomFeatures: () => experimentalEnabled.value,
+}))
 
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
@@ -152,6 +157,7 @@ describe('RoomPage Cast availability', () => {
   let webSocketCtor: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
+    experimentalEnabled.value = true
     castAvailabilityState.value = 'checking'
     MockWebSocket.instances = []
     webSocketCtor = vi.fn((url: string) => new MockWebSocket(url))
@@ -275,5 +281,37 @@ describe('RoomPage Cast availability', () => {
     expect(container.textContent?.includes(CAST_UNAVAILABLE_MESSAGE)).toBe(true)
     const chatDrawerStatus = container.querySelector('#riffsync-chat-drawer-status')
     expect(chatDrawerStatus?.textContent ?? '').not.toContain(CAST_UNAVAILABLE_MESSAGE)
+  })
+
+  it('omits Cast to TV when experimental features are disabled', async () => {
+    experimentalEnabled.value = false
+    castAvailabilityState.value = 'available'
+    renderRoom()
+    await openRoomTab()
+
+    expect(container.textContent).not.toContain('Cast to TV')
+    expect(container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)).toBeNull()
+  })
+
+  it('omits Cast unavailable copy when experimental features are disabled', async () => {
+    experimentalEnabled.value = false
+    castAvailabilityState.value = 'unavailable'
+    renderRoom()
+    await openRoomTab()
+
+    expect(container.textContent).not.toContain('Cast to TV')
+    expect(container.textContent).not.toContain(CAST_UNAVAILABLE_MESSAGE)
+    expect(container.querySelector(`#${RIFFSYNC_CAST_AVAILABILITY_STATUS_ID}`)).toBeNull()
+  })
+
+  it('keeps non-Cast room controls when experimental features are disabled', async () => {
+    experimentalEnabled.value = false
+    castAvailabilityState.value = 'available'
+    renderRoom()
+    await openRoomTab()
+
+    expect(container.textContent).toContain('Copy Party Link')
+    expect(container.textContent).toContain('Leave Party')
+    expect(container.textContent).not.toContain('Cast to TV')
   })
 })

@@ -233,10 +233,10 @@ export function RoomPage() {
     !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
   const viewportWide = useViewportWide()
   const expandToggleRef = useRef<HTMLButtonElement>(null)
-  const castAvailability = useCastAvailability(Boolean(room))
+  const castAvailability = useCastAvailability(Boolean(room) && experimentalFeatures)
   const { castStartLifecycle, startCast, stopCast, castToTvButtonRef, stopCastButtonRef } =
     useCastStartSession({
-      enabled: Boolean(room) && castAvailability === 'available',
+      enabled: Boolean(room) && experimentalFeatures && castAvailability === 'available',
       expandedViewActive: expandedView && viewportWide,
       roomMode,
       roomId: canonicalRoomId,

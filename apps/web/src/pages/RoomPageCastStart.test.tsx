@@ -18,6 +18,10 @@ const fetchRtcIceServers = vi.fn()
 const castStartLifecycle = vi.hoisted(() => ({ value: 'idle' as CastStartLifecycle }))
 const startCast = vi.hoisted(() => vi.fn())
 
+vi.mock('../room/experimentalRoomFeatures', () => ({
+  detectExperimentalRoomFeatures: () => true,
+}))
+
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
   return {
