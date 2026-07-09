@@ -22,7 +22,6 @@ import {
   RIFFSYNC_CHAT_COMPOSE_STATUS_ID,
   RIFFSYNC_CHAT_DRAWER_STATUS_ID,
 } from './drawerErrorPresentation'
-import { ChatOverlayMessageList, type ChatOverlayMessage } from './ChatOverlayMessageList'
 import { CastStartRoomActions } from './cast/CastStartRoomActions'
 import type { CastAvailabilityState } from './cast/castAvailabilityTypes'
 import type { CastStartLifecycle } from './cast/castChannelProtocol'
@@ -82,61 +81,6 @@ type RoomPageSidebarProps = {
   castToTvButtonRef: RefObject<HTMLButtonElement | null>
 }
 
-function toReadOnlyOverlayMessage(params: {
-  line: ChatLine
-  index: number
-  chat: ChatLine[]
-  chatMemberLabels: Map<string, string>
-  sessionId: string
-  myAvatarUrl: string | null
-}): ChatOverlayMessage {
-  const { line, index, chat, chatMemberLabels, sessionId, myAvatarUrl } = params
-  if (line.kind === 'system') {
-    return {
-      id: line.messageId,
-      kind: 'system',
-      text: formatChatSystemText(line.displayName, line.systemEvent),
-    }
-  }
-
-  const senderLabel =
-    (line.displayName && line.displayName.trim() !== ''
-      ? line.displayName
-      : chatMemberLabels.get(line.sessionId)) ??
-    `${line.sessionId.slice(0, 6)}...`
-  const avatarUrl = resolveMemberAvatarUrl(line.sessionId, line.avatarUrl, sessionId, myAvatarUrl)
-  const isContinued = isContinuedChatLine(chat, index)
-  const isMine = line.sessionId === sessionId
-
-  if (line.kind === 'gif') {
-    return {
-      id: line.messageId,
-      kind: 'gif',
-      text: `${senderLabel}: GIF`,
-      senderLabel,
-      avatarUrl,
-      isMine,
-      isContinued,
-      gif: {
-        src: line.renditionUrl,
-        alt: line.title?.trim() || 'GIF',
-        width: line.width,
-        height: line.height,
-      },
-    }
-  }
-
-  return {
-    id: line.messageId,
-    kind: 'text',
-    text: line.text,
-    senderLabel,
-    avatarUrl,
-    isMine,
-    isContinued,
-  }
-}
-
 export function RoomPageSidebar({
   presentation = 'sidebar',
   wsBase,
@@ -191,16 +135,6 @@ export function RoomPageSidebar({
   onCastToTvClick,
   castToTvButtonRef,
 }: RoomPageSidebarProps) {
-  const readOnlyOverlayMessages = chat.map((line, index) =>
-    toReadOnlyOverlayMessage({
-      line,
-      index,
-      chat,
-      chatMemberLabels,
-      sessionId,
-      myAvatarUrl,
-    }),
-  )
   const chatPlane = (
     <section
       className={`riffsync-room-page__chat${presentation === 'overlay' ? ' riffsync-room-page__chat--overlay' : ''}`}
@@ -266,14 +200,6 @@ export function RoomPageSidebar({
 
         {activeSidebarTab === 'chat' ? (
           <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
-            {presentation === 'overlay' ? (
-              <ChatOverlayMessageList
-                ref={chatLogRef}
-                variant="room"
-                messages={readOnlyOverlayMessages}
-                typingEntries={remoteTyping}
-              />
-            ) : (
               <ul ref={chatLogRef} className="riffsync-room-chat-log">
                 {chat.map((m, index) => {
                   if (m.kind === 'system') {
@@ -364,7 +290,6 @@ export function RoomPageSidebar({
                   </li>
                 ))}
               </ul>
-            )}
           </div>
         ) : null}
 
@@ -534,7 +459,7 @@ export function RoomPageSidebar({
           </div>
         ) : null}
 
-        {presentation === 'sidebar' ? <div className="riffsync-room-page__sidebar-footer">
+        <div className="riffsync-room-page__sidebar-footer">
           {fanToken && experimentalFeatures ? (
             <ParticipantAvToggles
               controller={participantAvController}
@@ -617,7 +542,7 @@ export function RoomPageSidebar({
               ) : null}
             </div>
           ) : null}
-        </div> : null}
+        </div>
       </section>
   )
 

@@ -103,7 +103,7 @@ describe('CastReceiverPresentation', () => {
     expect(container.textContent).not.toContain(CAST_RECEIVER_COPY.waitingForRoomVideo)
   })
 
-  it('does not render sidebar tabs or compose controls', () => {
+  it('keeps Chromecast receiver presentation read-only without compose or reactions (#318)', () => {
     renderPresentation({
       snapshotId: 'snap-waiting-1',
       roomMode: 'theater',
