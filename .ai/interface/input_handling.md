@@ -33,6 +33,15 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - Mode change does not require a secondary confirm in MVP; host action is immediate.
 - When **AV kill switch** is on, **Video Chat** mode control is inert (no spurious focus traps).
 
+### Room tab lobby visibility (host only)
+
+- **Placement:** **Room** sidebar tab, below **Rename Party** and above **Hosting Guide** (after **Copy Party Link**).
+- **Control:** two-option **`role="radiogroup"`** — **Show in lobby** (**`public`**) and **Link only** (**`private`**).
+- **Activation:** click or keyboard (**Enter** / **Space**) patches **`visibility`** via host **`PATCH`**; no secondary confirm.
+- **Disabled state:** both options **`disabled`** while a visibility patch is in flight; **`aria-busy`** on the radiogroup when busy.
+- **Touch targets:** minimum **44×44** CSS px on each option button.
+- **Guests and signed-in non-host fans:** control **not rendered** — not in tab order.
+
 ### Device permissions
 
 - First camera/mic enable triggers browser **`getUserMedia`** permission prompt; denial surfaces **inline recoverable** copy (retry when user changes browser permission).
@@ -93,4 +102,5 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ## Primary code pointers (optional)
 
+- **`apps/web/src/room/RoomVisibilityControl.tsx`** — host **Room** tab lobby visibility radiogroup.
 - **`apps/web/src/pages/RoomPage.tsx`** — thin shell; AV toggles and host bar extend existing chat-column and stage handlers.

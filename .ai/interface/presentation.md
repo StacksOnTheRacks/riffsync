@@ -359,7 +359,7 @@ The render-confirmation slice gates the sender's active Cast UI after #302 reach
 | **Copy** | Sentence case **`Hosted by …`**; **`hostDisplayName`** verbatim from API (already trimmed server-side, max **48**). |
 | **Styling** | Muted secondary text — reuse **`riffsync-muted`** or an adjacent lobby stat class; not a second heading. |
 | **Missing name** | Rows without **`hostDisplayName`** are **not rendered** — the API omits them; SPA does not synthesize fallback copy. |
-| **Private rooms** | Unchanged — only **public** rooms appear on **`/lobby`**. |
+| **Private rooms** | Only **`visibility: public`** rooms appear on **`/lobby`**. Host may switch to **`private`** (**Link only**) from the in-room **Room** tab; direct **`/room/:roomId`** join remains open to anyone with the link. |
 
 ## Decisions (answered — compose media picker #258)
 
@@ -377,6 +377,17 @@ The render-confirmation slice gates the sender's active Cast UI after #302 reach
 | **Expanded Theater cameras** | Expanded stage includes the movie plus optional bottom camera row; when the row is empty, the movie may use the full expanded stage. |
 | **Chat in expanded Theater** | Chat remains the bottom-right transparent overlay from **#259** and is not displaced by cameras. |
 | **Video Chat** | Participant grid remains primary; mic-only and grid visibility rules are unchanged. |
+
+## Decisions (answered — in-room lobby visibility)
+
+| Topic | Decision |
+| --- | --- |
+| **Create-time default** | Catalog **Start Party** still creates **`visibility: public`** rooms — no create-flow picker. |
+| **Host control placement** | **Room** sidebar tab only; not on host control bar or catalog. |
+| **Labels** | **Show in lobby** maps to **`public`**; **Link only** maps to **`private`**. |
+| **Hint copy** | Muted helper under control: party link still works; link-only rooms are hidden from lobby. |
+| **Non-host visibility** | Guests and signed-in non-host fans do not see the control. |
+| **URL stability** | Toggling visibility does not mint a new **`roomId`** or change **`/room/:roomId`**. |
 
 ## Open implementation decisions
 

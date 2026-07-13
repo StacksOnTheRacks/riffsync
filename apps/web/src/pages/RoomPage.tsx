@@ -16,6 +16,8 @@ import {
   formatHostRoomPatchError,
   mergeRoomPatchResult,
   roomModeAnnounceCopy,
+  visibilityAnnounceCopy,
+  type RoomVisibility,
 } from '../room/hostRoomControls'
 import { StageParticipantLayout } from '../room/stage/StageParticipantLayout'
 import { enteredVideoChatMode } from '../room/roomMediaLifecycle'
@@ -47,6 +49,8 @@ export function RoomPage() {
   const [patchErr, setPatchErr] = useState<string | null>(null)
   const [hostBarBusy, setHostBarBusy] = useState(false)
   const [hostBarErr, setHostBarErr] = useState<string | null>(null)
+  const [visibilityBusy, setVisibilityBusy] = useState(false)
+  const [visibilityErr, setVisibilityErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
   const [roomSidebarTab, setRoomSidebarTab] = useState<RoomSidebarTab>('chat')
   const [expandedView, setExpandedView] = useState(false)
@@ -112,6 +116,27 @@ export function RoomPage() {
       }
     },
     [room, fanToken, isPublisher, hostBarBusy, roomId, announceRoomA11y, setRoom],
+  )
+
+  const patchRoomVisibility = useCallback(
+    async (visibility: RoomVisibility) => {
+      if (!room || !fanToken || !isPublisher || visibilityBusy || room.visibility === visibility) return
+      const snapshot = room
+      setVisibilityBusy(true)
+      setVisibilityErr(null)
+      setRoom({ ...snapshot, visibility })
+      try {
+        const res = await patchRoom(fanToken, roomId, { visibility })
+        setRoom((prev) => (prev ? mergeRoomPatchResult(prev, res) : prev))
+        announceRoomA11y(visibilityAnnounceCopy(visibility))
+      } catch (e) {
+        setRoom(snapshot)
+        setVisibilityErr(formatHostRoomPatchError(e))
+      } finally {
+        setVisibilityBusy(false)
+      }
+    },
+    [room, fanToken, isPublisher, visibilityBusy, roomId, announceRoomA11y, setRoom],
   )
 
   const {
@@ -392,6 +417,10 @@ export function RoomPage() {
     shareHint,
     onCopyShare: () => void copyShare(),
     onOpenRenameModal: openRenameModal,
+    roomVisibility: room.visibility,
+    visibilityBusy,
+    visibilityErr,
+    onSelectRoomVisibility: (visibility: RoomVisibility) => void patchRoomVisibility(visibility),
     avDisabled,
     participantAvController,
     announceRoomA11y,

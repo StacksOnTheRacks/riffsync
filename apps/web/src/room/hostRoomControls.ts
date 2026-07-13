@@ -1,5 +1,7 @@
 import type { RoomMode, RoomPatchResult, RoomSnapshot } from '../api/roomsApi'
 
+export type RoomVisibility = RoomSnapshot['visibility']
+
 export function buildRoomModePatch(nextMode: RoomMode): { roomMode: RoomMode } {
   return { roomMode: nextMode }
 }
@@ -39,6 +41,12 @@ export function avDisabledAnnounceCopy(disabled: boolean): string {
   return disabled
     ? 'Room camera and microphone disabled by host'
     : 'Room camera and microphone enabled by host'
+}
+
+export function visibilityAnnounceCopy(visibility: RoomVisibility): string {
+  return visibility === 'private'
+    ? 'Room hidden from lobby. Party link still works.'
+    : 'Room visible in lobby.'
 }
 
 export const VIDEO_CHAT_BETA_DESCRIPTION =

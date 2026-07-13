@@ -25,6 +25,8 @@ import {
 import { CastStartRoomActions } from './cast/CastStartRoomActions'
 import type { CastAvailabilityState } from './cast/castAvailabilityTypes'
 import type { CastStartLifecycle } from './cast/castChannelProtocol'
+import { RoomVisibilityControl } from './RoomVisibilityControl'
+import type { RoomVisibility } from './hostRoomControls'
 
 type RoomPageSidebarProps = {
   presentation?: 'sidebar' | 'overlay'
@@ -61,6 +63,10 @@ type RoomPageSidebarProps = {
   shareHint: string | null
   onCopyShare: () => void
   onOpenRenameModal: () => void
+  roomVisibility: RoomVisibility
+  visibilityBusy: boolean
+  visibilityErr: string | null
+  onSelectRoomVisibility: (visibility: RoomVisibility) => void
   avDisabled: boolean
   participantAvController: ParticipantAvController
   announceRoomA11y: (message: string) => void
@@ -116,6 +122,10 @@ export function RoomPageSidebar({
   shareHint,
   onCopyShare,
   onOpenRenameModal,
+  roomVisibility,
+  visibilityBusy,
+  visibilityErr,
+  onSelectRoomVisibility,
   avDisabled,
   participantAvController,
   announceRoomA11y,
@@ -363,6 +373,14 @@ export function RoomPageSidebar({
               <button type="button" className="gen-button gen-button-wide" onClick={onOpenRenameModal}>
                 Rename Party
               </button>
+            ) : null}
+            {isPublisher ? (
+              <RoomVisibilityControl
+                visibility={roomVisibility}
+                busy={visibilityBusy}
+                error={visibilityErr}
+                onSelectVisibility={onSelectRoomVisibility}
+              />
             ) : null}
             {isPublisher ? (
               <Link

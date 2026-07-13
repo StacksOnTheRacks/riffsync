@@ -8,7 +8,7 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | --- | --- |
 | **`/` / catalog** | Grid/list → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. |
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
-| **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
+| **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch), **Room** tab lobby visibility toggle (**Show in lobby** / **Link only**). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
 | **`/lobby`** | Public rooms from **`GET` lobby API** → navigate to **`/room/:id`**. |
 | **`/admin/login`** | **Unlisted** operator gate (bookmark or direct URL only; no links from catalog or room chrome). Primary action starts **staff** Cognito Hosted UI + PKCE; copy makes clear this is **operators only**, not fan Facebook sign-in. |
 | **`/admin/auth/callback`** | Staff OAuth code exchange; on success navigates to stored **`returnTo`** or **`/admin`**; on failure shows **recoverable** error with **retry sign-in** (no silent blank shell). |
@@ -222,6 +222,8 @@ The #305 refinement turns the broad authority invariant into executable lifecycl
 | Kill switch toggle UX? | **Visible but disabled** with explanation when host disabled room AV. |
 | Video Chat tab-capture? | **Fully stop** on enter; **Share Source Tab** again on return to **Theater**. |
 | Reconnect AV state? | Camera/mic **default off**; manual re-enable. |
+| Room lobby visibility at create? | **Unchanged** — **`POST /v1/rooms`** from catalog still defaults **`visibility: public`**. |
+| In-room lobby visibility toggle? | **Host-only** on **Room** sidebar tab: **Show in lobby** (**`public`**) vs **Link only** (**`private`**); **`PATCH /v1/rooms/{roomId}`** with optimistic UI + **`409`** rollback copy. Party URL unchanged either way. |
 | Chat vs video relay reconnect? | **Independent** — healthy drawer keeps running; each plane shows its own status surface (**`presentation.md`**). |
 | `share_state: stopped` guest scope? | **`host_screen` detach only** — participant AV and SFU session persist. |
 | Frozen frame on camera-off? | **Contract violation** — tile must leave row/grid on video **`producerClosed`**. |
