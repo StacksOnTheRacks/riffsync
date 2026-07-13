@@ -9,6 +9,7 @@ export type CatalogEra =
   | 'emily'
   | 'community'
   | 'movie_night'
+  | 'riffable'
   | 'other'
 
 export const CATALOG_ERAS: readonly CatalogEra[] = [
@@ -18,7 +19,19 @@ export const CATALOG_ERAS: readonly CatalogEra[] = [
   'emily',
   'community',
   'movie_night',
+  'riffable',
   'other',
+]
+
+/** Eras exposed on the public catalog filter bar (`other` is staff-only curation). */
+export const PUBLIC_CATALOG_ERAS: readonly CatalogEra[] = [
+  'joel',
+  'mike',
+  'jonah',
+  'emily',
+  'community',
+  'movie_night',
+  'riffable',
 ]
 
 const CATALOG_ERA_LABELS: Record<CatalogEra, string> = {
@@ -28,6 +41,7 @@ const CATALOG_ERA_LABELS: Record<CatalogEra, string> = {
   emily: 'Emily',
   community: 'Community',
   movie_night: 'Movie Night',
+  riffable: 'Riffable',
   other: 'Other',
 }
 

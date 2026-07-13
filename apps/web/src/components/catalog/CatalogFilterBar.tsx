@@ -1,4 +1,4 @@
-import { CATALOG_ERAS, formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTypes'
+import { PUBLIC_CATALOG_ERAS, formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTypes'
 
 export interface CatalogFilterBarProps {
   selectedEras: CatalogEra[]
@@ -25,7 +25,7 @@ export function CatalogFilterBar({
   return (
     <div className="riffsync-catalog-filter-bar">
       <div className="riffsync-catalog-filter-bar__era-group" role="group" aria-label="Filter by era">
-        {CATALOG_ERAS.map((era) => {
+        {PUBLIC_CATALOG_ERAS.map((era) => {
           const selected = selectedEras.includes(era)
           return (
             <button

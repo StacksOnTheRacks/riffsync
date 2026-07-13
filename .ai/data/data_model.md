@@ -8,7 +8,7 @@ Curator + enrichment merged for **`GET /v1/catalog`** output.
 
 | Field group | Fields | Notes |
 | --- | --- | --- |
-| **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`era`** | **`title`** never overwritten from TMDB. |
+| **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`era`** | **`title`** never overwritten from TMDB. **`era`** enum: **`joel`**, **`mike`**, **`jonah`**, **`emily`**, **`community`**, **`movie_night`**, **`riffable`**, **`other`** — public catalog filter bar omits **`other`** (staff curation bucket). |
 | **YouTube** | **`youtubeVideoId`**, **`youtubeWatchUrl`** | Nullable when unknown. |
 | **TMDB-aligned (nullable keys always on row in seed)** | **`tagline`**, **`posterImageUrl`**, **`backdropImageUrl`**, **`tmdbMovieId`**, **`tmdbArtworkSyncedAt`** | Filled by reconcile; see contracts. |
 | **Dynamo-only (optional on seed)** | **`tmdbOverview`**, **`tmdbPopularity`**, raw **`tmdbPosterPath`**, **`tmdbBackdropPath`** | Per **`docs/architecture.catalog-images.md`**. |

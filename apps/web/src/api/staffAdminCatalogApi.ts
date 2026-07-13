@@ -8,7 +8,7 @@ export interface StaffCatalogEpisode {
   id: string
   experimentNumber: number
   title: string
-  era: 'joel' | 'mike' | 'jonah' | 'emily' | 'community' | 'movie_night' | 'other'
+  era: 'joel' | 'mike' | 'jonah' | 'emily' | 'community' | 'movie_night' | 'riffable' | 'other'
   youtubeVideoId: string | null
   youtubeWatchUrl: string | null
   tagline: string | null

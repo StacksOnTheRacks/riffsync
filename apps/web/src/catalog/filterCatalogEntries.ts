@@ -1,12 +1,13 @@
 import type { CatalogEra, CatalogEpisode } from './catalogTypes'
 
-/** Default era toggles on the public catalog (Joel, Mike, Jonah, Emily, Community). */
+/** Default era toggles on the public catalog (core MST eras + Riffable). */
 export const DEFAULT_CATALOG_FILTER_ERAS: readonly CatalogEra[] = [
   'joel',
   'mike',
   'jonah',
   'emily',
   'community',
+  'riffable',
 ]
 
 export interface CatalogFilterOptions {

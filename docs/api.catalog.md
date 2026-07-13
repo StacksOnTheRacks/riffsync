@@ -25,7 +25,7 @@ Returns a bundle aligned with **`data/catalog/episodes.json`**:
 | **`id`** | `string` | Stable slug (partition key in DynamoDB). |
 | **`experimentNumber`** | `number` | Classic experiment ordering. |
 | **`title`** | `string` | Display title (**not** TMDB `title`). |
-| **`era`** | string enum | `joel` \| `mike` \| `jonah` \| `emily` \| `other`. |
+| **`era`** | string enum | `joel` \| `mike` \| `jonah` \| `emily` \| `community` \| `movie_night` \| `riffable` \| `other`. Public catalog UI omits **`other`** from era filter chips. |
 | **`youtubeVideoId`** | `string \| null` | |
 | **`youtubeWatchUrl`** | `string \| null` | |
 | **`tagline`** | `string \| null` | Often filled by reconcile. |

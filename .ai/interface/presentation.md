@@ -13,6 +13,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes the player, optional Theater camera row, and RiffSync chrome) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
 | **Share** | **Copy `/room/:id` URL**; show advisory **`playbackExpectation`** near share affordance. |
 | **Rate / caps** | Server may return **429** / **WS business `error`** when limits hit (**`api_contracts.md`**); toast or inline message—**no** infinite retry storms. |
+| **Catalog era filters** | Public **`/catalog`** shows era chips for Joel, Mike, Jonah, Emily, Community, Movie Night, and **Riffable**. **`other`** is staff-only and must not appear on public filter chips. Default selected eras include **Riffable** with the core MST buckets. |
 
 ## Chat & scrollback (watch party room)
 

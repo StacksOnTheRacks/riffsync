@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PUBLIC_CATALOG_ERAS } from './catalogTypes'
 import { DEFAULT_CATALOG_FILTER_ERAS, filterCatalogEntries } from './filterCatalogEntries'
 import type { CatalogEpisode } from './catalogTypes'
 
@@ -28,12 +29,13 @@ const sampleEntries: CatalogEpisode[] = [
   episode({ id: 'ep-e', experimentNumber: 999, title: 'Other Experiment', era: 'other' }),
   episode({ id: 'ep-f', experimentNumber: 500, title: 'Community Riff', era: 'community' }),
   episode({ id: 'ep-g', experimentNumber: 1500, title: 'Movie Night Pick', era: 'movie_night' }),
+  episode({ id: 'ep-h', experimentNumber: 1600, title: 'Riffable Classic', era: 'riffable' }),
 ]
 
 describe('filterCatalogEntries', () => {
   it('returns all entries sorted by experimentNumber when filters are empty', () => {
     const result = filterCatalogEntries(sampleEntries, { titleQuery: '', eras: [] })
-    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-f', 'ep-e', 'ep-d', 'ep-g'])
+    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-f', 'ep-e', 'ep-d', 'ep-g', 'ep-h'])
   })
 
   it('filters by a single era', () => {
@@ -73,11 +75,16 @@ describe('filterCatalogEntries', () => {
     expect(result.map((e) => e.experimentNumber)).toEqual([101, 200, 999])
   })
 
-  it('filters by default catalog eras (Joel, Mike, Jonah, Emily, Community)', () => {
+  it('filters by default catalog eras (Joel, Mike, Jonah, Emily, Community, Riffable)', () => {
     const result = filterCatalogEntries(sampleEntries, {
       titleQuery: '',
       eras: DEFAULT_CATALOG_FILTER_ERAS,
     })
-    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-f', 'ep-d'])
+    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-f', 'ep-d', 'ep-h'])
+  })
+
+  it('excludes other from public catalog era chips', () => {
+    expect(PUBLIC_CATALOG_ERAS).toContain('riffable')
+    expect(PUBLIC_CATALOG_ERAS).not.toContain('other')
   })
 })

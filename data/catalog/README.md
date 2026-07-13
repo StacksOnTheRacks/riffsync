@@ -26,7 +26,7 @@ Until that migration lands, **`episodes.json`** is the practical place to bulk-e
 1. Use a **stable `id`** slug — never recycle it for a different experiment if links or rooms might reference it.
 2. Confirm the upload is **embeddable** in your test app (many uploads block embedding) before setting a non-null `youtubeVideoId`.
 3. Set `youtubeVideoId` to the **11-character** id from the watch URL when known; leave `null` for metadata-first rows awaiting a curator mapping.
-4. Fill `era` for filters (`joel` \| `mike` \| `jonah` \| `emily` \| `other`). **Convention here:** Joel through experiment **512** (Mitchell), Mike **513** onward through **1313**, Jonah from **1101** (national revival onward).
+4. Fill `era` for filters (`joel` \| `mike` \| `jonah` \| `emily` \| `community` \| `movie_night` \| `riffable` \| `other`). Public catalog UI omits **`other`**; use **`other`** only as a staff staging bucket while recategorizing rows. **Convention here:** Joel through experiment **512** (Mitchell), Mike **513** onward through **1313**, Jonah from **1101** (national revival onward).
 5. Bump **`updated`** on the seed bundle (`YYYY-MM-DD`) when you ship a coordinated seed edit.
 6. **`youtubeWatchUrl`** is explicitly nullable; pairing it with **`youtubeVideoId`** is strongly recommended whenever the id is set (typically `https://www.youtube.com/watch?v=<11-char-id>`).
 
