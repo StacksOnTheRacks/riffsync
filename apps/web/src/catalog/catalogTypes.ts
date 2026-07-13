@@ -2,7 +2,14 @@
  * Shape aligned with `data/catalog/catalog.schema.json` episode `$defs.episode`
  * plus optional API-only hints (**`docs/api.catalog.md`**, **`architecture.frontend.md`**).
  */
-export type CatalogEra = 'joel' | 'mike' | 'jonah' | 'emily' | 'community' | 'other'
+export type CatalogEra =
+  | 'joel'
+  | 'mike'
+  | 'jonah'
+  | 'emily'
+  | 'community'
+  | 'movie_night'
+  | 'other'
 
 export const CATALOG_ERAS: readonly CatalogEra[] = [
   'joel',
@@ -10,12 +17,23 @@ export const CATALOG_ERAS: readonly CatalogEra[] = [
   'jonah',
   'emily',
   'community',
+  'movie_night',
   'other',
 ]
 
-/** Title-case label for chips and banners (e.g. `joel` → Joel). */
+const CATALOG_ERA_LABELS: Record<CatalogEra, string> = {
+  joel: 'Joel',
+  mike: 'Mike',
+  jonah: 'Jonah',
+  emily: 'Emily',
+  community: 'Community',
+  movie_night: 'Movie Night',
+  other: 'Other',
+}
+
+/** Display label for era chips, filters, and admin selects. */
 export function formatCatalogEraLabel(era: CatalogEra): string {
-  return era.replace(/^./, (c) => c.toUpperCase())
+  return CATALOG_ERA_LABELS[era]
 }
 
 /** Honor-system expectation for US-P0-07 (not verified server-side). */

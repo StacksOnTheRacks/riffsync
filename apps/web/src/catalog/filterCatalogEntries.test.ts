@@ -26,12 +26,14 @@ const sampleEntries: CatalogEpisode[] = [
   episode({ id: 'ep-c', experimentNumber: 310, title: 'Giant Spider', era: 'jonah' }),
   episode({ id: 'ep-d', experimentNumber: 1200, title: 'Emily Special', era: 'emily' }),
   episode({ id: 'ep-e', experimentNumber: 999, title: 'Other Experiment', era: 'other' }),
+  episode({ id: 'ep-f', experimentNumber: 500, title: 'Community Riff', era: 'community' }),
+  episode({ id: 'ep-g', experimentNumber: 1500, title: 'Movie Night Pick', era: 'movie_night' }),
 ]
 
 describe('filterCatalogEntries', () => {
   it('returns all entries sorted by experimentNumber when filters are empty', () => {
     const result = filterCatalogEntries(sampleEntries, { titleQuery: '', eras: [] })
-    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-e', 'ep-d'])
+    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-f', 'ep-e', 'ep-d', 'ep-g'])
   })
 
   it('filters by a single era', () => {
@@ -71,11 +73,11 @@ describe('filterCatalogEntries', () => {
     expect(result.map((e) => e.experimentNumber)).toEqual([101, 200, 999])
   })
 
-  it('filters by default catalog eras (Joel, Mike, Jonah, Emily)', () => {
+  it('filters by default catalog eras (Joel, Mike, Jonah, Emily, Community)', () => {
     const result = filterCatalogEntries(sampleEntries, {
       titleQuery: '',
       eras: DEFAULT_CATALOG_FILTER_ERAS,
     })
-    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-d'])
+    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-f', 'ep-d'])
   })
 })

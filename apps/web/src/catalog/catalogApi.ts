@@ -1,4 +1,10 @@
-import type { CatalogBundle, CatalogEpisode, CatalogEra, PlaybackExpectation } from './catalogTypes'
+import {
+  CATALOG_ERAS,
+  type CatalogBundle,
+  type CatalogEpisode,
+  type CatalogEra,
+  type PlaybackExpectation,
+} from './catalogTypes'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import {
   CATALOG_UNAVAILABLE_MESSAGE,
@@ -23,15 +29,8 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function asEra(v: unknown): CatalogEra {
   const s = typeof v === 'string' ? v : ''
-  if (
-    s === 'joel' ||
-    s === 'mike' ||
-    s === 'jonah' ||
-    s === 'emily' ||
-    s === 'community' ||
-    s === 'other'
-  ) {
-    return s
+  if ((CATALOG_ERAS as readonly string[]).includes(s)) {
+    return s as CatalogEra
   }
   return 'other'
 }

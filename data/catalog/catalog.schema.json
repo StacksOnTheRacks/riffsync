@@ -58,7 +58,7 @@
         },
         "era": {
           "type": "string",
-          "enum": ["joel", "mike", "jonah", "emily", "community", "other"],
+          "enum": ["joel", "mike", "jonah", "emily", "community", "movie_night", "other"],
           "description": "Hosting era filters."
         },
         "youtubeVideoId": {

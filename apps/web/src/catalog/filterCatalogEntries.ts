@@ -1,7 +1,13 @@
 import type { CatalogEra, CatalogEpisode } from './catalogTypes'
 
-/** Default era toggles on the public catalog (Joel, Mike, Jonah, Emily). */
-export const DEFAULT_CATALOG_FILTER_ERAS: readonly CatalogEra[] = ['joel', 'mike', 'jonah', 'emily']
+/** Default era toggles on the public catalog (Joel, Mike, Jonah, Emily, Community). */
+export const DEFAULT_CATALOG_FILTER_ERAS: readonly CatalogEra[] = [
+  'joel',
+  'mike',
+  'jonah',
+  'emily',
+  'community',
+]
 
 export interface CatalogFilterOptions {
   titleQuery: string
