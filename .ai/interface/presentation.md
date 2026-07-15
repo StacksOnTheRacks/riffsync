@@ -15,6 +15,35 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | **Rate / caps** | Server may return **429** / **WS business `error`** when limits hit (**`api_contracts.md`**); toast or inline message—**no** infinite retry storms. |
 | **Catalog era filters** | Public **`/catalog`** shows era chips for Joel, Mike, Jonah, Emily, Community, Movie Night, and **Riffable**. **`other`** is staff-only and must not appear on public filter chips. Default selected eras include **Riffable** with the core MST buckets. |
 
+## Public site head tags and heading semantics
+
+Document-level metadata for the durable public surfaces — **`/`**, **`/catalog`**, **`/watch/:catalogEpisodeId`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** — replacing today's single static **`index.html`** shell that applies the same meta to every route regardless of what renders. See **`business_logic/domain_model.md`** → *Public discoverable surface* for the indexable route boundary; this contract is **mechanism-agnostic** — it holds whether head tags are produced by build-time prerender (**`operations/build_packaging.md`**) or another rendering strategy.
+
+| Route | **`<title>`** | Meta description | Canonical | OG/Twitter image |
+| --- | --- | --- | --- | --- |
+| **`/`** | Site title framing (e.g. **`RiffSync — watch parties`**) | Fan-disclaimer framing copy (unofficial, non-trademark-claiming — same precedent as today's **`index.html`**) | **`https://riffsync.tv/`** | Static **`/og-card.png`** |
+| **`/catalog`** | Catalog framing (e.g. **`RiffSync Catalog — browse the library`**) | Catalog browsing framing copy | **`https://riffsync.tv/catalog`** | Static **`/og-card.png`** |
+| **`/watch/:catalogEpisodeId`** | Episode **`title`** + site framing | Composed from episode **`title`** (and **`tagline`** when present) | **`https://riffsync.tv/watch/{id}`** | Episode **`posterImageUrl`** / **`backdropImageUrl`** when present, else static **`/og-card.png`** |
+| **`/how-to-host-a-watchparty`** | Host-help framing | Host-help framing copy | **`https://riffsync.tv/how-to-host-a-watchparty`** | Static **`/og-card.png`** |
+| **`/terms`** | Legal framing | Legal framing copy | **`https://riffsync.tv/terms`** | Static **`/og-card.png`** |
+| **`/privacy`** | Legal framing | Legal framing copy | **`https://riffsync.tv/privacy`** | Static **`/og-card.png`** |
+
+**Ephemeral/authenticated/receiver-only routes** (**`/room/:roomId`** and its experimental variant, **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**, **`/privacy/data-removal`**, **`/auth/callback`**, **`/admin/auth/callback`**) keep the generic app-shell **`<title>RiffSync</title>`** and description plus a **`noindex`** robots meta tag — **no** per-instance head tags.
+
+Meta titles/descriptions/OG for **`/watch/:id`** always use the catalog **`title`** field, never TMDB's **`title`**/**`original_title`** (**`business_logic/domain_model.md`** Invariant 9).
+
+### Home route document outline (sr-only H1)
+
+**`/`** renders a static, visually-hidden (**`sr-only`**) **`<h1>`** ahead of **`HomeHeroBanner`** — matching the site title framing already used in **`<title>RiffSync</title>`** — rather than promoting the rotating hero carousel's **`h3`** slide title. A per-slide dynamic H1 would shift the document outline on every autorotate, which is a worse crawler and screen-reader signal than one stable heading. The hero, carousel, and spotlight banner keep their **existing visible markup and heading levels** (**`h3`**/**`h4`**) unchanged — no visible layout change.
+
+### Catalog card image alt text
+
+**`CatalogGridCard`** images carry non-empty **`alt`** text describing the episode (e.g. the episode **`title`**) instead of today's empty **`alt=""`**. Additive accessibility/SEO fix — no new interaction pattern, no visible layout change.
+
+### `/watch/:catalogEpisodeId` heading
+
+The existing **`sr-only`** **`<h1>{episode.title}</h1>`** on **`SoloWatchPage`** already satisfies the document-outline contract; this initiative adds only head-tag metadata (title/description/canonical/OG/Twitter per the table above) — no markup change to the existing heading.
+
 ## Chat & scrollback (watch party room)
 
 - **Surface:** **`/room/:roomId`** sidebar **Chat** tab (not solo watch).
@@ -400,6 +429,11 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-presentation
 - No open decisions remain for #303 receiver presentation. The receiver shell uses the route and component contracts above, TV-safe 720p/1080p/4K overlay constraints, explicit waiting/blocked playback copy, and component or screenshot coverage proving native media-only and YouTube-only Cast paths do not satisfy the required RiffSync stage-primary plus chat-overlay presentation.
+
+### public-site-seo
+- Exact per-route **`<title>`** / meta description copy strings for each public route — defer to **`/refine-issue`**.
+- Whether the home **`sr-only`** H1 text is fully static or interpolates a dynamic catalog fact — static is the safer default absent a stated need.
+- Exact **`alt`** text template for catalog cards (**`{title}`** vs **`{title} poster`** vs including era).
 
 ## Primary code pointers (optional)
 

@@ -51,6 +51,17 @@ Viewer-local Cast uses the production SPA origin and a Google Cast Custom Web Re
 | **CSP / headers** | CloudFront and SPA headers must permit the Google Cast sender/receiver scripts, receiver route loading, necessary frame/script policies, and YouTube/player resources needed for the receiver presentation. |
 | **Smoke band** | Physical Cast-device smoke testing is a production release-readiness check. CI verifies local controller behavior and receiver route rendering but does not replace device discovery and receiver launch tests. |
 
+## Public site SEO deployment readiness
+
+Search-engine and social-share readiness for the fan SPA reuses the existing **`RiffSyncStatic-prod`** CloudFront/S3 origin and Route 53 hosted zone. It does not add a hosted backend stack or a room-authoritative service.
+
+| Check | Contract |
+| --- | --- |
+| **Canonical hostname redirect** | **`fanWebCanonicalHostname`** CDK context on **`RiffSyncStatic-prod`** (**[`infra/cdk/lib/static-site-stack.ts`](../../infra/cdk/lib/static-site-stack.ts)**) is set to the apex hostname **`riffsync.tv`**; **`www.riffsync.tv`** is a **`fanWebAlternateDomainNames`** entry that the existing **[`cloudfront-canonical-redirect.ts`](../../infra/cdk/lib/cloudfront-canonical-redirect.ts)** CloudFront Function redirects to apex, preserving path and query. |
+| **`robots.txt` / `sitemap.xml` reachable** | **`https://riffsync.tv/robots.txt`** and **`https://riffsync.tv/sitemap.xml`** return **200** from the production CloudFront distribution after SPA publish. |
+| **Search Console / Bing verification** | A DNS **TXT** record is added to the **existing** Route 53 hosted zone (**`fanWebZoneName`**) already managed in **`static-site-stack.ts`** — not an HTML file upload or meta-tag verification step. |
+| **Smoke band** | Post-deploy smoke verifies the apex canonical origin, the **`www`** → apex redirect, **`robots.txt`**/**`sitemap.xml`** returning **200**, and the canonical **`<link>`** tag on **`/`** matching apex — see **[`build_packaging.md`](build_packaging.md)** CI vs prod verification bands for where each check runs. |
+
 ## GitHub Actions and OIDC
 
 - **CI:** **[`ci.yml`](../../.github/workflows/ci.yml)** — synth + lint; **no** AWS deploy credentials.
@@ -164,6 +175,10 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 - Specify where the Cast SDK Developer Console registration details are recorded for maintainers without committing secrets or private device information.
 - Specify the exact CloudFront response header/CSP changes needed for the sender SDK, receiver SDK, receiver route, and embedded playback resources.
 - Specify the physical-device smoke test matrix across Chrome sender, Cast-capable receiver, signed-in sender, anonymous sender, and active room media source.
+
+### public-site-seo
+- Where the Search Console / Bing verification DNS record value is recorded for maintainers (**`docs/`** vs CDK context) without committing secrets.
+- Whether an automated post-deploy smoke script (peer pattern: **`control9-www`**'s **`smoke-production.mjs`**) is added under **`apps/web`** or a root **`scripts/`** directory, and its exact check list.
 
 ## Primary code pointers (optional)
 

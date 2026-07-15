@@ -51,6 +51,8 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P1-04 | operator | admin catalog + lists | I can curate without editing raw JSON in prod (**depends on US-P1-05**) |
 | US-P1-06 | signed-in fan in room | my **active** badge to persist across brief reconnects when I was recently engaged | late joiners and refresh see accurate engagement state on **People** |
 | US-P1-07 | Cast-capable room viewer | start a viewer-local Cast session from normal room view | I can watch the RiffSync room presentation on a TV while continuing to chat from my sender device |
+| US-P1-08 | search visitor | find a specific riffed episode via search engine | I can watch it without already knowing RiffSync exists |
+| US-P1-09 | fan | share a direct **`/watch/:id`** link on Discord or Reddit | the link preview shows the episode title and art instead of a generic site card |
 
 ## Out of scope (MVP)
 
@@ -69,6 +71,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 - **Guest join/leave system lines** (signed-in fans only; anonymous guests connect silently)
 - Room-wide Chromecast or host-controlled casting for all participants (Cast is viewer-local only)
 - Native media-only Cast or YouTube-only Cast as the current Cast maturity substitute; the current Cast scope is the custom RiffSync receiver presentation with chat overlay.
+- Search-engine indexing of **`/room/*`** or **`/lobby`** — ephemeral, per-instance state with no durable identity worth surfacing to crawlers (**`domain_model.md`** → *Public discoverable surface*).
 
 ## Decisions (answered — realtime hardening)
 
