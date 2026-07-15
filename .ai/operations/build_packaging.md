@@ -63,12 +63,35 @@ Staff Cognito outputs must exist **before** the SPA build that includes admin ro
 
 See **[`deployment_environments.md`](deployment_environments.md)** for the full production sequence.
 
+## Public site SEO artifacts
+
+Search-engine and social-share surfaces for the fan SPA — **`robots.txt`**, **`sitemap.xml`**, per-route prerendered HTML, and per-route head tags — are **build-time generated artifacts**, not hand-maintained static files or a new runtime component. They ship through the **existing** **`apps/web`** → **`RiffSyncStatic-prod`** S3 sync + CloudFront invalidation pipeline (Artifacts table above) — no new publish target, no new CI job.
+
+| Artifact | Generation | Source |
+| --- | --- | --- |
+| **`robots.txt`** | New step in **`apps/web`** **`npm run build`**, emitted into **`dist/`** | Static policy (below), keyed to the route matrix in **[`business_logic/domain_model.md`](../business_logic/domain_model.md)** → *Public discoverable surface* |
+| **`sitemap.xml`** | Same build step; enumerates the static indexable routes plus one **`<url>`** entry per catalog episode passing **`episodeHasYoutubeLink`** | **`data/catalog/episodes.json`** (or **`GET /v1/catalog`** at build time) |
+| **Per-route prerendered HTML** | Build-time prerender step renders static HTML snapshots for each indexable route into **`dist/`** alongside the SPA shell — served directly by the existing S3 + CloudFront static pipeline; **no** CloudFront Function / Lambda@Edge bot detection, **no** new edge compute surface | Vite build output plus the indexable route list |
+| **Per-route head tags** (**`<title>`**, description, canonical, OG/Twitter) | Baked into each prerendered route's HTML at the same build step | **[`interface/presentation.md`](../interface/presentation.md)** → *Public site head tags and heading semantics* |
+
+All absolute URLs in these artifacts (canonical links, **`Sitemap:`** line, OG/Twitter **`url`**/**`image`**) use the canonical production origin — **`https://riffsync.tv`** (apex) — sourced from the same **`public_domain`** / **`PUBLIC_WEB_ORIGIN`** build-time value already used for SPA absolute URLs (**[`runtime/configuration.md`](../runtime/configuration.md)**). Non-canonical **`www.riffsync.tv`** redirects to apex (**[`deployment_environments.md`](deployment_environments.md)** → *Public site SEO deployment readiness*); no artifact emits **`www`** absolute URLs.
+
+**`robots.txt`** policy:
+
+| Directive | Paths |
+| --- | --- |
+| **Disallow** | **`/room/`**, **`/lobby`**, **`/account`**, **`/admin/`**, **`/cast/receiver`**, **`/privacy/data-removal`**, **`/auth/callback`**, **`/admin/auth/callback`** |
+| **Allow** (default) | **`/`**, **`/catalog`**, **`/watch/`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** |
+| **`Sitemap:`** | **`https://riffsync.tv/sitemap.xml`** |
+
+No hosted staging/dev SEO footprint — consistent with the prod-only environment policy in **[`deployment_environments.md`](deployment_environments.md)**; these artifacts ship only to **`RiffSyncStatic-prod`**.
+
 ## CI expectations
 
 | Job | Scope | Blocking |
 | --- | --- | --- |
 | **`infra-cdk`** | **`cdk synth`**, **`cfn-lint`** on **`cdk.out`** | PR |
-| **`web-app`** | **`apps/web`** **`npm run build`** + unit tests + lint (may use placeholder env in CI; production deploy reads live Cfn outputs) | PR |
+| **`web-app`** | **`apps/web`** **`npm run build`** + unit tests + lint (may use placeholder env in CI; production deploy reads live Cfn outputs). Build step must also produce **`robots.txt`**, **`sitemap.xml`**, and prerendered HTML for indexable routes without failing; missing catalog data at build time fails the build rather than shipping an empty or stale sitemap. | PR |
 | **`realtime-conformance`** | Disposable SFU + TURN integration harness (see below) | **PR** when path filters match |
 
 Viewer-local Cast browser/unit tests live under the **`web-app`** job. Physical Google Cast discovery and receiver launch are manual smoke checks because CI cannot reliably emulate Cast devices.
@@ -253,3 +276,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-build-packaging
 - No open decisions remain for sender availability build packaging. Production wiring uses a non-secret GitHub Actions variable exported as **`VITE_CAST_RECEIVER_APP_ID`** for the SPA build; the current pre-release UI additionally requires the existing room experimental feature opt-in; missing app id or disabled experimental opt-in hides or locally fails Cast and blocks release readiness, not unrelated room deploys; #301 web-app tests cover SDK loader, app id, **`CastContext.setOptions`**, availability UI, and no room-authority side effects, while #317 adds focused web coverage for the experimental exposure gate. Receiver route rendering tests belong to #303, and physical-device smoke evidence belongs to #306.
+
+### public-site-seo
+- Exact sitemap/robots generation script location and tooling (Node script inside the **`apps/web`** build vs a small CDK custom resource).
+- Exact prerender tooling choice (custom Node script rendering routes to static HTML vs a Vite prerender plugin) — must integrate with the existing single **`npm run build`**, not a second build pipeline.
+- CloudFront/S3 response headers and cache-control for **`robots.txt`** / **`sitemap.xml`** (bypass the SPA's aggressive **`index.html`** no-cache pattern vs a short TTL for post-catalog-update freshness).
+- Whether the Search Console / Bing verification DNS record is added to the existing Route 53 zone via CDK or documented as a manual operator step (**[`deployment_environments.md`](deployment_environments.md)**).

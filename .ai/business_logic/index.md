@@ -9,6 +9,7 @@ Scopes **domain concepts**, **user stories**, **errors** and recovery UX—not U
 
 - Record durable constraints and boundaries for this domain.
 - Covers **room layout mode** (**Theater** | **Video Chat**), **participant camera/microphone** eligibility and lifecycle, the host **AV kill switch**, and **realtime hardening** jurisdictions (**ChatSession**, **SfuMediaSession**, **TheaterPlayback**), decoupled lifecycles, and drawer-typed failures.
+- Covers **public discoverability**: which durable public routes (catalog, episode landing, host-help, legal) are indexable content vs ephemeral/authenticated/receiver-only surfaces that must stay out of search — see **`domain_model.md`** → *Public discoverable surface*.
 - Keep this file aligned with mapped child contracts.
 
 ## Primary code pointers (optional)

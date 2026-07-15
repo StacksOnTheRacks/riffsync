@@ -16,6 +16,13 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 - **Chat reaction (bounded retention):** emoji on a **`messageId`**; toggle per signed-in sender; active reaction rows persisted in **RoomChat** and replayed as aggregated chips in **`chat_history`**.
 - **Room admin:** signed-in participant whose **fan-pool Cognito `sub`** equals the room’s **`hostSub`** — **exclusive authority** to drive the **embedded player**, **start/stop broadcast capture**, select **`roomMode`**, operate the room-wide **`avDisabled`** kill switch, and mutate durable room playback metadata. **Anonymous users cannot host.** **Guest promotion** and token-based **admin reclaim** beyond normal Cognito re-login for the same user are **out of scope** for MVP. When the room admin enables a **participant camera**, they appear in Theater strip and Video Chat grid **like other signed-in fans** (not as a separate host-only surface).
 - **Operator (staff):** invite-only principal in the **staff** Cognito pool, provisioned **out-of-band** (console, CLI, or IaC). When authorized, carries **`cognito:groups`** including **`admin`** and/or **`curator`**. **Distinct** from **Participant** and **Room admin** — operator identity does **not** grant fan **`hostSub`** authority, room publisher role, or participant chat identity unless the same person also holds a separate **fan** session.
+- **Public discoverable surface:** the subset of routes that represent durable, indexable fan-facing content for search engines and social sharing, distinct from ephemeral, authenticated, or receiver-only surfaces that must stay out of search.
+
+  | Indexable | Not indexed (`noindex`) |
+  | --- | --- |
+  | **`/`**, **`/catalog`**, **`/watch/:catalogEpisodeId`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** | **`/room/:roomId`** (and **`/room/:roomId/experimental/:experimental`**), **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**, **`/privacy/data-removal`**, **`/auth/callback`**, **`/admin/auth/callback`** |
+
+  Ephemeral, authenticated, and receiver-only routes carry no durable identity worth surfacing to crawlers — this mirrors the existing **Identity modes** boundary below, not a new access rule. **`/watch/:catalogEpisodeId`** is indexable only for episodes satisfying the existing lawful-playback YouTube-link filter (**Invariant 1**) — an episode without a live YouTube link has no lawful surface to summarize or link to and is excluded from indexing and the sitemap until a link exists.
 
 ## Realtime session jurisdictions (watch-party client)
 
@@ -74,8 +81,9 @@ Three coexisting modes (see **`integration/authorization.md`**):
 6. **Video Chat layout:** the movie player region is **replaced** by a **grid of video-on participants** only. **Microphone-only** participants are **audible** but **not shown** in the grid (identity via People tab and chat). Camera-off removes grid tiles promptly; no frozen last-frame tiles. Entering **Video Chat** **fully stops** active host tab-capture (not suspend); returning to **Theater** requires the room admin to start **Share Source Tab** again.
 7. **Cast locality:** Chromecast is a viewer-local optional presentation. Cast start, stop, failure, unavailability, or receiver disconnect must not mutate **`roomMode`**, **`avDisabled`**, **`share_state`**, durable room playback fields, SFU permissions, host authority, participant roster authority, or any other participant's room experience.
 8. **Reconnect privacy:** after refresh or disconnect, each signed-in fan’s camera and microphone **default off**; the fan must manually re-enable.
-9. **Catalog title:** never replaced by TMDB **`title`** / **`original_title`**.
+9. **Catalog title:** never replaced by TMDB **`title`** / **`original_title`**. This extends to public search and share metadata — page titles, meta descriptions, and Open Graph/Twitter tags for **`/watch/:catalogEpisodeId`** always source the catalog **`title`** field, never TMDB's **`title`** or **`original_title`**.
 10. **Public catalog read** does not require authentication.
+11. **Public discoverability boundary:** only the durable public surfaces listed under **Public discoverable surface** are indexable. Ephemeral per-instance state (**rooms**, **lobby**) and authenticated or receiver-only surfaces (**account**, **admin**, **Cast receiver**, **auth callbacks**) never carry indexable metadata or sitemap entries, regardless of the rendering or build mechanism that produces them.
 
 ## Decisions (answered)
 
@@ -91,6 +99,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Operator onboarding (MVP)? | **Invite-only** — manual Cognito console invite and group assignment acceptable; no in-app “request access” flow. |
 | `admin` vs `curator` on routes? | **Deferred** until catalog/list handlers — auth slice treats either group as authorized for staff API probe. |
 | Operator moderation of rooms? | **Out of scope** for auth slice; when it ships, remains a **staff** capability separate from **room admin** capture authority. |
+| Public catalog SEO indexing scope? | Catalog, episode landing, host-help, and legal pages are indexable; rooms, lobby, account, admin, Cast receiver, and auth callbacks stay **`noindex`** — mirrors the existing lawful-playback and identity-mode boundaries, not a new access rule. |
 | Who may publish participant camera/mic? | **Signed-in fans only** — anonymous guests subscribe-only for participant A/V. |
 | Theater mic audio while movie plays? | **Yes** — participant microphones audible alongside host movie stream when **`avDisabled`** is false. |
 | Room mode durability? | **Durable** on room document — host **`PATCH`**; snapshot/join returns current mode; survives refresh and late join. |

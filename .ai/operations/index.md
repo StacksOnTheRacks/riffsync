@@ -4,6 +4,8 @@ Scopes **build/deploy** (**AWS CDK**, TypeScript Lambdas, serverless-first packa
 
 Participant camera/microphone in watch-party rooms extends the existing **`RiffSyncTurn`** mediasoup SFU + coturn footprint; **no** new deployment tier or hosted staging stack. **Realtime hardening:** SFU-only media path (mesh retired), PR-blocking **`realtime-conformance`** harness on isolated disposable SFU + TURN, drawer-labeled observability.
 
+Public site discoverability (**`robots.txt`**, **`sitemap.xml`**, build-time prerender, canonical hostname alignment) extends the existing **`apps/web`** → **`RiffSyncStatic-prod`** static build/publish pipeline; **no** new deployment tier, edge compute surface, or hosted staging footprint.
+
 - Child contracts: **`build_packaging.md`**, **`deployment_environments.md`**, **`observability.md`**, **`security.md`**.
 
 ## Scope

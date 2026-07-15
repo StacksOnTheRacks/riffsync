@@ -9,6 +9,13 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - **Color alone** must not be the only signal for on/off state on camera/mic toggles; pair with iconography and accessible name/state.
 - **Focus order** matches visual flow; see **`input_handling.md`**.
 
+## Public catalog and marketing surfaces
+
+- **Home route** (**`/`**) gets a static, visually-hidden (**`sr-only`**) **`<h1>`** so the document outline satisfies a landmark heading without changing visible hero markup (**`presentation.md`** → *Public site head tags and heading semantics*).
+- **Catalog card images** (**`CatalogGridCard`**) carry non-empty **`alt`** text describing the episode instead of **`alt=""`**.
+- **`/watch/:catalogEpisodeId`** keeps its existing **`sr-only`** **`<h1>{episode.title}</h1>`** — unaffected by this initiative beyond added head-tag metadata.
+- **Ephemeral/authenticated/receiver-only routes** (**`/room/:roomId`**, **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**) are unaffected — they keep the existing app-shell heading/landmark baseline, not a new accessibility commitment.
+
 ## Watch party participant AV
 
 ### Camera/microphone toggles
@@ -92,6 +99,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-accessibility
 - No open implementation decisions remain for M25 Cast accessibility verification. See **Chromecast Cast status** and #279 verification requirements above.
+
+### public-site-seo
+- No open implementation decisions remain. The home **`sr-only`** H1 and catalog **`alt`** text are additive, non-visual fixes with no accessibility ambiguity — see **Public catalog and marketing surfaces** above.
 
 ## Primary code pointers (optional)
 

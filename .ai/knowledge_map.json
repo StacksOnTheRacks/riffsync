@@ -78,7 +78,8 @@
           "primary_doc": ".ai/specs/index.md",
           "description": "Durable capability-level architecture and behavior specifications.",
           "children": [
-            ".ai/specs/viewer-local-cast.spec.md"
+            ".ai/specs/viewer-local-cast.spec.md",
+            ".ai/specs/public-site-seo.spec.md"
           ]
         }
       ]

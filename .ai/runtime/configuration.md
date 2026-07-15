@@ -23,6 +23,12 @@ There is **no hosted `dev`** stack and **no hosted staging** stack—**local dev
 
 SPA builds for **prod** should inject **`https://riffsync.tv`** (or derive it from **`public_domain`**) for absolute share links and OAuth redirect configuration.
 
+## Public site SEO build-time config
+
+**`robots.txt`**, **`sitemap.xml`**, prerendered route HTML, and per-route canonical/OG/Twitter URLs (**`operations/build_packaging.md`**, **`interface/presentation.md`**) source the canonical origin from the **same** **`public_domain`** / **`PUBLIC_WEB_ORIGIN`** build-time value above — **`https://riffsync.tv`** (apex) in prod. There is **no** second, parallel "public origin" config value for SEO artifacts. Non-canonical **`https://www.riffsync.tv`** redirects to apex at the edge (**`deployment_environments.md`** → *Public site SEO deployment readiness*); no SEO artifact emits **`www`** absolute URLs.
+
+These artifacts are static or build-time-generated content served by the existing CloudFront/S3 static-hosting runtime — they introduce **no** new runtime process, execution boundary, or secret.
+
 ## Parameters (non-secret)
 
 Illustrative—final list in IaC:
@@ -55,7 +61,7 @@ The Cast receiver application id is public build-time configuration for the SPA.
 | Config | Contract |
 | --- | --- |
 | **Receiver app id** | The public Vite value is **`VITE_CAST_RECEIVER_APP_ID`**. Missing or invalid configuration hides or locally fails Cast; it must not degrade room bootstrap, chat, SFU media, host controls, expanded view, or normal playback. |
-| **Receiver URL** | Production registration points to the Custom Web Receiver route on the canonical production origin, currently **`https://www.riffsync.tv/cast/receiver`**. Local/dev physical Cast tests require a Cast-device-reachable HTTPS origin; ordinary **`localhost`** Vite dev is suitable for unit/component tests but is not a physical receiver target unless tunneled or otherwise exposed over trusted TLS. |
+| **Receiver URL** | Production registration points to the Custom Web Receiver route on the canonical apex origin, **`https://riffsync.tv/cast/receiver`**. Local/dev physical Cast tests require a Cast-device-reachable HTTPS origin; ordinary **`localhost`** Vite dev is suitable for unit/component tests but is not a physical receiver target unless tunneled or otherwise exposed over trusted TLS. |
 | **Sender SDK** | The sender loads the Google Cast sender SDK with **`loadCastFramework=1`**, assigns **`window.__onGCastApiAvailable`** before appending the SDK script, and configures **`CastContext`** from the build-time receiver app id with **`chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`** before exposing the normal-view **Cast to TV** start action. |
 | **Experimental exposure gate** | Until Cast is repaired and release-ready, **Cast to TV** also requires the existing room experimental feature opt-in from **`detectExperimentalRoomFeatures()`**. `?experimental=true` or `/experimental/true` enables and persists the opt-in; `?experimental=false` or `/experimental/false` clears it. This flag gates only the Cast entry point and other experimental room UI, not room bootstrap, chat, SFU media, host controls, expanded view, or normal playback. |
 | **No secrets** | Receiver app id and public origin values may appear in the browser bundle. They must not be treated as credentials or included in private secret rotation plans. |
@@ -145,6 +151,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-configuration
 - No open decisions remain for sender availability configuration. The public app id env var is **`VITE_CAST_RECEIVER_APP_ID`**; the current pre-release exposure gate is the existing room experimental feature opt-in from **`detectExperimentalRoomFeatures()`**; missing prod configuration or disabled experimental opt-in keeps Cast hidden or locally unavailable and is a release-readiness blocker before announcing Cast-ready behavior, not a room bootstrap failure; local physical Cast testing requires reachable TLS rather than ordinary **`localhost`**.
+
+### public-site-seo
+- Exact wiring of the build-time origin value into the sitemap/prerender generation script (reading the same env var already baked for **`VITE_PUBLIC_ORIGIN`** vs a separate Node-side read of **`public_domain`**) — mechanical, defer to **`/refine-issue`**.
 
 ## Primary code pointers (optional)
 
