@@ -17,7 +17,7 @@ function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
       <div className="gen-carousel-movies-style-3 movie-grid style-3">
         <div className="gen-movie-contain">
           <div className="gen-movie-img">
-            <img src={img} alt="" loading="lazy" />
+            <img src={img} alt={episode.title} loading="lazy" />
           </div>
           <EpisodeTileActions episode={episode} />
           <div className="gen-info-contain">
