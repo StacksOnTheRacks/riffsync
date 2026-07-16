@@ -11,9 +11,9 @@ Accessible-by-default contract for presentation and interaction surfaces.
 
 ## Public catalog and marketing surfaces
 
-- **Home route** (**`/`**) gets a static, visually-hidden (**`sr-only`**) **`<h1>`** so the document outline satisfies a landmark heading without changing visible hero markup (**`presentation.md`** → *Public site head tags and heading semantics*).
-- **Catalog card images** (**`CatalogGridCard`**) carry non-empty **`alt`** text describing the episode instead of **`alt=""`**.
-- **`/watch/:catalogEpisodeId`** keeps its existing **`sr-only`** **`<h1>{episode.title}</h1>`** — unaffected by this initiative beyond added head-tag metadata.
+- **Home route** (**`/`**) renders **exactly one** static, visually-hidden (**`sr-only`**) **`<h1>RiffSync</h1>`** at the top of **`HomePage`** output (including loading/error/empty branches) so the document outline satisfies a landmark heading without changing visible hero markup (**`presentation.md`** → *Home route document outline*).
+- **Catalog card images** (**`CatalogGridCard`** on **`/catalog`**) use **`alt={episode.title}`** (catalog **`title`** field) instead of **`alt=""`**.
+- **`/watch/:catalogEpisodeId`** keeps its existing **`sr-only`** **`<h1>{episode.title}</h1>`** on **`SoloWatchPage`** — unaffected by M30 beyond parallel head-tag work (M29).
 - **Ephemeral/authenticated/receiver-only routes** (**`/room/:roomId`**, **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**) are unaffected — they keep the existing app-shell heading/landmark baseline, not a new accessibility commitment.
 
 ## Watch party participant AV
