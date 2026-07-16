@@ -1,5 +1,5 @@
 /**
- * Viewer-request function: send browsers to the canonical hostname (302) while
+ * Viewer-request function: send browsers to the canonical hostname (301) while
  * leaving `*.cloudfront.net` and the canonical host unchanged.
  */
 export function viewerRequestRedirectToCanonicalSource(canonicalHost: string): string {
@@ -33,8 +33,8 @@ export function viewerRequestRedirectToCanonicalSource(canonicalHost: string): s
     if (parts.length) tail = '?' + parts.join('&');
   }
   return {
-    statusCode: 302,
-    statusDescription: 'Found',
+    statusCode: 301,
+    statusDescription: 'Moved Permanently',
     headers: { location: { value: 'https://' + canonical + uri + tail } }
   };
 }
