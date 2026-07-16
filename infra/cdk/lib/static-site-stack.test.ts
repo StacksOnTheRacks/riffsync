@@ -41,6 +41,17 @@ describe('StaticSiteStack', () => {
       ResponseHeadersPolicyConfig: {
         SecurityHeadersConfig: {
           ContentSecurityPolicy: {
+            ContentSecurityPolicy: Match.stringLikeRegexp(
+              'script-src .*https://www\\.googletagmanager\\.com',
+            ),
+          },
+        },
+      },
+    });
+    template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+      ResponseHeadersPolicyConfig: {
+        SecurityHeadersConfig: {
+          ContentSecurityPolicy: {
             ContentSecurityPolicy: Match.stringLikeRegexp('frame-src .*https://www\\.youtube\\.com .*https://www\\.youtube-nocookie\\.com'),
           },
         },

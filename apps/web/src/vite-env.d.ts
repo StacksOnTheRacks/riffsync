@@ -22,10 +22,17 @@ interface ImportMetaEnv {
   readonly VITE_PUBLIC_SFU_WS_URL?: string
   /** Google Cast custom receiver application id for sender launch (#273). */
   readonly VITE_CAST_RECEIVER_APP_ID?: string
+  /** GA4 measurement id (public). Injected into index.html at build time when set. */
+  readonly VITE_GA_MEASUREMENT_ID?: string
 }
 
 interface ImportMeta {
   readonly env: ImportMetaEnv
+}
+
+interface Window {
+  dataLayer?: unknown[]
+  gtag?: (...args: unknown[]) => void
 }
 
 declare module 'swiper/css'

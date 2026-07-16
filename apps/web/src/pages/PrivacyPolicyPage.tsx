@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
-const LAST_UPDATED = 'May 4, 2026'
+const LAST_UPDATED = 'July 16, 2026'
 const BASE_TITLE = 'RiffSync'
 
 export function PrivacyPolicyPage() {
@@ -74,6 +74,14 @@ export function PrivacyPolicyPage() {
               types, timestamps, routing diagnostics, and security logs when you request pages or APIs or
               connect to websocket endpoints.
             </li>
+            <li>
+              <strong>Website analytics.</strong> We use Google Analytics 4 (GA4) on our public site to
+              understand aggregate traffic, page views, and general usage patterns (for example which
+              pages are visited and approximate location derived from IP). GA4 may set or read cookies or
+              similar identifiers in your browser and receive information such as page URLs, referrer,
+              device and browser type, and language. We do not use GA4 to collect chat content, room
+              passwords, or other watch-party session payloads.
+            </li>
           </ul>
         </section>
 
@@ -84,6 +92,7 @@ export function PrivacyPolicyPage() {
             <li>Provide, operate, secure, and improve the Service;</li>
             <li>Maintain sessions, rooms, chat, authentication, and lobby behavior;</li>
             <li>Facilitate realtime connectivity between hosts and guests;</li>
+            <li>Measure aggregate site traffic and improve public pages and navigation;</li>
             <li>Troubleshoot outages, abuse, or misuse;</li>
             <li>Comply with law or enforce our Terms.</li>
           </ul>
@@ -93,8 +102,23 @@ export function PrivacyPolicyPage() {
           <h2>4. Sharing</h2>
           <p>
             We share information with service providers who assist us (for example cloud hosting,
-            databases, APIs, authentication, or certificates) subject to contractual safeguards appropriate
-            to the deployment.
+            databases, APIs, authentication, analytics, or certificates) subject to contractual safeguards
+            appropriate to the deployment.
+          </p>
+          <p>
+            We use Google Analytics (Google LLC) to measure website usage. Google processes information
+            according to its privacy policy (
+            <a href="https://policies.google.com/privacy" rel="noopener noreferrer">
+              Google Privacy Policy
+            </a>
+            ) and product terms. You can learn about Google Analytics data practices at{' '}
+            <a
+              href="https://support.google.com/analytics/answer/6004245"
+              rel="noopener noreferrer"
+            >
+              How Google uses data when you use our partners&rsquo; sites or apps
+            </a>
+            .
           </p>
           <p>
             Chat messages and realtime payloads may be visible to other participants in the same room by
@@ -112,7 +136,7 @@ export function PrivacyPolicyPage() {
           </p>
           <p className="text-muted">
             <strong>Note:</strong> Product operators should confirm vendor subprocessors (AWS regions,
-            Cognito settings, analytics, if any) against the live deployment.
+            Cognito settings, Google Analytics) against the live deployment.
           </p>
         </section>
 
@@ -120,17 +144,25 @@ export function PrivacyPolicyPage() {
           <h2>5. Cookies, local storage, and similar technologies</h2>
           <p>
             We may use browser storage (including local or session storage) and cookies where needed for
-            sessions, preferences, authentication returns, or anti-abuse. You can limit some storage
-            through browser settings; doing so may break features that require persistence.
+            sessions, preferences, authentication returns, anti-abuse, or analytics. Google Analytics may
+            store cookies such as <code>_ga</code> to distinguish visits. You can limit some storage
+            through browser settings; doing so may break features that require persistence. You can also
+            install the{' '}
+            <a href="https://tools.google.com/dlpage/gaoptout" rel="noopener noreferrer">
+              Google Analytics opt-out browser add-on
+            </a>{' '}
+            or use browser controls that block third-party scripts.
           </p>
         </section>
 
         <section>
           <h2>6. Third-party embeds and links</h2>
           <p>
-            Playback may embed or link to third-party players (for example YouTube). Those services have
-            their own privacy notices and may collect information directly from your device. We do not
-            control their practices; review their policies before interacting with embedded players.
+            Playback may embed or link to third-party players (for example YouTube). Analytics scripts
+            (for example Google Analytics) may load on public pages to measure site usage. Those services
+            have their own privacy notices and may collect information directly from your device. We do not
+            control their practices; review their policies before interacting with embedded players or
+            continuing to use the site if you object to analytics collection.
           </p>
         </section>
 
