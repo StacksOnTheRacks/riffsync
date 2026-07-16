@@ -88,12 +88,25 @@ All absolute URLs in these artifacts (canonical links, **`Sitemap:`** line, OG/T
 
 No hosted staging/dev SEO footprint — consistent with the prod-only environment policy in **[`deployment_environments.md`](deployment_environments.md)**; these artifacts ship only to **`RiffSyncStatic-prod`**.
 
+### Decisions (M28 — robots.txt and sitemap.xml — #325)
+
+| Topic | Decision |
+| --- | --- |
+| **Generation location** | **Node inside `apps/web` build** — not a CDK custom resource. Pure functions live in **`apps/web/src/seo/generateSeoArtifacts.ts`**; a thin CLI **`apps/web/scripts/generate-seo-artifacts.mjs`** writes **`dist/robots.txt`** and **`dist/sitemap.xml`** as the **last** step of **`npm run build`** (after **`tsc -b && vite build`**). |
+| **Catalog source** | **Committed `data/catalog/episodes.json`** at repo root (path resolved from **`apps/web`** working directory). **Do not** call **`GET /v1/catalog`** at build time — CI and deploy must stay offline and reproducible from the checked-out commit. |
+| **YouTube filter** | Reuse **`episodeHasYoutubeLink`** / **`catalogEntriesWithYoutubeLink`** from **`apps/web/src/catalog/mockCatalog.ts`**. Sitemap emits one **`<loc>`** per episode passing the filter at **`/watch/{catalogEpisodeId}`**. |
+| **Static sitemap routes** | **`/`**, **`/catalog`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** — each as an apex absolute **`<loc>`** (trailing slash on **`/`** only). |
+| **Canonical origin** | **`process.env.VITE_PUBLIC_ORIGIN`** when set at build (production deploy reads **`FanWebSiteUrl`**), else **`https://riffsync.tv`**. Used for **`Sitemap:`** line and every **`<loc>`**. |
+| **Build failure** | Exit non-zero when the catalog file is missing, JSON is invalid, **`entries`** is absent or empty, generation throws, or either artifact is missing from **`dist/`** after the step. |
+| **S3 cache-control** | In **`deploy-prod.yml`** SPA publish phase, after bulk **`aws s3 sync`**, re-upload **`robots.txt`** and **`sitemap.xml`** with **`Cache-Control: public, max-age=3600`** and correct **`Content-Type`** (**`text/plain`**, **`application/xml`**). These objects must **not** inherit any **`index.html`** no-cache/no-store policy. Full-path CloudFront invalidation (**`/*`**) on deploy still refreshes them immediately after catalog updates. |
+| **CI assertion** | **`web-app`** job (or **`npm run verify:seo-artifacts`** invoked from it) asserts both files exist post-build and sitemap **`<url>`** count equals **5 static routes + `catalogEntriesWithYoutubeLink(entries).length`**. |
+
 ## CI expectations
 
 | Job | Scope | Blocking |
 | --- | --- | --- |
 | **`infra-cdk`** | **`cdk synth`**, **`cfn-lint`** on **`cdk.out`** | PR |
-| **`web-app`** | **`apps/web`** **`npm run build`** + unit tests + lint (may use placeholder env in CI; production deploy reads live Cfn outputs). Build step must also produce **`robots.txt`**, **`sitemap.xml`**, and prerendered HTML for indexable routes without failing; missing catalog data at build time fails the build rather than shipping an empty or stale sitemap. | PR |
+| **`web-app`** | **`apps/web`** **`npm run build`** + unit tests + lint (may use placeholder env in CI; production deploy reads live Cfn outputs). Build step must produce **`robots.txt`** and **`sitemap.xml`** (M28); missing catalog data or a sitemap count mismatch fails the build rather than shipping stale SEO artifacts. Prerendered HTML for indexable routes is M29 scope. | PR |
 | **`realtime-conformance`** | Disposable SFU + TURN integration harness (see below) | **PR** when path filters match |
 
 Viewer-local Cast browser/unit tests live under the **`web-app`** job. Physical Google Cast discovery and receiver launch are manual smoke checks because CI cannot reliably emulate Cast devices.
@@ -280,7 +293,6 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for sender availability build packaging. Production wiring uses a non-secret GitHub Actions variable exported as **`VITE_CAST_RECEIVER_APP_ID`** for the SPA build; the current pre-release UI additionally requires the existing room experimental feature opt-in; missing app id or disabled experimental opt-in hides or locally fails Cast and blocks release readiness, not unrelated room deploys; #301 web-app tests cover SDK loader, app id, **`CastContext.setOptions`**, availability UI, and no room-authority side effects, while #317 adds focused web coverage for the experimental exposure gate. Receiver route rendering tests belong to #303, and physical-device smoke evidence belongs to #306.
 
 ### public-site-seo
-- Exact sitemap/robots generation script location and tooling (Node script inside the **`apps/web`** build vs a small CDK custom resource).
-- Exact prerender tooling choice (custom Node script rendering routes to static HTML vs a Vite prerender plugin) — must integrate with the existing single **`npm run build`**, not a second build pipeline.
-- CloudFront/S3 response headers and cache-control for **`robots.txt`** / **`sitemap.xml`** (bypass the SPA's aggressive **`index.html`** no-cache pattern vs a short TTL for post-catalog-update freshness).
-- Whether the Search Console / Bing verification DNS record is added to the existing Route 53 zone via CDK or documented as a manual operator step (**[`deployment_environments.md`](deployment_environments.md)**).
+- No open decisions remain for **`robots.txt`** / **`sitemap.xml`** generation (M28 — #325). Node build step in **`apps/web`**, catalog read from **`data/catalog/episodes.json`**, S3 **`max-age=3600`** cache-control on deploy — see *Decisions (M28 — robots.txt and sitemap.xml — #325)* above.
+- Exact prerender tooling choice (custom Node script rendering routes to static HTML vs a Vite prerender plugin) — must integrate with the existing single **`npm run build`**, not a second build pipeline (M29 scope).
+- Whether the Search Console / Bing verification DNS record is added to the existing Route 53 zone via CDK or documented as a manual operator step (**[`deployment_environments.md`](deployment_environments.md)**) (M31 scope).
