@@ -71,6 +71,18 @@ describe('StaticSiteStack', () => {
             Ref: Match.stringLikeRegexp('WebResponseHeadersPolicy'),
           },
         },
+        CustomErrorResponses: Match.arrayWith([
+          Match.objectLike({
+            ErrorCode: 403,
+            ResponseCode: 200,
+            ResponsePagePath: '/spa-shell.html',
+          }),
+          Match.objectLike({
+            ErrorCode: 404,
+            ResponseCode: 200,
+            ResponsePagePath: '/spa-shell.html',
+          }),
+        ]),
       },
     });
 

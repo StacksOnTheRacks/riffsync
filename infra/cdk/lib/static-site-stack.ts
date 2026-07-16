@@ -192,19 +192,20 @@ export class StaticSiteStack extends cdk.Stack {
       certificate,
       /**
        * SPA client routes: S3 has no object for `/lobby`, so CloudFront would otherwise
-       * surface 403/404; map those to `index.html` so refreshes and deep links work.
+       * surface 403/404; map those to `spa-shell.html` (generic noindex) so ephemeral
+       * deep links do not inherit home canonical metadata.
        */
       errorResponses: [
         {
           httpStatus: 403,
           responseHttpStatus: 200,
-          responsePagePath: '/index.html',
+          responsePagePath: '/spa-shell.html',
           ttl: cdk.Duration.minutes(0),
         },
         {
           httpStatus: 404,
           responseHttpStatus: 200,
-          responsePagePath: '/index.html',
+          responsePagePath: '/spa-shell.html',
           ttl: cdk.Duration.minutes(0),
         },
       ],
