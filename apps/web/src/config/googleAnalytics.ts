@@ -10,6 +10,11 @@ export function getGaMeasurementId(): string | null {
 
 let initPromise: Promise<void> | null = null
 
+/** @internal Resets bootstrap state between unit tests. */
+export function resetGoogleAnalyticsInitForTests(): void {
+  initPromise = null
+}
+
 /**
  * Bootstrap GA4 from bundled code (CSP-safe: no inline scripts).
  * Loads gtag.js from Google Tag Manager and queues the initial config call.
