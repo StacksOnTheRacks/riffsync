@@ -52,7 +52,9 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 
 **Canonical origin sourcing:** the same `public_domain` / `PUBLIC_WEB_ORIGIN` build-time value already used for `VITE_PUBLIC_ORIGIN` (`.ai/runtime/configuration.md`) is the single source for all absolute URLs this capability emits.
 
-**Canonical hostname redirect:** the existing `fanWebCanonicalHostname` CDK context on `RiffSyncStatic-prod` (`infra/cdk/lib/static-site-stack.ts`) drives the existing `cloudfront-canonical-redirect.ts` CloudFront Function, which 301-redirects any configured `fanWebAlternateDomainNames` (including `www.riffsync.tv`) to the canonical apex host. No new CDK construct is required — only ensuring the context value is set to apex.
+**Canonical hostname redirect:** GitHub Actions repository variables (`PROD_FAN_WEB_HOSTNAME`, `PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`, `PROD_FAN_WEB_CANONICAL_HOSTNAME`) and matching CDK context on `RiffSyncStatic-prod` (`infra/cdk/lib/static-site-stack.ts`) set apex `riffsync.tv` as canonical with `www.riffsync.tv` as an alternate. The existing `cloudfront-canonical-redirect.ts` CloudFront Function **301**-redirects any non-canonical custom alias (including `www.riffsync.tv`) to apex, preserving path and query. Change redirect status from **302** to **301** in `viewerRequestRedirectToCanonicalSource` as part of M27. No new CDK construct is required.
+
+**M27 static shell:** `apps/web/index.html` canonical `<link>`, `og:url`, `og:image`, and `twitter:image` absolute URLs must use apex `https://riffsync.tv` (not `www`). Production `VITE_PUBLIC_ORIGIN` comes from `FanWebSiteUrl` CloudFormation output via `deploy-prod.yml`.
 
 **Publish target:** artifacts ship through the existing `apps/web` → `RiffSyncStatic-prod` S3 sync + CloudFront invalidation (`deploy-prod.yml` phase 5). No new stack, no new environment tier, no hosted staging footprint.
 
@@ -64,7 +66,9 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 
 **Build/CI:** the `web-app` CI job asserts `robots.txt`, `sitemap.xml`, and prerendered HTML exist for each indexable route after `npm run build`; sitemap entry count matches the count of catalog episodes passing `episodeHasYoutubeLink`; the build fails rather than shipping an empty or stale sitemap when catalog data is unavailable.
 
-**Manual/smoke (post-deploy, production only):** apex canonical reachable; `www` → apex redirect returns a 3xx to the apex host; `robots.txt`/`sitemap.xml` return 200; the canonical `<link>` on `/` and a sample `/watch/:id` matches apex; Search Console DNS verification confirmed. Peer prior art for the smoke-check shape: `control9/control9-www`'s `smoke-production.mjs` (reference only — riffsync's static-hosting shape differs enough that it is not a template to copy wholesale).
+**Manual/smoke (post-deploy, production only):** apex canonical reachable; `www` → apex redirect returns **301** to the matching apex path and query; `robots.txt`/`sitemap.xml` return 200 (M28+); the canonical `<link>` on `/` matches apex `https://riffsync.tv/`; `curl -sI https://www.riffsync.tv/lobby` shows `location: https://riffsync.tv/lobby`; shipped `index.html` contains no `www.riffsync.tv` absolute URLs. Search Console DNS verification confirmed (M31). Peer prior art for the smoke-check shape: `control9/control9-www`'s `smoke-production.mjs` (reference only — riffsync's static-hosting shape differs enough that it is not a template to copy wholesale).
+
+**M27 unit/CI:** add or extend a test that asserts `apps/web/index.html` contains no `www.riffsync.tv` host strings; `npm run verify:push:web` passes after changes.
 
 ## References
 
