@@ -8,10 +8,11 @@ import { GoogleAnalytics } from './GoogleAnalytics'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 vi.mock('../config/googleAnalytics', () => ({
+  initGoogleAnalytics: vi.fn(() => Promise.resolve()),
   trackGaPageView: vi.fn(),
 }))
 
-import { trackGaPageView } from '../config/googleAnalytics'
+import { initGoogleAnalytics, trackGaPageView } from '../config/googleAnalytics'
 
 function NavigateToLobby() {
   const navigate = useNavigate()
@@ -40,8 +41,8 @@ describe('GoogleAnalytics', () => {
     vi.clearAllMocks()
   })
 
-  it('tracks the active route on mount and after client navigation', () => {
-    act(() => {
+  it('tracks the active route on mount and after client navigation', async () => {
+    await act(async () => {
       root.render(
         <MemoryRouter initialEntries={['/catalog']}>
           <GoogleAnalytics />
@@ -59,15 +60,18 @@ describe('GoogleAnalytics', () => {
           </Routes>
         </MemoryRouter>,
       )
+      await Promise.resolve()
     })
 
+    expect(initGoogleAnalytics).toHaveBeenCalled()
     expect(trackGaPageView).toHaveBeenCalledWith('/catalog')
 
     const button = container.querySelector('button')
     expect(button).not.toBeNull()
 
-    act(() => {
+    await act(async () => {
       button!.click()
+      await Promise.resolve()
     })
 
     expect(trackGaPageView).toHaveBeenLastCalledWith('/lobby')

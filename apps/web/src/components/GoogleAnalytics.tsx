@@ -1,13 +1,15 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { trackGaPageView } from '../config/googleAnalytics'
+import { initGoogleAnalytics, trackGaPageView } from '../config/googleAnalytics'
 
-/** Report client-side route changes to GA4 after the initial gtag bootstrap in index.html. */
+/** Bootstrap GA4 and report client-side route changes without inline scripts (CSP-safe). */
 export function GoogleAnalytics() {
   const { pathname, search } = useLocation()
 
   useEffect(() => {
-    trackGaPageView(`${pathname}${search}`)
+    void initGoogleAnalytics().then(() => {
+      trackGaPageView(`${pathname}${search}`)
+    })
   }, [pathname, search])
 
   return null
