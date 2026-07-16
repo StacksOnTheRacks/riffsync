@@ -69,5 +69,6 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: npm run verify:seo-artifacts
       - run: npm test
       - run: npm run lint
