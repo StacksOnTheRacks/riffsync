@@ -305,4 +305,10 @@ jobs:
           DIST="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)"
           aws s3 sync ./dist/ "s3://${BUCKET}/" --delete
+          aws s3 cp ./dist/robots.txt "s3://${BUCKET}/robots.txt" \
+            --cache-control "public, max-age=3600" \
+            --content-type "text/plain"
+          aws s3 cp ./dist/sitemap.xml "s3://${BUCKET}/sitemap.xml" \
+            --cache-control "public, max-age=3600" \
+            --content-type "application/xml"
           aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*"
