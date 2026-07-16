@@ -59,8 +59,8 @@ Search-engine and social-share readiness for the fan SPA reuses the existing **`
 | --- | --- |
 | **Canonical hostname redirect** | GitHub Actions repository variables set **`PROD_FAN_WEB_HOSTNAME=riffsync.tv`**, **`PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES=www.riffsync.tv`**, **`PROD_FAN_WEB_CANONICAL_HOSTNAME=riffsync.tv`** (see **`infra/cdk/README.md`**). **`fanWebCanonicalHostname`** CDK context on **`RiffSyncStatic-prod`** (**[`infra/cdk/lib/static-site-stack.ts`](../../infra/cdk/lib/static-site-stack.ts)**) is apex **`riffsync.tv`**; **`www.riffsync.tv`** is a **`fanWebAlternateDomainNames`** entry that the existing **[`cloudfront-canonical-redirect.ts`](../../infra/cdk/lib/cloudfront-canonical-redirect.ts)** CloudFront Function **301**-redirects to apex, preserving path and query. |
 | **`robots.txt` / `sitemap.xml` reachable** | **`https://riffsync.tv/robots.txt`** and **`https://riffsync.tv/sitemap.xml`** return **200** from the production CloudFront distribution after SPA publish. S3 objects use **`Cache-Control: public, max-age=3600`** (set in **`deploy-prod.yml`** after bulk sync — see **`build_packaging.md`** → *Decisions (M28)*). |
-| **Search Console / Bing verification** | A DNS **TXT** record is added to the **existing** Route 53 hosted zone (**`fanWebZoneName`**) already managed in **`static-site-stack.ts`** — not an HTML file upload or meta-tag verification step. |
-| **Smoke band** | Post-deploy smoke verifies the apex canonical origin, the **`www`** → apex redirect, **`robots.txt`**/**`sitemap.xml`** returning **200**, and the canonical **`<link>`** tag on **`/`** matching apex — see **[`build_packaging.md`](build_packaging.md)** CI vs prod verification bands for where each check runs. |
+| **Search Console / Bing verification** | Operator adds one or more DNS **TXT** records to the **existing** Route 53 hosted zone (**`fanWebZoneName`**) — **manual console step**, **not** CDK-managed and not HTML/meta-tag verification. Procedure and field names: **[`docs/operations/public-site-seo.md`](../../docs/operations/public-site-seo.md)**; TXT **values** live in team ops secret store only (never git). |
+| **Smoke band** | After **`deploy-prod.yml`** phase 5 when M27–M29 are live, run **`npm run smoke:production`** (**[`scripts/launch-readiness/smoke-production.mjs`](../../scripts/launch-readiness/smoke-production.mjs)**). Asserts apex reachability, **`www`** → apex **301**, **`robots.txt`**/**`sitemap.xml`** **200**, apex canonical **`<link>`** on **`/`** and fixture **`/watch/101-the-crawling-eye`**, and no **`www.riffsync.tv`** absolute URLs in shipped **`index.html`**. **Not** CI-wired. |
 
 ## GitHub Actions and OIDC
 
@@ -177,8 +177,7 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 - Specify the physical-device smoke test matrix across Chrome sender, Cast-capable receiver, signed-in sender, anonymous sender, and active room media source.
 
 ### public-site-seo
-- Where the Search Console / Bing verification DNS record value is recorded for maintainers (**`docs/`** vs CDK context) without committing secrets.
-- Whether an automated post-deploy smoke script (peer pattern: **`control9-www`**'s **`smoke-production.mjs`**) is added under **`apps/web`** or a root **`scripts/`** directory, and its exact check list.
+- No open decisions remain for Search Console/Bing verification or post-deploy smoke (M31 — #328). See **`build_packaging.md`** → *Decisions (M31 — Search Console verification and release smoke — #328)* and **[`docs/operations/public-site-seo.md`](../../docs/operations/public-site-seo.md)**.
 
 ## Primary code pointers (optional)
 

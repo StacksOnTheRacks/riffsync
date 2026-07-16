@@ -311,4 +311,15 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### public-site-seo
 - No open decisions remain for **`robots.txt`** / **`sitemap.xml`** generation (M28 — #325). See *Decisions (M28 — robots.txt and sitemap.xml — #325)* above.
 - No open decisions remain for per-route head tags and build-time prerender (M29 — #326). See *Decisions (M29 — per-route head tags and prerender — #326)* above.
-- Whether the Search Console / Bing verification DNS record is added to the existing Route 53 zone via CDK or documented as a manual operator step (**[`deployment_environments.md`](deployment_environments.md)**) (M31 #328 scope).
+- No open decisions remain for Search Console/Bing verification or post-deploy smoke (M31 — #328). See *Decisions (M31 — Search Console verification and release smoke — #328)* above.
+
+### Decisions (M31 — Search Console verification and release smoke — #328)
+
+| Topic | Decision |
+| --- | --- |
+| **DNS TXT automation** | **Manual operator step** in Route 53 console on **`fanWebZoneName`** — **not** CDK-managed. Verification tokens rotate independently of stack deploys; IaC would churn templates and risk secret commits. |
+| **DNS value recording** | **[`docs/operations/public-site-seo.md`](../../docs/operations/public-site-seo.md)** documents property setup, record names, and verification checklist. Actual TXT **values** live in team ops secret store (e.g. 1Password **RiffSync Ops**) — **never** git, CDK context, or GitHub Variables. |
+| **Smoke script path** | **`scripts/launch-readiness/smoke-production.mjs`** at repo root (peer shape: **`control9-www`** **`scripts/launch-readiness/smoke-production.mjs`**). **Not** under **`apps/web`** — checks target live production CloudFront/DNS, not the Vite build tree. |
+| **Smoke invocation** | Root **`package.json`** adds **`smoke:production`** → **`node scripts/launch-readiness/smoke-production.mjs`**. Run manually after **`deploy-prod.yml`** phase 5 when M27–M29 are already live. **Not** wired into PR CI. |
+| **Smoke checks (normative)** | (1) **`https://riffsync.tv/`** returns **200**; (2) **`https://www.riffsync.tv/lobby`** returns **301** with **`Location: https://riffsync.tv/lobby`**; (3) **`robots.txt`** and **`sitemap.xml`** return **200**; (4) **`/`** HTML contains **`<link rel="canonical" href="https://riffsync.tv/">`**; (5) **`/watch/101-the-crawling-eye`** HTML contains canonical **`https://riffsync.tv/watch/101-the-crawling-eye`**; (6) fetched **`index.html`** body contains no **`www.riffsync.tv`** host strings. Script exits **0** only when all pass. |
+| **Search Console / Bing done signal** | Operator confirms both properties show **Verified** in their consoles after TXT propagation; checklist row in **`docs/operations/public-site-seo.md`** — not automated by the smoke script. |
