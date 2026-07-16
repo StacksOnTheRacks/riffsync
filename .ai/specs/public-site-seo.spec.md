@@ -99,7 +99,19 @@ Full detail: `.ai/interface/presentation.md` → *Decisions (M30 — home sr-onl
 
 **Publish target:** artifacts ship through the existing `apps/web` → `RiffSyncStatic-prod` S3 sync + CloudFront invalidation (`deploy-prod.yml` phase 5). No new stack, no new environment tier, no hosted staging footprint.
 
-**Search Console verification:** a DNS TXT record added to the existing Route 53 hosted zone (`fanWebZoneName`) already managed in `static-site-stack.ts`.
+**Search Console verification:** operator adds DNS TXT record(s) to the existing Route 53 hosted zone (`fanWebZoneName`) via manual console step — not CDK, not HTML file, not meta tag. Maintainer procedure: `docs/operations/public-site-seo.md`; TXT values in team ops secret store only.
+
+**M31 (Search Console verification and release smoke — #328):**
+
+| Concern | Contract |
+| --- | --- |
+| **Operator runbook** | New **`docs/operations/public-site-seo.md`** — Search Console + Bing Webmaster property setup, Route 53 TXT steps, verification checklist, smoke invocation. Linked from **`infra/cdk/README.md`** → *Production smoke checks*. |
+| **DNS TXT** | Manual Route 53 console on zone **`riffsync.tv`** (`fanWebZoneName`). One TXT per vendor when tokens differ. Values never committed. |
+| **Smoke script** | **`scripts/launch-readiness/smoke-production.mjs`** — Node ESM, zero deps; root **`npm run smoke:production`**. |
+| **Smoke timing** | After **`deploy-prod.yml`** phase 5 when M27–M29 are live; not CI. |
+| **Fixture watch path** | **`/watch/101-the-crawling-eye`** (committed catalog entry with YouTube link). |
+
+Full detail: `.ai/operations/build_packaging.md` → *Decisions (M31 — Search Console verification and release smoke — #328)*.
 
 ## Testing Strategy
 
@@ -109,7 +121,16 @@ Full detail: `.ai/interface/presentation.md` → *Decisions (M30 — home sr-onl
 
 **Build/CI (M29):** after `npm run build`, `web-app` (via `verify:seo-artifacts` or dedicated verify script) asserts `spa-shell.html` contains `noindex`; prerendered `index.html` exists for `/`, `/catalog`, `/how-to-host-a-watchparty`, `/terms`, `/privacy`; `watch/{id}/index.html` count matches YouTube-linked catalog episodes; spot checks validate apex canonical on `/` and episode title/canonical on a fixture watch route.
 
-**Manual/smoke (post-deploy, production only):** apex canonical reachable; `www` → apex redirect returns **301** to the matching apex path and query; `robots.txt`/`sitemap.xml` return 200 (M28+); the canonical `<link>` on `/` matches apex `https://riffsync.tv/`; `curl -sI https://www.riffsync.tv/lobby` shows `location: https://riffsync.tv/lobby`; shipped `index.html` contains no `www.riffsync.tv` absolute URLs. Search Console DNS verification confirmed (M31). Peer prior art for the smoke-check shape: `control9/control9-www`'s `smoke-production.mjs` (reference only — riffsync's static-hosting shape differs enough that it is not a template to copy wholesale).
+**Manual/smoke (post-deploy, production only — M31 #328):** run **`npm run smoke:production`** from repo root after M27–M29 are deployed. The script asserts:
+
+1. **`https://riffsync.tv/`** returns **200**
+2. **`https://www.riffsync.tv/lobby`** returns **301** with **`Location: https://riffsync.tv/lobby`**
+3. **`https://riffsync.tv/robots.txt`** and **`https://riffsync.tv/sitemap.xml`** return **200**
+4. **`/`** response HTML includes **`<link rel="canonical" href="https://riffsync.tv/">`**
+5. **`/watch/101-the-crawling-eye`** response HTML includes canonical **`https://riffsync.tv/watch/101-the-crawling-eye`**
+6. **`index.html`** body contains no **`www.riffsync.tv`** absolute URLs
+
+Operator separately confirms Search Console and Bing Webmaster show **Verified** after DNS TXT propagation (checklist in **`docs/operations/public-site-seo.md`**). Peer prior art for script shape: `control9/control9-www`'s `smoke-production.mjs` (reference only).
 
 **M27 unit/CI:** add or extend a test that asserts `apps/web/index.html` contains no `www.riffsync.tv` host strings; `npm run verify:push:web` passes after changes.
 
