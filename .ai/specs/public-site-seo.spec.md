@@ -38,7 +38,7 @@ The canonical production origin is the apex hostname `https://riffsync.tv`. Non-
 
 ### Home heading and catalog image accessibility
 
-`/` gets a static, visually-hidden (`sr-only`) `<h1>` ahead of the hero banner — no visible layout change to the hero, carousel, or spotlight banner. Catalog card images get non-empty `alt` text describing the episode. `/watch/:catalogEpisodeId`'s existing `sr-only` `<h1>{episode.title}</h1>` is unchanged.
+`/` gets **exactly one** static, visually-hidden (`sr-only`) `<h1>RiffSync</h1>` at the top of `HomePage` output, immediately before `HomeHeroBanner` on the happy path — no visible layout change to the hero, carousel, or spotlight banner. `CatalogGridCard` poster images on `/catalog` use `alt={episode.title}` (catalog `title` field). `/watch/:catalogEpisodeId`'s existing `sr-only` `<h1>{episode.title}</h1>` on `SoloWatchPage` is unchanged. `HomeMovieCard` home-row thumbnails are out of scope for M30.
 
 ### Search Console verification
 
@@ -78,6 +78,18 @@ Full detail: `.ai/operations/build_packaging.md` → *Decisions (M28 — robots.
 | **CI** | **`web-app`** verifies prerender file count and spot-checks head tags on **`/`** plus a fixture **`/watch/{id}`**; unit tests cover **`routeHeadTags`** for all indexable route shapes. |
 
 Full detail: `.ai/operations/build_packaging.md` → *Decisions (M29 — per-route head tags and prerender — #326)*.
+
+**M30 (home sr-only H1 and catalog card alt — #327):**
+
+| Concern | Contract |
+| --- | --- |
+| **Home H1** | `HomePage.tsx`: `<h1 className="sr-only">RiffSync</h1>` once per render tree; before `HomeHeroBanner` when hero renders; also on loading/error/empty branches. |
+| **Home H1 copy** | Static **`RiffSync`** — `SITE_DOCUMENT_TITLE` in `apps/web/src/config/documentTitle.ts`; not carousel slide title. |
+| **Catalog alt** | `CatalogPage.tsx` **`CatalogGridCard`**: `alt={episode.title}` on poster `<img>` (replace `alt=""`). |
+| **Out of scope** | `HomeMovieCard`, `SoloWatchPage` heading, M28/M29 build artifacts, visible layout or heading-level changes on hero/spotlight. |
+| **Tests** | `HomePage.test.tsx`: exactly one `h1.sr-only` with text `RiffSync`. `CatalogPage.test.tsx` (or equivalent): rendered card poster `img` has non-empty `alt` matching fixture episode title. |
+
+Full detail: `.ai/interface/presentation.md` → *Decisions (M30 — home sr-only H1 and catalog card alt — #327)*.
 
 **Canonical origin sourcing:** the same `public_domain` / `PUBLIC_WEB_ORIGIN` build-time value already used for `VITE_PUBLIC_ORIGIN` (`.ai/runtime/configuration.md`) is the single source for all absolute URLs this capability emits.
 

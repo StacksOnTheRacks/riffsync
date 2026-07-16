@@ -36,11 +36,11 @@ Meta titles/descriptions/OG for **`/watch/:id`** always use the catalog **`title
 
 ### Home route document outline (sr-only H1)
 
-**`/`** renders a static, visually-hidden (**`sr-only`**) **`<h1>`** ahead of **`HomeHeroBanner`** — matching the site title framing already used in **`<title>RiffSync</title>`** — rather than promoting the rotating hero carousel's **`h3`** slide title. A per-slide dynamic H1 would shift the document outline on every autorotate, which is a worse crawler and screen-reader signal than one stable heading. The hero, carousel, and spotlight banner keep their **existing visible markup and heading levels** (**`h3`**/**`h4`**) unchanged — no visible layout change.
+**`/`** renders **exactly one** static, visually-hidden (**`sr-only`**) **`<h1>RiffSync</h1>`** as the first child inside the home page content wrapper, immediately **before** **`HomeHeroBanner`** on the happy path — matching **`SITE_DOCUMENT_TITLE`** and the generic app-shell **`<title>RiffSync</title>`** — rather than promoting the rotating hero carousel's **`h3`** slide title or the M29 prerender **`<title>RiffSync — watch parties</title>`**. A per-slide dynamic H1 would shift the document outline on every autorotate, which is a worse crawler and screen-reader signal than one stable heading. **`HomePage`** loading, error, and empty-catalog branches still render the same single sr-only H1 at the top of the route output so **`/`** never exposes zero or duplicate document-level H1s. The hero, carousel, and spotlight banner keep their **existing visible markup and heading levels** (**`h3`**/**`h4`**) unchanged — no visible layout change.
 
 ### Catalog card image alt text
 
-**`CatalogGridCard`** images carry non-empty **`alt`** text describing the episode (e.g. the episode **`title`**) instead of today's empty **`alt=""`**. Additive accessibility/SEO fix — no new interaction pattern, no visible layout change.
+**`CatalogGridCard`** poster **`<img>`** elements use **`alt={episode.title}`** (catalog **`title`** field only — Invariant 9) instead of today's empty **`alt=""`**. Do **not** append **`poster`**, era labels, or experiment numbers to alt text; the adjacent visible **`h3`** link already carries the title for sighted users. Additive accessibility/SEO fix — no new interaction pattern, no visible layout change. **`HomeMovieCard`** on home rows is unchanged in this slice.
 
 ### `/watch/:catalogEpisodeId` heading
 
@@ -433,8 +433,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for #303 receiver presentation. The receiver shell uses the route and component contracts above, TV-safe 720p/1080p/4K overlay constraints, explicit waiting/blocked playback copy, and component or screenshot coverage proving native media-only and YouTube-only Cast paths do not satisfy the required RiffSync stage-primary plus chat-overlay presentation.
 
 ### public-site-seo
-- No open decisions remain for M29 per-route head tags (#326). Normative copy is in the table above and **Decisions (M29 — per-route head tags — #326)** below.
-- Home **`sr-only`** H1 wording and catalog card **`alt`** template remain **M30 #327** scope.
+- No open decisions remain for M29 per-route head tags (#326) or M30 home H1 / catalog alt (#327). Normative copy is in the sections above and the **Decisions (M29 — …)** / **Decisions (M30 — …)** tables below.
 
 ## Decisions (M29 — per-route head tags — #326)
 
@@ -446,7 +445,17 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 | **`/watch/:id` OG image** | Prefer absolute **`posterImageUrl`**, then absolute **`backdropImageUrl`**, else **`{origin}/og-card.png`**. Do **not** use YouTube thumbnail URLs for OG/Twitter image tags. |
 | **OG/Twitter parity** | Each indexable route emits matching **`og:title`**, **`og:description`**, **`og:url`**, **`og:image`**, **`twitter:card=summary_large_image`**, **`twitter:title`**, **`twitter:description`**, and **`twitter:image`** alongside **`<title>`**, meta description, and canonical **`<link>`**. Reuse today's **`index.html`** **`og:site_name`**, **`og:type=website`**, **`og:locale`**, and **`og:image`** width/height/type tags on static routes. |
 | **Generic noindex shell** | Ephemeral/authenticated/receiver-only routes and the SPA fallback artifact use **`<title>RiffSync</title>`**, description **`RiffSync — fan watch parties with a curated MST3K-friendly catalog, shared viewing, and room chat. Unofficial fan project.`**, **`<meta name="robots" content="noindex">`**, and **no** canonical **`<link>`**. |
-| **Home H1 / catalog alt** | **Out of scope** — **M30 #327**. |
+| **Home H1 / catalog alt** | **Out of scope** — **M30 #327** (see **Decisions (M30 — …)** below). |
+
+## Decisions (M30 — home sr-only H1 and catalog card alt — #327)
+
+| Topic | Decision |
+| --- | --- |
+| **Home H1 copy** | Static **`RiffSync`** — matches **`SITE_DOCUMENT_TITLE`** / generic shell **`<title>RiffSync</title>`**; not carousel slide title; not M29 **`RiffSync — watch parties`** prerender title. |
+| **Home H1 placement** | **`HomePage`**: one **`<h1 className="sr-only">RiffSync</h1>`** before **`HomeHeroBanner`** on the happy path; same single H1 at the top of loading, error, and empty branches. |
+| **Visible hero unchanged** | **`HomeHeroBanner`**, carousel slides, and **`HomeSpotlightBanner`** keep existing **`h3`**/**`h4`** levels and layout. |
+| **Catalog alt template** | **`CatalogGridCard`**: **`alt={episode.title}`** on the poster **`<img>`**; catalog **`title`** only. |
+| **Out of scope** | **`HomeMovieCard`** alt, **`SoloWatchPage`** sr-only H1, head-tag/prerender work (M29), **`robots.txt`**/**`sitemap.xml`** (M28). |
 
 ## Primary code pointers (optional)
 
