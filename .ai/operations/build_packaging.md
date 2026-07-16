@@ -101,12 +101,28 @@ No hosted staging/dev SEO footprint — consistent with the prod-only environmen
 | **S3 cache-control** | In **`deploy-prod.yml`** SPA publish phase, after bulk **`aws s3 sync`**, re-upload **`robots.txt`** and **`sitemap.xml`** with **`Cache-Control: public, max-age=3600`** and correct **`Content-Type`** (**`text/plain`**, **`application/xml`**). These objects must **not** inherit any **`index.html`** no-cache/no-store policy. Full-path CloudFront invalidation (**`/*`**) on deploy still refreshes them immediately after catalog updates. |
 | **CI assertion** | **`web-app`** job (or **`npm run verify:seo-artifacts`** invoked from it) asserts both files exist post-build and sitemap **`<url>`** count equals **5 static routes + `catalogEntriesWithYoutubeLink(entries).length`**. |
 
+### Decisions (M29 — per-route head tags and prerender — #326)
+
+| Topic | Decision |
+| --- | --- |
+| **Tooling** | **Custom Node prerender step** inside **`apps/web` `npm run build`** — **not** a Vite prerender plugin and **not** a second build pipeline. Reuse the M28 pattern: pure TypeScript in **`apps/web/src/seo/`** plus a thin CLI under **`apps/web/scripts/`**. |
+| **Build order** | **`tsc -b && vite build && node scripts/generate-seo-artifacts.mjs && node scripts/prerender-indexable-routes.mjs`**. Prerender runs **after** Vite emits **`dist/`** so it can clone the built shell (hashed asset URLs intact). |
+| **Module layout** | **`apps/web/src/seo/indexableRoutes.ts`** — shared static path list. **`routeHeadTags.ts`** — pure head-tag builders per **`.ai/interface/presentation.md`**. **`buildPrerenderDocument.ts`** — inject head tags into the Vite-built HTML template. **`prerender-indexable-routes.mjs`** — load catalog, write artifacts, emit **`spa-shell.html`**. |
+| **Prerender outputs** | Overwrite **`dist/index.html`** with home head tags. Write **`dist/catalog/index.html`**, **`dist/how-to-host-a-watchparty/index.html`**, **`dist/terms/index.html`**, **`dist/privacy/index.html`**, and **`dist/watch/{catalogEpisodeId}/index.html`** for each episode passing **`episodeHasYoutubeLink`**. Write **`dist/spa-shell.html`** (generic **`noindex`** shell). |
+| **Body markup** | Prerendered files keep the same **`<div id="root">` + module script** SPA shell as today's Vite output — **no** visible layout change. Head tags (and existing watch-page **`sr-only` H1** in React after hydration) supply crawler/unfurler signal; M29 does **not** add prerendered visible body content beyond the shell. |
+| **Catalog source / filter** | Same as M28: committed **`data/catalog/episodes.json`**; **`episodeHasYoutubeLink`** only. Episodes without a YouTube link get **no** prerender object; direct **`/watch/{id}`** requests fall through to **`spa-shell.html`**. |
+| **Origin** | **`process.env.VITE_PUBLIC_ORIGIN`** when set at build, else **`https://riffsync.tv`**. |
+| **CloudFront SPA fallback** | Update **`infra/cdk/lib/static-site-stack.ts`** custom error responses (**403** / **404** → **`/spa-shell.html`**, **200**, **ttl 0**) so ephemeral deep links do not serve home canonical metadata from **`index.html`**. **No** new CloudFront Function or Lambda@Edge. |
+| **S3 cache-control** | Prerendered route HTML follows the same cache policy as the rest of the SPA static sync unless a future milestone pins per-route headers; full-path CloudFront invalidation on deploy refreshes prerender output after catalog updates. |
+| **CI assertion** | Extend **`npm run verify:seo-artifacts`** (or add **`verify:prerender`**) so **`web-app`** asserts: **`spa-shell.html`** exists with **`noindex`**; static indexable paths have **`index.html`** at the S3 keys above; watch prerender count equals **`catalogEntriesWithYoutubeLink(entries).length`**; sample files contain expected **`<title>`** / canonical for **`/`** and one known **`/watch/{id}`** fixture episode. |
+| **Unit tests** | **`apps/web/src/seo/routeHeadTags.test.ts`** covers all six static route shapes plus **`/watch/:id`** with and without **`tagline`** / poster art. |
+
 ## CI expectations
 
 | Job | Scope | Blocking |
 | --- | --- | --- |
 | **`infra-cdk`** | **`cdk synth`**, **`cfn-lint`** on **`cdk.out`** | PR |
-| **`web-app`** | **`apps/web`** **`npm run build`** + unit tests + lint (may use placeholder env in CI; production deploy reads live Cfn outputs). Build step must produce **`robots.txt`** and **`sitemap.xml`** (M28); missing catalog data or a sitemap count mismatch fails the build rather than shipping stale SEO artifacts. Prerendered HTML for indexable routes is M29 scope. | PR |
+| **`web-app`** | **`apps/web`** **`npm run build`** + unit tests + lint (may use placeholder env in CI; production deploy reads live Cfn outputs). Build step must produce **`robots.txt`** and **`sitemap.xml`** (M28) and prerendered HTML for each indexable route plus **`spa-shell.html`** (M29); missing catalog data, sitemap count mismatch, or missing prerender objects fails the build rather than shipping stale SEO artifacts. | PR |
 | **`realtime-conformance`** | Disposable SFU + TURN integration harness (see below) | **PR** when path filters match |
 
 Viewer-local Cast browser/unit tests live under the **`web-app`** job. Physical Google Cast discovery and receiver launch are manual smoke checks because CI cannot reliably emulate Cast devices.
@@ -293,6 +309,6 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for sender availability build packaging. Production wiring uses a non-secret GitHub Actions variable exported as **`VITE_CAST_RECEIVER_APP_ID`** for the SPA build; the current pre-release UI additionally requires the existing room experimental feature opt-in; missing app id or disabled experimental opt-in hides or locally fails Cast and blocks release readiness, not unrelated room deploys; #301 web-app tests cover SDK loader, app id, **`CastContext.setOptions`**, availability UI, and no room-authority side effects, while #317 adds focused web coverage for the experimental exposure gate. Receiver route rendering tests belong to #303, and physical-device smoke evidence belongs to #306.
 
 ### public-site-seo
-- No open decisions remain for **`robots.txt`** / **`sitemap.xml`** generation (M28 — #325). Node build step in **`apps/web`**, catalog read from **`data/catalog/episodes.json`**, S3 **`max-age=3600`** cache-control on deploy — see *Decisions (M28 — robots.txt and sitemap.xml — #325)* above.
-- Exact prerender tooling choice (custom Node script rendering routes to static HTML vs a Vite prerender plugin) — must integrate with the existing single **`npm run build`**, not a second build pipeline (M29 scope).
-- Whether the Search Console / Bing verification DNS record is added to the existing Route 53 zone via CDK or documented as a manual operator step (**[`deployment_environments.md`](deployment_environments.md)**) (M31 scope).
+- No open decisions remain for **`robots.txt`** / **`sitemap.xml`** generation (M28 — #325). See *Decisions (M28 — robots.txt and sitemap.xml — #325)* above.
+- No open decisions remain for per-route head tags and build-time prerender (M29 — #326). See *Decisions (M29 — per-route head tags and prerender — #326)* above.
+- Whether the Search Console / Bing verification DNS record is added to the existing Route 53 zone via CDK or documented as a manual operator step (**[`deployment_environments.md`](deployment_environments.md)**) (M31 #328 scope).

@@ -64,6 +64,21 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 
 Full detail: `.ai/operations/build_packaging.md` → *Decisions (M28 — robots.txt and sitemap.xml — #325)*.
 
+**M29 (per-route head tags + prerender — #326):**
+
+| Concern | Contract |
+| --- | --- |
+| **Module layout** | Shared **`indexableRoutes.ts`**, **`routeHeadTags.ts`**, **`buildPrerenderDocument.ts`** under **`apps/web/src/seo/`**; CLI **`apps/web/scripts/prerender-indexable-routes.mjs`**. |
+| **Build order** | Last step after M28 SEO artifact generation: **`… && node scripts/generate-seo-artifacts.mjs && node scripts/prerender-indexable-routes.mjs`**. |
+| **Head-tag copy** | Normative strings in **`.ai/interface/presentation.md`** → *Public site head tags* table and *Decisions (M29 — per-route head tags — #326)*. |
+| **Prerender paths** | **`dist/index.html`** (home), **`dist/{route}/index.html`** for static indexable paths, **`dist/watch/{catalogEpisodeId}/index.html`** per YouTube-linked episode, **`dist/spa-shell.html`** (generic **`noindex`** fallback). |
+| **SPA fallback** | **`static-site-stack.ts`** maps **403/404** to **`/spa-shell.html`** so **`/room/*`**, **`/lobby`**, and other non-prerendered paths do not inherit home canonical metadata. |
+| **Catalog / filter** | Same committed catalog file and **`episodeHasYoutubeLink`** filter as M28. |
+| **Origin** | **`VITE_PUBLIC_ORIGIN`** at build when set, else **`https://riffsync.tv`**. |
+| **CI** | **`web-app`** verifies prerender file count and spot-checks head tags on **`/`** plus a fixture **`/watch/{id}`**; unit tests cover **`routeHeadTags`** for all indexable route shapes. |
+
+Full detail: `.ai/operations/build_packaging.md` → *Decisions (M29 — per-route head tags and prerender — #326)*.
+
 **Canonical origin sourcing:** the same `public_domain` / `PUBLIC_WEB_ORIGIN` build-time value already used for `VITE_PUBLIC_ORIGIN` (`.ai/runtime/configuration.md`) is the single source for all absolute URLs this capability emits.
 
 **Canonical hostname redirect:** GitHub Actions repository variables (`PROD_FAN_WEB_HOSTNAME`, `PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`, `PROD_FAN_WEB_CANONICAL_HOSTNAME`) and matching CDK context on `RiffSyncStatic-prod` (`infra/cdk/lib/static-site-stack.ts`) set apex `riffsync.tv` as canonical with `www.riffsync.tv` as an alternate. The existing `cloudfront-canonical-redirect.ts` CloudFront Function **301**-redirects any non-canonical custom alias (including `www.riffsync.tv`) to apex, preserving path and query. Change redirect status from **302** to **301** in `viewerRequestRedirectToCanonicalSource` as part of M27. No new CDK construct is required.
@@ -76,11 +91,11 @@ Full detail: `.ai/operations/build_packaging.md` → *Decisions (M28 — robots.
 
 ## Testing Strategy
 
-**Unit/component:** home `sr-only` H1 renders exactly once; catalog card `alt` text is non-empty; the per-route head-tag generator produces the expected title/description/canonical/OG for each indexable route, including `/watch/:id` cases with and without `tagline`/poster art.
+**Unit/component:** home `sr-only` H1 renders exactly once (M30); catalog card `alt` text is non-empty (M30); **`routeHeadTags`** produces expected title/description/canonical/OG/Twitter for each indexable route, including `/watch/:id` with and without `tagline`/poster art (M29).
 
 **Build/CI (M28):** the `web-app` CI job asserts `robots.txt` and `sitemap.xml` exist after `npm run build`; sitemap `<url>` count equals 5 static indexable routes plus the count of catalog episodes passing `episodeHasYoutubeLink`; the build fails when catalog data is unavailable or counts mismatch.
 
-**Build/CI (M29):** prerendered HTML exists for each indexable route (separate milestone).
+**Build/CI (M29):** after `npm run build`, `web-app` (via `verify:seo-artifacts` or dedicated verify script) asserts `spa-shell.html` contains `noindex`; prerendered `index.html` exists for `/`, `/catalog`, `/how-to-host-a-watchparty`, `/terms`, `/privacy`; `watch/{id}/index.html` count matches YouTube-linked catalog episodes; spot checks validate apex canonical on `/` and episode title/canonical on a fixture watch route.
 
 **Manual/smoke (post-deploy, production only):** apex canonical reachable; `www` → apex redirect returns **301** to the matching apex path and query; `robots.txt`/`sitemap.xml` return 200 (M28+); the canonical `<link>` on `/` matches apex `https://riffsync.tv/`; `curl -sI https://www.riffsync.tv/lobby` shows `location: https://riffsync.tv/lobby`; shipped `index.html` contains no `www.riffsync.tv` absolute URLs. Search Console DNS verification confirmed (M31). Peer prior art for the smoke-check shape: `control9/control9-www`'s `smoke-production.mjs` (reference only — riffsync's static-hosting shape differs enough that it is not a template to copy wholesale).
 

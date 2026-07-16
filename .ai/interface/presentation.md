@@ -21,12 +21,14 @@ Document-level metadata for the durable public surfaces — **`/`**, **`/catalog
 
 | Route | **`<title>`** | Meta description | Canonical | OG/Twitter image |
 | --- | --- | --- | --- | --- |
-| **`/`** | Site title framing (e.g. **`RiffSync — watch parties`**) | Fan-disclaimer framing copy (unofficial, non-trademark-claiming — same precedent as today's **`index.html`**) | **`https://riffsync.tv/`** | Static **`/og-card.png`** |
-| **`/catalog`** | Catalog framing (e.g. **`RiffSync Catalog — browse the library`**) | Catalog browsing framing copy | **`https://riffsync.tv/catalog`** | Static **`/og-card.png`** |
-| **`/watch/:catalogEpisodeId`** | Episode **`title`** + site framing | Composed from episode **`title`** (and **`tagline`** when present) | **`https://riffsync.tv/watch/{id}`** | Episode **`posterImageUrl`** / **`backdropImageUrl`** when present, else static **`/og-card.png`** |
-| **`/how-to-host-a-watchparty`** | Host-help framing | Host-help framing copy | **`https://riffsync.tv/how-to-host-a-watchparty`** | Static **`/og-card.png`** |
-| **`/terms`** | Legal framing | Legal framing copy | **`https://riffsync.tv/terms`** | Static **`/og-card.png`** |
-| **`/privacy`** | Legal framing | Legal framing copy | **`https://riffsync.tv/privacy`** | Static **`/og-card.png`** |
+| **`/`** | **`RiffSync — watch parties`** | **`RiffSync — fan watch parties with a curated MST3K-friendly catalog, shared viewing, and room chat. Unofficial fan project.`** | **`{origin}/`** | **`{origin}/og-card.png`** |
+| **`/catalog`** | **`RiffSync Catalog — browse the library`** | **`Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Filter by era, pick an experiment, and start a watch party. Unofficial fan project.`** | **`{origin}/catalog`** | **`{origin}/og-card.png`** |
+| **`/watch/:catalogEpisodeId`** | **`{episode.title} — RiffSync`** | With **`tagline`**: **`{tagline} — watch {episode.title} on RiffSync. Unofficial fan project with lawful YouTube embeds.`** Without **`tagline`**: **`Watch {episode.title} on RiffSync — fan watch parties with lawful YouTube embeds. Unofficial fan project.`** | **`{origin}/watch/{id}`** | Absolute **`posterImageUrl`**, else absolute **`backdropImageUrl`**, else **`{origin}/og-card.png`** |
+| **`/how-to-host-a-watchparty`** | **`How to host a watch party — RiffSync`** | **`Step-by-step help for hosting a RiffSync watch party: share your YouTube tab, keep guests in sync, and fix common screen-share issues.`** | **`{origin}/how-to-host-a-watchparty`** | **`{origin}/og-card.png`** |
+| **`/terms`** | **`Terms of Service — RiffSync`** | **`RiffSync Terms of Service — rules for using the fan watch-party site, catalog, chat, and related features. Unofficial fan project; not affiliated with MST3K or RiffTrax.`** | **`{origin}/terms`** | **`{origin}/og-card.png`** |
+| **`/privacy`** | **`Privacy Policy — RiffSync`** | **`RiffSync Privacy Policy — what we collect when you browse the catalog, join watch parties, or sign in, and how we use that information.`** | **`{origin}/privacy`** | **`{origin}/og-card.png`** |
+
+**`{origin}`** is the apex canonical build-time origin (**`VITE_PUBLIC_ORIGIN`** or **`https://riffsync.tv`** fallback). Episode art URLs that are root-relative in catalog data are prefixed with **`{origin}`** before emission; already-absolute **`https:`** values pass through unchanged.
 
 **Ephemeral/authenticated/receiver-only routes** (**`/room/:roomId`** and its experimental variant, **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**, **`/privacy/data-removal`**, **`/auth/callback`**, **`/admin/auth/callback`**) keep the generic app-shell **`<title>RiffSync</title>`** and description plus a **`noindex`** robots meta tag — **no** per-instance head tags.
 
@@ -431,9 +433,20 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for #303 receiver presentation. The receiver shell uses the route and component contracts above, TV-safe 720p/1080p/4K overlay constraints, explicit waiting/blocked playback copy, and component or screenshot coverage proving native media-only and YouTube-only Cast paths do not satisfy the required RiffSync stage-primary plus chat-overlay presentation.
 
 ### public-site-seo
-- Exact per-route **`<title>`** / meta description copy strings for each public route — defer to **`/refine-issue`**.
-- Whether the home **`sr-only`** H1 text is fully static or interpolates a dynamic catalog fact — static is the safer default absent a stated need.
-- Exact **`alt`** text template for catalog cards (**`{title}`** vs **`{title} poster`** vs including era).
+- No open decisions remain for M29 per-route head tags (#326). Normative copy is in the table above and **Decisions (M29 — per-route head tags — #326)** below.
+- Home **`sr-only`** H1 wording and catalog card **`alt`** template remain **M30 #327** scope.
+
+## Decisions (M29 — per-route head tags — #326)
+
+| Topic | Decision |
+| --- | --- |
+| **Static route copy** | Use the exact **`<title>`** and meta description strings in the *Public site head tags* table above for **`/`**, **`/catalog`**, **`/how-to-host-a-watchparty`**, **`/terms`**, and **`/privacy`**. |
+| **`/watch/:id` title** | **`{episode.title} — RiffSync`** using catalog **`title`** only (Invariant 9). Apply **`trimTabTitleSegment`** only when the composed string exceeds **70** characters for the HTML **`<title>`** element; OG/Twitter **`og:title`** / **`twitter:title`** use the untrimmed catalog title. |
+| **`/watch/:id` description** | When **`tagline`** is non-empty after trim: **`{tagline} — watch {episode.title} on RiffSync. Unofficial fan project with lawful YouTube embeds.`** Otherwise: **`Watch {episode.title} on RiffSync — fan watch parties with lawful YouTube embeds. Unofficial fan project.`** |
+| **`/watch/:id` OG image** | Prefer absolute **`posterImageUrl`**, then absolute **`backdropImageUrl`**, else **`{origin}/og-card.png`**. Do **not** use YouTube thumbnail URLs for OG/Twitter image tags. |
+| **OG/Twitter parity** | Each indexable route emits matching **`og:title`**, **`og:description`**, **`og:url`**, **`og:image`**, **`twitter:card=summary_large_image`**, **`twitter:title`**, **`twitter:description`**, and **`twitter:image`** alongside **`<title>`**, meta description, and canonical **`<link>`**. Reuse today's **`index.html`** **`og:site_name`**, **`og:type=website`**, **`og:locale`**, and **`og:image`** width/height/type tags on static routes. |
+| **Generic noindex shell** | Ephemeral/authenticated/receiver-only routes and the SPA fallback artifact use **`<title>RiffSync</title>`**, description **`RiffSync — fan watch parties with a curated MST3K-friendly catalog, shared viewing, and room chat. Unofficial fan project.`**, **`<meta name="robots" content="noindex">`**, and **no** canonical **`<link>`**. |
+| **Home H1 / catalog alt** | **Out of scope** — **M30 #327**. |
 
 ## Primary code pointers (optional)
 
