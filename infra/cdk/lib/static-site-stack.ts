@@ -34,7 +34,7 @@ export interface StaticSiteStackProps extends cdk.StackProps {
    */
   readonly fanWebAlternateDomainNames?: string[];
   /**
-   * If set (e.g. `www.riffsync.tv`), CloudFront returns **302** for any other custom alias so the browser
+   * If set (e.g. `riffsync.tv`), CloudFront returns **301** for any other custom alias so the browser
    * lands on this host (path + query preserved). Must be one of **fanWebCustomDomain** + **fanWebAlternateDomainNames**.
    * Leave unset for no host-based redirects.
    */
