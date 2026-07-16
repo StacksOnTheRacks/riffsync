@@ -16,6 +16,10 @@ import { HomeHeroBanner } from './home/HomeHeroBanner'
 import { HomeMovieRowSection } from './home/HomeMovieRowSection'
 import { HomeSpotlightBanner } from './home/HomeSpotlightBanner'
 
+function HomePageDocumentHeading() {
+  return <h1 className="sr-only">RiffSync</h1>
+}
+
 /**
  * Catalog landing (/) — full list from **`GET /v1/catalog`**; hero from
  * **`GET /v1/catalog?carousel=true`**; spotlight from **`GET /v1/catalog?spotlight=true`**
@@ -36,6 +40,7 @@ export function HomePage() {
   if (isPending && !data) {
     return (
       <div className="riffsync-home">
+        <HomePageDocumentHeading />
         <p className="container">Loading catalog…</p>
       </div>
     )
@@ -44,6 +49,7 @@ export function HomePage() {
   if (isError && !data) {
     return (
       <div className="riffsync-home">
+        <HomePageDocumentHeading />
         <div className="container">
           <CatalogLoadErrorPanel
             error={error}
@@ -67,6 +73,7 @@ export function HomePage() {
   if (entries.length === 0) {
     return (
       <div className="riffsync-home">
+        <HomePageDocumentHeading />
         <p className="container">The catalog is empty.</p>
       </div>
     )
@@ -75,6 +82,7 @@ export function HomePage() {
   if (playableEntries.length === 0) {
     return (
       <div className="riffsync-home">
+        <HomePageDocumentHeading />
         <p className="container">No episodes with a YouTube link are available yet.</p>
       </div>
     )
@@ -88,6 +96,7 @@ export function HomePage() {
 
   return (
     <div className="riffsync-home">
+      <HomePageDocumentHeading />
       {heroSlides.length > 0 ? <HomeHeroBanner slides={heroSlides} /> : null}
       <HomeMovieRowSection
         sectionId="home-most-popular"
