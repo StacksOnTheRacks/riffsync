@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  findQueuedGtagCommandForTests,
   getGaMeasurementId,
   initGoogleAnalytics,
+  isArgumentsLikeForTests,
   resetGoogleAnalyticsInitForTests,
   trackGaPageView,
 } from './googleAnalytics'
@@ -34,7 +36,7 @@ describe('googleAnalytics', () => {
     expect(getGaMeasurementId()).toBe('G-TEST123')
   })
 
-  it('bootstraps gtag from bundled code and loads the external library script', async () => {
+  it('bootstraps gtag with Arguments-like commands and loads the library script', async () => {
     vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST123')
 
     const appendedScripts: HTMLScriptElement[] = []
@@ -50,17 +52,16 @@ describe('googleAnalytics', () => {
     await initGoogleAnalytics()
 
     expect(typeof window.gtag).toBe('function')
+    expect(window.dataLayer?.length).toBeGreaterThan(0)
+    for (const entry of window.dataLayer ?? []) {
+      expect(isArgumentsLikeForTests(entry)).toBe(true)
+    }
 
-    const jsEntry = window.dataLayer?.find(
-      (entry): entry is unknown[] => Array.isArray(entry) && entry[0] === 'js',
-    )
+    const jsEntry = findQueuedGtagCommandForTests('js')
     expect(jsEntry?.[1]).toBeInstanceOf(Date)
 
-    const configEntry = window.dataLayer?.find(
-      (entry): entry is unknown[] =>
-        Array.isArray(entry) && entry[0] === 'config' && entry[1] === 'G-TEST123',
-    )
-    expect(configEntry).toBeDefined()
+    const configEntry = findQueuedGtagCommandForTests('config')
+    expect(configEntry?.[1]).toBe('G-TEST123')
 
     expect(appendedScripts).toHaveLength(1)
     expect(appendedScripts[0]?.src).toBe(
