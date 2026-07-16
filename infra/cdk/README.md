@@ -444,7 +444,15 @@ Prefer scoping to those ARNs instead of `*` once ARNs are known from a first dep
 
 ### Production smoke checks (operators)
 
-After **Deploy CDK (production)** completes:
+**Public site SEO (M31):** after M27–M29 are deployed, run the full SEO smoke band and complete Search Console / Bing DNS verification per **[`docs/operations/public-site-seo.md`](../../docs/operations/public-site-seo.md)**. From the repo root:
+
+```bash
+npm run smoke:production
+```
+
+The script asserts apex reachability, **`www`** → apex **301**, **`robots.txt`** / **`sitemap.xml`** **200**, apex canonical **`<link>`** on **`/`** and fixture **`/watch/101-the-crawling-eye`**, and no **`www.riffsync.tv`** absolute URLs in shipped home HTML. Search Console / Bing **Verified** status is a separate operator checklist row in that runbook (not asserted by the script).
+
+**SPA shell (baseline):** after **Deploy CDK (production)** completes:
 
 1. Resolve the URL: **`https://<DistributionDomainName>/`** (stack output, or **AWS Console** → **CloudFormation** → **Outputs**).
 2. **`curl -I`** — expect **`200`** for **`/`** and for **`/lobby`** (SPA fallback must return **`index.html`**, not S3 **`403`**).
@@ -454,6 +462,7 @@ After **Deploy CDK (production)** completes:
 
 ```bash
 cd apps/web && npm ci && npm run build && ls -la dist
+node --check ../../scripts/launch-readiness/smoke-production.mjs
 ```
 
 ### Repository configuration (preferred: OIDC → IAM role)
