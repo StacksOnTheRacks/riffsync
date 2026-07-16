@@ -17,22 +17,10 @@ export function resetGoogleAnalyticsInitForTests(): void {
 
 /**
  * gtag.js only treats queued commands as hits when they are Arguments objects
- * (or objects with a `callee` property). Rest-parameter arrays look identical in
- * the console but produce no `/g/collect` network requests.
- *
- * Prefer native `arguments`. If a bundler rewrites that away, fall back to an
- * Arguments-like object with `callee` so Google's type check still passes.
+ * (or objects with a `callee` property). Pushing a plain rest-parameter Array
+ * looks identical in the console but produces no `/g/collect` network requests.
  */
-function queueGtagCommand(gtagFn: (...args: unknown[]) => void, args: IArguments | unknown[]): void {
-  const isNativeArguments =
-    Object.prototype.toString.call(args) === '[object Arguments]' ||
-    Object.prototype.hasOwnProperty.call(args, 'callee')
-
-  if (isNativeArguments) {
-    window.dataLayer!.push(args as unknown as unknown[])
-    return
-  }
-
+function queueGtagCommand(gtagFn: (...args: unknown[]) => void, args: unknown[]): void {
   const command: Record<number | string, unknown> = {
     length: args.length,
     callee: gtagFn,
@@ -45,8 +33,8 @@ function queueGtagCommand(gtagFn: (...args: unknown[]) => void, args: IArguments
 
 function installGtagStub(): void {
   window.dataLayer = window.dataLayer ?? []
-  window.gtag = function gtag(this: unknown) {
-    queueGtagCommand(gtag, arguments)
+  window.gtag = function gtag(...args: unknown[]) {
+    queueGtagCommand(gtag, args)
   }
 }
 
