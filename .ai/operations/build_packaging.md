@@ -25,6 +25,8 @@ Read from **`RiffSyncFanAuth-prod`** CloudFormation outputs in **[`deploy-prod.y
 
 Also from **`RiffSyncStatic-prod`** / **`RiffSyncApi-prod`**: **`VITE_PUBLIC_ORIGIN`**, **`VITE_PUBLIC_API_BASE_URL`**, **`VITE_PUBLIC_WS_URL`**, **`VITE_PUBLIC_SFU_WS_URL`** (required for watch-party media in all environments).
 
+**`VITE_PUBLIC_ORIGIN` sourcing (M27):** production **`deploy-prod.yml`** reads CloudFormation output **`FanWebSiteUrl`** from **`RiffSyncStatic-prod`** and exports it as **`VITE_PUBLIC_ORIGIN`** for **`npm run build`**. That output reflects **`fanWebCanonicalHostname`** (apex **`riffsync.tv`**) when GitHub Actions repository variables and CDK context are aligned (**[`deployment_environments.md`](deployment_environments.md)** → *Public site SEO deployment readiness*). Browser code consumes it via **`getPublicOrigin()`** (**`apps/web/src/config/publicOrigin.ts`**). The static **`apps/web/index.html`** shell must use the same apex origin for hardcoded canonical/OG/Twitter URLs until M29 per-route head tags replace the shell defaults.
+
 **SFU-only media path:** **No** mesh WebRTC fallback. Retire **`VITE_WEBRTC_USE_MEDIASOU_SFU`** and mesh branches from **`apps/web`** this milestone. Local dev and CI use disposable SFU + TURN profiles per **[`deployment_environments.md`](deployment_environments.md)** — same mediasoup + coturn topology as production **`RiffSyncTurn`**, not a second code path.
 
 ### Staff auth (same build)
