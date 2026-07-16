@@ -1,0 +1,173 @@
+import { describe, expect, it } from 'vitest'
+import type { CatalogEpisode } from '../catalog/catalogTypes'
+import { buildPrerenderDocument } from './buildPrerenderDocument'
+import { STATIC_INDEXABLE_ROUTES } from './indexableRoutes'
+import {
+  buildSpaShellHeadTags,
+  buildStaticRouteHeadTags,
+  buildWatchRouteHeadTags,
+} from './routeHeadTags'
+
+const TEMPLATE_HTML = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>RiffSync</title>
+    <meta
+      name="description"
+      content="Generic description"
+    />
+    <link rel="canonical" href="https://riffsync.tv/" />
+    <meta property="og:title" content="RiffSync — watch parties" />
+    <meta property="og:description" content="Generic OG description" />
+    <meta property="og:url" content="https://riffsync.tv/" />
+    <meta property="og:image" content="https://riffsync.tv/og-card.png" />
+    <meta name="twitter:title" content="RiffSync — watch parties" />
+    <meta name="twitter:description" content="Generic Twitter description" />
+    <meta name="twitter:image" content="https://riffsync.tv/og-card.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/assets/main.js"></script>
+  </body>
+</html>`
+
+function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>): CatalogEpisode {
+  return {
+    experimentNumber: 101,
+    title: 'The Crawling Eye',
+    era: 'joel',
+    youtubeVideoId: 'abc123',
+    youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc123',
+    tagline: null,
+    posterImageUrl: null,
+    backdropImageUrl: null,
+    tmdbMovieId: null,
+    tmdbArtworkSyncedAt: null,
+    carousel: false,
+    spotlight: false,
+    ...overrides,
+  }
+}
+
+describe('buildStaticRouteHeadTags', () => {
+  it('produces normative home copy', () => {
+    const head = buildStaticRouteHeadTags('/', 'https://riffsync.tv')
+    expect(head.documentTitle).toBe('RiffSync — watch parties')
+    expect(head.description).toContain('fan watch parties')
+    expect(head.canonicalUrl).toBe('https://riffsync.tv/')
+    expect(head.ogImageUrl).toBe('https://riffsync.tv/og-card.png')
+    expect(head.robotsNoindex).toBe(false)
+  })
+
+  it('covers every static indexable route', () => {
+    for (const route of STATIC_INDEXABLE_ROUTES) {
+      const head = buildStaticRouteHeadTags(route, 'https://riffsync.tv')
+      expect(head.documentTitle.length).toBeGreaterThan(0)
+      expect(head.description.length).toBeGreaterThan(0)
+      expect(head.canonicalUrl).toContain('https://riffsync.tv')
+      expect(head.robotsNoindex).toBe(false)
+    }
+  })
+
+  it('uses normative catalog title and description', () => {
+    const head = buildStaticRouteHeadTags('/catalog', 'https://riffsync.tv')
+    expect(head.documentTitle).toBe('RiffSync Catalog — browse the library')
+    expect(head.description).toContain('Browse the RiffSync catalog')
+    expect(head.canonicalUrl).toBe('https://riffsync.tv/catalog')
+  })
+})
+
+describe('buildWatchRouteHeadTags', () => {
+  it('uses catalog title without tagline and falls back to og-card image', () => {
+    const head = buildWatchRouteHeadTags(
+      episode({ id: '101-the-crawling-eye', title: 'The Crawling Eye' }),
+      'https://riffsync.tv',
+    )
+    expect(head.documentTitle).toBe('The Crawling Eye — RiffSync')
+    expect(head.ogTitle).toBe('The Crawling Eye — RiffSync')
+    expect(head.description).toBe(
+      'Watch The Crawling Eye on RiffSync — fan watch parties with lawful YouTube embeds. Unofficial fan project.',
+    )
+    expect(head.canonicalUrl).toBe('https://riffsync.tv/watch/101-the-crawling-eye')
+    expect(head.ogImageUrl).toBe('https://riffsync.tv/og-card.png')
+  })
+
+  it('includes tagline in description when present', () => {
+    const head = buildWatchRouteHeadTags(
+      episode({
+        id: 'fixture',
+        title: 'Pod People',
+        tagline: 'They tried to run',
+      }),
+      'https://riffsync.tv',
+    )
+    expect(head.description).toBe(
+      'They tried to run — watch Pod People on RiffSync. Unofficial fan project with lawful YouTube embeds.',
+    )
+  })
+
+  it('prefers poster art over backdrop for OG image', () => {
+    const head = buildWatchRouteHeadTags(
+      episode({
+        id: 'fixture',
+        posterImageUrl: '/posters/pod-people.jpg',
+        backdropImageUrl: '/backdrops/pod-people.jpg',
+      }),
+      'https://riffsync.tv',
+    )
+    expect(head.ogImageUrl).toBe('https://riffsync.tv/posters/pod-people.jpg')
+  })
+
+  it('uses backdrop when poster is absent', () => {
+    const head = buildWatchRouteHeadTags(
+      episode({
+        id: 'fixture',
+        posterImageUrl: null,
+        backdropImageUrl: 'https://images.example/backdrop.jpg',
+      }),
+      'https://riffsync.tv',
+    )
+    expect(head.ogImageUrl).toBe('https://images.example/backdrop.jpg')
+  })
+
+  it('trims HTML title only when composed title exceeds 70 characters', () => {
+    const longTitle =
+      'A Very Long Episode Title That Would Overflow Browser Tab Labels If Left Untrimmed'
+    const head = buildWatchRouteHeadTags(
+      episode({ id: 'fixture', title: longTitle }),
+      'https://riffsync.tv',
+    )
+    expect(head.documentTitle.length).toBeLessThanOrEqual(70)
+    expect(head.ogTitle).toBe(`${longTitle} — RiffSync`)
+    expect(head.documentTitle).not.toBe(head.ogTitle)
+  })
+})
+
+describe('buildSpaShellHeadTags', () => {
+  it('uses generic noindex shell without canonical', () => {
+    const head = buildSpaShellHeadTags()
+    expect(head.documentTitle).toBe('RiffSync')
+    expect(head.robotsNoindex).toBe(true)
+    expect(head.canonicalUrl).toBeNull()
+  })
+})
+
+describe('buildPrerenderDocument', () => {
+  it('injects home head tags without changing body markup', () => {
+    const head = buildStaticRouteHeadTags('/', 'https://riffsync.tv')
+    const html = buildPrerenderDocument(TEMPLATE_HTML, head)
+    expect(html).toContain('<title>RiffSync — watch parties</title>')
+    expect(html).toContain('rel="canonical" href="https://riffsync.tv/"')
+    expect(html).toContain('<div id="root"></div>')
+    expect(html).toContain('<script type="module" src="/assets/main.js"></script>')
+    expect(html).not.toContain('name="robots" content="noindex"')
+  })
+
+  it('emits noindex and removes canonical for spa shell', () => {
+    const html = buildPrerenderDocument(TEMPLATE_HTML, buildSpaShellHeadTags())
+    expect(html).toContain('<meta name="robots" content="noindex" />')
+    expect(html).not.toContain('rel="canonical"')
+    expect(html).toContain('<title>RiffSync</title>')
+  })
+})

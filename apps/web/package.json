@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && vite-node scripts/generate-seo-artifacts.mjs",
+    "build": "tsc -b && vite build && vite-node scripts/generate-seo-artifacts.mjs && vite-node scripts/prerender-indexable-routes.mjs",
     "verify:seo-artifacts": "vite-node scripts/verify-seo-artifacts.mjs",
     "lint": "eslint .",
     "preview": "vite preview",

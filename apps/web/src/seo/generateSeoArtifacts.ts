@@ -1,5 +1,6 @@
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
+import { STATIC_INDEXABLE_ROUTES } from './indexableRoutes'
 
 export const DEFAULT_PUBLIC_ORIGIN = 'https://riffsync.tv'
 
@@ -14,13 +15,8 @@ export const ROBOTS_DISALLOW_PATHS = [
   '/admin/auth/callback',
 ] as const
 
-export const STATIC_SITEMAP_PATHS = [
-  '/',
-  '/catalog',
-  '/how-to-host-a-watchparty',
-  '/terms',
-  '/privacy',
-] as const
+/** @deprecated Import `STATIC_INDEXABLE_ROUTES` from `indexableRoutes.ts` for new code. */
+export const STATIC_SITEMAP_PATHS = STATIC_INDEXABLE_ROUTES
 
 /** Canonical origin for absolute SEO URLs at build time. */
 export function resolveCanonicalOrigin(envOrigin: string | undefined): string {
