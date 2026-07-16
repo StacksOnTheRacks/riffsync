@@ -48,7 +48,21 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 
 **Stack:** `apps/web` — React 19.2, Vite 8, react-router-dom 7, single Vite build (`npm run build` → `dist/`) published to the `RiffSyncStatic-prod` private S3 + CloudFront (OAC) origin via the existing GitHub Actions `deploy-prod.yml` pipeline (Node/CI toolchain per `.ai/operations/build_packaging.md`).
 
-**Build pipeline:** the SEO artifact generation (robots/sitemap/prerender/head-tags) is a new step inside the existing `apps/web` `npm run build` invocation — not a second build pipeline, not a new CI job. Sitemap and robots generation reads `data/catalog/episodes.json` (or `GET /v1/catalog`) filtered by the existing `episodeHasYoutubeLink` predicate (`apps/web/src/catalog/mockCatalog.ts`).
+**Build pipeline:** the SEO artifact generation (robots/sitemap/prerender/head-tags) is a new step inside the existing `apps/web` `npm run build` invocation — not a second build pipeline, not a new CI job.
+
+**M28 (`robots.txt` / `sitemap.xml` — #325):**
+
+| Concern | Contract |
+| --- | --- |
+| **Module layout** | Pure functions in `apps/web/src/seo/generateSeoArtifacts.ts`; CLI `apps/web/scripts/generate-seo-artifacts.mjs` writes `dist/robots.txt` and `dist/sitemap.xml` after `vite build`. |
+| **Catalog read** | Committed `data/catalog/episodes.json` only — no `GET /v1/catalog` at build time. |
+| **Filter** | `episodeHasYoutubeLink` / `catalogEntriesWithYoutubeLink` from `apps/web/src/catalog/mockCatalog.ts`. |
+| **Static sitemap paths** | `/`, `/catalog`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` plus `/watch/{catalogEpisodeId}` per filtered episode. |
+| **Origin** | `VITE_PUBLIC_ORIGIN` at build when set, else `https://riffsync.tv`. |
+| **Deploy cache** | S3 `Cache-Control: public, max-age=3600` on both objects in `deploy-prod.yml` (see `build_packaging.md` M28 decisions). |
+| **CI** | `web-app` asserts both files exist; sitemap `<url>` count = 5 static routes + YouTube-linked episode count. |
+
+Full detail: `.ai/operations/build_packaging.md` → *Decisions (M28 — robots.txt and sitemap.xml — #325)*.
 
 **Canonical origin sourcing:** the same `public_domain` / `PUBLIC_WEB_ORIGIN` build-time value already used for `VITE_PUBLIC_ORIGIN` (`.ai/runtime/configuration.md`) is the single source for all absolute URLs this capability emits.
 
@@ -64,7 +78,9 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 
 **Unit/component:** home `sr-only` H1 renders exactly once; catalog card `alt` text is non-empty; the per-route head-tag generator produces the expected title/description/canonical/OG for each indexable route, including `/watch/:id` cases with and without `tagline`/poster art.
 
-**Build/CI:** the `web-app` CI job asserts `robots.txt`, `sitemap.xml`, and prerendered HTML exist for each indexable route after `npm run build`; sitemap entry count matches the count of catalog episodes passing `episodeHasYoutubeLink`; the build fails rather than shipping an empty or stale sitemap when catalog data is unavailable.
+**Build/CI (M28):** the `web-app` CI job asserts `robots.txt` and `sitemap.xml` exist after `npm run build`; sitemap `<url>` count equals 5 static indexable routes plus the count of catalog episodes passing `episodeHasYoutubeLink`; the build fails when catalog data is unavailable or counts mismatch.
+
+**Build/CI (M29):** prerendered HTML exists for each indexable route (separate milestone).
 
 **Manual/smoke (post-deploy, production only):** apex canonical reachable; `www` → apex redirect returns **301** to the matching apex path and query; `robots.txt`/`sitemap.xml` return 200 (M28+); the canonical `<link>` on `/` matches apex `https://riffsync.tv/`; `curl -sI https://www.riffsync.tv/lobby` shows `location: https://riffsync.tv/lobby`; shipped `index.html` contains no `www.riffsync.tv` absolute URLs. Search Console DNS verification confirmed (M31). Peer prior art for the smoke-check shape: `control9/control9-www`'s `smoke-production.mjs` (reference only — riffsync's static-hosting shape differs enough that it is not a template to copy wholesale).
 
