@@ -1,16 +1,19 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useCatalogListQuery } from '../catalog/catalogQueries'
+import { getCatalogSubcategoryByPath } from '../catalog/catalogBrowseIa'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { CatalogFilterBar } from '../components/catalog/CatalogFilterBar'
-import { CatalogHubEntryLinks } from '../components/catalog/CatalogHubEntryLinks'
+import { CatalogBreadcrumbs } from '../components/catalog/CatalogBreadcrumbs'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
 import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
 
-export function CatalogPage() {
+export function CatalogSubcategoryPage() {
+  const { pathname } = useLocation()
   const navigate = useNavigate()
+  const subcategory = getCatalogSubcategoryByPath(pathname)
   const { data, isPending, isError, error, refetch } = useCatalogListQuery()
   const [titleQuery, setTitleQuery] = useState('')
 
@@ -22,17 +25,32 @@ export function CatalogPage() {
     [allEntries],
   )
   const filteredEntries = useMemo(
-    () => filterCatalogEntries(youtubeEntries, { titleQuery, eras: [] }),
-    [youtubeEntries, titleQuery],
+    () =>
+      subcategory
+        ? filterCatalogEntries(youtubeEntries, { titleQuery, eras: subcategory.eras })
+        : [],
+    [youtubeEntries, titleQuery, subcategory],
   )
 
   const filterBarDisabled = isPending && !data
   const isFilterNoMatch = youtubeEntries.length > 0 && filteredEntries.length === 0
 
-  if (isPending && !data) {
+  if (!subcategory) {
     return (
       <div className="container">
         <h1>Catalog</h1>
+        <p>That catalog category was not found.</p>
+        <p>
+          <Link to="/catalog">← Catalog</Link>
+        </p>
+      </div>
+    )
+  }
+
+  if (isPending && !data) {
+    return (
+      <div className="container">
+        <h1>{subcategory.label}</h1>
         <p>Loading…</p>
       </div>
     )
@@ -53,10 +71,9 @@ export function CatalogPage() {
   }
 
   return (
-    <div className="container riffsync-catalog-page">
-      <h1>Catalog</h1>
-      <p className="riffsync-catalog-page__lede">Push the button, Frank</p>
-      <CatalogHubEntryLinks />
+    <div className="container riffsync-catalog-page riffsync-catalog-subcategory-page">
+      <CatalogBreadcrumbs subcategoryLabel={subcategory.label} />
+      <h1>{subcategory.label}</h1>
       <CatalogFilterBar
         titleQuery={titleQuery}
         onTitleQueryChange={setTitleQuery}
@@ -81,9 +98,6 @@ export function CatalogPage() {
           <p className="riffsync-catalog-no-match-hint">Clear the search field to see all episodes.</p>
         </div>
       )}
-      <p>
-        <Link to="/">← Home</Link>
-      </p>
     </div>
   )
 }

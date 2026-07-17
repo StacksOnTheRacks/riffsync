@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CatalogPage } from './CatalogPage'
+import { CATALOG_HUB_ENTRY_LINKS } from '../catalog/catalogBrowseIa'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -82,5 +83,43 @@ describe('CatalogPage', () => {
     for (const img of posterImages) {
       expect(img.getAttribute('alt')).not.toBe('')
     }
+  })
+
+  it('renders four hub entry links above search and the mixed grid in fixed order', () => {
+    renderCatalogPage()
+
+    const hubNav = container.querySelector('.riffsync-catalog-hub-entry-links')
+    expect(hubNav).not.toBeNull()
+
+    const filterBar = container.querySelector('.riffsync-catalog-filter-bar')
+    const grid = container.querySelector('.riffsync-catalog-grid')
+    expect(hubNav!.compareDocumentPosition(filterBar!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(filterBar!.compareDocumentPosition(grid!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+
+    const hubLinks = Array.from(
+      container.querySelectorAll('.riffsync-catalog-hub-entry-links__link'),
+    ) as HTMLAnchorElement[]
+
+    expect(hubLinks).toHaveLength(4)
+    expect(hubLinks.map((link) => link.textContent?.trim())).toEqual(
+      CATALOG_HUB_ENTRY_LINKS.map((entry) => entry.label),
+    )
+    expect(hubLinks.map((link) => link.getAttribute('href'))).toEqual(
+      CATALOG_HUB_ENTRY_LINKS.map((entry) => entry.href),
+    )
+  })
+
+  it('does not render public era-chip toggles on the hub', () => {
+    renderCatalogPage()
+
+    expect(container.querySelector('.riffsync-catalog-filter-bar__era-group')).toBeNull()
+    expect(container.querySelector('.riffsync-catalog-filter-bar__era')).toBeNull()
+  })
+
+  it('keeps the mixed grid unfiltered by era on the hub', () => {
+    renderCatalogPage()
+
+    const cards = container.querySelectorAll('.riffsync-catalog-card')
+    expect(cards).toHaveLength(catalogFixtures.length)
   })
 })

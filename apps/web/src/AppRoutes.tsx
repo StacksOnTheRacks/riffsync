@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { SiteLayout } from './layouts/SiteLayout'
 import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
+import { CatalogSubcategoryPage } from './pages/CatalogSubcategoryPage'
 import { LobbyPage } from './pages/LobbyPage'
 import { AccountPage } from './pages/AccountPage'
 import { RoomPage } from './pages/RoomPage'
@@ -41,6 +42,10 @@ export function AppRoutes() {
       <Route element={<SiteLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/catalog" element={<CatalogPage />} />
+        <Route path="/catalog/mst3k" element={<CatalogSubcategoryPage />} />
+        <Route path="/catalog/community" element={<CatalogSubcategoryPage />} />
+        <Route path="/catalog/riff-ready" element={<CatalogSubcategoryPage />} />
+        <Route path="/catalog/movie-night" element={<CatalogSubcategoryPage />} />
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/account" element={<AccountPage />} />

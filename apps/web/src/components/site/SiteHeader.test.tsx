@@ -3,6 +3,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CATALOG_HUB_ENTRY_LINKS } from '../../catalog/catalogBrowseIa'
 import { SiteHeader } from './SiteHeader'
 
 const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
@@ -74,5 +75,17 @@ describe('SiteHeader fan session nav', () => {
 
     expect(container.querySelector('a[href="/account"]')?.textContent).toBe('Account')
     expect(container.querySelector('.riffsync-site-nav-sign-in')).toBeNull()
+  })
+
+  it('renders catalog nav chrome inside navbar-collapse', () => {
+    useFanSession.mockReturnValue({ fanToken: null })
+    renderHeader('/catalog')
+
+    const collapse = container.querySelector('#navbarSupportedContent')
+    const catalogNav = container.querySelector('.riffsync-catalog-nav')
+
+    expect(collapse?.contains(catalogNav)).toBe(true)
+    expect(container.querySelectorAll('a[href="/catalog"]').length).toBeGreaterThanOrEqual(2)
+    expect(CATALOG_HUB_ENTRY_LINKS.every(({ href }) => container.querySelector(`a[href="${href}"]`))).toBe(true)
   })
 })

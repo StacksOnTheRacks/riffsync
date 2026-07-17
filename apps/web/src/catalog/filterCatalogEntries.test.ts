@@ -75,6 +75,16 @@ describe('filterCatalogEntries', () => {
     expect(result.map((e) => e.experimentNumber)).toEqual([101, 200, 999])
   })
 
+  it('filters MST3K host eras and excludes community, riffable, movie_night, and other', () => {
+    const mst3kEras = ['joel', 'mike', 'jonah', 'emily'] as const
+    const result = filterCatalogEntries(sampleEntries, { titleQuery: '', eras: mst3kEras })
+    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-d'])
+    expect(result.map((e) => e.era)).not.toContain('community')
+    expect(result.map((e) => e.era)).not.toContain('riffable')
+    expect(result.map((e) => e.era)).not.toContain('movie_night')
+    expect(result.map((e) => e.era)).not.toContain('other')
+  })
+
   it('filters by default catalog eras (Joel, Mike, Jonah, Emily, Community, Riffable)', () => {
     const result = filterCatalogEntries(sampleEntries, {
       titleQuery: '',
