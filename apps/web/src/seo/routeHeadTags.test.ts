@@ -73,8 +73,55 @@ describe('buildStaticRouteHeadTags', () => {
   it('uses normative catalog title and description', () => {
     const head = buildStaticRouteHeadTags('/catalog', 'https://riffsync.tv')
     expect(head.documentTitle).toBe('RiffSync Catalog — browse the library')
-    expect(head.description).toContain('Browse the RiffSync catalog')
+    expect(head.description).toBe(
+      'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff-Ready, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
+    )
     expect(head.canonicalUrl).toBe('https://riffsync.tv/catalog')
+  })
+
+  it('uses normative subcategory copy for catalog subcategory routes', () => {
+    const subcategories = [
+      {
+        route: '/catalog/mst3k' as const,
+        title: 'MST3K — RiffSync Catalog',
+        description:
+          'Browse Mystery Science Theater 3000 episodes on RiffSync — Joel, Mike, Jonah, and Emily eras with lawful YouTube embeds. Unofficial fan project.',
+        canonical: 'https://riffsync.tv/catalog/mst3k',
+      },
+      {
+        route: '/catalog/community' as const,
+        title: 'Community — RiffSync Catalog',
+        description:
+          'Browse Community catalog titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+        canonical: 'https://riffsync.tv/catalog/community',
+      },
+      {
+        route: '/catalog/riff-ready' as const,
+        title: 'Riff-Ready — RiffSync Catalog',
+        description:
+          'Browse Riff-Ready titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+        canonical: 'https://riffsync.tv/catalog/riff-ready',
+      },
+      {
+        route: '/catalog/movie-night' as const,
+        title: 'Movie Night — RiffSync Catalog',
+        description:
+          'Browse Movie Night titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+        canonical: 'https://riffsync.tv/catalog/movie-night',
+      },
+    ] as const
+
+    for (const { route, title, description, canonical } of subcategories) {
+      const head = buildStaticRouteHeadTags(route, 'https://riffsync.tv')
+      expect(head.documentTitle).toBe(title)
+      expect(head.description).toBe(description)
+      expect(head.canonicalUrl).toBe(canonical)
+      expect(head.ogImageUrl).toBe('https://riffsync.tv/og-card.png')
+    }
+  })
+
+  it('indexes nine static routes', () => {
+    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(9)
   })
 })
 
