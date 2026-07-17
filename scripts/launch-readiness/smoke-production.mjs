@@ -47,6 +47,12 @@ const CHECKS = [
     expectStatus: 200,
     expectBodyExcludes: 'www.riffsync.tv',
   },
+  {
+    label: 'MST3K subcategory canonical link',
+    url: `${CANONICAL}/catalog/mst3k`,
+    expectStatus: 200,
+    expectBodyIncludes: '<link rel="canonical" href="https://riffsync.tv/catalog/mst3k">',
+  },
 ];
 
 async function runCheck(check) {

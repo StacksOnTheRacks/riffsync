@@ -15,7 +15,27 @@ const STATIC_ROUTE_COPY = {
   '/catalog': {
     title: 'RiffSync Catalog — browse the library',
     description:
-      'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Filter by era, pick an experiment, and start a watch party. Unofficial fan project.',
+      'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff-Ready, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
+  },
+  '/catalog/mst3k': {
+    title: 'MST3K — RiffSync Catalog',
+    description:
+      'Browse Mystery Science Theater 3000 episodes on RiffSync — Joel, Mike, Jonah, and Emily eras with lawful YouTube embeds. Unofficial fan project.',
+  },
+  '/catalog/community': {
+    title: 'Community — RiffSync Catalog',
+    description:
+      'Browse Community catalog titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+  },
+  '/catalog/riff-ready': {
+    title: 'Riff-Ready — RiffSync Catalog',
+    description:
+      'Browse Riff-Ready titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+  },
+  '/catalog/movie-night': {
+    title: 'Movie Night — RiffSync Catalog',
+    description:
+      'Browse Movie Night titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
   },
   '/how-to-host-a-watchparty': {
     title: 'How to host a watch party — RiffSync',
