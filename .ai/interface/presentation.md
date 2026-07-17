@@ -446,7 +446,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for #303 receiver presentation. The receiver shell uses the route and component contracts above, TV-safe 720p/1080p/4K overlay constraints, explicit waiting/blocked playback copy, and component or screenshot coverage proving native media-only and YouTube-only Cast paths do not satisfy the required RiffSync stage-primary plus chat-overlay presentation.
 
 ### public-site-seo
-- No open decisions remain for M29 per-route head tags (#326) or M30 home H1 / catalog alt (#327). Normative copy is in the sections above and the **Decisions (M29 — …)** / **Decisions (M30 — …)** tables below. Subcategory head-tag rows above are placeholder-quality; exact marketing strings may be tightened at `/refine-issue` without changing route/canonical shape.
+- No open decisions remain for M29 per-route head tags (#326), M30 home H1 / catalog alt (#327), or M33 subcategory SEO packaging copy (#341). Normative copy is the *Public site head tags* table above and the **Decisions (M29 — …)** / **Decisions (M30 — …)** tables below. M33 adopts those subcategory (and hub) title/description/canonical/OG strings as-is; marketing tighten is out of scope for that packaging milestone.
 
 ### catalog-sub-pages
 - **Breadcrumb trail micro-shape:** whether the trail is **Home > Catalog > {Subcategory}** (and Home icon vs text) vs starting at **Catalog > {Subcategory}** — Catalog hub crumb linking to **`/catalog`** is settled; Home treatment is not.
