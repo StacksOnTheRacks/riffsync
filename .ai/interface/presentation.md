@@ -13,8 +13,8 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes the player, optional Theater camera row, and RiffSync chrome) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
 | **Share** | **Copy `/room/:id` URL**; show advisory **`playbackExpectation`** near share affordance. |
 | **Rate / caps** | Server may return **429** / **WS business `error`** when limits hit (**`api_contracts.md`**); toast or inline message—**no** infinite retry storms. |
-| **Catalog browse IA** | Public **`/catalog`** is a **hub**: four large horizontal **entry links** to subcategory pages (**MST3K**, **Community**, **Riff-Ready**, **Movie Night**) plus the retained mixed/all-titles title grid and shared chrome (title search / sort unless a later decision removes them). **Era chips are removed** from **`/catalog`**. Public copy uses **Riff-Ready** (not Riffable); route slug **`riff-ready`**. Staff-only **`other`** never appears on the hub, nav dropdown, or subcategory chrome. |
-| **Catalog subcategory shell** | Routes **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`** share a Streamlab-style shell: page header with the subcategory display name, breadcrumbs that include the Catalog hub, then the existing title/card grid (**`CatalogGridCard`**). **`/catalog/mst3k`** is one aggregated grid over Joel, Mike, Jonah, and Emily — **no** secondary host-era chips this capability. Per-subcategory visual customization is **deferred**. |
+| **Catalog browse IA** | Public **`/catalog`** is a **hub**: four large **text** entry links (no imagery) above title-search / sort and the retained mixed/all-titles title grid. Link order and labels: **MST3K**, **Community**, **Riff-Ready**, **Movie Night** (display names only). **Era chips are removed** from **`/catalog`**. Public copy uses **Riff-Ready** (not Riffable); route slug **`riff-ready`**. Staff-only **`other`** never appears on the hub, nav dropdown, or subcategory chrome. |
+| **Catalog subcategory shell** | Routes **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`** share a Streamlab-style shell: page header with the subcategory display name, breadcrumbs **`Home > Catalog > {Subcategory}`**, the same title-search / sort chrome as the hub (scoped to the route-fixed `eras` set), then the existing title/card grid (**`CatalogGridCard`**). **`/catalog/mst3k`** is one aggregated grid over Joel, Mike, Jonah, and Emily — **no** secondary host-era chips this capability. Per-subcategory visual customization is **deferred**. |
 
 ## Public site head tags and heading semantics
 
@@ -45,11 +45,12 @@ Meta titles/descriptions/OG for **`/watch/:id`** always use the catalog **`title
 
 ### Catalog hub and subcategory presentation
 
-- **Hub entry links (on `/catalog`):** Four large horizontal navigable links — **MST3K** → **`/catalog/mst3k`**, **Community** → **`/catalog/community`**, **Riff-Ready** → **`/catalog/riff-ready`**, **Movie Night** → **`/catalog/movie-night`**. Links sit with the retained mixed/all-titles grid (placement relative to search/sort chrome is tier TW).
+- **Hub entry links (on `/catalog`):** Four large **text** navigable links (no imagery or backdrop tiles this capability), placed **above** title-search / sort and the retained mixed/all-titles grid, in this order: **MST3K** → **`/catalog/mst3k`**, **Community** → **`/catalog/community`**, **Riff-Ready** → **`/catalog/riff-ready`**, **Movie Night** → **`/catalog/movie-night`**. Display names only — no helper microcopy under the links.
 - **Subcategory page header:** Visible category display name as the page **H1** (or equivalent primary heading) in a Streamlab-style header block.
-- **Breadcrumbs:** Trail includes a linked **Catalog** crumb to **`/catalog`**; current subcategory crumb is non-linked. Exact Home-vs-Catalog trail micro-shape is tier TW (**Open implementation decisions**).
+- **Breadcrumbs:** Trail is **`Home > Catalog > {Subcategory}`**. **Home** is a text link to **`/`** (not an icon-only crumb). **Catalog** is a text link to **`/catalog`**. Current subcategory crumb is non-linked.
+- **Search / sort chrome:** Subcategory pages keep the same title-search and sort controls as the hub. Search and sort operate within the route-fixed subcategory `eras` set (not a second era picker and not an unfiltered catalog).
 - **Grid:** Reuse **`CatalogGridCard`** and existing empty-catalog presentation for zero-row filtered views. Era appears only as existing per-card metadata where applicable — not as on-page filter chips on subcategory routes.
-- **Nav chrome:** Main-nav **Catalog** parent navigates to **`/catalog`**; a dropdown lists the same four subcategory destinations. **`other`** is omitted from hub links, dropdown, and subcategory chrome.
+- **Nav chrome:** Main-nav **Catalog** parent navigates to **`/catalog`**; a dropdown lists the same four subcategory destinations in the same order and display names as the hub entry links (no helper microcopy). **`other`** is omitted from hub links, dropdown, and subcategory chrome.
 
 ### Catalog card image alt text
 
@@ -449,10 +450,19 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for M29 per-route head tags (#326) or M30 home H1 / catalog alt (#327). Normative copy is in the sections above and the **Decisions (M29 — …)** / **Decisions (M30 — …)** tables below. Subcategory head-tag rows above are placeholder-quality; exact marketing strings may be tightened at `/refine-issue` without changing route/canonical shape.
 
 ### catalog-sub-pages
-- **Breadcrumb trail micro-shape:** whether the trail is **Home > Catalog > {Subcategory}** (and Home icon vs text) vs starting at **Catalog > {Subcategory}** — Catalog hub crumb linking to **`/catalog`** is settled; Home treatment is not.
-- **Hub entry-link presentation:** imagery/backdrop vs text-only; exact size/weight; order of the four links relative to retained mixed grid and search/sort chrome (above, below, or interleaved).
-- **Subcategory title-search:** whether subcategory pages keep the same title-search / sort chrome as the hub or show grid-only under the shared header/breadcrumb shell.
-- **Dropdown order / microcopy:** exact left-to-right (or top-to-bottom) order of the four subcategory links and any short helper labels beyond the display names **MST3K**, **Community**, **Riff-Ready**, **Movie Night**.
+- No open decisions remain for M32 catalog subcategory browse IA (#340). Normative hub, nav, breadcrumb, search/sort, and shell rules are in **Catalog hub and subcategory presentation** and **Decisions (M32 — catalog subcategory browse IA — #340)** below.
+
+## Decisions (M32 — catalog subcategory browse IA — #340)
+
+| Topic | Decision |
+| --- | --- |
+| **Breadcrumb trail** | **`Home > Catalog > {Subcategory}`**. Home is a **text** link to **`/`**. Catalog links to **`/catalog`**. Current subcategory crumb is non-linked. |
+| **Hub entry links** | Large **text** links (no imagery) placed **above** title-search / sort and the mixed grid. |
+| **Subcategory search / sort** | Keep the same title-search and sort chrome as the hub; operate within the route-fixed `eras` set. |
+| **Link / dropdown order** | **MST3K** → **Community** → **Riff-Ready** → **Movie Night**. Same order on hub entry links and Catalog nav (desktop dropdown and hamburger). |
+| **Labels / microcopy** | Display names only — no helper microcopy under hub or nav subcategory links. |
+| **Mobile Catalog disclosure** | Inline accordion inside **`navbar-collapse`** (not a nested flyout) — see **`interaction_flow.md`**. |
+| **Out of scope** | Per-subcategory visual customization; SEO sitemap/prerender/head-tag packaging (**M33 #341**). |
 
 ## Decisions (M29 — per-route head tags — #326)
 

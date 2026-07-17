@@ -14,8 +14,9 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - **Catalog dropdown / disclosure:** trigger is keyboard-reachable; **Enter** / **Space** opens or toggles the subcategory list; **Escape** closes and returns focus to the trigger; subcategory destinations are native focusable links (**`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`**) in logical tab order. Pointer hover must not be the sole open path.
 - **Mobile:** subcategory links remain keyboard-reachable inside the existing hamburger / collapse menu after the menu is opened.
 - **Hub entry links (on `/catalog`):** the four large horizontal subcategory entry links are keyboard-reachable native links (or equivalent) in visual order; **Enter** / **Space** (for button-styled links) or standard link activation navigates to the subcategory route.
-- **Breadcrumbs (subcategory routes):** each linked crumb (at least **Catalog** → **`/catalog`**) is keyboard-reachable; the current subcategory crumb is not an interactive control.
-- **Retained hub chrome:** existing catalog title search / sort controls on **`/catalog`** remain keyboard-reachable; whether the same chrome appears on subcategory pages is tier TW (**`presentation.md`**).
+- **Breadcrumbs (subcategory routes):** linked crumbs **Home** → **`/`** and **Catalog** → **`/catalog`** are keyboard-reachable text links; the current subcategory crumb is not an interactive control.
+- **Search / sort chrome:** title-search and sort controls remain keyboard-reachable on **`/catalog`** and on all four subcategory routes (same chrome; subcategory pages scope results to the route-fixed `eras` set).
+- **Focus after hub / dropdown navigation:** after activating a hub entry link or Catalog dropdown (or accordion) destination, use browser-default focus for the destination document (document start / natural focus). Do not invent a restore-to-site-header focus pattern unless an existing site-wide pattern already requires it.
 
 ## Watch party room (`/room/:roomId`)
 
@@ -110,7 +111,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open implementation decisions remain for M25 Cast input verification. See **Chromecast Cast controls** and #279 verification requirements above.
 
 ### catalog-sub-pages
-- Exact focus-return target after navigating via a hub entry link or dropdown item (browser default vs restoring site-header focus) — not a product fork; resolve at implement/refine if needed.
+- No open decisions remain for M32 catalog subcategory browse IA (#340). Focus after hub/dropdown navigation is browser default (see **Public catalog browse** above). Search/sort keyboard reachability on subcategory routes is settled in **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
 
 ## Primary code pointers (optional)
 

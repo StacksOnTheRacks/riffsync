@@ -7,11 +7,11 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | Route | Flow |
 | --- | --- |
 | **`/`** | Home marketing surface → catalog / watch-party entry points; **anonymous** visitors browse without minting **`sessionId`**. |
-| **`/catalog`** | Catalog **hub**: four large horizontal entry links to subcategory pages + retained mixed/all-titles grid and shared chrome (search/sort). From a title card → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. Pure catalog browse does **not** mint **`sessionId`**. |
-| **`/catalog/mst3k`** | Public subcategory browse — aggregated Joel / Mike / Jonah / Emily titles in the shared subcategory shell (header + breadcrumbs + card grid). No secondary host-era chips. Same host/party start path from a title card as **`/catalog`**. |
-| **`/catalog/community`** | Public subcategory browse — Community titles in the shared subcategory shell. Same host/party start path from a title card as **`/catalog`**. |
-| **`/catalog/riff-ready`** | Public subcategory browse — **Riff-Ready** titles (public label; slug **`riff-ready`**) in the shared subcategory shell. Same host/party start path from a title card as **`/catalog`**. |
-| **`/catalog/movie-night`** | Public subcategory browse — Movie Night titles in the shared subcategory shell. Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog`** | Catalog **hub**: four large text entry links (above search/sort) to subcategory pages + retained mixed/all-titles grid and shared chrome (search/sort); no public era chips. From a title card → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. Pure catalog browse does **not** mint **`sessionId`**. |
+| **`/catalog/mst3k`** | Public subcategory browse — aggregated Joel / Mike / Jonah / Emily titles in the shared subcategory shell (header + breadcrumbs + search/sort + card grid). No secondary host-era chips. Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog/community`** | Public subcategory browse — Community titles in the shared subcategory shell (header + breadcrumbs + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog/riff-ready`** | Public subcategory browse — **Riff-Ready** titles (public label; slug **`riff-ready`**) in the shared subcategory shell (header + breadcrumbs + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog/movie-night`** | Public subcategory browse — Movie Night titles in the shared subcategory shell (header + breadcrumbs + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
 | **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch), **Room** tab lobby visibility toggle (**Show in lobby** / **Link only**). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
 | **`/lobby`** | Public rooms from **`GET` lobby API** → navigate to **`/room/:id`**. |
@@ -26,10 +26,11 @@ Staff operator routes ship as **gated routes in the existing `apps/web` SPA** (o
 | Path | Flow |
 | --- | --- |
 | **Main-nav Catalog parent** | Navigates to the **`/catalog`** hub (not a non-navigating trigger-only control). |
-| **Main-nav Catalog dropdown** | Lists four subcategory destinations: **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`**. Desktop opens via hover and/or click; keyboard activation is required (**`input_handling.md`**, **`accessibility.md`**). |
-| **Mobile Catalog** | Subcategory links nest inside the existing hamburger / **`navbar-collapse`** menu — not hover-only. |
-| **Hub entry links** | On **`/catalog`**, four large horizontal links navigate to the same four subcategory routes. |
-| **Subcategory breadcrumbs** | Include a linked **Catalog** crumb back to **`/catalog`**; current subcategory crumb is non-linked. |
+| **Main-nav Catalog dropdown** | Lists four subcategory destinations in order: **MST3K** → **`/catalog/mst3k`**, **Community** → **`/catalog/community`**, **Riff-Ready** → **`/catalog/riff-ready`**, **Movie Night** → **`/catalog/movie-night`**. Display names only (no helper microcopy). Desktop opens via hover and/or click; keyboard activation is required (**`input_handling.md`**, **`accessibility.md`**). |
+| **Mobile Catalog** | Inside the existing hamburger / **`navbar-collapse`**, **Catalog** expands as an **inline accordion** that reveals the same four subcategory links in place — not a nested flyout and not hover-only. |
+| **Hub entry links** | On **`/catalog`**, four large text links (above search/sort + mixed grid) navigate to the same four subcategory routes in the same order. |
+| **Subcategory breadcrumbs** | Trail **`Home > Catalog > {Subcategory}`**: Home text link to **`/`**, Catalog text link to **`/catalog`**, current subcategory crumb non-linked. |
+| **Subcategory search / sort** | Same title-search and sort chrome as the hub; filters operate within the route-fixed `eras` set (not a second era picker). |
 | **Staff-only era** | **`other`** never appears in hub links, dropdown, or subcategory chrome. |
 
 ## Staff operator auth (token and session boundaries)
@@ -301,8 +302,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - Tests that prove **`Now Casting`** is absent until receiver render confirmation and removed on cleanup without resetting sidebar/chat state are specified in **`.ai/specs/viewer-local-cast.spec.md`** and owned by #304 / #279 verification slices.
 
 ### catalog-sub-pages
-- Exact dropdown link order and any short helper microcopy beyond the four display names (see **`presentation.md`** → *Open implementation decisions* → **catalog-sub-pages**).
-- Whether mobile Catalog disclosure behaves as an inline accordion vs nested flyout inside **`navbar-collapse`** (nesting inside the existing hamburger is settled).
+- No open decisions remain for M32 catalog subcategory browse IA (#340). Normative nav, hub, breadcrumb, and mobile accordion rules are in **Catalog browse navigation** and **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
 
 ## Primary code pointers (optional)
 
