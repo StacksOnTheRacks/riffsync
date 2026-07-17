@@ -177,7 +177,10 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 - Specify the physical-device smoke test matrix across Chrome sender, Cast-capable receiver, signed-in sender, anonymous sender, and active room media source.
 
 ### public-site-seo
-- No open decisions remain for Search Console/Bing verification or post-deploy smoke (M31 — #328). See **`build_packaging.md`** → *Decisions (M31 — Search Console verification and release smoke — #328)* and **[`docs/operations/public-site-seo.md`](../../docs/operations/public-site-seo.md)**.
+- No open decisions remain for Search Console/Bing verification or post-deploy smoke baseline (M31 — #328). See **`build_packaging.md`** → *Decisions (M31 — Search Console verification and release smoke — #328)* and **[`docs/operations/public-site-seo.md`](../../docs/operations/public-site-seo.md)**. Normative smoke still covers **`/`** + fixture **`/watch/...`**; catalog subcategory paths join sitemap/prerender via the same SPA publish and need no new deploy tier.
+
+### catalog-sub-pages-seo-packaging
+- Optional: add one post-deploy **`smoke:production`** check for a subcategory canonical (e.g. **`https://riffsync.tv/catalog/mst3k`** returns **200** with apex canonical **`<link>`**) once prerender ships those paths — or keep smoke at today's **`/`** + **`/watch/...`** fixture set for this milestone. See **`build_packaging.md`** → *Open implementation decisions* → *catalog-sub-pages-seo-packaging*.
 
 ## Primary code pointers (optional)
 

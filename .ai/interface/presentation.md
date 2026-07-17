@@ -13,16 +13,21 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes the player, optional Theater camera row, and RiffSync chrome) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
 | **Share** | **Copy `/room/:id` URL**; show advisory **`playbackExpectation`** near share affordance. |
 | **Rate / caps** | Server may return **429** / **WS business `error`** when limits hit (**`api_contracts.md`**); toast or inline message—**no** infinite retry storms. |
-| **Catalog era filters** | Public **`/catalog`** shows era chips for Joel, Mike, Jonah, Emily, Community, Movie Night, and **Riffable**. **`other`** is staff-only and must not appear on public filter chips. Default selected eras include **Riffable** with the core MST buckets. |
+| **Catalog browse IA** | Public **`/catalog`** is a **hub**: four large horizontal **entry links** to subcategory pages (**MST3K**, **Community**, **Riff-Ready**, **Movie Night**) plus the retained mixed/all-titles title grid and shared chrome (title search / sort unless a later decision removes them). **Era chips are removed** from **`/catalog`**. Public copy uses **Riff-Ready** (not Riffable); route slug **`riff-ready`**. Staff-only **`other`** never appears on the hub, nav dropdown, or subcategory chrome. |
+| **Catalog subcategory shell** | Routes **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`** share a Streamlab-style shell: page header with the subcategory display name, breadcrumbs that include the Catalog hub, then the existing title/card grid (**`CatalogGridCard`**). **`/catalog/mst3k`** is one aggregated grid over Joel, Mike, Jonah, and Emily — **no** secondary host-era chips this capability. Per-subcategory visual customization is **deferred**. |
 
 ## Public site head tags and heading semantics
 
-Document-level metadata for the durable public surfaces — **`/`**, **`/catalog`**, **`/watch/:catalogEpisodeId`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** — replacing today's single static **`index.html`** shell that applies the same meta to every route regardless of what renders. See **`business_logic/domain_model.md`** → *Public discoverable surface* for the indexable route boundary; this contract is **mechanism-agnostic** — it holds whether head tags are produced by build-time prerender (**`operations/build_packaging.md`**) or another rendering strategy.
+Document-level metadata for the durable public surfaces — **`/`**, **`/catalog`**, **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`**, **`/watch/:catalogEpisodeId`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** — replacing today's single static **`index.html`** shell that applies the same meta to every route regardless of what renders. See **`business_logic/domain_model.md`** → *Public discoverable surface* for the indexable route boundary; this contract is **mechanism-agnostic** — it holds whether head tags are produced by build-time prerender (**`operations/build_packaging.md`**) or another rendering strategy.
 
 | Route | **`<title>`** | Meta description | Canonical | OG/Twitter image |
 | --- | --- | --- | --- | --- |
 | **`/`** | **`RiffSync — watch parties`** | **`RiffSync — fan watch parties with a curated MST3K-friendly catalog, shared viewing, and room chat. Unofficial fan project.`** | **`{origin}/`** | **`{origin}/og-card.png`** |
-| **`/catalog`** | **`RiffSync Catalog — browse the library`** | **`Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Filter by era, pick an experiment, and start a watch party. Unofficial fan project.`** | **`{origin}/catalog`** | **`{origin}/og-card.png`** |
+| **`/catalog`** | **`RiffSync Catalog — browse the library`** | **`Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff-Ready, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.`** | **`{origin}/catalog`** | **`{origin}/og-card.png`** |
+| **`/catalog/mst3k`** | **`MST3K — RiffSync Catalog`** | **`Browse Mystery Science Theater 3000 episodes on RiffSync — Joel, Mike, Jonah, and Emily eras with lawful YouTube embeds. Unofficial fan project.`** | **`{origin}/catalog/mst3k`** | **`{origin}/og-card.png`** |
+| **`/catalog/community`** | **`Community — RiffSync Catalog`** | **`Browse Community catalog titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.`** | **`{origin}/catalog/community`** | **`{origin}/og-card.png`** |
+| **`/catalog/riff-ready`** | **`Riff-Ready — RiffSync Catalog`** | **`Browse Riff-Ready titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.`** | **`{origin}/catalog/riff-ready`** | **`{origin}/og-card.png`** |
+| **`/catalog/movie-night`** | **`Movie Night — RiffSync Catalog`** | **`Browse Movie Night titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.`** | **`{origin}/catalog/movie-night`** | **`{origin}/og-card.png`** |
 | **`/watch/:catalogEpisodeId`** | **`{episode.title} — RiffSync`** | With **`tagline`**: **`{tagline} — watch {episode.title} on RiffSync. Unofficial fan project with lawful YouTube embeds.`** Without **`tagline`**: **`Watch {episode.title} on RiffSync — fan watch parties with lawful YouTube embeds. Unofficial fan project.`** | **`{origin}/watch/{id}`** | Absolute **`posterImageUrl`**, else absolute **`backdropImageUrl`**, else **`{origin}/og-card.png`** |
 | **`/how-to-host-a-watchparty`** | **`How to host a watch party — RiffSync`** | **`Step-by-step help for hosting a RiffSync watch party: share your YouTube tab, keep guests in sync, and fix common screen-share issues.`** | **`{origin}/how-to-host-a-watchparty`** | **`{origin}/og-card.png`** |
 | **`/terms`** | **`Terms of Service — RiffSync`** | **`RiffSync Terms of Service — rules for using the fan watch-party site, catalog, chat, and related features. Unofficial fan project; not affiliated with MST3K or RiffTrax.`** | **`{origin}/terms`** | **`{origin}/og-card.png`** |
@@ -38,9 +43,17 @@ Meta titles/descriptions/OG for **`/watch/:id`** always use the catalog **`title
 
 **`/`** renders **exactly one** static, visually-hidden (**`sr-only`**) **`<h1>RiffSync</h1>`** as the first child inside the home page content wrapper, immediately **before** **`HomeHeroBanner`** on the happy path — matching **`SITE_DOCUMENT_TITLE`** and the generic app-shell **`<title>RiffSync</title>`** — rather than promoting the rotating hero carousel's **`h3`** slide title or the M29 prerender **`<title>RiffSync — watch parties</title>`**. A per-slide dynamic H1 would shift the document outline on every autorotate, which is a worse crawler and screen-reader signal than one stable heading. **`HomePage`** loading, error, and empty-catalog branches still render the same single sr-only H1 at the top of the route output so **`/`** never exposes zero or duplicate document-level H1s. The hero, carousel, and spotlight banner keep their **existing visible markup and heading levels** (**`h3`**/**`h4`**) unchanged — no visible layout change.
 
+### Catalog hub and subcategory presentation
+
+- **Hub entry links (on `/catalog`):** Four large horizontal navigable links — **MST3K** → **`/catalog/mst3k`**, **Community** → **`/catalog/community`**, **Riff-Ready** → **`/catalog/riff-ready`**, **Movie Night** → **`/catalog/movie-night`**. Links sit with the retained mixed/all-titles grid (placement relative to search/sort chrome is tier TW).
+- **Subcategory page header:** Visible category display name as the page **H1** (or equivalent primary heading) in a Streamlab-style header block.
+- **Breadcrumbs:** Trail includes a linked **Catalog** crumb to **`/catalog`**; current subcategory crumb is non-linked. Exact Home-vs-Catalog trail micro-shape is tier TW (**Open implementation decisions**).
+- **Grid:** Reuse **`CatalogGridCard`** and existing empty-catalog presentation for zero-row filtered views. Era appears only as existing per-card metadata where applicable — not as on-page filter chips on subcategory routes.
+- **Nav chrome:** Main-nav **Catalog** parent navigates to **`/catalog`**; a dropdown lists the same four subcategory destinations. **`other`** is omitted from hub links, dropdown, and subcategory chrome.
+
 ### Catalog card image alt text
 
-**`CatalogGridCard`** poster **`<img>`** elements use **`alt={episode.title}`** (catalog **`title`** field only — Invariant 9) instead of today's empty **`alt=""`**. Do **not** append **`poster`**, era labels, or experiment numbers to alt text; the adjacent visible **`h3`** link already carries the title for sighted users. Additive accessibility/SEO fix — no new interaction pattern, no visible layout change. **`HomeMovieCard`** on home rows is unchanged in this slice.
+**`CatalogGridCard`** poster **`<img>`** elements use **`alt={episode.title}`** (catalog **`title`** field only — Invariant 9) instead of today's empty **`alt=""`**. Do **not** append **`poster`**, era labels, or experiment numbers to alt text; the adjacent visible **`h3`** link already carries the title for sighted users. Applies on **`/catalog`** and all four subcategory routes. Additive accessibility/SEO fix — no new interaction pattern, no visible layout change. **`HomeMovieCard`** on home rows is unchanged in this slice.
 
 ### `/watch/:catalogEpisodeId` heading
 
@@ -433,13 +446,19 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for #303 receiver presentation. The receiver shell uses the route and component contracts above, TV-safe 720p/1080p/4K overlay constraints, explicit waiting/blocked playback copy, and component or screenshot coverage proving native media-only and YouTube-only Cast paths do not satisfy the required RiffSync stage-primary plus chat-overlay presentation.
 
 ### public-site-seo
-- No open decisions remain for M29 per-route head tags (#326) or M30 home H1 / catalog alt (#327). Normative copy is in the sections above and the **Decisions (M29 — …)** / **Decisions (M30 — …)** tables below.
+- No open decisions remain for M29 per-route head tags (#326) or M30 home H1 / catalog alt (#327). Normative copy is in the sections above and the **Decisions (M29 — …)** / **Decisions (M30 — …)** tables below. Subcategory head-tag rows above are placeholder-quality; exact marketing strings may be tightened at `/refine-issue` without changing route/canonical shape.
+
+### catalog-sub-pages
+- **Breadcrumb trail micro-shape:** whether the trail is **Home > Catalog > {Subcategory}** (and Home icon vs text) vs starting at **Catalog > {Subcategory}** — Catalog hub crumb linking to **`/catalog`** is settled; Home treatment is not.
+- **Hub entry-link presentation:** imagery/backdrop vs text-only; exact size/weight; order of the four links relative to retained mixed grid and search/sort chrome (above, below, or interleaved).
+- **Subcategory title-search:** whether subcategory pages keep the same title-search / sort chrome as the hub or show grid-only under the shared header/breadcrumb shell.
+- **Dropdown order / microcopy:** exact left-to-right (or top-to-bottom) order of the four subcategory links and any short helper labels beyond the display names **MST3K**, **Community**, **Riff-Ready**, **Movie Night**.
 
 ## Decisions (M29 — per-route head tags — #326)
 
 | Topic | Decision |
 | --- | --- |
-| **Static route copy** | Use the exact **`<title>`** and meta description strings in the *Public site head tags* table above for **`/`**, **`/catalog`**, **`/how-to-host-a-watchparty`**, **`/terms`**, and **`/privacy`**. |
+| **Static route copy** | Use the exact **`<title>`** and meta description strings in the *Public site head tags* table above for **`/`**, **`/catalog`**, **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`**, **`/how-to-host-a-watchparty`**, **`/terms`**, and **`/privacy`**. |
 | **`/watch/:id` title** | **`{episode.title} — RiffSync`** using catalog **`title`** only (Invariant 9). Apply **`trimTabTitleSegment`** only when the composed string exceeds **70** characters for the HTML **`<title>`** element; OG/Twitter **`og:title`** / **`twitter:title`** use the untrimmed catalog title. |
 | **`/watch/:id` description** | When **`tagline`** is non-empty after trim: **`{tagline} — watch {episode.title} on RiffSync. Unofficial fan project with lawful YouTube embeds.`** Otherwise: **`Watch {episode.title} on RiffSync — fan watch parties with lawful YouTube embeds. Unofficial fan project.`** |
 | **`/watch/:id` OG image** | Prefer absolute **`posterImageUrl`**, then absolute **`backdropImageUrl`**, else **`{origin}/og-card.png`**. Do **not** use YouTube thumbnail URLs for OG/Twitter image tags. |

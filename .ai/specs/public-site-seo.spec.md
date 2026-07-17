@@ -2,13 +2,13 @@
 
 ## Introduction
 
-RiffSync's public catalog and marketing surfaces — home, catalog, episode watch pages, host-help, and legal pages — are discoverable by search engines and shareable with rich social previews (Discord, Reddit, Mastodon, and similar unfurlers), without changing the SPA's existing visual design and without extending discoverability to live, ephemeral room state.
+RiffSync's public catalog and marketing surfaces - home, catalog hub, catalog subcategory browse pages, episode watch pages, host-help, and legal pages - are discoverable by search engines and shareable with rich social previews (Discord, Reddit, Mastodon, and similar unfurlers), without changing the SPA's existing visual design and without extending discoverability to live, ephemeral room state.
 
 **Audience:** fans searching for riff-style watch parties and episode discovery; community sharers posting catalog and watch links.
 
-**Related capability:** `viewer-local-cast` (separate optional per-viewer presentation layer; not part of this capability).
+**Related capabilities:** `catalog-browse-ia` (hub and subcategory browse routes, nav, and display grouping); `viewer-local-cast` (separate optional per-viewer presentation layer; not part of this capability).
 
-**Non-goals:** indexing `/room/*` or `/lobby`; a server-side rendering framework migration; CloudFront-based bot-detection or edge compute for dynamic rendering; dedicated per-era catalog routes (`/catalog` remains the single canonical catalog entry).
+**Non-goals:** indexing `/room/*` or `/lobby`; a server-side rendering framework migration; CloudFront-based bot-detection or edge compute for dynamic rendering; per-subcategory visual SEO campaigns beyond unique head tags and sitemap/prerender entries for the shared subcategory shell.
 
 ## Functional Specification
 
@@ -16,13 +16,15 @@ RiffSync's public catalog and marketing surfaces — home, catalog, episode watc
 
 | Indexable | `noindex` |
 | --- | --- |
-| `/`, `/catalog`, `/watch/:catalogEpisodeId`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` | `/room/:roomId` (+ `/room/:roomId/experimental/:experimental`), `/lobby`, `/account`, `/admin/*`, `/cast/receiver`, `/privacy/data-removal`, `/auth/callback`, `/admin/auth/callback` |
+| `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-ready`, `/catalog/movie-night`, `/watch/:catalogEpisodeId`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` | `/room/:roomId` (+ `/room/:roomId/experimental/:experimental`), `/lobby`, `/account`, `/admin/*`, `/cast/receiver`, `/privacy/data-removal`, `/auth/callback`, `/admin/auth/callback` |
+
+Catalog subcategory routes are first-class indexable entries alongside the `/catalog` hub. Browse IA (hub links, filters, labels) is owned by `catalog-browse-ia`; this capability owns discoverability packaging for those paths.
 
 `/watch/:catalogEpisodeId` is indexable only for episodes with a live YouTube link (the existing `episodeHasYoutubeLink` filter) — an episode without a lawful embed carries no surface worth summarizing or linking to and is excluded from indexing and the sitemap until a link exists.
 
 ### Per-route head tags
 
-Each indexable route gets a unique `<title>`, meta description, canonical `<link>`, and Open Graph/Twitter tags, replacing today's single static `index.html` shell applied to every route. `/watch/:catalogEpisodeId` sources title/description/OG from the catalog `title` field (never TMDB `title`/`original_title`) plus `tagline`, `posterImageUrl`, and `backdropImageUrl` when present. All other routes carry the generic app-shell title/description plus a `noindex` robots meta tag — no per-instance head tags. Full per-route table: `.ai/interface/presentation.md` → *Public site head tags and heading semantics*.
+Each indexable route gets a unique `<title>`, meta description, canonical `<link>`, and Open Graph/Twitter tags, replacing today's single static `index.html` shell applied to every route. `/watch/:catalogEpisodeId` sources title/description/OG from the catalog `title` field (never TMDB `title`/`original_title`) plus `tagline`, `posterImageUrl`, and `backdropImageUrl` when present. Catalog subcategory routes carry unique static head tags and apex canonicals for their paths. All non-indexable routes carry the generic app-shell title/description plus a `noindex` robots meta tag - no per-instance head tags. Full per-route table: `.ai/interface/presentation.md` → *Public site head tags and heading semantics*.
 
 ### `robots.txt` and `sitemap.xml`
 
@@ -38,7 +40,7 @@ The canonical production origin is the apex hostname `https://riffsync.tv`. Non-
 
 ### Home heading and catalog image accessibility
 
-`/` gets **exactly one** static, visually-hidden (`sr-only`) `<h1>RiffSync</h1>` at the top of `HomePage` output, immediately before `HomeHeroBanner` on the happy path — no visible layout change to the hero, carousel, or spotlight banner. `CatalogGridCard` poster images on `/catalog` use `alt={episode.title}` (catalog `title` field). `/watch/:catalogEpisodeId`'s existing `sr-only` `<h1>{episode.title}</h1>` on `SoloWatchPage` is unchanged. `HomeMovieCard` home-row thumbnails are out of scope for M30.
+`/` gets **exactly one** static, visually-hidden (`sr-only`) `<h1>RiffSync</h1>` at the top of `HomePage` output, immediately before `HomeHeroBanner` on the happy path - no visible layout change to the hero, carousel, or spotlight banner. `CatalogGridCard` poster images on the catalog hub and subcategory browse grids use `alt={episode.title}` (catalog `title` field). `/watch/:catalogEpisodeId`'s existing `sr-only` `<h1>{episode.title}</h1>` on `SoloWatchPage` is unchanged. `HomeMovieCard` home-row thumbnails are out of scope for M30.
 
 ### Search Console verification
 
@@ -57,10 +59,10 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 | **Module layout** | Pure functions in `apps/web/src/seo/generateSeoArtifacts.ts`; CLI `apps/web/scripts/generate-seo-artifacts.mjs` writes `dist/robots.txt` and `dist/sitemap.xml` after `vite build`. |
 | **Catalog read** | Committed `data/catalog/episodes.json` only — no `GET /v1/catalog` at build time. |
 | **Filter** | `episodeHasYoutubeLink` / `catalogEntriesWithYoutubeLink` from `apps/web/src/catalog/mockCatalog.ts`. |
-| **Static sitemap paths** | `/`, `/catalog`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` plus `/watch/{catalogEpisodeId}` per filtered episode. |
+| **Static sitemap paths** | `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-ready`, `/catalog/movie-night`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` plus `/watch/{catalogEpisodeId}` per filtered episode. |
 | **Origin** | `VITE_PUBLIC_ORIGIN` at build when set, else `https://riffsync.tv`. |
 | **Deploy cache** | S3 `Cache-Control: public, max-age=3600` on both objects in `deploy-prod.yml` (see `build_packaging.md` M28 decisions). |
-| **CI** | `web-app` asserts both files exist; sitemap `<url>` count = 5 static routes + YouTube-linked episode count. |
+| **CI** | `web-app` asserts both files exist; sitemap `<url>` count = 9 static routes + YouTube-linked episode count. |
 
 Full detail: `.ai/operations/build_packaging.md` → *Decisions (M28 — robots.txt and sitemap.xml — #325)*.
 
@@ -71,7 +73,7 @@ Full detail: `.ai/operations/build_packaging.md` → *Decisions (M28 — robots.
 | **Module layout** | Shared **`indexableRoutes.ts`**, **`routeHeadTags.ts`**, **`buildPrerenderDocument.ts`** under **`apps/web/src/seo/`**; CLI **`apps/web/scripts/prerender-indexable-routes.mjs`**. |
 | **Build order** | Last step after M28 SEO artifact generation: **`… && node scripts/generate-seo-artifacts.mjs && node scripts/prerender-indexable-routes.mjs`**. |
 | **Head-tag copy** | Normative strings in **`.ai/interface/presentation.md`** → *Public site head tags* table and *Decisions (M29 — per-route head tags — #326)*. |
-| **Prerender paths** | **`dist/index.html`** (home), **`dist/{route}/index.html`** for static indexable paths, **`dist/watch/{catalogEpisodeId}/index.html`** per YouTube-linked episode, **`dist/spa-shell.html`** (generic **`noindex`** fallback). |
+| **Prerender paths** | **`dist/index.html`** (home), **`dist/{route}/index.html`** for static indexable paths (including **`dist/catalog/index.html`** and **`dist/catalog/{mst3k,community,riff-ready,movie-night}/index.html`**), **`dist/watch/{catalogEpisodeId}/index.html`** per YouTube-linked episode, **`dist/spa-shell.html`** (generic **`noindex`** fallback). |
 | **SPA fallback** | **`static-site-stack.ts`** maps **403/404** to **`/spa-shell.html`** so **`/room/*`**, **`/lobby`**, and other non-prerendered paths do not inherit home canonical metadata. |
 | **Catalog / filter** | Same committed catalog file and **`episodeHasYoutubeLink`** filter as M28. |
 | **Origin** | **`VITE_PUBLIC_ORIGIN`** at build when set, else **`https://riffsync.tv`**. |
@@ -117,9 +119,9 @@ Full detail: `.ai/operations/build_packaging.md` → *Decisions (M31 — Search 
 
 **Unit/component:** home `sr-only` H1 renders exactly once (M30); catalog card `alt` text is non-empty (M30); **`routeHeadTags`** produces expected title/description/canonical/OG/Twitter for each indexable route, including `/watch/:id` with and without `tagline`/poster art (M29).
 
-**Build/CI (M28):** the `web-app` CI job asserts `robots.txt` and `sitemap.xml` exist after `npm run build`; sitemap `<url>` count equals 5 static indexable routes plus the count of catalog episodes passing `episodeHasYoutubeLink`; the build fails when catalog data is unavailable or counts mismatch.
+**Build/CI (M28):** the `web-app` CI job asserts `robots.txt` and `sitemap.xml` exist after `npm run build`; sitemap `<url>` count equals 9 static indexable routes plus the count of catalog episodes passing `episodeHasYoutubeLink`; the build fails when catalog data is unavailable or counts mismatch.
 
-**Build/CI (M29):** after `npm run build`, `web-app` (via `verify:seo-artifacts` or dedicated verify script) asserts `spa-shell.html` contains `noindex`; prerendered `index.html` exists for `/`, `/catalog`, `/how-to-host-a-watchparty`, `/terms`, `/privacy`; `watch/{id}/index.html` count matches YouTube-linked catalog episodes; spot checks validate apex canonical on `/` and episode title/canonical on a fixture watch route.
+**Build/CI (M29):** after `npm run build`, `web-app` (via `verify:seo-artifacts` or dedicated verify script) asserts `spa-shell.html` contains `noindex`; prerendered `index.html` exists for `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-ready`, `/catalog/movie-night`, `/how-to-host-a-watchparty`, `/terms`, `/privacy`; `watch/{id}/index.html` count matches YouTube-linked catalog episodes; spot checks validate apex canonical on `/` and episode title/canonical on a fixture watch route.
 
 **Manual/smoke (post-deploy, production only — M31 #328):** run **`npm run smoke:production`** from repo root after M27–M29 are deployed. The script asserts:
 
@@ -136,10 +138,11 @@ Operator separately confirms Search Console and Bing Webmaster show **Verified**
 
 ## References
 
-- `.ai/business_logic/domain_model.md` — Public discoverable surface, Invariant 1 (lawful playback), Invariant 9 (catalog title), Invariant 11 (public discoverability boundary)
-- `.ai/business_logic/user_stories.md` — US-P1-08, US-P1-09
-- `.ai/interface/presentation.md` — Public site head tags and heading semantics
-- `.ai/interface/accessibility.md` — Public catalog and marketing surfaces
-- `.ai/operations/build_packaging.md` — Public site SEO artifacts
-- `.ai/operations/deployment_environments.md` — Public site SEO deployment readiness
-- `.ai/runtime/configuration.md` — Public hostname, Public site SEO build-time config
+- `.ai/business_logic/domain_model.md` - Public discoverable surface, Invariant 1 (lawful playback), Invariant 9 (catalog title), Invariant 11 (public discoverability boundary)
+- `.ai/business_logic/user_stories.md` - US-P1-08, US-P1-09
+- `.ai/interface/presentation.md` - Public site head tags and heading semantics
+- `.ai/interface/accessibility.md` - Public catalog and marketing surfaces
+- `.ai/operations/build_packaging.md` - Public site SEO artifacts
+- `.ai/operations/deployment_environments.md` - Public site SEO deployment readiness
+- `.ai/runtime/configuration.md` - Public hostname, Public site SEO build-time config
+- `.ai/specs/catalog-browse-ia.spec.md` - Catalog hub and subcategory browse IA
