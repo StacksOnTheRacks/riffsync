@@ -4,7 +4,7 @@ import { useCatalogListQuery } from '../catalog/catalogQueries'
 import { getCatalogSubcategoryByPath } from '../catalog/catalogBrowseIa'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { CatalogFilterBar } from '../components/catalog/CatalogFilterBar'
-import { CatalogBreadcrumbs } from '../components/catalog/CatalogBreadcrumbs'
+import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
@@ -71,33 +71,36 @@ export function CatalogSubcategoryPage() {
   }
 
   return (
-    <div className="container riffsync-catalog-page riffsync-catalog-subcategory-page">
-      <CatalogBreadcrumbs subcategoryLabel={subcategory.label} />
-      <h1>{subcategory.label}</h1>
-      <CatalogFilterBar
-        titleQuery={titleQuery}
-        onTitleQueryChange={setTitleQuery}
-        disabled={filterBarDisabled}
-        showEraChips={false}
-      />
-      <div className="riffsync-catalog-grid">
-        {filteredEntries.map((ep) => (
-          <CatalogGridCard key={ep.id} episode={ep} />
-        ))}
-      </div>
-      {youtubeEntries.length === 0 && (
-        <p>
-          {allEntries.length === 0
-            ? 'No episodes in the catalog yet.'
-            : 'No episodes with a YouTube link are listed yet.'}
-        </p>
-      )}
-      {isFilterNoMatch && (
-        <div className="riffsync-catalog-no-match">
-          <p>No episodes match your filters.</p>
-          <p className="riffsync-catalog-no-match-hint">Clear the search field to see all episodes.</p>
+    <>
+      <CatalogPageHeader title={subcategory.label} subcategoryLabel={subcategory.label} />
+      <section className="gen-section-padding-3">
+        <div className="container riffsync-catalog-page riffsync-catalog-subcategory-page">
+          <CatalogFilterBar
+            titleQuery={titleQuery}
+            onTitleQueryChange={setTitleQuery}
+            disabled={filterBarDisabled}
+            showEraChips={false}
+          />
+          <div className="riffsync-catalog-grid">
+            {filteredEntries.map((ep) => (
+              <CatalogGridCard key={ep.id} episode={ep} />
+            ))}
+          </div>
+          {youtubeEntries.length === 0 && (
+            <p>
+              {allEntries.length === 0
+                ? 'No episodes in the catalog yet.'
+                : 'No episodes with a YouTube link are listed yet.'}
+            </p>
+          )}
+          {isFilterNoMatch && (
+            <div className="riffsync-catalog-no-match">
+              <p>No episodes match your filters.</p>
+              <p className="riffsync-catalog-no-match-hint">Clear the search field to see all episodes.</p>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </section>
+    </>
   )
 }

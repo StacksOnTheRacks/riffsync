@@ -86,7 +86,7 @@ describe('CatalogSubcategoryPage', () => {
       const h1 = container.querySelector('h1')
       expect(h1?.textContent).toBe(label)
 
-      const breadcrumbNav = container.querySelector('.riffsync-catalog-breadcrumb')
+      const breadcrumbNav = container.querySelector('.gen-breadcrumb nav[aria-label="breadcrumb"]')
       expect(breadcrumbNav).not.toBeNull()
 
       const breadcrumbLinks = Array.from(
@@ -95,7 +95,7 @@ describe('CatalogSubcategoryPage', () => {
       expect(breadcrumbLinks.map((link) => link.textContent?.trim())).toEqual(['Home', 'Catalog'])
       expect(breadcrumbLinks.map((link) => link.getAttribute('href'))).toEqual(['/', '/catalog'])
 
-      const currentCrumb = breadcrumbNav!.querySelector('[aria-current="page"]')
+      const currentCrumb = breadcrumbNav!.querySelector('.breadcrumb-item.active[aria-current="page"]')
       expect(currentCrumb?.textContent?.trim()).toBe(label)
 
       expect(container.querySelector('.riffsync-catalog-filter-bar')).not.toBeNull()

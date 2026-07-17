@@ -88,6 +88,10 @@ describe('CatalogPage', () => {
   it('renders four hub entry links above search and the mixed grid in fixed order', () => {
     renderCatalogPage()
 
+    const breadcrumbHeader = container.querySelector('.gen-breadcrumb nav[aria-label="breadcrumb"]')
+    expect(breadcrumbHeader?.querySelector('h1')?.textContent).toBe('Catalog')
+    expect(breadcrumbHeader?.querySelector('.breadcrumb-item.active')?.textContent?.trim()).toBe('Catalog')
+
     const hubNav = container.querySelector('.riffsync-catalog-hub-entry-links')
     expect(hubNav).not.toBeNull()
 

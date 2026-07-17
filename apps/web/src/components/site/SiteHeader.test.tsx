@@ -21,6 +21,8 @@ vi.mock('../../room/useRoomChrome', () => ({
   useRoomChromeOptional: () => null,
 }))
 
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
 describe('SiteHeader fan session nav', () => {
   let container: HTMLDivElement
   let root: Root
@@ -85,7 +87,11 @@ describe('SiteHeader fan session nav', () => {
     const catalogNav = container.querySelector('.riffsync-catalog-nav')
 
     expect(collapse?.contains(catalogNav)).toBe(true)
-    expect(container.querySelectorAll('a[href="/catalog"]').length).toBeGreaterThanOrEqual(2)
+    expect(catalogNav?.classList.contains('menu-item-has-children')).toBe(true)
+    expect(container.querySelectorAll('.riffsync-catalog-nav > .sub-menu a')).toHaveLength(
+      CATALOG_HUB_ENTRY_LINKS.length,
+    )
+    expect(container.querySelectorAll('a[href="/catalog"]')).toHaveLength(1)
     expect(CATALOG_HUB_ENTRY_LINKS.every(({ href }) => container.querySelector(`a[href="${href}"]`))).toBe(true)
   })
 })
