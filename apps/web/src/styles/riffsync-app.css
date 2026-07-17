@@ -545,6 +545,96 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   }
 }
 
+/* Catalog nav — desktop dropdown + mobile accordion (M32 #345) */
+.riffsync-catalog-nav__desktop {
+  display: none;
+}
+
+.riffsync-catalog-nav__mobile {
+  display: block;
+}
+
+.riffsync-catalog-nav__mobile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.riffsync-catalog-nav__accordion-panel {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1rem;
+}
+
+.riffsync-catalog-nav__accordion-panel li {
+  line-height: 2.5rem;
+}
+
+.riffsync-catalog-nav__disclosure-trigger,
+.riffsync-catalog-nav__accordion-trigger {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0 0.25rem;
+  margin: 0;
+  font: inherit;
+  color: var(--white-color);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.riffsync-catalog-nav__disclosure-trigger:hover,
+.riffsync-catalog-nav__disclosure-trigger:focus,
+.riffsync-catalog-nav__accordion-trigger:hover,
+.riffsync-catalog-nav__accordion-trigger:focus {
+  color: var(--primary-color);
+}
+
+@media (min-width: 992px) {
+  .riffsync-catalog-nav__desktop {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .riffsync-catalog-nav__mobile {
+    display: none;
+  }
+
+  .riffsync-catalog-nav__dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0.35rem 0;
+    min-width: 11rem;
+    background: var(--black-color);
+    border: 1px solid rgb(255 255 255 / 12%);
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  }
+
+  .riffsync-catalog-nav__dropdown li {
+    line-height: 2.25rem;
+  }
+
+  .riffsync-catalog-nav__dropdown a {
+    display: block;
+    padding: 0 1rem;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 991px) {
+  .riffsync-catalog-nav {
+    width: 100%;
+  }
+}
+
 /* Room shell: cinematic backdrop matching solo watch home-style treatment */
 .riffsync-site--room {
   height: 100dvh;

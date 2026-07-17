@@ -5,6 +5,7 @@ import {
 } from '../../auth/fanHostedUiPkce'
 import { useFanSession } from '../../auth/useFanSession'
 import { useRoomChromeOptional } from '../../room/useRoomChrome'
+import { CatalogNavItem } from './CatalogNavItem'
 
 function PrimaryNavItem({
   to,
@@ -86,7 +87,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
                       <PrimaryNavItem to="/" end>
                         Home
                       </PrimaryNavItem>
-                      <PrimaryNavItem to="/catalog">Catalog</PrimaryNavItem>
+                      <CatalogNavItem />
                       <PrimaryNavItem to="/lobby">Lobby</PrimaryNavItem>
                       {fanToken ? (
                         <PrimaryNavItem to="/account">Account</PrimaryNavItem>
