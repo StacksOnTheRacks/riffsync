@@ -3,12 +3,13 @@ import { useMemo, useState } from 'react'
 import { useCatalogListQuery } from '../catalog/catalogQueries'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { CatalogFilterBar } from '../components/catalog/CatalogFilterBar'
+import { CatalogHubEntryLinks } from '../components/catalog/CatalogHubEntryLinks'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogCardImageUrl, catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
-import { filterCatalogEntries, DEFAULT_CATALOG_FILTER_ERAS } from '../catalog/filterCatalogEntries'
+import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { EpisodeTileActions } from '../components/catalog/EpisodeTileActions'
-import { formatCatalogEraLabel, type CatalogEra, type CatalogEpisode } from '../catalog/catalogTypes'
+import { formatCatalogEraLabel, type CatalogEpisode } from '../catalog/catalogTypes'
 
 function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
   const img = catalogCardImageUrl(episode)
@@ -52,7 +53,6 @@ function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
 export function CatalogPage() {
   const navigate = useNavigate()
   const { data, isPending, isError, error, refetch } = useCatalogListQuery()
-  const [selectedEras, setSelectedEras] = useState<CatalogEra[]>(() => [...DEFAULT_CATALOG_FILTER_ERAS])
   const [titleQuery, setTitleQuery] = useState('')
 
   useResumePendingPartyRoom(data, navigate)
@@ -63,8 +63,8 @@ export function CatalogPage() {
     [allEntries],
   )
   const filteredEntries = useMemo(
-    () => filterCatalogEntries(youtubeEntries, { titleQuery, eras: selectedEras }),
-    [youtubeEntries, titleQuery, selectedEras],
+    () => filterCatalogEntries(youtubeEntries, { titleQuery, eras: [] }),
+    [youtubeEntries, titleQuery],
   )
 
   const filterBarDisabled = isPending && !data
@@ -97,12 +97,12 @@ export function CatalogPage() {
     <div className="container riffsync-catalog-page">
       <h1>Catalog</h1>
       <p className="riffsync-catalog-page__lede">Push the button, Frank</p>
+      <CatalogHubEntryLinks />
       <CatalogFilterBar
-        selectedEras={selectedEras}
-        onSelectedErasChange={setSelectedEras}
         titleQuery={titleQuery}
         onTitleQueryChange={setTitleQuery}
         disabled={filterBarDisabled}
+        showEraChips={false}
       />
       <div className="riffsync-catalog-grid">
         {filteredEntries.map((ep) => (
@@ -119,9 +119,7 @@ export function CatalogPage() {
       {isFilterNoMatch && (
         <div className="riffsync-catalog-no-match">
           <p>No episodes match your filters.</p>
-          <p className="riffsync-catalog-no-match-hint">
-            Clear the search field or deselect era filters to see all episodes.
-          </p>
+          <p className="riffsync-catalog-no-match-hint">Clear the search field to see all episodes.</p>
         </div>
       )}
       <p>
