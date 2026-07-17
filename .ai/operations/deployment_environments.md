@@ -103,7 +103,7 @@ SFU runtime guardrails (**`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`**, **`SFU_MAX_
 CDK user-data writes **`/etc/riffsync-sfu.env`** (systemd **`EnvironmentFile`**). Required and participant-AV caps:
 
 | Variable | Default | Notes |
-| --- | --- | --- |
+| --- | --- |
 | **`SFU_JWT_SECRET`** | (Secrets Manager) | Existing |
 | **`PORT`** | **3000** | Existing |
 | **`MEDIASOUP_ANNOUNCED_IP`** | EIP | Existing |
@@ -177,7 +177,7 @@ Back-of-envelope for **8** concurrent fan publishers (camera + mic) in one room 
 - Specify the physical-device smoke test matrix across Chrome sender, Cast-capable receiver, signed-in sender, anonymous sender, and active room media source.
 
 ### public-site-seo
-- No open decisions remain for Search Console/Bing verification or post-deploy smoke baseline (M31 — #328). See **`build_packaging.md`** → *Decisions (M31 — Search Console verification and release smoke — #328)* and **[`docs/operations/public-site-seo.md`](../../docs/operations/public-site-seo.md)**. Normative smoke still covers **`/`** + fixture **`/watch/...`**; catalog subcategory paths join sitemap/prerender via the same SPA publish and need no new deploy tier.
+- No open decisions remain for Search Console/Bing verification or post-deploy smoke baseline (M31 — #328). See **`build_packaging.md`** → *Decisions (M31 — Search Console verification and release smoke — #328)* and **[`docs/operations/public-site-seo.md`](../../docs/operations/public-site-seo.md)**. Normative smoke covers **`/`**, fixture **`/watch/...`**, and **`/catalog/mst3k`** (M33 — #341); catalog subcategory paths join sitemap/prerender via the same SPA publish and need no new deploy tier.
 
 ### catalog-sub-pages-seo-packaging
 - No open decisions remain for M33 (#341). Normative smoke includes **`/catalog/mst3k`** 200 + apex canonical; packaging mechanics and head-tag ownership: **`build_packaging.md`** → *Decisions (M33 — catalog subcategory SEO packaging — #341)*.
