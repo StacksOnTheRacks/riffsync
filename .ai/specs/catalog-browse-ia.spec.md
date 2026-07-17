@@ -52,17 +52,17 @@ The hub and four subcategory routes are part of the public discoverable (indexab
 
 **Grouping model:** Episode rows keep a single flat `era` field. MST3K aggregation is a browse-IA constant over existing enum values, not a new persisted group field.
 
-**SEO packaging:** The four subcategory paths join `STATIC_INDEXABLE_ROUTES` (and related sitemap/prerender/CI assertions) alongside `/catalog`. Exact packaging mechanics: `.ai/operations/build_packaging.md` and `public-site-seo`.
+**SEO packaging:** The four subcategory paths join `STATIC_INDEXABLE_ROUTES` (nine static routes total) alongside `/catalog`. Sitemap, prerender, CI counts, and head-tag emission are owned by `public-site-seo` / operations build packaging (M33 — #341). Head-tag title/description/canonical/OG strings match the `presentation.md` public-site head-tag table as-is.
 
-**UI contracts:** Hub links, nav dropdown, subcategory shell, Riff-Ready copy, and head-tag rows: `.ai/interface/presentation.md`, `interaction_flow.md`, `accessibility.md`, `input_handling.md`.
+**UI contracts:** Hub links, nav dropdown, subcategory shell, Riff-Ready copy, and head-tag rows live in `presentation.md`, `interaction_flow.md`, `accessibility.md`, and `input_handling.md`.
 
 ## Testing Strategy
 
 **Unit/component:** Hub renders four subcategory entry links and no public era chips; subcategory routes render header, breadcrumbs, and a grid filtered to the expected `eras` set; MST3K includes the four host eras and excludes community / riffable / movie_night / other; Riff-Ready label appears in nav/hub/subcategory chrome while filter logic still keys on `riffable`; Catalog nav parent targets `/catalog` and dropdown targets the four paths; keyboard reachability for dropdown and breadcrumbs.
 
-**Build/CI:** After routes are added to the shared indexable list, SEO verify asserts sitemap/prerender coverage for the four subcategory paths (counts and fixture head tags per `public-site-seo` / `build_packaging.md`).
+**Build/CI:** SEO verify asserts sitemap/prerender coverage for the four subcategory paths (nine static routes + YouTube-linked watch pages; fixture head tags per `public-site-seo` / `build_packaging.md`).
 
-**Manual/smoke:** Post-deploy optional check that a subcategory canonical (for example `/catalog/mst3k`) returns 200 with expected head tags; full smoke matrix remains under operations Open implementation decisions until refined.
+**Manual/smoke:** Post-deploy **`npm run smoke:production`** includes **`https://riffsync.tv/catalog/mst3k`** **200** with apex canonical (normative under `public-site-seo` / M33 — #341); not PR-CI-wired.
 
 ## References
 
