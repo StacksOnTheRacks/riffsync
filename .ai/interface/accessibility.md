@@ -12,7 +12,12 @@ Accessible-by-default contract for presentation and interaction surfaces.
 ## Public catalog and marketing surfaces
 
 - **Home route** (**`/`**) renders **exactly one** static, visually-hidden (**`sr-only`**) **`<h1>RiffSync</h1>`** at the top of **`HomePage`** output (including loading/error/empty branches) so the document outline satisfies a landmark heading without changing visible hero markup (**`presentation.md`** → *Home route document outline*).
-- **Catalog card images** (**`CatalogGridCard`** on **`/catalog`**) use **`alt={episode.title}`** (catalog **`title`** field) instead of **`alt=""`**.
+- **Catalog hub and subcategory routes** (**`/catalog`**, **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`**) extend the same public catalog baselines: keyboard-reachable browse controls, semantic landmarks/headings, poster **`alt={episode.title}`**, and **`prefers-reduced-motion`** for non-critical motion. No new accessibility obligation class beyond these routes.
+- **Catalog card images** (**`CatalogGridCard`** on **`/catalog`** and all four subcategory routes) use **`alt={episode.title}`** (catalog **`title`** field) instead of **`alt=""`**.
+- **Subcategory page heading:** each subcategory route exposes one primary heading with the subcategory display name (page header).
+- **Breadcrumb landmark:** subcategory breadcrumbs use a navigational landmark (e.g. **`<nav aria-label="breadcrumb">`**) with the current page indicated as non-linked / **`aria-current="page"`** (or equivalent). The Catalog hub crumb remains a real link to **`/catalog`**.
+- **Catalog nav dropdown:** the Catalog disclosure exposes **`aria-haspopup`** / **`aria-expanded`** (or equivalent disclosure semantics); opens via keyboard (**Enter** / **Space**) as well as pointer; **Escape** closes and returns focus to the trigger; the four subcategory links are native focusable links in logical tab order. Hover-open on desktop is progressive enhancement, not the only path. Mobile nests the same links inside the existing hamburger collapse.
+- **Hub entry links:** the four large horizontal hub links on **`/catalog`** are native links (or equivalent) with accessible names matching their destination labels (**MST3K**, **Community**, **Riff-Ready**, **Movie Night**).
 - **`/watch/:catalogEpisodeId`** keeps its existing **`sr-only`** **`<h1>{episode.title}</h1>`** on **`SoloWatchPage`** — unaffected by M30 beyond parallel head-tag work (M29).
 - **Ephemeral/authenticated/receiver-only routes** (**`/room/:roomId`**, **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**) are unaffected — they keep the existing app-shell heading/landmark baseline, not a new accessibility commitment.
 
@@ -102,6 +107,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### public-site-seo
 - No open implementation decisions remain. The home **`sr-only`** H1 and catalog **`alt`** text are additive, non-visual fixes with no accessibility ambiguity — see **Public catalog and marketing surfaces** above.
+
+### catalog-sub-pages
+- Exact breadcrumb Home crumb treatment (icon vs text) once trail micro-shape is chosen in **`presentation.md`** — landmark and Catalog-hub link requirements above are settled.
 
 ## Primary code pointers (optional)
 

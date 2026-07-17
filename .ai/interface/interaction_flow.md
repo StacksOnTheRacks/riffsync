@@ -6,7 +6,12 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 
 | Route | Flow |
 | --- | --- |
-| **`/` / catalog** | Grid/list → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. |
+| **`/`** | Home marketing surface → catalog / watch-party entry points; **anonymous** visitors browse without minting **`sessionId`**. |
+| **`/catalog`** | Catalog **hub**: four large horizontal entry links to subcategory pages + retained mixed/all-titles grid and shared chrome (search/sort). From a title card → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. Pure catalog browse does **not** mint **`sessionId`**. |
+| **`/catalog/mst3k`** | Public subcategory browse — aggregated Joel / Mike / Jonah / Emily titles in the shared subcategory shell (header + breadcrumbs + card grid). No secondary host-era chips. Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog/community`** | Public subcategory browse — Community titles in the shared subcategory shell. Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog/riff-ready`** | Public subcategory browse — **Riff-Ready** titles (public label; slug **`riff-ready`**) in the shared subcategory shell. Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog/movie-night`** | Public subcategory browse — Movie Night titles in the shared subcategory shell. Same host/party start path from a title card as **`/catalog`**. |
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
 | **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch), **Room** tab lobby visibility toggle (**Show in lobby** / **Link only**). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
 | **`/lobby`** | Public rooms from **`GET` lobby API** → navigate to **`/room/:id`**. |
@@ -15,6 +20,17 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | **`/admin` / `/admin/*`** | **Staff JWT required** in the SPA before rendering protected admin chrome. Unauthenticated visitors redirect to **`/admin/login`** with intended path preserved for post-login return. **Auth slice:** minimal session probe at **`/admin`** (operator identity / group sanity check) and **Sign out**; catalog, lists, and roster UI are **out of scope** until later initiatives. |
 
 Staff operator routes ship as **gated routes in the existing `apps/web` SPA** (one Vite build, one CloudFront origin). Fan routes (**`/auth/callback`**, catalog **Sign in to host**, room host flows) are unchanged.
+
+## Catalog browse navigation
+
+| Path | Flow |
+| --- | --- |
+| **Main-nav Catalog parent** | Navigates to the **`/catalog`** hub (not a non-navigating trigger-only control). |
+| **Main-nav Catalog dropdown** | Lists four subcategory destinations: **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`**. Desktop opens via hover and/or click; keyboard activation is required (**`input_handling.md`**, **`accessibility.md`**). |
+| **Mobile Catalog** | Subcategory links nest inside the existing hamburger / **`navbar-collapse`** menu — not hover-only. |
+| **Hub entry links** | On **`/catalog`**, four large horizontal links navigate to the same four subcategory routes. |
+| **Subcategory breadcrumbs** | Include a linked **Catalog** crumb back to **`/catalog`**; current subcategory crumb is non-linked. |
+| **Staff-only era** | **`other`** never appears in hub links, dropdown, or subcategory chrome. |
 
 ## Staff operator auth (token and session boundaries)
 
@@ -283,6 +299,10 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - Launch-phase copy and status placement for **`CAST_STARTING`**, chooser cancel, start rejected, and launch timeout are specified in **Cast launch flow (#302)** and **`error_state.md`** Local Cast status taxonomy.
 - Launch-phase focus behavior is specified in **Cast launch flow (#302)** and **`input_handling.md`** Chromecast Cast controls. Focus on receiver confirmation success, Stop Cast success, stop failure, navigation, reload, and external receiver end remain in #304, #276, and #278.
 - Tests that prove **`Now Casting`** is absent until receiver render confirmation and removed on cleanup without resetting sidebar/chat state are specified in **`.ai/specs/viewer-local-cast.spec.md`** and owned by #304 / #279 verification slices.
+
+### catalog-sub-pages
+- Exact dropdown link order and any short helper microcopy beyond the four display names (see **`presentation.md`** → *Open implementation decisions* → **catalog-sub-pages**).
+- Whether mobile Catalog disclosure behaves as an inline accordion vs nested flyout inside **`navbar-collapse`** (nesting inside the existing hamburger is settled).
 
 ## Primary code pointers (optional)
 

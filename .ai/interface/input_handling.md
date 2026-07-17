@@ -8,6 +8,15 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - Primary actions use native **`<button>`** (or equivalent with **`role="button"`** + keyboard activation) — not pointer-only divs.
 - **Focus visibility** must remain perceptible on all themes; do not remove outlines without an equivalent focus indicator.
 
+## Public catalog browse (hub, subcategory, nav)
+
+- **Catalog parent link:** keyboard-activatable navigation to **`/catalog`** (native link semantics).
+- **Catalog dropdown / disclosure:** trigger is keyboard-reachable; **Enter** / **Space** opens or toggles the subcategory list; **Escape** closes and returns focus to the trigger; subcategory destinations are native focusable links (**`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`**) in logical tab order. Pointer hover must not be the sole open path.
+- **Mobile:** subcategory links remain keyboard-reachable inside the existing hamburger / collapse menu after the menu is opened.
+- **Hub entry links (on `/catalog`):** the four large horizontal subcategory entry links are keyboard-reachable native links (or equivalent) in visual order; **Enter** / **Space** (for button-styled links) or standard link activation navigates to the subcategory route.
+- **Breadcrumbs (subcategory routes):** each linked crumb (at least **Catalog** → **`/catalog`**) is keyboard-reachable; the current subcategory crumb is not an interactive control.
+- **Retained hub chrome:** existing catalog title search / sort controls on **`/catalog`** remain keyboard-reachable; whether the same chrome appears on subcategory pages is tier TW (**`presentation.md`**).
+
 ## Watch party room (`/room/:roomId`)
 
 ### Realtime drawer status (non-interactive)
@@ -99,6 +108,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-input-handling
 - No open implementation decisions remain for M25 Cast input verification. See **Chromecast Cast controls** and #279 verification requirements above.
+
+### catalog-sub-pages
+- Exact focus-return target after navigating via a hub entry link or dropdown item (browser default vs restoring site-header focus) — not a product fork; resolve at implement/refine if needed.
 
 ## Primary code pointers (optional)
 

@@ -8,7 +8,7 @@ Curator + enrichment merged for **`GET /v1/catalog`** output.
 
 | Field group | Fields | Notes |
 | --- | --- | --- |
-| **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`era`** | **`title`** never overwritten from TMDB. **`era`** enum: **`joel`**, **`mike`**, **`jonah`**, **`emily`**, **`community`**, **`movie_night`**, **`riffable`**, **`other`** — public catalog filter bar omits **`other`** (staff curation bucket). |
+| **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`era`** | **`title`** never overwritten from TMDB. **`era`** enum: **`joel`**, **`mike`**, **`jonah`**, **`emily`**, **`community`**, **`movie_night`**, **`riffable`**, **`other`**. All public-facing era displays omit **`other`** (staff curation bucket). Public subcategory browse IA (`mst3k` / `community` / `riff-ready` / `movie-night`) is route/display grouping over this flat enum (no parent/group field; MST3K is a display-time union of **`joel`** / **`mike`** / **`jonah`** / **`emily`**). Display label for persisted **`riffable`** may be **Riff-Ready** without changing the stored value. |
 | **YouTube** | **`youtubeVideoId`**, **`youtubeWatchUrl`** | Nullable when unknown. |
 | **TMDB-aligned (nullable keys always on row in seed)** | **`tagline`**, **`posterImageUrl`**, **`backdropImageUrl`**, **`tmdbMovieId`**, **`tmdbArtworkSyncedAt`** | Filled by reconcile; see contracts. |
 | **Dynamo-only (optional on seed)** | **`tmdbOverview`**, **`tmdbPopularity`**, raw **`tmdbPosterPath`**, **`tmdbBackdropPath`** | Per **`docs/architecture.catalog-images.md`**. |
@@ -129,6 +129,7 @@ Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-imag
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
+- Future scaling (out of scope for catalog subcategory browse IA): if the full catalog bundle grows large enough that client-side fetch + `filterCatalogEntries({ eras })` becomes a performance concern, consider a server-side **`era`** / **`eras`** query parameter on **`GET /v1/catalog`**. Current access pattern remains full-bundle fetch with client Set-membership filter; hub mixed grid uses no era constraint (`eras: []`).
 
 ## Primary code pointers (optional)
 

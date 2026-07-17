@@ -79,7 +79,8 @@
           "description": "Durable capability-level architecture and behavior specifications.",
           "children": [
             ".ai/specs/viewer-local-cast.spec.md",
-            ".ai/specs/public-site-seo.spec.md"
+            ".ai/specs/public-site-seo.spec.md",
+            ".ai/specs/catalog-browse-ia.spec.md"
           ]
         }
       ]

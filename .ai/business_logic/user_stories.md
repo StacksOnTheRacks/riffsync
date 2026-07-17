@@ -6,7 +6,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 
 | ID | As a… | I want… | So that… |
 | --- | --- | --- | --- |
-| US-P0-01 | visitor | browse the catalog | I can pick an episode without signing up |
+| US-P0-01 | visitor | browse the catalog hub and its subcategory pages (**MST3K**, **Community**, **Riff-Ready**, **Movie Night**) without signing up | I can reach mixed or filtered title grids and pick an episode |
 | US-P0-02 | visitor | join a hosted room as a guest | I watch in-app without creating an account |
 | US-P0-02b | visitor | try to start my own party unsigned | I’m prompted to **sign in to host** |
 | US-P0-03 | signed-in fan | create/open a room from the catalog | I’m room admin with **`hostSub`** binding and a share link |
@@ -101,6 +101,9 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
+### catalog-subcategory-browse
+- Per-route SEO head-tag and social-preview copy for catalog subcategory pages is owned by **`interface/presentation.md`** and **`specs/public-site-seo.spec.md`** (not this file). **US-P1-08** / **US-P1-09** stay scoped to search discovery and **`/watch/:id`** share previews unless those contracts extend them.
+
 ### existing-room-polish
 - **Video Chat empty grid:** copy and layout when **no participant has camera on** (placeholder vs audio-only affordance).
 - **Kill switch control affordance:** participant camera/mic toggles **visible but disabled** with short explanation vs hidden when **`avDisabled`** is true (accessibility vs minimal chrome).
@@ -125,4 +128,4 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ## Primary code pointers (optional)
 
 - Link GitHub issues when filed.
-- **US-P0-01 (browse):** `apps/web` home + `/catalog` load from **`GET /v1/catalog`** when **`VITE_PUBLIC_API_BASE_URL`** is set (**M4 / issue #13**); **US-P0-07 (advisory):** `PlaybackExpectationBadge` + optional `playbackExpectation` on catalog rows (honor-system; see **`README`**).
+- **US-P0-01 (browse):** `apps/web` home + `/catalog` hub and `/catalog/*` subcategory routes load from **`GET /v1/catalog`** when **`VITE_PUBLIC_API_BASE_URL`** is set (**M4 / issue #13**); **US-P0-07 (advisory):** `PlaybackExpectationBadge` + optional `playbackExpectation` on catalog rows (honor-system; see **`README`**).
