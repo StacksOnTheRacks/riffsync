@@ -78,9 +78,9 @@ The hub and four subcategory routes are part of the public discoverable (indexab
 - Keyboard reachability for Catalog disclosure (Enter/Space open, Escape closes to trigger) and breadcrumb links; poster alts continue `alt={title}` on `CatalogGridCard`.
 - Focus after hub/dropdown navigation: browser default (no custom restore-to-header assertion required).
 
-**Build/CI (M32):** `apps/web` unit/component tests, lint, and production build succeed. SEO verify / sitemap/prerender coverage for subcategory paths is **M33**, not a M32 gate.
+**Build/CI:** SEO verify asserts sitemap/prerender coverage for the four subcategory paths (nine static routes + YouTube-linked watch pages; fixture head tags per `public-site-seo` / `build_packaging.md`).
 
-**Manual/smoke:** Desktop Catalog dropdown opens to four links; narrow viewport hamburger shows Catalog as inline accordion with the same four links; each subcategory URL shows filtered grid + search/sort; hub has no era chips.
+**Manual/smoke:** Post-deploy **`npm run smoke:production`** includes **`https://riffsync.tv/catalog/mst3k`** **200** with apex canonical (normative under `public-site-seo` / M33 — #341); not PR-CI-wired.
 
 ## References
 

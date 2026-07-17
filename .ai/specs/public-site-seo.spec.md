@@ -110,20 +110,21 @@ Full detail: `.ai/interface/presentation.md` → *Decisions (M30 — home sr-onl
 | **Operator runbook** | New **`docs/operations/public-site-seo.md`** — Search Console + Bing Webmaster property setup, Route 53 TXT steps, verification checklist, smoke invocation. Linked from **`infra/cdk/README.md`** → *Production smoke checks*. |
 | **DNS TXT** | Manual Route 53 console on zone **`riffsync.tv`** (`fanWebZoneName`). One TXT per vendor when tokens differ. Values never committed. |
 | **Smoke script** | **`scripts/launch-readiness/smoke-production.mjs`** — Node ESM, zero deps; root **`npm run smoke:production`**. |
-| **Smoke timing** | After **`deploy-prod.yml`** phase 5 when M27–M29 are live; not CI. |
+| **Smoke timing** | After **`deploy-prod.yml`** phase 5 when M27–M29 (and M33 subcategory prerender) are live; not CI. |
 | **Fixture watch path** | **`/watch/101-the-crawling-eye`** (committed catalog entry with YouTube link). |
+| **Subcategory smoke path (M33)** | **`/catalog/mst3k`** — **200** plus apex canonical **`<link>`** (or equivalent substring). |
 
-Full detail: `.ai/operations/build_packaging.md` → *Decisions (M31 — Search Console verification and release smoke — #328)*.
+**M33 (catalog subcategory SEO packaging — #341):** extend **`STATIC_INDEXABLE_ROUTES`** to nine paths (add the four **`/catalog/*`** subcategory routes); prerender/sitemap/CI follow list length; head-tag strings match **`presentation.md`** table as-is; smoke gains the **`/catalog/mst3k`** check above. Full detail: `.ai/operations/build_packaging.md` → *Decisions (M33 — catalog subcategory SEO packaging — #341)* and *Decisions (M31 — Search Console verification and release smoke — #328)*.
 
 ## Testing Strategy
 
-**Unit/component:** home `sr-only` H1 renders exactly once (M30); catalog card `alt` text is non-empty (M30); **`routeHeadTags`** produces expected title/description/canonical/OG/Twitter for each indexable route, including `/watch/:id` with and without `tagline`/poster art (M29).
+**Unit/component:** home `sr-only` H1 renders exactly once (M30); catalog card `alt` text is non-empty (M30); **`routeHeadTags`** produces expected title/description/canonical/OG/Twitter for each of the **nine** static indexable routes (including the four catalog subcategory paths) and for `/watch/:id` with and without `tagline`/poster art (M29/M33).
 
 **Build/CI (M28):** the `web-app` CI job asserts `robots.txt` and `sitemap.xml` exist after `npm run build`; sitemap `<url>` count equals 9 static indexable routes plus the count of catalog episodes passing `episodeHasYoutubeLink`; the build fails when catalog data is unavailable or counts mismatch.
 
 **Build/CI (M29):** after `npm run build`, `web-app` (via `verify:seo-artifacts` or dedicated verify script) asserts `spa-shell.html` contains `noindex`; prerendered `index.html` exists for `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-ready`, `/catalog/movie-night`, `/how-to-host-a-watchparty`, `/terms`, `/privacy`; `watch/{id}/index.html` count matches YouTube-linked catalog episodes; spot checks validate apex canonical on `/` and episode title/canonical on a fixture watch route.
 
-**Manual/smoke (post-deploy, production only — M31 #328):** run **`npm run smoke:production`** from repo root after M27–M29 are deployed. The script asserts:
+**Manual/smoke (post-deploy, production only — M31 #328 + M33 #341):** run **`npm run smoke:production`** from repo root after M27–M29 and M33 subcategory prerender are deployed. The script asserts:
 
 1. **`https://riffsync.tv/`** returns **200**
 2. **`https://www.riffsync.tv/lobby`** returns **301** with **`Location: https://riffsync.tv/lobby`**
@@ -131,6 +132,7 @@ Full detail: `.ai/operations/build_packaging.md` → *Decisions (M31 — Search 
 4. **`/`** response HTML includes **`<link rel="canonical" href="https://riffsync.tv/">`**
 5. **`/watch/101-the-crawling-eye`** response HTML includes canonical **`https://riffsync.tv/watch/101-the-crawling-eye`**
 6. **`index.html`** body contains no **`www.riffsync.tv`** absolute URLs
+7. **`https://riffsync.tv/catalog/mst3k`** returns **200** and HTML includes apex canonical for that path
 
 Operator separately confirms Search Console and Bing Webmaster show **Verified** after DNS TXT propagation (checklist in **`docs/operations/public-site-seo.md`**). Peer prior art for script shape: `control9/control9-www`'s `smoke-production.mjs` (reference only).
 
