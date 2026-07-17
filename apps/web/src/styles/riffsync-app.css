@@ -75,6 +75,23 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   padding-top: 0;
 }
 
+.riffsync-main:has(.riffsync-catalog-page-header) {
+  padding-top: 0;
+}
+
+.riffsync-catalog-page-header.gen-breadcrumb {
+  background: #2b2929;
+}
+
+.riffsync-catalog-page-header.gen-breadcrumb::before {
+  display: none;
+}
+
+.riffsync-catalog-page-header > .container {
+  position: relative;
+  z-index: 1;
+}
+
 .riffsync-main:has(.riffsync-solo-watch-page:not(.riffsync-solo-watch-page--party-capture)) {
   padding-top: 0.75rem;
   padding-bottom: 1.5rem;

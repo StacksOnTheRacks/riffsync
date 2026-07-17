@@ -7,10 +7,7 @@ export interface CatalogPageHeaderProps {
 
 export function CatalogPageHeader({ title, subcategoryLabel }: CatalogPageHeaderProps) {
   return (
-    <div
-      className="gen-breadcrumb riffsync-catalog-page-header"
-      style={{ backgroundImage: "url('/design/images/background/asset-25.jpeg')" }}
-    >
+    <div className="gen-breadcrumb riffsync-catalog-page-header">
       <div className="container">
         <div className="row align-items-center">
           <div className="col-lg-12">
