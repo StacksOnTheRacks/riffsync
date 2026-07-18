@@ -22,7 +22,9 @@ function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>
   return {
     experimentNumber: 100,
     title: 'Pod People',
-    era: 'joel',
+    catalog: 'mst3k',
+    tags: ['Era: Joel'],
+    labels: [],
     youtubeVideoId: 'abc123',
     youtubeWatchUrl: 'https://youtube.com/watch?v=abc123',
     tagline: 'Push the button, Frank.',

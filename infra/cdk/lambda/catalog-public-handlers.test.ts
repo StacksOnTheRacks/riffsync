@@ -24,7 +24,9 @@ const sampleEpisode = {
   id: '101-the-crawling-eye',
   experimentNumber: 101,
   title: 'The Crawling Eye',
-  era: 'joel',
+  catalog: 'mst3k',
+  tags: ['Era: Joel'],
+  labels: [],
   youtubeVideoId: null,
   youtubeWatchUrl: null,
   tagline: null,
@@ -211,6 +213,5 @@ describe('catalog-get handler cache headers', () => {
     const entry = JSON.parse(res?.body ?? '').entry;
     expect(entry.embedAllows).toBe(false);
     expect(entry).not.toHaveProperty('movieSearchTitle');
-    expect(entry).not.toHaveProperty('curatorNotes');
   });
 });

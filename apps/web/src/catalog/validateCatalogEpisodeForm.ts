@@ -1,27 +1,29 @@
-import { CATALOG_ERAS, type CatalogEra } from './catalogTypes'
+import { CATALOG_CATEGORIES, type CatalogCategory } from './catalogTypes'
+import { parseYoutubeWatchUrl } from './youtubeUrl'
 
 const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
-const YOUTUBE_VIDEO_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/
-
 export type CatalogEpisodeFormMode = 'create' | 'edit'
 
 export type CatalogEpisodeFormValues = {
   id: string
   experimentNumber: string
   title: string
-  era: CatalogEra
-  youtubeVideoId: string
+  catalog: CatalogCategory
+  tags: string[]
+  labels: string[]
   youtubeWatchUrl: string
   carousel: boolean
   spotlight: boolean
   movieSearchTitle: string
   tmdbMovieId: string
   embedAllows: boolean
-  curatorNotes: string
 }
 
 const MOVIE_SEARCH_TITLE_MAX_LENGTH = 256
-const CURATOR_NOTES_MAX_LENGTH = 4096
+const TAG_MAX_COUNT = 32
+const TAG_MAX_LENGTH = 64
+const LABEL_MAX_COUNT = 8
+const LABEL_MAX_LENGTH = 32
 
 export type CatalogEpisodeFormValidation = {
   fieldErrors: Record<string, string>
@@ -32,24 +34,15 @@ export const EMPTY_CATALOG_EPISODE_FORM_VALUES: CatalogEpisodeFormValues = {
   id: '',
   experimentNumber: '',
   title: '',
-  era: 'other',
-  youtubeVideoId: '',
+  catalog: 'other',
+  tags: [],
+  labels: [],
   youtubeWatchUrl: '',
   carousel: false,
   spotlight: false,
   movieSearchTitle: '',
   tmdbMovieId: '',
   embedAllows: true,
-  curatorNotes: '',
-}
-
-function isValidHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
-  }
 }
 
 function validateSlug(id: string): string | undefined {
@@ -78,18 +71,9 @@ function validateTitle(title: string, mode: CatalogEpisodeFormMode): string | un
   return undefined
 }
 
-function validateEra(era: string): string | undefined {
-  if (!(CATALOG_ERAS as readonly string[]).includes(era)) {
-    return 'Choose a valid era.'
-  }
-  return undefined
-}
-
-function validateYoutubeVideoId(raw: string): string | undefined {
-  const trimmed = raw.trim()
-  if (!trimmed) return undefined
-  if (!YOUTUBE_VIDEO_ID_PATTERN.test(trimmed)) {
-    return 'Enter an 11-character YouTube video id or leave empty.'
+function validateCatalog(catalog: string): string | undefined {
+  if (!(CATALOG_CATEGORIES as readonly string[]).includes(catalog)) {
+    return 'Choose a valid catalog.'
   }
   return undefined
 }
@@ -97,20 +81,28 @@ function validateYoutubeVideoId(raw: string): string | undefined {
 function validateYoutubeWatchUrl(raw: string): string | undefined {
   const trimmed = raw.trim()
   if (!trimmed) return undefined
-  if (!isValidHttpUrl(trimmed)) {
-    return 'Enter a valid http or https URL or leave empty.'
+  if (!parseYoutubeWatchUrl(trimmed)) {
+    return 'Enter a valid YouTube watch URL or leave empty.'
   }
   return undefined
-}
-
-export function normalizeYoutubeField(raw: string): string | null {
-  const trimmed = raw.trim()
-  return trimmed.length > 0 ? trimmed : null
 }
 
 export function normalizeNullableTextField(raw: string): string | null {
   const trimmed = raw.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+export function normalizeStringListField(values: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const value of values) {
+    const trimmed = value.trim()
+    const key = trimmed.toLowerCase()
+    if (!trimmed || seen.has(key)) continue
+    seen.add(key)
+    normalized.push(trimmed)
+  }
+  return normalized
 }
 
 function validateMovieSearchTitle(raw: string): string | undefined {
@@ -122,8 +114,7 @@ function validateMovieSearchTitle(raw: string): string | undefined {
   return undefined
 }
 
-function validateTmdbMovieId(raw: string, mode: CatalogEpisodeFormMode): string | undefined {
-  if (mode === 'create') return undefined
+function validateTmdbMovieId(raw: string): string | undefined {
   const trimmed = raw.trim()
   if (!trimmed) return undefined
   if (!/^\d+$/.test(trimmed)) return 'Enter a positive TMDB movie id or leave empty.'
@@ -139,10 +130,20 @@ export function normalizeTmdbMovieIdField(raw: string): number | null {
   return Number.isInteger(n) && n >= 1 ? n : null
 }
 
-function validateCuratorNotes(raw: string): string | undefined {
-  const trimmed = raw.trim()
-  if (trimmed.length > CURATOR_NOTES_MAX_LENGTH) {
-    return `Curator notes must be ${CURATOR_NOTES_MAX_LENGTH} characters or fewer.`
+function validateStringList(
+  values: string[],
+  label: string,
+  maxCount: number,
+  maxLength: number,
+): string | undefined {
+  const normalized = normalizeStringListField(values)
+  if (normalized.length > maxCount) {
+    return `${label} must include ${maxCount} entries or fewer.`
+  }
+  for (const value of normalized) {
+    if (value.length > maxLength) {
+      return `${label} entries must be ${maxLength} characters or fewer.`
+    }
   }
   return undefined
 }
@@ -164,23 +165,23 @@ export function validateCatalogEpisodeForm(
   const titleError = validateTitle(values.title, mode)
   if (titleError) fieldErrors.title = titleError
 
-  const eraError = validateEra(values.era)
-  if (eraError) fieldErrors.era = eraError
-
-  const videoIdError = validateYoutubeVideoId(values.youtubeVideoId)
-  if (videoIdError) fieldErrors.youtubeVideoId = videoIdError
+  const catalogError = validateCatalog(values.catalog)
+  if (catalogError) fieldErrors.catalog = catalogError
 
   const watchUrlError = validateYoutubeWatchUrl(values.youtubeWatchUrl)
   if (watchUrlError) fieldErrors.youtubeWatchUrl = watchUrlError
 
+  const tagsError = validateStringList(values.tags, 'Tags', TAG_MAX_COUNT, TAG_MAX_LENGTH)
+  if (tagsError) fieldErrors.tags = tagsError
+
+  const labelsError = validateStringList(values.labels, 'Labels', LABEL_MAX_COUNT, LABEL_MAX_LENGTH)
+  if (labelsError) fieldErrors.labels = labelsError
+
   const movieSearchTitleError = validateMovieSearchTitle(values.movieSearchTitle)
   if (movieSearchTitleError) fieldErrors.movieSearchTitle = movieSearchTitleError
 
-  const tmdbMovieIdError = validateTmdbMovieId(values.tmdbMovieId, mode)
+  const tmdbMovieIdError = validateTmdbMovieId(values.tmdbMovieId)
   if (tmdbMovieIdError) fieldErrors.tmdbMovieId = tmdbMovieIdError
-
-  const curatorNotesError = validateCuratorNotes(values.curatorNotes)
-  if (curatorNotesError) fieldErrors.curatorNotes = curatorNotesError
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
@@ -212,7 +213,9 @@ export function catalogEpisodeToFormValues(
     id: string
     experimentNumber: number
     title: string
-    era: CatalogEra
+    catalog: CatalogCategory
+    tags?: string[] | null
+    labels?: string[] | null
     youtubeVideoId: string | null
     youtubeWatchUrl: string | null
     carousel: boolean
@@ -220,21 +223,20 @@ export function catalogEpisodeToFormValues(
     movieSearchTitle?: string | null
     tmdbMovieId?: number | null
     embedAllows?: boolean | null
-    curatorNotes?: string | null
   },
 ): CatalogEpisodeFormValues {
   return {
     id: entry.id,
     experimentNumber: String(entry.experimentNumber),
     title: entry.title,
-    era: entry.era,
-    youtubeVideoId: entry.youtubeVideoId ?? '',
+    catalog: entry.catalog,
+    tags: entry.tags ?? [],
+    labels: entry.labels ?? [],
     youtubeWatchUrl: entry.youtubeWatchUrl ?? '',
     carousel: entry.carousel,
     spotlight: entry.spotlight === true,
     movieSearchTitle: entry.movieSearchTitle ?? '',
     tmdbMovieId: entry.tmdbMovieId != null ? String(entry.tmdbMovieId) : '',
     embedAllows: entry.embedAllows !== false,
-    curatorNotes: entry.curatorNotes ?? '',
   }
 }

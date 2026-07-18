@@ -3421,6 +3421,37 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   color: #ff8a80;
 }
 
+.riffsync-admin-token-field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.riffsync-admin-token-field__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.riffsync-admin-token-field__token {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.riffsync-admin-token-field__token button {
+  border: 0;
+  background: transparent;
+  color: var(--secondary-color);
+  cursor: pointer;
+}
+
 .riffsync-admin-form-readonly-field {
   display: grid;
   gap: 0.2rem;

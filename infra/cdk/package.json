@@ -11,7 +11,9 @@
     "synth:prod": "cdk synth --all --context environment=prod",
     "test": "npm run build && vitest run",
     "seed:catalog": "npx ts-node --prefer-ts-exts scripts/seed-catalog-from-json.ts",
-    "copy:catalog": "npx ts-node --prefer-ts-exts scripts/copy-catalog-dynamodb.ts"
+    "copy:catalog": "npx ts-node --prefer-ts-exts scripts/copy-catalog-dynamodb.ts",
+    "migrate:catalog-taxonomy": "npx ts-node --prefer-ts-exts scripts/migrate-catalog-era-to-taxonomy.ts",
+    "export:catalog-json": "npx ts-node --prefer-ts-exts scripts/export-catalog-dynamodb-to-json.ts"
   },
   "engines": {
     "node": ">=20"

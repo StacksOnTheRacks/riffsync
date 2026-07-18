@@ -25,7 +25,9 @@ Returns a bundle aligned with **`data/catalog/episodes.json`**:
 | **`id`** | `string` | Stable slug (partition key in DynamoDB). |
 | **`experimentNumber`** | `number` | Classic experiment ordering. |
 | **`title`** | `string` | Display title (**not** TMDB `title`). |
-| **`era`** | string enum | `joel` \| `mike` \| `jonah` \| `emily` \| `community` \| `movie_night` \| `riffable` \| `other`. Public catalog UI omits **`other`** from era filter chips. |
+| **`catalog`** | string enum | `mst3k` \| `community` \| `riff_material` \| `movie_night` \| `other`. Public catalog UI omits **`other`**. |
+| **`tags`** | `string[]` | Search/filter metadata, conventionally `Namespace: Value` (for example `Era: Joel`, `Genre: Comedy`). |
+| **`labels`** | `string[]` | Short display badges for catalog cards. |
 | **`youtubeVideoId`** | `string \| null` | |
 | **`youtubeWatchUrl`** | `string \| null` | |
 | **`tagline`** | `string \| null` | Often filled by reconcile. |
@@ -48,7 +50,6 @@ Clients should treat optional / **`null`** enrichment fields as "not yet availab
 | --- | --- | --- |
 | **`embedAllows`** | `boolean` | Operator-writable via admin catalog **POST**/**PATCH**; included on public **`CatalogEpisode`** when stored (especially **`false`**). When **`false`**, SPA should not offer in-app YouTube embed (see **`architecture.frontend.md`**). |
 | **`movieSearchTitle`** | `string \| null` | Staff-only TMDB search hint; admin API and staff reads only, not public projection. |
-| **`curatorNotes`** | `string \| null` | Staff-only curator notes; admin API and staff reads only, not public projection. |
 | **`playbackExpectation`** | `"premium"` \| `"ad_supported"` \| `"unknown"` | Honor-system advisory for **US-P0-07**; not verified server-side. |
 
 ## `GET /v1/catalog/{id}`
@@ -89,4 +90,5 @@ Reconcile/TMDB batch writers should call the same bump helper when they mutate c
 ## Infrastructure
 
 - **Table:** **`RiffSyncApi-prod`** stack output **`CatalogTableName`** — PK **`id`** (string). No sort key; list route uses **`Scan`** (see **`infra/cdk/README.md`**). Reserved meta PK **`_meta`** holds **`catalogGeneration`**.
-- **Seed:** **`infra/cdk`** → **`npm run seed:catalog -- <CatalogTableName>`** after deploy (validates against **`catalog.schema.json`**).
+- **Seed:** **`infra/cdk`** → **`npm run seed:catalog -- <CatalogTableName>`** only for empty/bootstrap tables. The seed command refuses non-empty tables unless explicitly forced.
+- **Taxonomy migration:** Use **`npm run migrate:catalog-taxonomy -- <CatalogTableName> --dry-run`**, then **`--write --require-confirm <CatalogTableName>`** for in-place Dynamo updates. Export Dynamo back to **`episodes.json`** with **`npm run export:catalog-json -- <CatalogTableName>`** after migration.

@@ -4,7 +4,7 @@ import 'swiper/css'
 import 'swiper/css/navigation'
 import { Link } from 'react-router-dom'
 import type { HeroSlide } from '../../catalog/mockCatalog'
-import { formatCatalogEraLabel } from '../../catalog/catalogTypes'
+import { formatCatalogLabel } from '../../catalog/catalogTypes'
 import { EpisodeTileActions } from '../../components/catalog/EpisodeTileActions'
 
 export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
@@ -33,7 +33,7 @@ export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
                             <div className="col-xl-6">
                               <div className="gen-tag-line">
                                 <span>
-                                  Experiment {s.experimentNumber} · {formatCatalogEraLabel(s.episode.era)}
+                                  Experiment {s.experimentNumber} · {formatCatalogLabel(s.episode.catalog)}
                                 </span>
                               </div>
                               <div className="gen-movie-info">
@@ -47,7 +47,7 @@ export function HomeHeroBanner({ slides }: { slides: HeroSlide[] }) {
                                   <li>RiffSync Catalog</li>
                                   <li>
                                     <Link to={`/watch/${s.episodeId}`}>
-                                      <span>{formatCatalogEraLabel(s.episode.era)}</span>
+                                      <span>{formatCatalogLabel(s.episode.catalog)}</span>
                                     </Link>
                                   </li>
                                 </ul>

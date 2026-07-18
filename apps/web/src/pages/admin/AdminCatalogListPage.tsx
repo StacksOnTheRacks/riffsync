@@ -12,9 +12,9 @@ import {
 } from '../../api/staffAdminSessionApi'
 import {
   filterStaffCatalogEntries,
-  type StaffCatalogFilterEra,
+  type StaffCatalogFilterCatalog,
 } from '../../catalog/filterStaffCatalogEntries'
-import { CATALOG_ERAS, formatCatalogEraLabel } from '../../catalog/catalogTypes'
+import { CATALOG_CATEGORIES, formatCatalogLabel } from '../../catalog/catalogTypes'
 
 const SAVED_BANNER_TIMEOUT_MS = 5000
 
@@ -31,7 +31,7 @@ export function AdminCatalogListPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [era, setEra] = useState<StaffCatalogFilterEra>('all')
+  const [catalog, setCatalog] = useState<StaffCatalogFilterCatalog>('all')
 
   const savedFromState = (location.state as { saved?: boolean } | null)?.saved === true
   const savedFromQuery = searchParams.get('saved') === '1'
@@ -121,8 +121,8 @@ export function AdminCatalogListPage() {
   }, [])
 
   const filteredEntries = useMemo(
-    () => filterStaffCatalogEntries(entries, { query, era }),
-    [entries, query, era],
+    () => filterStaffCatalogEntries(entries, { query, catalog }),
+    [entries, query, catalog],
   )
 
   const isEmptyCatalog = !loading && !error && entries.length === 0
@@ -139,21 +139,21 @@ export function AdminCatalogListPage() {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by id, title, or #"
+              placeholder="Search by id, title, #, tag, or label"
               disabled={loading || Boolean(error)}
             />
           </label>
           <label className="riffsync-admin-catalog-era">
-            <span className="sr-only">Filter by era</span>
+            <span className="sr-only">Filter by catalog</span>
             <select
-              value={era}
-              onChange={(e) => setEra(e.target.value as StaffCatalogFilterEra)}
+              value={catalog}
+              onChange={(e) => setCatalog(e.target.value as StaffCatalogFilterCatalog)}
               disabled={loading || Boolean(error)}
             >
-              <option value="all">All eras</option>
-              {CATALOG_ERAS.map((value) => (
+              <option value="all">All catalogs</option>
+              {CATALOG_CATEGORIES.map((value) => (
                 <option key={value} value={value}>
-                  {formatCatalogEraLabel(value)}
+                  {formatCatalogLabel(value)}
                 </option>
               ))}
             </select>
@@ -210,7 +210,7 @@ export function AdminCatalogListPage() {
         <div className="riffsync-admin-catalog-no-match">
           <p>No episodes match your search.</p>
           <p className="riffsync-admin-catalog-no-match-hint">
-            Clear the search field or set era to All eras to see all episodes.
+            Clear the search field or set catalog to All catalogs to see all episodes.
           </p>
         </div>
       ) : null}
@@ -224,7 +224,8 @@ export function AdminCatalogListPage() {
                 <th scope="col">#</th>
                 <th scope="col">Poster</th>
                 <th scope="col">title</th>
-                <th scope="col">era</th>
+                <th scope="col">catalog</th>
+                <th scope="col">labels</th>
                 <th scope="col">hero</th>
                 <th scope="col">spotlight</th>
                 <th scope="col">YouTube</th>
@@ -259,7 +260,8 @@ export function AdminCatalogListPage() {
                       )}
                     </td>
                     <td>{entry.title}</td>
-                    <td>{formatCatalogEraLabel(entry.era)}</td>
+                    <td>{formatCatalogLabel(entry.catalog)}</td>
+                    <td>{entry.labels.length > 0 ? entry.labels.join(', ') : 'None'}</td>
                     <td>{entry.carousel ? 'Yes' : 'No'}</td>
                     <td>{entry.spotlight ? 'Yes' : 'No'}</td>
                     <td>{entry.youtubeVideoId ? 'Yes' : 'No'}</td>

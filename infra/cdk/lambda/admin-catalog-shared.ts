@@ -8,7 +8,6 @@ import {
 export interface AdminEpisode extends CatalogEpisode {
   readonly movieSearchTitle: string | null;
   readonly embedAllows: boolean | null;
-  readonly curatorNotes: string | null;
   readonly tmdbNeedsReview?: boolean | null;
   readonly youtubeThumbnailUrl: string | null;
 }
@@ -40,7 +39,6 @@ export function projectAdminEpisode(item: Record<string, unknown>): AdminEpisode
     ...base,
     movieSearchTitle: optionalString(item.movieSearchTitle),
     embedAllows: optionalBoolean(item.embedAllows),
-    curatorNotes: optionalString(item.curatorNotes),
     tmdbNeedsReview: optionalBooleanField(item.tmdbNeedsReview),
     youtubeThumbnailUrl: optionalString(item.youtubeThumbnailUrl),
   };

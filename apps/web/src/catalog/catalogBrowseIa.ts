@@ -1,4 +1,4 @@
-import type { CatalogEra } from './catalogTypes'
+import type { CatalogCategory } from './catalogTypes'
 
 /** Route-fixed subcategory browse destinations (M32 browse IA). */
 export const CATALOG_SUBCATEGORIES = [
@@ -7,28 +7,28 @@ export const CATALOG_SUBCATEGORIES = [
     path: '/catalog/mst3k',
     label: 'MST3K',
     subtitle: '"Push the button, Frank"',
-    eras: ['joel', 'mike', 'jonah', 'emily'] as const satisfies readonly CatalogEra[],
+    catalog: 'mst3k' as const satisfies CatalogCategory,
   },
   {
     slug: 'community',
     path: '/catalog/community',
     label: 'Community',
     subtitle: 'Community Made Riffs',
-    eras: ['community'] as const satisfies readonly CatalogEra[],
+    catalog: 'community' as const satisfies CatalogCategory,
   },
   {
-    slug: 'riff-ready',
-    path: '/catalog/riff-ready',
-    label: 'Riff-Ready',
+    slug: 'riff-material',
+    path: '/catalog/riff-material',
+    label: 'Riff Material',
     subtitle: 'Cheesy Flicks Ready to Riff',
-    eras: ['riffable'] as const satisfies readonly CatalogEra[],
+    catalog: 'riff_material' as const satisfies CatalogCategory,
   },
   {
     slug: 'movie-night',
     path: '/catalog/movie-night',
     label: 'Movie Night',
     subtitle: 'Pull the Family Together for a Movie Night',
-    eras: ['movie_night'] as const satisfies readonly CatalogEra[],
+    catalog: 'movie_night' as const satisfies CatalogCategory,
   },
 ] as const
 

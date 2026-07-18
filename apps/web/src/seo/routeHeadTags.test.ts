@@ -36,7 +36,9 @@ function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>
   return {
     experimentNumber: 101,
     title: 'The Crawling Eye',
-    era: 'joel',
+    catalog: 'mst3k',
+    tags: ['Era: Joel'],
+    labels: [],
     youtubeVideoId: 'abc123',
     youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc123',
     tagline: null,
@@ -74,7 +76,7 @@ describe('buildStaticRouteHeadTags', () => {
     const head = buildStaticRouteHeadTags('/catalog', 'https://riffsync.tv')
     expect(head.documentTitle).toBe('RiffSync Catalog — browse the library')
     expect(head.description).toBe(
-      'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff-Ready, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
+      'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff Material, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
     )
     expect(head.canonicalUrl).toBe('https://riffsync.tv/catalog')
   })
@@ -96,11 +98,11 @@ describe('buildStaticRouteHeadTags', () => {
         canonical: 'https://riffsync.tv/catalog/community',
       },
       {
-        route: '/catalog/riff-ready' as const,
-        title: 'Riff-Ready — RiffSync Catalog',
+        route: '/catalog/riff-material' as const,
+        title: 'Riff Material — RiffSync Catalog',
         description:
-          'Browse Riff-Ready titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
-        canonical: 'https://riffsync.tv/catalog/riff-ready',
+          'Browse Riff Material titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+        canonical: 'https://riffsync.tv/catalog/riff-material',
       },
       {
         route: '/catalog/movie-night' as const,

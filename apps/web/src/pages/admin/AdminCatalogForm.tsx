@@ -15,43 +15,52 @@ import {
   StaffSessionForbiddenError,
   StaffSessionUnauthorizedError,
 } from '../../api/staffAdminSessionApi'
-import { CATALOG_ERAS, formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTypes'
+import {
+  CATALOG_CATEGORIES,
+  formatCatalogLabel,
+  type CatalogCategory,
+} from '../../catalog/catalogTypes'
 import {
   mapValidationDetailsToFieldErrors,
   normalizeNullableTextField,
+  normalizeStringListField,
   normalizeTmdbMovieIdField,
-  normalizeYoutubeField,
   validateCatalogEpisodeForm,
   type CatalogEpisodeFormMode,
   type CatalogEpisodeFormValues,
 } from '../../catalog/validateCatalogEpisodeForm'
+import { parseYoutubeWatchUrl } from '../../catalog/youtubeUrl'
 import { invalidatePublicCatalogQueries } from '../../catalog/catalogQueries'
 import { AdminCatalogDeleteControl } from './AdminCatalogDeleteControl'
 
 const RECONCILE_HELPER =
-  'These fields are updated by the scheduled reconcile job. Pin a TMDB movie id or set a search title in Curator hints; art and tagline refresh on the next reconcile run.'
+  'These fields are updated by the scheduled reconcile job. Pin a TMDB movie id or set a search title in Operator hints; art and tagline refresh on the next reconcile run.'
 
-const CURATOR_HINTS_HELPER =
-  'Operator hints stored in Dynamo. tmdbMovieId locks reconcile to GET /movie/{id}; movieSearchTitle guides search when no id is set; embedAllows controls fan in-app embed; notes are staff-only.'
+const OPERATOR_HINTS_HELPER =
+  'Operator hints stored in Dynamo. tmdbMovieId locks reconcile to GET /movie/{id}; movieSearchTitle guides search when no id is set; embedAllows controls fan in-app embed.'
 
 function formValuesToWriteBody(
   values: CatalogEpisodeFormValues,
-  mode: CatalogEpisodeFormMode,
 ): StaffCatalogEpisodeWrite {
   const body: StaffCatalogEpisodeWrite = {
     experimentNumber: Number.parseInt(values.experimentNumber.trim(), 10),
     title: values.title.trim(),
-    era: values.era,
-    youtubeVideoId: normalizeYoutubeField(values.youtubeVideoId),
-    youtubeWatchUrl: normalizeYoutubeField(values.youtubeWatchUrl),
+    catalog: values.catalog,
+    tags: normalizeStringListField(values.tags),
+    labels: normalizeStringListField(values.labels),
     carousel: values.carousel,
     spotlight: values.spotlight,
     movieSearchTitle: normalizeNullableTextField(values.movieSearchTitle),
+    tmdbMovieId: normalizeTmdbMovieIdField(values.tmdbMovieId),
     embedAllows: values.embedAllows,
-    curatorNotes: normalizeNullableTextField(values.curatorNotes),
   }
-  if (mode === 'edit') {
-    body.tmdbMovieId = normalizeTmdbMovieIdField(values.tmdbMovieId)
+  const youtube = parseYoutubeWatchUrl(values.youtubeWatchUrl)
+  if (youtube) {
+    body.youtubeVideoId = youtube.videoId
+    body.youtubeWatchUrl = youtube.canonicalWatchUrl
+  } else {
+    body.youtubeVideoId = null
+    body.youtubeWatchUrl = null
   }
   return body
 }
@@ -60,13 +69,17 @@ function buildPatchBody(
   baseline: StaffCatalogEpisode,
   values: CatalogEpisodeFormValues,
 ): StaffCatalogEpisodeWrite {
-  const next = formValuesToWriteBody(values, 'edit')
+  const next = formValuesToWriteBody(values)
   const body: StaffCatalogEpisodeWrite = {}
   if (next.experimentNumber !== baseline.experimentNumber) {
     body.experimentNumber = next.experimentNumber
   }
   if (next.title !== baseline.title) body.title = next.title
-  if (next.era !== baseline.era) body.era = next.era
+  if (next.catalog !== baseline.catalog) body.catalog = next.catalog
+  if (JSON.stringify(next.tags ?? []) !== JSON.stringify(baseline.tags)) body.tags = next.tags
+  if (JSON.stringify(next.labels ?? []) !== JSON.stringify(baseline.labels)) {
+    body.labels = next.labels
+  }
   if (next.youtubeVideoId !== baseline.youtubeVideoId) body.youtubeVideoId = next.youtubeVideoId
   if (next.youtubeWatchUrl !== baseline.youtubeWatchUrl) {
     body.youtubeWatchUrl = next.youtubeWatchUrl
@@ -83,9 +96,6 @@ function buildPatchBody(
   if (next.embedAllows !== baselineEmbedAllows) {
     body.embedAllows = next.embedAllows
   }
-  if (next.curatorNotes !== baseline.curatorNotes) {
-    body.curatorNotes = next.curatorNotes
-  }
   return body
 }
 
@@ -94,6 +104,88 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
     <div className="riffsync-admin-form-readonly-field">
       <span className="riffsync-admin-form-readonly-field__label">{label}</span>
       <span className="riffsync-admin-form-readonly-field__value">{value}</span>
+    </div>
+  )
+}
+
+function TokenListField({
+  id,
+  label,
+  helper,
+  values,
+  disabled,
+  error,
+  onChange,
+}: {
+  id: string
+  label: string
+  helper: string
+  values: string[]
+  disabled: boolean
+  error?: string
+  onChange: (values: string[]) => void
+}) {
+  const [draft, setDraft] = useState('')
+  const helperId = `${id}-helper`
+  const errorId = `${id}-error`
+
+  const addDraft = useCallback(() => {
+    const parts = draft
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+    if (parts.length === 0) return
+    onChange(normalizeStringListField([...values, ...parts]))
+    setDraft('')
+  }, [draft, onChange, values])
+
+  return (
+    <div className="riffsync-admin-form-field">
+      <label htmlFor={id}>{label}</label>
+      <div className="riffsync-admin-token-field">
+        {values.length > 0 ? (
+          <ul className="riffsync-admin-token-field__list" aria-label={`${label} list`}>
+            {values.map((value) => (
+              <li key={value} className="riffsync-admin-token-field__token">
+                <span>{value}</span>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onChange(values.filter((entry) => entry !== value))}
+                  aria-label={`Remove ${value}`}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <input
+          id={id}
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={addDraft}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault()
+              addDraft()
+            }
+          }}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : helperId}
+          disabled={disabled}
+          placeholder="Type and press Enter"
+        />
+      </div>
+      <p id={helperId} className="riffsync-admin-form-field-helper">
+        {helper}
+      </p>
+      {error ? (
+        <p id={errorId} className="riffsync-admin-form-field-error" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -154,7 +246,7 @@ export function AdminCatalogForm({
 
       if (mode === 'create') {
         const id = values.id.trim()
-        await createStaffCatalogEpisode(token, id, formValuesToWriteBody(values, 'create'))
+        await createStaffCatalogEpisode(token, id, formValuesToWriteBody(values))
       } else if (initialEpisode) {
         const patchBody = buildPatchBody(initialEpisode, values)
         if (Object.keys(patchBody).length === 0) {
@@ -328,59 +420,53 @@ export function AdminCatalogForm({
           </div>
 
           <div className="riffsync-admin-form-field">
-            <label htmlFor="catalog-form-era">Era</label>
+            <label htmlFor="catalog-form-catalog">Catalog</label>
             <select
-              id="catalog-form-era"
-              name="era"
+              id="catalog-form-catalog"
+              name="catalog"
               required
-              value={values.era}
-              onChange={(e) => setField('era', e.target.value as CatalogEra)}
-              aria-invalid={fieldErrors.era ? true : undefined}
-              aria-describedby={fieldErrors.era ? 'catalog-form-era-error' : undefined}
+              value={values.catalog}
+              onChange={(e) => setField('catalog', e.target.value as CatalogCategory)}
+              aria-invalid={fieldErrors.catalog ? true : undefined}
+              aria-describedby={fieldErrors.catalog ? 'catalog-form-catalog-error' : undefined}
               disabled={saving}
             >
-              {CATALOG_ERAS.map((era) => (
-                <option key={era} value={era}>
-                  {formatCatalogEraLabel(era)}
+              {CATALOG_CATEGORIES.map((catalog) => (
+                <option key={catalog} value={catalog}>
+                  {formatCatalogLabel(catalog)}
                 </option>
               ))}
             </select>
-            {fieldErrors.era ? (
-              <p id="catalog-form-era-error" className="riffsync-admin-form-field-error" role="alert">
-                {fieldErrors.era}
+            {fieldErrors.catalog ? (
+              <p id="catalog-form-catalog-error" className="riffsync-admin-form-field-error" role="alert">
+                {fieldErrors.catalog}
               </p>
             ) : null}
           </div>
+
+          <TokenListField
+            id="catalog-form-tags"
+            label="Tags"
+            helper='Search/filter metadata, e.g. "Era: Joel", "Genre: Comedy", "Season: 3".'
+            values={values.tags}
+            disabled={saving}
+            error={fieldErrors.tags}
+            onChange={(next) => setField('tags', next)}
+          />
+
+          <TokenListField
+            id="catalog-form-labels"
+            label="Labels"
+            helper="Short badges shown on catalog cards."
+            values={values.labels}
+            disabled={saving}
+            error={fieldErrors.labels}
+            onChange={(next) => setField('labels', next)}
+          />
         </fieldset>
 
         <fieldset className="riffsync-admin-form-section">
           <legend>YouTube</legend>
-          <div className="riffsync-admin-form-field">
-            <label htmlFor="catalog-form-youtube-id">YouTube video id</label>
-            <input
-              id="catalog-form-youtube-id"
-              name="youtubeVideoId"
-              type="text"
-              value={values.youtubeVideoId}
-              onChange={(e) => setField('youtubeVideoId', e.target.value)}
-              aria-invalid={fieldErrors.youtubeVideoId ? true : undefined}
-              aria-describedby={
-                fieldErrors.youtubeVideoId ? 'catalog-form-youtube-id-error' : undefined
-              }
-              disabled={saving}
-              placeholder="Leave empty if unknown"
-            />
-            {fieldErrors.youtubeVideoId ? (
-              <p
-                id="catalog-form-youtube-id-error"
-                className="riffsync-admin-form-field-error"
-                role="alert"
-              >
-                {fieldErrors.youtubeVideoId}
-              </p>
-            ) : null}
-          </div>
-
           <div className="riffsync-admin-form-field">
             <label htmlFor="catalog-form-youtube-url">YouTube watch URL</label>
             <input
@@ -394,7 +480,7 @@ export function AdminCatalogForm({
                 fieldErrors.youtubeWatchUrl ? 'catalog-form-youtube-url-error' : undefined
               }
               disabled={saving}
-              placeholder="https://www.youtube.com/watch?v=…"
+              placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx"
             />
             {fieldErrors.youtubeWatchUrl ? (
               <p
@@ -448,8 +534,8 @@ export function AdminCatalogForm({
         ) : null}
 
         <fieldset className="riffsync-admin-form-section">
-          <legend>Curator hints</legend>
-          <p className="riffsync-admin-form-section-helper">{CURATOR_HINTS_HELPER}</p>
+          <legend>Operator hints</legend>
+          <p className="riffsync-admin-form-section-helper">{OPERATOR_HINTS_HELPER}</p>
 
           <div className="riffsync-admin-form-field">
             <label htmlFor="catalog-form-movie-search-title">Movie search title</label>
@@ -482,41 +568,39 @@ export function AdminCatalogForm({
             ) : null}
           </div>
 
-          {mode === 'edit' ? (
-            <div className="riffsync-admin-form-field">
-              <label htmlFor="catalog-form-tmdb-movie-id">TMDB movie id</label>
-              <input
-                id="catalog-form-tmdb-movie-id"
-                name="tmdbMovieId"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={values.tmdbMovieId}
-                onChange={(e) => setField('tmdbMovieId', e.target.value)}
-                aria-invalid={fieldErrors.tmdbMovieId ? true : undefined}
-                aria-describedby={
-                  fieldErrors.tmdbMovieId
-                    ? 'catalog-form-tmdb-movie-id-error'
-                    : 'catalog-form-tmdb-movie-id-helper'
-                }
-                disabled={saving}
-                placeholder="Leave empty to clear"
-              />
-              <p id="catalog-form-tmdb-movie-id-helper" className="riffsync-admin-form-field-helper">
-                Pin the TMDB movie id from themoviedb.org. Reconcile fetches poster and tagline from
-                this id and skips title search.
+          <div className="riffsync-admin-form-field">
+            <label htmlFor="catalog-form-tmdb-movie-id">TMDB movie id</label>
+            <input
+              id="catalog-form-tmdb-movie-id"
+              name="tmdbMovieId"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={values.tmdbMovieId}
+              onChange={(e) => setField('tmdbMovieId', e.target.value)}
+              aria-invalid={fieldErrors.tmdbMovieId ? true : undefined}
+              aria-describedby={
+                fieldErrors.tmdbMovieId
+                  ? 'catalog-form-tmdb-movie-id-error'
+                  : 'catalog-form-tmdb-movie-id-helper'
+              }
+              disabled={saving}
+              placeholder="Leave empty to clear"
+            />
+            <p id="catalog-form-tmdb-movie-id-helper" className="riffsync-admin-form-field-helper">
+              Pin the TMDB movie id from themoviedb.org. Reconcile fetches poster and tagline from
+              this id and skips title search.
+            </p>
+            {fieldErrors.tmdbMovieId ? (
+              <p
+                id="catalog-form-tmdb-movie-id-error"
+                className="riffsync-admin-form-field-error"
+                role="alert"
+              >
+                {fieldErrors.tmdbMovieId}
               </p>
-              {fieldErrors.tmdbMovieId ? (
-                <p
-                  id="catalog-form-tmdb-movie-id-error"
-                  className="riffsync-admin-form-field-error"
-                  role="alert"
-                >
-                  {fieldErrors.tmdbMovieId}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+            ) : null}
+          </div>
 
           <div className="riffsync-admin-form-field riffsync-admin-form-field--checkbox">
             <input
@@ -534,37 +618,6 @@ export function AdminCatalogForm({
               In-app embed is disabled for this episode.
             </p>
           ) : null}
-
-          <div className="riffsync-admin-form-field">
-            <label htmlFor="catalog-form-curator-notes">Curator notes</label>
-            <textarea
-              id="catalog-form-curator-notes"
-              name="curatorNotes"
-              rows={4}
-              value={values.curatorNotes}
-              onChange={(e) => setField('curatorNotes', e.target.value)}
-              aria-invalid={fieldErrors.curatorNotes ? true : undefined}
-              aria-describedby={
-                fieldErrors.curatorNotes
-                  ? 'catalog-form-curator-notes-error'
-                  : 'catalog-form-curator-notes-helper'
-              }
-              disabled={saving}
-              placeholder="Leave empty to clear"
-            />
-            <p id="catalog-form-curator-notes-helper" className="riffsync-admin-form-field-helper">
-              Internal operator notes (staff-only, not shown on public catalog).
-            </p>
-            {fieldErrors.curatorNotes ? (
-              <p
-                id="catalog-form-curator-notes-error"
-                className="riffsync-admin-form-field-error"
-                role="alert"
-              >
-                {fieldErrors.curatorNotes}
-              </p>
-            ) : null}
-          </div>
 
           {showTmdbNeedsReview && episode ? (
             <ReadOnlyField

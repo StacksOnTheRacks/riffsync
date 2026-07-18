@@ -4,7 +4,7 @@ This folder defines the **shape** of catalog rows (**`catalog.schema.json`**) an
 
 **Target architecture:** **DynamoDB** backing **`GET /v1/catalog`** (see **`docs/architecture.server.md`**) is the **canonical catalog store**. Treat **`data/catalog/episodes.json`** as a **bootstrap snapshot** matching **`catalog.schema.json`**, useful for import, CI validation (e.g. `ajv`), and fixtures—not the permanent source of truth.
 
-**Committed seed rows** only carry the episode fields validated by this schema (`tagline`, resolved image URLs, `tmdbMovieId`, sync stamp, plus YouTube fields). **Production** Dynamo items may later include additional reconcile-only columns (synopsis, popularity, curator notes) documented in **`docs/architecture.catalog-images.md`** without changing the slim git seed unless you widen the schema deliberately.
+**Committed seed rows** only carry the episode fields validated by this schema (`catalog`, `tags`, `labels`, `tagline`, resolved image URLs, `tmdbMovieId`, sync stamp, plus YouTube fields). **Production** Dynamo items may later include additional reconcile-only columns (synopsis, popularity) documented in **`docs/architecture.catalog-images.md`** without changing the slim git seed unless you widen the schema deliberately.
 
 ## Files
 
@@ -26,13 +26,14 @@ Until that migration lands, **`episodes.json`** is the practical place to bulk-e
 1. Use a **stable `id`** slug — never recycle it for a different experiment if links or rooms might reference it.
 2. Confirm the upload is **embeddable** in your test app (many uploads block embedding) before setting a non-null `youtubeVideoId`.
 3. Set `youtubeVideoId` to the **11-character** id from the watch URL when known; leave `null` for metadata-first rows awaiting a curator mapping.
-4. Fill `era` for filters (`joel` \| `mike` \| `jonah` \| `emily` \| `community` \| `movie_night` \| `riffable` \| `other`). Public catalog UI omits **`other`**; use **`other`** only as a staff staging bucket while recategorizing rows. **Convention here:** Joel through experiment **512** (Mitchell), Mike **513** onward through **1313**, Jonah from **1101** (national revival onward).
-5. Bump **`updated`** on the seed bundle (`YYYY-MM-DD`) when you ship a coordinated seed edit.
-6. **`youtubeWatchUrl`** is explicitly nullable; pairing it with **`youtubeVideoId`** is strongly recommended whenever the id is set (typically `https://www.youtube.com/watch?v=<11-char-id>`).
+4. Fill `catalog` for top-level pages (`mst3k` \| `community` \| `riff_material` \| `movie_night` \| `other`). Public catalog UI omits **`other`**; use **`other`** only as a staff staging bucket while recategorizing rows.
+5. Use `tags` for search/filter metadata such as **`Era: Joel`**, **`Genre: Comedy`**, or **`Season: 3`**. Use `labels` for short badges displayed on catalog cards.
+6. Bump **`updated`** on the seed bundle (`YYYY-MM-DD`) when you ship a coordinated seed edit.
+7. **`youtubeWatchUrl`** is explicitly nullable; pairing it with **`youtubeVideoId`** is strongly recommended whenever the id is set (typically `https://www.youtube.com/watch?v=<11-char-id>`).
 
-**Required shape:** columns after **`era`** are **always keys on every row** — use **`null`** when unknown until TMDB reconcile or curator fill.
+**Required shape:** catalog taxonomy fields are **always keys on every row**. Use empty arrays for **`tags`** and **`labels`** when none apply.
 
-Example entry (**all keys**, nullable post-**`era`** fields shown):
+Example entry (**all keys**, nullable post-**`catalog`** fields shown):
 
 
 ```json
@@ -40,7 +41,9 @@ Example entry (**all keys**, nullable post-**`era`** fields shown):
   "id": "example-slot",
   "experimentNumber": 421,
   "title": "Replace with curated experiment title",
-  "era": "joel",
+  "catalog": "mst3k",
+  "tags": ["Era: Joel"],
+  "labels": ["Joel"],
   "youtubeVideoId": "xxxxxxxxxxx",
   "youtubeWatchUrl": "https://www.youtube.com/watch?v=xxxxxxxxxxx",
   "tagline": null,

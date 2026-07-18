@@ -6,7 +6,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 
 | ID | As a… | I want… | So that… |
 | --- | --- | --- | --- |
-| US-P0-01 | visitor | browse the catalog hub and its subcategory pages (**MST3K**, **Community**, **Riff-Ready**, **Movie Night**) without signing up | I can reach mixed or filtered title grids and pick an episode |
+| US-P0-01 | visitor | browse the catalog hub and its subcategory pages (**MST3K**, **Community**, **Riff Material**, **Movie Night**) without signing up | I can reach mixed or filtered title grids and pick an episode |
 | US-P0-02 | visitor | join a hosted room as a guest | I watch in-app without creating an account |
 | US-P0-02b | visitor | try to start my own party unsigned | I’m prompted to **sign in to host** |
 | US-P0-03 | signed-in fan | create/open a room from the catalog | I’m room admin with **`hostSub`** binding and a share link |

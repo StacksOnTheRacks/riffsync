@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
 import { catalogCardImageUrl } from '../../catalog/mockCatalog'
-import { formatCatalogEraLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
+import { formatCatalogLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
 import { PlaybackExpectationBadge } from '../watch/PlaybackExpectationBadge'
 import { EpisodeTileActions } from './EpisodeTileActions'
 
 export function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
   const img = catalogCardImageUrl(episode)
+  const labels = episode.labels.length > 0 ? episode.labels : [formatCatalogLabel(episode.catalog)]
   return (
     <article className="riffsync-catalog-card movie type-movie status-publish has-post-thumbnail hentry">
       <div className="gen-carousel-movies-style-3 movie-grid style-3">
@@ -23,9 +24,11 @@ export function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
             <div className="gen-movie-meta-holder">
               <ul>
                 <li>#{episode.experimentNumber}</li>
-                <li>
-                  <span>{formatCatalogEraLabel(episode.era)}</span>
-                </li>
+                {labels.map((label) => (
+                  <li key={label}>
+                    <span>{label}</span>
+                  </li>
+                ))}
               </ul>
               <div className="riffsync-catalog-card__advisory">
                 <PlaybackExpectationBadge expectation={episode.playbackExpectation} />

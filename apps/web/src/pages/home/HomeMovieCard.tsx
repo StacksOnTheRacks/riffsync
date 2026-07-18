@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { formatCatalogEraLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
+import { formatCatalogLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
 import { catalogCardImageUrl } from '../../catalog/mockCatalog'
 import { EpisodeTileActions } from '../../components/catalog/EpisodeTileActions'
 
@@ -24,7 +24,7 @@ export function HomeMovieCard({ episode }: { episode: CatalogEpisode }) {
                 <li>#{episode.experimentNumber}</li>
                 <li>
                   <Link to={`/watch/${episode.id}`}>
-                    <span>{formatCatalogEraLabel(episode.era)}</span>
+                    <span>{formatCatalogLabel(episode.catalog)}</span>
                   </Link>
                 </li>
               </ul>

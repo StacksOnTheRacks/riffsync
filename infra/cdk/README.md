@@ -67,30 +67,49 @@ Hosted stack **`RiffSyncApi-prod`** adds:
 
 **Outputs:** **`CatalogTableName`**, **`HttpApiUrl`** (base URL — append **`/v1/catalog`**).
 
-**Seed (operators, after deploy):**
+**Seed (operators, empty/bootstrap tables only):**
 
 ```bash
 cd infra/cdk && npm ci && npm run build
+export AWS_PROFILE=me
 export AWS_REGION=us-east-1   # required for AWS CLI and the SDK in seed script if unset on your profile
-TABLE_NAME="$(aws cloudformation describe-stacks --region "$AWS_REGION" --stack-name RiffSyncApi-prod \
+TABLE_NAME="$(aws --profile "$AWS_PROFILE" cloudformation describe-stacks --region "$AWS_REGION" --stack-name RiffSyncApi-prod \
   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
-npm run seed:catalog -- "$TABLE_NAME"
+npm run seed:catalog -- "$TABLE_NAME" --profile "$AWS_PROFILE"
 ```
+
+The seed command validates **`data/catalog/episodes.json`** and uses DynamoDB **`PutRequest`**. It refuses to write to a non-empty table unless **`--allow-overwrite-existing`** is passed. Do not use seed as a prod migration mechanism for a curated table.
+
+**In-place catalog taxonomy migration (safe for curated tables):**
+
+```bash
+cd infra/cdk && npm ci && npm run build
+export AWS_PROFILE=me
+export AWS_REGION=us-east-1
+TABLE_NAME="$(aws --profile "$AWS_PROFILE" cloudformation describe-stacks --region "$AWS_REGION" --stack-name RiffSyncApi-prod \
+  --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
+npm run migrate:catalog-taxonomy -- "$TABLE_NAME" --profile "$AWS_PROFILE" --dry-run
+npm run migrate:catalog-taxonomy -- "$TABLE_NAME" --profile "$AWS_PROFILE" --write --require-confirm "$TABLE_NAME"
+npm run export:catalog-json -- "$TABLE_NAME" --profile "$AWS_PROFILE"
+```
+
+This migration scans existing DynamoDB rows and updates only **`catalog`**, **`tags`**, and **`labels`** while removing old **`era`** attributes. It does **not** insert rows from **`episodes.json`**, delete live rows, or truncate the table. Export runs **DynamoDB -> JSON** after migration so local dev and SEO builds mirror the live catalog.
 
 **Copy catalog between tables:** When **`DEST`** should receive a full copy from **`SOURCE`** (same **`AWS_REGION`**), see **`scripts/copy-catalog-dynamodb.ts`** header for an example using **`RiffSyncApi-prod`**.
 
 ```bash
 cd infra/cdk && npm ci && npm run build
+export AWS_PROFILE=me
 export AWS_REGION=us-east-1   # must match both tables
 SOURCE="<source_catalog_table_name>"
-DEST="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-prod \
+DEST="$(aws --profile "$AWS_PROFILE" cloudformation describe-stacks --region "$AWS_REGION" --stack-name RiffSyncApi-prod \
   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
-npm run copy:catalog -- "$SOURCE" "$DEST"
+npm run copy:catalog -- "$SOURCE" "$DEST" --profile "$AWS_PROFILE"
 ```
 
 **`PutRequest` overwrites** existing rows with the same **`id`**. For a **clean** prod table, rely on an empty first deploy or truncate items out-of-band; **`copy:catalog` does not delete** rows present only in prod.
 
-**Prefer `seed:catalog` to prod** when **`data/catalog/episodes.json`** is the **source of truth** (CI-friendly, schema-validated).
+Use **`seed:catalog`** only when **`data/catalog/episodes.json`** is intentionally the source for an empty/bootstrap table. For live curated prod data, prefer admin writes or explicit in-place migration scripts.
 
 JSON response shapes: **`docs/api.catalog.md`**.
 

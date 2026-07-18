@@ -5,7 +5,9 @@ const baseItem = {
   id: 'ep-1',
   experimentNumber: 101,
   title: 'Test Episode',
-  era: 'mike',
+  catalog: 'mst3k',
+  tags: ['Era: Mike'],
+  labels: ['Mike'],
   youtubeVideoId: null,
   youtubeWatchUrl: null,
   tagline: null,
@@ -43,14 +45,12 @@ describe('projectEpisode', () => {
     expect(entry.spotlight).toBe(true);
   });
 
-  it('does not expose staff-only curator hints', () => {
+  it('does not expose staff-only operator hints', () => {
     const entry = projectEpisode({
       ...baseItem,
       movieSearchTitle: 'Manos',
-      curatorNotes: 'secret',
       embedAllows: false,
     });
     expect(entry).not.toHaveProperty('movieSearchTitle');
-    expect(entry).not.toHaveProperty('curatorNotes');
   });
 });

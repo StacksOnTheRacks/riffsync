@@ -30,7 +30,9 @@ const baseEpisode: StaffCatalogEpisode = {
   id: 'ep-1',
   experimentNumber: 101,
   title: 'Pod People',
-  era: 'joel',
+  catalog: 'mst3k',
+  tags: ['Era: Joel'],
+  labels: ['Joel'],
   youtubeVideoId: 'abc',
   youtubeWatchUrl: null,
   tagline: null,
@@ -42,7 +44,6 @@ const baseEpisode: StaffCatalogEpisode = {
   spotlight: false,
   movieSearchTitle: null,
   embedAllows: true,
-  curatorNotes: null,
   youtubeThumbnailUrl: null,
 }
 

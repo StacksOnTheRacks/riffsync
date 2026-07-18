@@ -9,7 +9,7 @@
  * TABLE_NAME="$(aws cloudformation describe-stacks --region "$AWS_REGION" \
  *   --stack-name RiffSyncApi-prod \
  *   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
- * npm run seed:catalog -- "$TABLE_NAME"
+ * npm run seed:catalog -- "$TABLE_NAME" --profile me
  * ```
  *
  * Use **one line** for the npm command so the table name does not pick up a newline (zsh **`dquote>`** prompts are a sign the string broke across lines).
@@ -25,6 +25,7 @@ import {
   BatchWriteCommand,
   type BatchWriteCommandInput,
   DynamoDBDocumentClient,
+  ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
@@ -48,8 +49,22 @@ function resolveDynamoRegion(): string {
   return 'us-east-1';
 }
 
+function readOption(name: string): string | null {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? (process.argv[index + 1] ?? '').trim() || null : null;
+}
+
+function applyAwsProfile(): void {
+  const selected = readOption('--profile') ?? process.env.AWS_PROFILE?.trim() ?? null;
+  if (!selected) return;
+  process.env.AWS_PROFILE = selected;
+  process.env.AWS_SDK_LOAD_CONFIG = process.env.AWS_SDK_LOAD_CONFIG ?? '1';
+  console.log(`seed:catalog: using AWS profile ${selected}`);
+}
+
 async function main() {
   const tableNameRaw = process.argv[2] ?? process.env.CATALOG_TABLE_NAME;
+  const allowOverwriteExisting = process.argv.includes('--allow-overwrite-existing');
   const tableName = typeof tableNameRaw === 'string' ? tableNameRaw.trim() : '';
   if (!tableName) {
     console.error('Usage: seed-catalog-from-json.ts <tableName>');
@@ -66,6 +81,7 @@ async function main() {
   }
 
   const region = resolveDynamoRegion();
+  applyAwsProfile();
 
   const raw = readFileSync(episodesPath, 'utf8');
   const bundle = JSON.parse(raw) as CatalogBundle;
@@ -80,6 +96,25 @@ async function main() {
   }
 
   const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
+  if (!allowOverwriteExisting) {
+    const existing = await client.send(
+      new ScanCommand({
+        TableName: tableName,
+        Limit: 1,
+        ProjectionExpression: 'id',
+      }),
+    );
+    if ((existing.Count ?? 0) > 0) {
+      console.error(
+        'seed:catalog: target table is not empty. Refusing to overwrite curated catalog rows.',
+      );
+      console.error(
+        'Use migrate:catalog-taxonomy for in-place taxonomy changes, or pass --allow-overwrite-existing only for an intentional restore/bootstrap.',
+      );
+      process.exit(1);
+    }
+  }
+
   const chunks: Record<string, unknown>[][] = [];
   for (let i = 0; i < bundle.entries.length; i += 25) {
     chunks.push(bundle.entries.slice(i, i + 25));

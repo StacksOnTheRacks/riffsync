@@ -8,7 +8,7 @@
  * SOURCE="<source_catalog_table_name>"
  * DEST="$(aws cloudformation describe-stacks --stack-name RiffSyncApi-prod \
  *   --query "Stacks[0].Outputs[?OutputKey=='CatalogTableName'].OutputValue" --output text)"
- * npm run copy:catalog -- "$SOURCE" "$DEST"
+ * npm run copy:catalog -- "$SOURCE" "$DEST" --profile me
  * ```
  */
 
@@ -27,6 +27,19 @@ function resolveRegion(): string {
     process.env.AWS_DEFAULT_REGION?.trim() ||
     'us-east-1'
   );
+}
+
+function readOption(name: string): string | null {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? (process.argv[index + 1] ?? '').trim() || null : null;
+}
+
+function applyAwsProfile(): void {
+  const selected = readOption('--profile') ?? process.env.AWS_PROFILE?.trim() ?? null;
+  if (!selected) return;
+  process.env.AWS_PROFILE = selected;
+  process.env.AWS_SDK_LOAD_CONFIG = process.env.AWS_SDK_LOAD_CONFIG ?? '1';
+  console.log(`copy:catalog: using AWS profile ${selected}`);
 }
 
 function assertTableArg(name: string, label: string): void {
@@ -73,6 +86,7 @@ async function main(): Promise<void> {
   }
 
   const region = resolveRegion();
+  applyAwsProfile();
   const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
 
   let startKey: ScanCommandOutput['LastEvaluatedKey'];

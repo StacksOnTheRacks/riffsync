@@ -92,7 +92,9 @@ describe('staffAdminCatalogApi', () => {
     const body = {
       experimentNumber: 1,
       title: 'New',
-      era: 'other' as const,
+      catalog: 'other' as const,
+      tags: [],
+      labels: [],
       youtubeVideoId: null,
       youtubeWatchUrl: null,
     }

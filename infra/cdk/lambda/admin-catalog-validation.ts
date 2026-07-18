@@ -5,7 +5,9 @@ import catalogSchema from '../../../data/catalog/catalog.schema.json';
 export const ADMIN_WRITABLE_KEYS = [
   'experimentNumber',
   'title',
-  'era',
+  'catalog',
+  'tags',
+  'labels',
   'youtubeVideoId',
   'youtubeWatchUrl',
   'carousel',
@@ -13,7 +15,6 @@ export const ADMIN_WRITABLE_KEYS = [
   'movieSearchTitle',
   'tmdbMovieId',
   'embedAllows',
-  'curatorNotes',
 ] as const;
 
 export type AdminWritableKey = (typeof ADMIN_WRITABLE_KEYS)[number];
@@ -171,7 +172,9 @@ export function validateCatalogEpisodePost(
   const requiredKeys: AdminWritableKey[] = [
     'experimentNumber',
     'title',
-    'era',
+    'catalog',
+    'tags',
+    'labels',
     'youtubeVideoId',
     'youtubeWatchUrl',
   ];
@@ -197,22 +200,20 @@ export function validateCatalogEpisodePost(
   const movieSearchTitle = Object.prototype.hasOwnProperty.call(writable, 'movieSearchTitle')
     ? writable.movieSearchTitle
     : null;
-  const curatorNotes = Object.prototype.hasOwnProperty.call(writable, 'curatorNotes')
-    ? writable.curatorNotes
-    : null;
 
   const item: Record<string, unknown> = {
     id: pathId,
     experimentNumber: writable.experimentNumber,
     title: writable.title,
-    era: writable.era,
+    catalog: writable.catalog,
+    tags: writable.tags,
+    labels: writable.labels,
     youtubeVideoId: writable.youtubeVideoId,
     youtubeWatchUrl: writable.youtubeWatchUrl,
     carousel,
     spotlight,
     embedAllows,
     movieSearchTitle,
-    curatorNotes,
     tagline: null,
     posterImageUrl: null,
     backdropImageUrl: null,

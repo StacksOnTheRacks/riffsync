@@ -1,8 +1,8 @@
 import {
-  CATALOG_ERAS,
+  CATALOG_CATEGORIES,
   type CatalogBundle,
+  type CatalogCategory,
   type CatalogEpisode,
-  type CatalogEra,
   type PlaybackExpectation,
 } from './catalogTypes'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
@@ -27,12 +27,20 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-function asEra(v: unknown): CatalogEra {
+function asCatalogCategory(v: unknown): CatalogCategory {
   const s = typeof v === 'string' ? v : ''
-  if ((CATALOG_ERAS as readonly string[]).includes(s)) {
-    return s as CatalogEra
+  if ((CATALOG_CATEGORIES as readonly string[]).includes(s)) {
+    return s as CatalogCategory
   }
   return 'other'
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
 }
 
 function parsePlaybackExpectation(v: unknown): PlaybackExpectation | undefined {
@@ -73,7 +81,9 @@ export function normalizeEpisode(raw: unknown): CatalogEpisode {
     id: raw.id,
     experimentNumber: Number(raw.experimentNumber),
     title: String(raw.title),
-    era: asEra(raw.era),
+    catalog: asCatalogCategory(raw.catalog),
+    tags: asStringArray(raw.tags),
+    labels: asStringArray(raw.labels),
     youtubeVideoId:
       raw.youtubeVideoId === null || raw.youtubeVideoId === undefined
         ? null

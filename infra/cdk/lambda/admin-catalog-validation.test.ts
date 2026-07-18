@@ -8,7 +8,9 @@ import {
 const requiredPostBody = {
   experimentNumber: 101,
   title: 'Test Episode',
-  era: 'mike',
+  catalog: 'mst3k',
+  tags: ['Era: Mike'],
+  labels: [],
   youtubeVideoId: null,
   youtubeWatchUrl: null,
 };
@@ -17,7 +19,9 @@ const existingItem = {
   id: 'ep-1',
   experimentNumber: 101,
   title: 'Test Episode',
-  era: 'mike',
+  catalog: 'mst3k',
+  tags: ['Era: Mike'],
+  labels: [],
   youtubeVideoId: null,
   youtubeWatchUrl: null,
   tagline: null,
@@ -29,13 +33,12 @@ const existingItem = {
   spotlight: false,
   movieSearchTitle: 'Old title',
   embedAllows: true,
-  curatorNotes: 'Old notes',
 };
 
 describe('ADMIN_WRITABLE_KEYS', () => {
-  it('includes curator hint fields', () => {
+  it('includes operator hint and taxonomy fields', () => {
     expect(ADMIN_WRITABLE_KEYS).toEqual(
-      expect.arrayContaining(['movieSearchTitle', 'tmdbMovieId', 'embedAllows', 'curatorNotes']),
+      expect.arrayContaining(['catalog', 'tags', 'labels', 'movieSearchTitle', 'tmdbMovieId', 'embedAllows']),
     );
   });
 });
@@ -47,7 +50,6 @@ describe('validateCatalogEpisodePost', () => {
     if (!result.ok) return;
     expect(result.item.embedAllows).toBe(true);
     expect(result.item.movieSearchTitle).toBeNull();
-    expect(result.item.curatorNotes).toBeNull();
   });
 
   it('persists provided hint fields', () => {
@@ -55,13 +57,11 @@ describe('validateCatalogEpisodePost', () => {
       ...requiredPostBody,
       movieSearchTitle: 'The Crawling Eye',
       embedAllows: false,
-      curatorNotes: 'Test note',
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.item.movieSearchTitle).toBe('The Crawling Eye');
     expect(result.item.embedAllows).toBe(false);
-    expect(result.item.curatorNotes).toBe('Test note');
   });
 
   it('rejects tmdbNeedsReview on write', () => {
@@ -82,10 +82,10 @@ describe('validateCatalogEpisodePost', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('rejects curatorNotes over maxLength', () => {
+  it('rejects labels over maxLength', () => {
     const result = validateCatalogEpisodePost('ep-1', {
       ...requiredPostBody,
-      curatorNotes: 'x'.repeat(4097),
+      labels: ['x'.repeat(33)],
     });
     expect(result.ok).toBe(false);
   });
@@ -95,13 +95,12 @@ describe('validateCatalogEpisodePatch', () => {
   it('allows partial hint updates', () => {
     const result = validateCatalogEpisodePatch(
       'ep-1',
-      { embedAllows: false, curatorNotes: 'Updated' },
+      { embedAllows: false },
       existingItem,
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.item.embedAllows).toBe(false);
-    expect(result.item.curatorNotes).toBe('Updated');
     expect(result.item.movieSearchTitle).toBe('Old title');
   });
 

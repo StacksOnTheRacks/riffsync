@@ -1,37 +1,41 @@
-import type { CatalogEra, CatalogEpisode } from './catalogTypes'
+import type { CatalogCategory, CatalogEpisode } from './catalogTypes'
 
-/** Default era toggles on the public catalog (core MST eras + Riffable). */
-export const DEFAULT_CATALOG_FILTER_ERAS: readonly CatalogEra[] = [
-  'joel',
-  'mike',
-  'jonah',
-  'emily',
+/** Default public category toggles when a category filter surface is present. */
+export const DEFAULT_CATALOG_FILTER_CATEGORIES: readonly CatalogCategory[] = [
+  'mst3k',
   'community',
-  'riffable',
+  'riff_material',
+  'movie_night',
 ]
 
 export interface CatalogFilterOptions {
   titleQuery: string
-  /** Empty array means no era constraint. */
-  eras: readonly CatalogEra[]
+  /** Empty array means no catalog/category constraint. */
+  catalogs: readonly CatalogCategory[]
 }
 
 export function filterCatalogEntries(
   entries: CatalogEpisode[],
-  { titleQuery, eras }: CatalogFilterOptions,
+  { titleQuery, catalogs }: CatalogFilterOptions,
 ): CatalogEpisode[] {
   const trimmed = titleQuery.trim()
   const qLower = trimmed.toLowerCase()
-  const eraSet = eras.length > 0 ? new Set(eras) : null
+  const catalogSet = catalogs.length > 0 ? new Set(catalogs) : null
 
   let filtered = entries
 
-  if (eraSet) {
-    filtered = filtered.filter((entry) => eraSet.has(entry.era))
+  if (catalogSet) {
+    filtered = filtered.filter((entry) => catalogSet.has(entry.catalog))
   }
 
   if (trimmed) {
-    filtered = filtered.filter((entry) => entry.title.toLowerCase().includes(qLower))
+    filtered = filtered.filter((entry) => {
+      return (
+        entry.title.toLowerCase().includes(qLower) ||
+        entry.tags.some((tag) => tag.toLowerCase().includes(qLower)) ||
+        entry.labels.some((label) => label.toLowerCase().includes(qLower))
+      )
+    })
   }
 
   return [...filtered].sort((a, b) => a.experimentNumber - b.experimentNumber)

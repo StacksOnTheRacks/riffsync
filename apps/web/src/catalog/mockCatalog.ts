@@ -1,4 +1,4 @@
-import type { CatalogEra, CatalogEpisode } from './catalogTypes'
+import type { CatalogCategory, CatalogEpisode } from './catalogTypes'
 
 const ERA_YOUTUBE_ROW_CAP = 10
 
@@ -12,16 +12,16 @@ export function catalogEntriesWithYoutubeLink(entries: CatalogEpisode[]): Catalo
 }
 
 /**
- * Episodes for a host era that have a playable YouTube id, in experiment order.
+ * Episodes for a metadata tag that have a playable YouTube id, in experiment order.
  * Uses the full **`GET /v1/catalog`** list (already loaded on the home page).
  */
-export function firstEpisodesWithYoutubeForEra(
+export function firstEpisodesWithYoutubeForTag(
   entries: CatalogEpisode[],
-  era: CatalogEra,
+  tag: string,
   limit: number = ERA_YOUTUBE_ROW_CAP,
 ): CatalogEpisode[] {
   return entries
-    .filter((e) => e.era === era && episodeHasYoutubeLink(e))
+    .filter((e) => e.tags.includes(tag) && episodeHasYoutubeLink(e))
     .sort((a, b) => a.experimentNumber - b.experimentNumber)
     .slice(0, limit)
 }
@@ -57,7 +57,7 @@ export interface HeroSlide {
   title: string
   taglineHtml: string
   experimentNumber: number
-  era: string
+  catalog: string
 }
 
 const HERO_SLIDE_CAP = 3
@@ -75,7 +75,7 @@ export function buildHeroSlides(entries: CatalogEpisode[]): HeroSlide[] {
       title: ep.title,
       taglineHtml: blurb,
       experimentNumber: ep.experimentNumber,
-      era: ep.era,
+      catalog: ep.catalog,
     }
   })
 }
@@ -105,8 +105,8 @@ export function compareByTmdbPopularity(a: CatalogEpisode, b: CatalogEpisode): n
   return a.experimentNumber - b.experimentNumber
 }
 
-/** Eras omitted from the home page Most Popular row. */
-export const HOME_MOST_POPULAR_EXCLUDED_ERAS: readonly CatalogEra[] = ['other']
+/** Categories omitted from the home page Most Popular row. */
+export const HOME_MOST_POPULAR_EXCLUDED_CATEGORIES: readonly CatalogCategory[] = ['other']
 
 /** Playable episodes ranked by **`tmdbPopularity`** (reconcile), with optional offset for a second row. */
 export function topEpisodesByTmdbPopularity(
@@ -117,12 +117,12 @@ export function topEpisodesByTmdbPopularity(
   return [...entries].sort(compareByTmdbPopularity).slice(offset, offset + limit)
 }
 
-/** Most Popular home row: ranked popularity, excluding configured eras (e.g. `other`). */
+/** Most Popular home row: ranked popularity, excluding configured categories (e.g. `other`). */
 export function topEpisodesForHomeMostPopular(
   entries: CatalogEpisode[],
   limit: number,
 ): CatalogEpisode[] {
-  const excluded = new Set(HOME_MOST_POPULAR_EXCLUDED_ERAS)
-  const eligible = entries.filter((entry) => !excluded.has(entry.era))
+  const excluded = new Set(HOME_MOST_POPULAR_EXCLUDED_CATEGORIES)
+  const eligible = entries.filter((entry) => !excluded.has(entry.catalog))
   return topEpisodesByTmdbPopularity(eligible, limit)
 }

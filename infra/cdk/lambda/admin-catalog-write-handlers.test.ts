@@ -76,7 +76,9 @@ function staffEvent(
 const writeBody = {
   experimentNumber: 101,
   title: 'Test Episode',
-  era: 'mike',
+  catalog: 'mst3k',
+  tags: ['Era: Mike'],
+  labels: [],
   youtubeVideoId: null,
   youtubeWatchUrl: null,
   carousel: false,
@@ -87,7 +89,9 @@ const existingItem = {
   id: 'ep-1',
   experimentNumber: 101,
   title: 'Test Episode',
-  era: 'mike',
+  catalog: 'mst3k',
+  tags: ['Era: Mike'],
+  labels: [],
   youtubeVideoId: null,
   youtubeWatchUrl: null,
   tagline: 'keep',
@@ -129,7 +133,6 @@ describe('admin-catalog-post handler', () => {
     expect(body.entry.tagline).toBeNull();
     expect(body.entry.embedAllows).toBe(true);
     expect(body.entry.movieSearchTitle).toBeNull();
-    expect(body.entry.curatorNotes).toBeNull();
     expect(mocks.recordAdminCatalogRoute).toHaveBeenCalledWith(
       'AdminCatalogPost',
       'success',
@@ -182,7 +185,7 @@ describe('admin-catalog-post handler', () => {
     );
   });
 
-  it('persists curator hints on create', async () => {
+  it('persists operator hints on create', async () => {
     mocks.docSend.mockResolvedValueOnce({}).mockResolvedValueOnce({
       Attributes: { catalogGeneration: 3 },
     });
@@ -195,7 +198,6 @@ describe('admin-catalog-post handler', () => {
           ...writeBody,
           movieSearchTitle: 'The Crawling Eye',
           embedAllows: false,
-          curatorNotes: 'Test note',
         },
         { sub: 'staff-1', 'cognito:groups': ['admin'] },
         { id: 'ep-2' },
@@ -208,7 +210,6 @@ describe('admin-catalog-post handler', () => {
     const body = JSON.parse(res?.body ?? '');
     expect(body.entry.movieSearchTitle).toBe('The Crawling Eye');
     expect(body.entry.embedAllows).toBe(false);
-    expect(body.entry.curatorNotes).toBe('Test note');
   });
 
   it('returns 403 when staff groups omit admin/curator', async () => {
@@ -264,7 +265,7 @@ describe('admin-catalog-patch handler', () => {
     );
   });
 
-  it('patches curator hints and returns updated entry', async () => {
+  it('patches operator hints and returns updated entry', async () => {
     mocks.docSend
       .mockResolvedValueOnce({ Item: existingItem })
       .mockResolvedValueOnce({})
@@ -277,7 +278,6 @@ describe('admin-catalog-patch handler', () => {
         {
           movieSearchTitle: 'The Crawling Eye',
           embedAllows: false,
-          curatorNotes: 'Test note',
         },
         { sub: 'staff-1', 'cognito:groups': ['admin'] },
         { id: 'ep-1' },
@@ -290,7 +290,6 @@ describe('admin-catalog-patch handler', () => {
     const body = JSON.parse(res?.body ?? '');
     expect(body.entry.movieSearchTitle).toBe('The Crawling Eye');
     expect(body.entry.embedAllows).toBe(false);
-    expect(body.entry.curatorNotes).toBe('Test note');
   });
 
   it('returns 400 when patch includes tmdbNeedsReview', async () => {

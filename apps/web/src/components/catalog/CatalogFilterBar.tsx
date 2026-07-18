@@ -1,39 +1,46 @@
-import { PUBLIC_CATALOG_ERAS, formatCatalogEraLabel, type CatalogEra } from '../../catalog/catalogTypes'
+import {
+  PUBLIC_CATALOG_CATEGORIES,
+  formatCatalogLabel,
+  type CatalogCategory,
+} from '../../catalog/catalogTypes'
 
 export interface CatalogFilterBarProps {
-  selectedEras?: CatalogEra[]
-  onSelectedErasChange?: (eras: CatalogEra[]) => void
+  selectedCatalogs?: CatalogCategory[]
+  onSelectedCatalogsChange?: (catalogs: CatalogCategory[]) => void
   titleQuery: string
   onTitleQueryChange: (query: string) => void
   disabled?: boolean
-  /** When false, era-chip toggles are hidden (catalog hub). Defaults to true. */
-  showEraChips?: boolean
+  /** When false, catalog-chip toggles are hidden (catalog hub). Defaults to true. */
+  showCatalogChips?: boolean
 }
 
-function toggleEra(selectedEras: CatalogEra[], era: CatalogEra): CatalogEra[] {
-  if (selectedEras.includes(era)) {
-    return selectedEras.filter((e) => e !== era)
+function toggleCatalog(
+  selectedCatalogs: CatalogCategory[],
+  catalog: CatalogCategory,
+): CatalogCategory[] {
+  if (selectedCatalogs.includes(catalog)) {
+    return selectedCatalogs.filter((entry) => entry !== catalog)
   }
-  return [...selectedEras, era]
+  return [...selectedCatalogs, catalog]
 }
 
 export function CatalogFilterBar({
-  selectedEras = [],
-  onSelectedErasChange,
+  selectedCatalogs = [],
+  onSelectedCatalogsChange,
   titleQuery,
   onTitleQueryChange,
   disabled = false,
-  showEraChips = true,
+  showCatalogChips = true,
 }: CatalogFilterBarProps) {
   return (
     <div className="riffsync-catalog-filter-bar">
-      {showEraChips && onSelectedErasChange && (
-        <div className="riffsync-catalog-filter-bar__era-group" role="group" aria-label="Filter by era">
-          {PUBLIC_CATALOG_ERAS.map((era) => {
-            const selected = selectedEras.includes(era)
+      {showCatalogChips && onSelectedCatalogsChange && (
+        <div className="riffsync-catalog-filter-bar__era-group" role="group" aria-label="Filter by catalog">
+          {PUBLIC_CATALOG_CATEGORIES.map((catalog) => {
+            const selected = selectedCatalogs.includes(catalog)
             return (
               <button
-                key={era}
+                key={catalog}
                 type="button"
                 className={
                   selected
@@ -42,9 +49,9 @@ export function CatalogFilterBar({
                 }
                 aria-pressed={selected}
                 disabled={disabled}
-                onClick={() => onSelectedErasChange(toggleEra(selectedEras, era))}
+                onClick={() => onSelectedCatalogsChange(toggleCatalog(selectedCatalogs, catalog))}
               >
-                {formatCatalogEraLabel(era)}
+                {formatCatalogLabel(catalog)}
               </button>
             )
           })}
@@ -56,7 +63,7 @@ export function CatalogFilterBar({
           type="search"
           value={titleQuery}
           onChange={(e) => onTitleQueryChange(e.target.value)}
-          placeholder="Search by title"
+          placeholder="Search by title, tag, or label"
           disabled={disabled}
         />
       </label>

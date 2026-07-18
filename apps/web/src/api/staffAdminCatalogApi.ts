@@ -3,12 +3,15 @@ import {
   StaffSessionForbiddenError,
   StaffSessionUnauthorizedError,
 } from './staffAdminSessionApi'
+import type { CatalogCategory } from '../catalog/catalogTypes'
 
 export interface StaffCatalogEpisode {
   id: string
   experimentNumber: number
   title: string
-  era: 'joel' | 'mike' | 'jonah' | 'emily' | 'community' | 'movie_night' | 'riffable' | 'other'
+  catalog: CatalogCategory
+  tags: string[]
+  labels: string[]
   youtubeVideoId: string | null
   youtubeWatchUrl: string | null
   tagline: string | null
@@ -24,7 +27,6 @@ export interface StaffCatalogEpisode {
   tmdbBackdropPath?: string | null
   movieSearchTitle: string | null
   embedAllows: boolean | null
-  curatorNotes: string | null
   tmdbNeedsReview?: boolean | null
   youtubeThumbnailUrl: string | null
 }
@@ -41,7 +43,9 @@ export interface StaffCatalogEpisodeResponse {
 export interface StaffCatalogEpisodeWrite {
   experimentNumber?: number
   title?: string
-  era?: StaffCatalogEpisode['era']
+  catalog?: CatalogCategory
+  tags?: string[]
+  labels?: string[]
   youtubeVideoId?: string | null
   youtubeWatchUrl?: string | null
   carousel?: boolean
@@ -49,7 +53,6 @@ export interface StaffCatalogEpisodeWrite {
   movieSearchTitle?: string | null
   tmdbMovieId?: number | null
   embedAllows?: boolean
-  curatorNotes?: string | null
 }
 
 export class StaffCatalogValidationError extends Error {

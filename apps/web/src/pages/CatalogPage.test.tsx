@@ -19,7 +19,9 @@ function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>
   return {
     experimentNumber: 100,
     title: 'Default title',
-    era: 'joel',
+    catalog: 'mst3k',
+    tags: [],
+    labels: [],
     youtubeVideoId: 'abc123',
     youtubeWatchUrl: 'https://youtube.com/watch?v=abc123',
     tagline: null,
@@ -34,8 +36,8 @@ function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>
 }
 
 const catalogFixtures: CatalogEpisode[] = [
-  episode({ id: 'ep-a', experimentNumber: 200, title: 'Pod People', era: 'joel' }),
-  episode({ id: 'ep-b', experimentNumber: 101, title: 'Cave Dwellers', era: 'mike' }),
+  episode({ id: 'ep-a', experimentNumber: 200, title: 'Pod People', tags: ['Era: Joel'] }),
+  episode({ id: 'ep-b', experimentNumber: 101, title: 'Cave Dwellers', tags: ['Era: Mike'] }),
 ]
 
 describe('CatalogPage', () => {
@@ -114,14 +116,14 @@ describe('CatalogPage', () => {
     )
   })
 
-  it('does not render public era-chip toggles on the hub', () => {
+  it('does not render public catalog-chip toggles on the hub', () => {
     renderCatalogPage()
 
     expect(container.querySelector('.riffsync-catalog-filter-bar__era-group')).toBeNull()
     expect(container.querySelector('.riffsync-catalog-filter-bar__era')).toBeNull()
   })
 
-  it('keeps the mixed grid unfiltered by era on the hub', () => {
+  it('keeps the mixed grid unfiltered by catalog on the hub', () => {
     renderCatalogPage()
 
     const cards = container.querySelectorAll('.riffsync-catalog-card')

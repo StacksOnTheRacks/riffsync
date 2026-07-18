@@ -9,6 +9,9 @@ import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
 import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
+import type { CatalogEpisode } from '../catalog/catalogTypes'
+
+const EMPTY_CATALOG_ENTRIES: CatalogEpisode[] = []
 
 export function CatalogPage() {
   const navigate = useNavigate()
@@ -17,13 +20,13 @@ export function CatalogPage() {
 
   useResumePendingPartyRoom(data, navigate)
 
-  const allEntries = data ?? []
+  const allEntries = data ?? EMPTY_CATALOG_ENTRIES
   const youtubeEntries = useMemo(
     () => catalogEntriesWithYoutubeLink(allEntries),
     [allEntries],
   )
   const filteredEntries = useMemo(
-    () => filterCatalogEntries(youtubeEntries, { titleQuery, eras: [] }),
+    () => filterCatalogEntries(youtubeEntries, { titleQuery, catalogs: [] }),
     [youtubeEntries, titleQuery],
   )
 
@@ -62,7 +65,7 @@ export function CatalogPage() {
             titleQuery={titleQuery}
             onTitleQueryChange={setTitleQuery}
             disabled={filterBarDisabled}
-            showEraChips={false}
+            showCatalogChips={false}
           />
           <div className="riffsync-catalog-grid">
             {filteredEntries.map((ep) => (

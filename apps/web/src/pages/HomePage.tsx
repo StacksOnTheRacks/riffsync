@@ -9,7 +9,7 @@ import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import {
   buildHeroSlides,
   catalogEntriesWithYoutubeLink,
-  firstEpisodesWithYoutubeForEra,
+  firstEpisodesWithYoutubeForTag,
   topEpisodesForHomeMostPopular,
 } from '../catalog/mockCatalog'
 import { HomeHeroBanner } from './home/HomeHeroBanner'
@@ -26,8 +26,8 @@ function HomePageDocumentHeading() {
  * when **`VITE_PUBLIC_API_BASE_URL`** is set.
  * In **`vite dev`** without that var, all load from **`data/catalog/episodes.json`** (filtered client-side).
  * Rows use only episodes that include a **YouTube** id (same filter as **`/catalog`**).
- * **Most Popular** ranks playable episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order); **`other`** era rows are excluded.
- * Era strips take the first **10** per Joel / Mike / Jonah from that playable set.
+ * **Most Popular** ranks playable episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order); **`other`** catalog rows are excluded.
+ * Era strips take the first **10** per Joel / Mike / Jonah tag from that playable set.
  */
 export function HomePage() {
   const navigate = useNavigate()
@@ -90,9 +90,9 @@ export function HomePage() {
 
   const heroSlides = buildHeroSlides(carouselWithYoutube)
 
-  const joelYoutubeRow = firstEpisodesWithYoutubeForEra(playableEntries, 'joel', 10)
-  const mikeYoutubeRow = firstEpisodesWithYoutubeForEra(playableEntries, 'mike', 10)
-  const jonahYoutubeRow = firstEpisodesWithYoutubeForEra(playableEntries, 'jonah', 10)
+  const joelYoutubeRow = firstEpisodesWithYoutubeForTag(playableEntries, 'Era: Joel', 10)
+  const mikeYoutubeRow = firstEpisodesWithYoutubeForTag(playableEntries, 'Era: Mike', 10)
+  const jonahYoutubeRow = firstEpisodesWithYoutubeForTag(playableEntries, 'Era: Jonah', 10)
 
   return (
     <div className="riffsync-home">

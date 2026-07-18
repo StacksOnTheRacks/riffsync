@@ -4,7 +4,7 @@ import 'swiper/css'
 import 'swiper/css/pagination'
 import { Link } from 'react-router-dom'
 import { catalogStillImageUrl } from '../../catalog/mockCatalog'
-import { formatCatalogEraLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
+import { formatCatalogLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
 import { EpisodeTileActions } from '../../components/catalog/EpisodeTileActions'
 
 function tagForIndex(i: number): string {
@@ -60,7 +60,7 @@ export function HomeSpotlightBanner({ episodes }: { episodes: CatalogEpisode[] }
                                   <li>RiffSync Catalog</li>
                                   <li>
                                     <Link to={`/watch/${ep.id}`}>
-                                      <span>{formatCatalogEraLabel(ep.era)}</span>
+                                      <span>{formatCatalogLabel(ep.catalog)}</span>
                                     </Link>
                                   </li>
                                 </ul>

@@ -7,7 +7,9 @@ export interface CatalogEpisode {
   readonly id: string;
   readonly experimentNumber: number;
   readonly title: string;
-  readonly era: 'joel' | 'mike' | 'jonah' | 'emily' | 'community' | 'movie_night' | 'riffable' | 'other';
+  readonly catalog: 'mst3k' | 'community' | 'riff_material' | 'movie_night' | 'other';
+  readonly tags: string[];
+  readonly labels: string[];
   readonly youtubeVideoId: string | null;
   readonly youtubeWatchUrl: string | null;
   readonly tagline: string | null;
@@ -27,7 +29,7 @@ export interface CatalogEpisode {
   readonly tmdbBackdropPath?: string | null;
 }
 
-const ERAS = new Set(['joel', 'mike', 'jonah', 'emily', 'community', 'movie_night', 'riffable', 'other']);
+const CATALOGS = new Set(['mst3k', 'community', 'riff_material', 'movie_night', 'other']);
 
 /** Dynamo / hand-edited rows may use BOOL, or accidentally String/Number — treat like UI expectations. */
 function parseBooleanCatalogFlag(v: unknown): boolean {
@@ -46,8 +48,11 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
   if (typeof id !== 'string') {
     throw new Error('Catalog item missing string `id`');
   }
-  const eraRaw = item.era;
-  const era = typeof eraRaw === 'string' && ERAS.has(eraRaw) ? (eraRaw as CatalogEpisode['era']) : 'other';
+  const catalogRaw = item.catalog;
+  const catalog =
+    typeof catalogRaw === 'string' && CATALOGS.has(catalogRaw)
+      ? (catalogRaw as CatalogEpisode['catalog'])
+      : 'other';
 
   const experimentNumber = Number(item.experimentNumber);
   if (!Number.isFinite(experimentNumber)) {
@@ -66,6 +71,9 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
   const optionalNumberField = (v: unknown): number | undefined =>
     v === null || v === undefined ? undefined : Number(v);
 
+  const stringList = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((entry): entry is string => typeof entry === 'string') : [];
+
   const embedAllows =
     Object.prototype.hasOwnProperty.call(item, 'embedAllows') && typeof item.embedAllows === 'boolean'
       ? item.embedAllows
@@ -75,7 +83,9 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
     id,
     experimentNumber,
     title: String(item.title),
-    era,
+    catalog,
+    tags: stringList(item.tags),
+    labels: stringList(item.labels),
     youtubeVideoId: optionalString(item.youtubeVideoId),
     youtubeWatchUrl: optionalString(item.youtubeWatchUrl),
     tagline: optionalString(item.tagline),

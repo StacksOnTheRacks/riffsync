@@ -11,7 +11,9 @@ function ep(
     id,
     experimentNumber,
     title: id,
-    era: 'joel',
+    catalog: 'mst3k',
+    tags: ['Era: Joel'],
+    labels: [],
     youtubeVideoId: 'abcdefghijk',
     youtubeWatchUrl: null,
     tagline: null,
@@ -59,18 +61,18 @@ describe('topEpisodesByTmdbPopularity', () => {
 })
 
 describe('topEpisodesForHomeMostPopular', () => {
-  it('excludes other-era rows from the home Most Popular row', () => {
+  it('excludes other catalog rows from the home Most Popular row', () => {
     const entries = [
-      { ...ep('other-hit', 1, 100), era: 'other' as const },
-      { ...ep('joel-hit', 2, 50), era: 'joel' as const },
+      { ...ep('other-hit', 1, 100), catalog: 'other' as const },
+      { ...ep('joel-hit', 2, 50), catalog: 'mst3k' as const },
     ]
     expect(topEpisodesForHomeMostPopular(entries, 12).map((e) => e.id)).toEqual(['joel-hit'])
   })
 
-  it('includes community-era rows in the home Most Popular row', () => {
+  it('includes community catalog rows in the home Most Popular row', () => {
     const entries = [
-      { ...ep('community-hit', 1, 80), era: 'community' as const },
-      { ...ep('joel-hit', 2, 50), era: 'joel' as const },
+      { ...ep('community-hit', 1, 80), catalog: 'community' as const },
+      { ...ep('joel-hit', 2, 50), catalog: 'mst3k' as const },
     ]
     expect(topEpisodesForHomeMostPopular(entries, 12).map((e) => e.id)).toEqual([
       'community-hit',

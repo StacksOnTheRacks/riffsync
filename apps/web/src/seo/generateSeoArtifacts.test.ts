@@ -15,7 +15,9 @@ function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>
   return {
     experimentNumber: 101,
     title: 'Fixture',
-    era: 'joel',
+    catalog: 'mst3k',
+    tags: ['Era: Joel'],
+    labels: [],
     youtubeVideoId: 'abc123',
     youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc123',
     tagline: null,

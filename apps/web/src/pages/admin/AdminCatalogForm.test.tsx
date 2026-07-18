@@ -74,7 +74,9 @@ const baseEpisode: StaffCatalogEpisode = {
   id: 'ep-1',
   experimentNumber: 101,
   title: 'Original',
-  era: 'joel',
+  catalog: 'mst3k',
+  tags: ['Era: Joel'],
+  labels: ['Joel'],
   youtubeVideoId: null,
   youtubeWatchUrl: null,
   tagline: 'A tagline',
@@ -86,7 +88,6 @@ const baseEpisode: StaffCatalogEpisode = {
   spotlight: false,
   movieSearchTitle: 'Manos',
   embedAllows: true,
-  curatorNotes: 'Notes',
   youtubeThumbnailUrl: null,
 }
 
@@ -158,14 +159,15 @@ describe('AdminCatalogForm', () => {
         expect.objectContaining({
           experimentNumber: 99,
           title: 'New title',
-          era: 'other',
+          catalog: 'other',
+          tags: [],
+          labels: [],
           youtubeVideoId: null,
           youtubeWatchUrl: null,
           carousel: false,
           spotlight: false,
           movieSearchTitle: null,
           embedAllows: true,
-          curatorNotes: null,
         }),
       )
     })
@@ -253,7 +255,7 @@ describe('AdminCatalogForm', () => {
     })
   })
 
-  it('edit mode saves changed curator hints in PATCH body', async () => {
+  it('edit mode saves changed operator hints in PATCH body', async () => {
     renderForm({
       mode: 'edit',
       initialEpisode: baseEpisode,
@@ -266,12 +268,10 @@ describe('AdminCatalogForm', () => {
       '#catalog-form-movie-search-title',
     ) as HTMLInputElement
     const embedCheckbox = container.querySelector('#catalog-form-embed-allows') as HTMLInputElement
-    const notesInput = container.querySelector('#catalog-form-curator-notes') as HTMLTextAreaElement
 
     await act(async () => {
       setInputValue(movieSearchInput, 'The Crawling Eye')
       uncheckCheckbox(embedCheckbox)
-      setInputValue(notesInput, 'Updated notes')
     })
 
     const form = container.querySelector('form')!
@@ -283,7 +283,6 @@ describe('AdminCatalogForm', () => {
       expect(patchStaffCatalogEpisode).toHaveBeenCalledWith('staff-token', 'ep-1', {
         movieSearchTitle: 'The Crawling Eye',
         embedAllows: false,
-        curatorNotes: 'Updated notes',
       })
     })
   })

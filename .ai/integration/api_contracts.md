@@ -11,7 +11,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 | Surface | Auth | Purpose |
 | --- | --- | --- |
-| **`GET /v1/catalog`** | None required (public). | Canonical episode rows: curator fields + TMDB-derived + optional **`youtubeThumbnailUrl`** when implemented. **Caching:** **`Cache-Control`** with deployment-appropriate **max-age**; **`ETag`** weak validator derived from a **catalog generation** counter or **`max(updatedAt)`** in Dynamo so clients can **`If-None-Match`** (reduces egress cost when paired with CloudFront). **SPA subcategory browse** (`/catalog/mst3k`, `/catalog/community`, `/catalog/riff-ready`, `/catalog/movie-night`) reuses this public full list with **client-side** era filtering; it does **not** add **`era`** / **`eras`** query parameters. Wire **`era`** values stay unchanged (**`riffable`** remains on the wire for Riff-Ready). |
+| **`GET /v1/catalog`** | None required (public). | Canonical episode rows: curator fields + TMDB-derived + optional **`youtubeThumbnailUrl`** when implemented. **Caching:** **`Cache-Control`** with deployment-appropriate **max-age**; **`ETag`** weak validator derived from a **catalog generation** counter or **`max(updatedAt)`** in Dynamo so clients can **`If-None-Match`** (reduces egress cost when paired with CloudFront). **SPA subcategory browse** (`/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`) reuses this public full list with **client-side** catalog filtering; it does **not** add **`catalog`** / **`catalogs`** query parameters. Wire **`catalog`** values stay unchanged (**`riff_material`** remains on the wire for Riff Material). |
 | **`GET /v1/lists`**, **`GET /v1/lists/{slug}`** | None (public) when shipped. | Curated collections; **`slug`** URL-safe. |
 | **`POST /v1/rooms` (create)** | **Fan Cognito JWT** — **`hostSub`** on new room **= JWT `sub`**. **`sessionId`** optional telemetry only—**not** host binding. | Mint **`roomId`**, seed **`catalogEpisodeId`** / visibility / **`playbackExpectation`** per payload. Server sets **`roomMode: theater`** and **`avDisabled: false`** on the Dynamo item; **`201`** echoes both. |
 | **`GET /v1/rooms/{roomId}`** | **`sessionId`** via **`X-Session-Id`** optional; no JWT required for read. | Room snapshot including **`roomMode`**, **`avDisabled`**, **`broadcastCaptureActive`**, and **`version`**. Legacy rows missing AV attributes default **`theater`** / **`false`**. |
@@ -96,7 +96,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | --- | --- |
 | Single BFF vs split admin API? | **Start:** one HTTP API with **`/v1/admin/*`**; split later for blast radius (**`architecture.admin.md`**). |
 | Public catalog without auth? | **Yes** for **`GET /v1/catalog`** (and public lists). |
-| Catalog subcategory SPA routes? | **No new HTTP/WS contract.** Subcategory pages call the same public **`GET /v1/catalog`** and filter eras in the client; no server-side **`era`** / **`eras`** query params for this browse IA. |
+| Catalog subcategory SPA routes? | **No new HTTP/WS contract.** Subcategory pages call the same public **`GET /v1/catalog`** and filter catalogs in the client; no server-side **`catalog`** / **`catalogs`** query params for this browse IA. |
 | WebSocket auth for guests? | **sessionId** sufficient for MVP; JWT optional enhancement for abuse resistance. |
 | Admin verification MVP? | **`JWT.sub === room.hostSub`** for **`POST /v1/rooms`**, **`PATCH`/`PUT`**, and publisher signaling; **anonymous guests** never satisfy this check. |
 | Staff auth end-to-end check? | **`GET /v1/admin/session`** under **`/v1/admin/*`** with staff JWT; validates authorizer + **`cognito:groups`** before catalog admin routes ship. |
@@ -332,7 +332,7 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 
 ## Open implementation decisions
 
-- **Server-side catalog `era` / `eras` query params:** **Out of scope** for catalog subcategory SPA browse. If a future initiative moves era filtering to the API (for payload size or cache variants), that is a new contract change; do not treat subcategory routes as requiring it now.
+- **Server-side catalog `catalog` / `catalogs` query params:** **Out of scope** for catalog subcategory SPA browse. If a future initiative moves catalog filtering to the API (for payload size or cache variants), that is a new contract change; do not treat subcategory routes as requiring it now.
 
 ## Decisions (answered — M22 presence routes)
 

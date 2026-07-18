@@ -7,10 +7,10 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | Route | Flow |
 | --- | --- |
 | **`/`** | Home marketing surface → catalog / watch-party entry points; **anonymous** visitors browse without minting **`sessionId`**. |
-| **`/catalog`** | Catalog **hub**: four large text entry links in the page-header subtitle slot to subcategory pages + retained mixed/all-titles grid and shared chrome (search/sort); no public era chips. From a title card → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. Pure catalog browse does **not** mint **`sessionId`**. |
-| **`/catalog/mst3k`** | Public subcategory browse — aggregated Joel / Mike / Jonah / Emily titles in the shared subcategory shell (header + **`"Push the button, Frank"`** subtitle + search/sort + card grid). No secondary host-era chips. Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog`** | Catalog **hub**: four large text entry links in the page-header subtitle slot to subcategory pages + retained mixed/all-titles grid and shared chrome (search/sort); no public catalog chips. From a title card → **Sign in to host** → **`POST /v1/rooms`** → **`/room/:id`** as admin with episode seed; **anonymous** visitors browse or follow join links only. Pure catalog browse does **not** mint **`sessionId`**. |
+| **`/catalog/mst3k`** | Public subcategory browse — aggregated Joel / Mike / Jonah / Emily titles in the shared subcategory shell (header + **`"Push the button, Frank"`** subtitle + search/sort + card grid). No secondary host-catalog chips. Same host/party start path from a title card as **`/catalog`**. |
 | **`/catalog/community`** | Public subcategory browse — Community titles in the shared subcategory shell (header + **Community Made Riffs** subtitle + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
-| **`/catalog/riff-ready`** | Public subcategory browse — **Riff-Ready** titles (public label; slug **`riff-ready`**) in the shared subcategory shell (header + **Cheesy Flicks Ready to Riff** subtitle + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
+| **`/catalog/riff-material`** | Public subcategory browse — **Riff Material** titles (public label; slug **`riff-ready`**) in the shared subcategory shell (header + **Cheesy Flicks Ready to Riff** subtitle + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
 | **`/catalog/movie-night`** | Public subcategory browse — Movie Night titles in the shared subcategory shell (header + **Pull the Family Together for a Movie Night** subtitle + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
 | **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch), **Room** tab lobby visibility toggle (**Show in lobby** / **Link only**). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
@@ -26,12 +26,12 @@ Staff operator routes ship as **gated routes in the existing `apps/web` SPA** (o
 | Path | Flow |
 | --- | --- |
 | **Main-nav Catalog parent** | Navigates to the **`/catalog`** hub (not a non-navigating trigger-only control). |
-| **Main-nav Catalog dropdown** | Lists four subcategory destinations in order: **MST3K** → **`/catalog/mst3k`**, **Community** → **`/catalog/community`**, **Riff-Ready** → **`/catalog/riff-ready`**, **Movie Night** → **`/catalog/movie-night`**. Display names only (no helper microcopy). Desktop opens via hover and/or click; keyboard activation is required (**`input_handling.md`**, **`accessibility.md`**). |
+| **Main-nav Catalog dropdown** | Lists four subcategory destinations in order: **MST3K** → **`/catalog/mst3k`**, **Community** → **`/catalog/community`**, **Riff Material** → **`/catalog/riff-material`**, **Movie Night** → **`/catalog/movie-night`**. Display names only (no helper microcopy). Desktop opens via hover and/or click; keyboard activation is required (**`input_handling.md`**, **`accessibility.md`**). |
 | **Mobile Catalog** | Inside the existing hamburger / **`navbar-collapse`**, **Catalog** expands as an **inline accordion** that reveals the same four subcategory links in place — not a nested flyout and not hover-only. |
 | **Hub entry links** | On **`/catalog`**, four large text links in the page-header subtitle slot navigate to the same four subcategory routes in the same order. |
 | **Subcategory subtitles** | Each subcategory page replaces breadcrumb chrome with the route-fixed subtitle defined in **`presentation.md`** while keeping the H1 as the category label. |
-| **Subcategory search / sort** | Same title-search and sort chrome as the hub; filters operate within the route-fixed `eras` set (not a second era picker). |
-| **Staff-only era** | **`other`** never appears in hub links, dropdown, or subcategory chrome. |
+| **Subcategory search / sort** | Same title-search and sort chrome as the hub; filters operate within the route-fixed `catalogs` set (not a second catalog picker). |
+| **Staff-only catalog** | **`other`** never appears in hub links, dropdown, or subcategory chrome. |
 
 ## Staff operator auth (token and session boundaries)
 

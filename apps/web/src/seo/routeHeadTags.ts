@@ -15,7 +15,7 @@ const STATIC_ROUTE_COPY = {
   '/catalog': {
     title: 'RiffSync Catalog — browse the library',
     description:
-      'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff-Ready, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
+      'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff Material, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
   },
   '/catalog/mst3k': {
     title: 'MST3K — RiffSync Catalog',
@@ -27,10 +27,10 @@ const STATIC_ROUTE_COPY = {
     description:
       'Browse Community catalog titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
   },
-  '/catalog/riff-ready': {
-    title: 'Riff-Ready — RiffSync Catalog',
+  '/catalog/riff-material': {
+    title: 'Riff Material — RiffSync Catalog',
     description:
-      'Browse Riff-Ready titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+      'Browse Riff Material titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
   },
   '/catalog/movie-night': {
     title: 'Movie Night — RiffSync Catalog',

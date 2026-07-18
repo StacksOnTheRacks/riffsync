@@ -11,8 +11,9 @@ const validCreate = {
   id: '421-crow-magnum',
   experimentNumber: '421',
   title: 'Crow Magnum',
-  era: 'mike' as const,
-  youtubeVideoId: 'dQw4w9WgXcQ',
+  catalog: 'mst3k' as const,
+  tags: ['Era: Mike'],
+  labels: ['Mike'],
   youtubeWatchUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 }
 
@@ -38,22 +39,17 @@ describe('validateCatalogEpisodeForm', () => {
     expect(result.fieldErrors.title).toBeTruthy()
   })
 
-  it('rejects invalid era', () => {
+  it('rejects invalid catalog', () => {
     const result = validateCatalogEpisodeForm(
-      { ...validCreate, era: 'invalid' as typeof validCreate.era },
+      { ...validCreate, catalog: 'invalid' as typeof validCreate.catalog },
       'create',
     )
-    expect(result.fieldErrors.era).toBeTruthy()
+    expect(result.fieldErrors.catalog).toBeTruthy()
   })
 
-  it('rejects youtube video id with wrong length', () => {
-    const result = validateCatalogEpisodeForm({ ...validCreate, youtubeVideoId: 'short' }, 'create')
-    expect(result.fieldErrors.youtubeVideoId).toBeTruthy()
-  })
-
-  it('allows null youtube fields when empty strings', () => {
+  it('allows null youtube URL when empty', () => {
     const result = validateCatalogEpisodeForm(
-      { ...validCreate, youtubeVideoId: '', youtubeWatchUrl: '' },
+      { ...validCreate, youtubeWatchUrl: '' },
       'create',
     )
     expect(result.fieldErrors).toEqual({})
@@ -79,11 +75,11 @@ describe('validateCatalogEpisodeForm', () => {
     expect(
       mapValidationDetailsToFieldErrors([
         { instancePath: '/title', message: 'must not be empty' },
-        { instancePath: '/era' },
+        { instancePath: '/catalog' },
       ]),
     ).toEqual({
       title: 'must not be empty',
-      era: 'This value is not valid.',
+      catalog: 'This value is not valid.',
     })
   })
 
@@ -99,12 +95,15 @@ describe('validateCatalogEpisodeForm', () => {
     expect(result.fieldErrors.movieSearchTitle).toBeTruthy()
   })
 
-  it('rejects curatorNotes over max length', () => {
-    const result = validateCatalogEpisodeForm(
-      { ...validCreate, curatorNotes: 'x'.repeat(4097) },
-      'create',
-    )
-    expect(result.fieldErrors.curatorNotes).toBeTruthy()
+  it('rejects tags and labels over max length', () => {
+    expect(
+      validateCatalogEpisodeForm({ ...validCreate, tags: ['x'.repeat(65)] }, 'create')
+        .fieldErrors.tags,
+    ).toBeTruthy()
+    expect(
+      validateCatalogEpisodeForm({ ...validCreate, labels: ['x'.repeat(33)] }, 'create')
+        .fieldErrors.labels,
+    ).toBeTruthy()
   })
 
   it('clears nullable hint fields when input is empty', () => {
@@ -112,9 +111,9 @@ describe('validateCatalogEpisodeForm', () => {
     expect(normalizeNullableTextField('  Manos  ')).toBe('Manos')
   })
 
-  it('ignores tmdbMovieId validation on create', () => {
+  it('validates tmdbMovieId on create', () => {
     const result = validateCatalogEpisodeForm({ ...validCreate, tmdbMovieId: 'abc' }, 'create')
-    expect(result.fieldErrors.tmdbMovieId).toBeUndefined()
+    expect(result.fieldErrors.tmdbMovieId).toBeTruthy()
   })
 
   it('rejects invalid tmdbMovieId on edit', () => {

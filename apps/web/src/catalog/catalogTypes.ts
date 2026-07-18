@@ -2,52 +2,40 @@
  * Shape aligned with `data/catalog/catalog.schema.json` episode `$defs.episode`
  * plus optional API-only hints (**`docs/api.catalog.md`**, **`architecture.frontend.md`**).
  */
-export type CatalogEra =
-  | 'joel'
-  | 'mike'
-  | 'jonah'
-  | 'emily'
+export type CatalogCategory =
+  | 'mst3k'
   | 'community'
+  | 'riff_material'
   | 'movie_night'
-  | 'riffable'
   | 'other'
 
-export const CATALOG_ERAS: readonly CatalogEra[] = [
-  'joel',
-  'mike',
-  'jonah',
-  'emily',
+export const CATALOG_CATEGORIES: readonly CatalogCategory[] = [
+  'mst3k',
   'community',
+  'riff_material',
   'movie_night',
-  'riffable',
   'other',
 ]
 
-/** Eras exposed on the public catalog filter bar (`other` is staff-only curation). */
-export const PUBLIC_CATALOG_ERAS: readonly CatalogEra[] = [
-  'joel',
-  'mike',
-  'jonah',
-  'emily',
+/** Categories exposed on the public catalog surfaces (`other` is staff-only curation). */
+export const PUBLIC_CATALOG_CATEGORIES: readonly CatalogCategory[] = [
+  'mst3k',
   'community',
+  'riff_material',
   'movie_night',
-  'riffable',
 ]
 
-const CATALOG_ERA_LABELS: Record<CatalogEra, string> = {
-  joel: 'Joel',
-  mike: 'Mike',
-  jonah: 'Jonah',
-  emily: 'Emily',
+const CATALOG_CATEGORY_LABELS: Record<CatalogCategory, string> = {
+  mst3k: 'MST3K',
   community: 'Community',
+  riff_material: 'Riff Material',
   movie_night: 'Movie Night',
-  riffable: 'Riffable',
   other: 'Other',
 }
 
-/** Display label for era chips, filters, and admin selects. */
-export function formatCatalogEraLabel(era: CatalogEra): string {
-  return CATALOG_ERA_LABELS[era]
+/** Display label for category filters, cards, and admin selects. */
+export function formatCatalogLabel(catalog: CatalogCategory): string {
+  return CATALOG_CATEGORY_LABELS[catalog]
 }
 
 /** Honor-system expectation for US-P0-07 (not verified server-side). */
@@ -57,7 +45,9 @@ export interface CatalogEpisode {
   id: string
   experimentNumber: number
   title: string
-  era: CatalogEra
+  catalog: CatalogCategory
+  tags: string[]
+  labels: string[]
   youtubeVideoId: string | null
   youtubeWatchUrl: string | null
   tagline: string | null

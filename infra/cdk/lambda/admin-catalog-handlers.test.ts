@@ -60,13 +60,14 @@ const catalogItem = {
   id: 'ep-1',
   experimentNumber: 101,
   title: 'Test Episode',
-  era: 'mike',
+  catalog: 'mst3k',
+  tags: ['Era: Mike'],
+  labels: [],
   youtubeVideoId: 'abc123',
   carousel: false,
   spotlight: false,
   movieSearchTitle: 'Manos',
   embedAllows: false,
-  curatorNotes: 'notes',
 };
 
 describe('admin-catalog-list handler', () => {
@@ -76,7 +77,7 @@ describe('admin-catalog-list handler', () => {
     delete process.env.STAFF_USER_POOL_ID;
   });
 
-  it('returns sorted entries with curator hints', async () => {
+  it('returns sorted entries with operator hints', async () => {
     mocks.docSend.mockResolvedValueOnce({
       Items: [catalogItem, { ...catalogItem, id: 'ep-2', experimentNumber: 50 }],
     });
@@ -97,7 +98,6 @@ describe('admin-catalog-list handler', () => {
     expect(body.entries[0].id).toBe('ep-2');
     expect(body.entries[1].movieSearchTitle).toBe('Manos');
     expect(body.entries[1].embedAllows).toBe(false);
-    expect(body.entries[1].curatorNotes).toBe('notes');
   });
 
   it('skips catalog _meta generation row during scan', async () => {

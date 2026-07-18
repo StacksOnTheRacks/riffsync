@@ -6,7 +6,9 @@ const baseItem = {
   id: 'ep-1',
   experimentNumber: 101,
   title: 'Test Episode',
-  era: 'mike',
+  catalog: 'mst3k',
+  tags: ['Era: Mike'],
+  labels: ['Mike'],
   youtubeVideoId: 'abc123',
   youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc123',
   tagline: 'A tagline',
@@ -26,24 +28,21 @@ describe('projectAdminEpisode', () => {
   });
 
   it('public projection omits staff-only hints but keeps embedAllows when stored', () => {
-    const pub = projectEpisode({ ...baseItem, movieSearchTitle: 'Manos', embedAllows: false, curatorNotes: 'n' });
+    const pub = projectEpisode({ ...baseItem, movieSearchTitle: 'Manos', embedAllows: false });
     expect(pub.embedAllows).toBe(false);
     expect(pub).not.toHaveProperty('movieSearchTitle');
-    expect(pub).not.toHaveProperty('curatorNotes');
   });
 
-  it('maps staff-only curator hints when present', () => {
+  it('maps staff-only operator hints when present', () => {
     const admin = projectAdminEpisode({
       ...baseItem,
       movieSearchTitle: 'Manos',
       embedAllows: false,
-      curatorNotes: 'Check TMDB match',
       tmdbNeedsReview: true,
       youtubeThumbnailUrl: 'https://img.youtube.com/vi/abc123/hqdefault.jpg',
     });
     expect(admin.movieSearchTitle).toBe('Manos');
     expect(admin.embedAllows).toBe(false);
-    expect(admin.curatorNotes).toBe('Check TMDB match');
     expect(admin.tmdbNeedsReview).toBe(true);
     expect(admin.youtubeThumbnailUrl).toBe('https://img.youtube.com/vi/abc123/hqdefault.jpg');
   });
@@ -52,7 +51,6 @@ describe('projectAdminEpisode', () => {
     const admin = projectAdminEpisode(baseItem);
     expect(admin.movieSearchTitle).toBeNull();
     expect(admin.embedAllows).toBeNull();
-    expect(admin.curatorNotes).toBeNull();
     expect(admin.youtubeThumbnailUrl).toBeNull();
     expect(admin.tmdbNeedsReview).toBeUndefined();
   });
