@@ -28,8 +28,8 @@ describe('staffAdminEmailApi', () => {
   })
 
   const sampleContent = {
-    version: 1 as const,
-    blocks: [{ type: 'paragraph' as const, children: [{ type: 'text' as const, text: 'Hello' }] }],
+    version: 2 as const,
+    html: '<p>Hello</p>',
   }
 
   it('fetchStaffEmailAudience returns count only', async () => {

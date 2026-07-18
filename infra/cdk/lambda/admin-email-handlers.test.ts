@@ -65,18 +65,14 @@ function staffEvent(
 }
 
 const sampleContent = {
-  version: 1 as const,
-  blocks: [
-    {
-      type: 'paragraph' as const,
-      children: [{ type: 'text' as const, text: 'Hello fans' }],
-    },
-  ],
+  version: 2 as const,
+  html: '<p>Hello {{first_name}}</p>',
 };
 
 const adminClaims = {
   sub: 'staff-admin-1',
   email: 'admin@example.com',
+  given_name: 'Admin',
   'cognito:groups': ['admin'],
 };
 
@@ -166,6 +162,8 @@ describe('admin-email-test handler', () => {
     expect(mocks.sesSend).toHaveBeenCalledTimes(1);
     const sendInput = mocks.sesSend.mock.calls[0][0].input;
     expect(sendInput.Destination.ToAddresses).toEqual(['admin@example.com']);
+    expect(sendInput.Message.Subject.Data).toBe('[RiffSync test] Monthly update');
+    expect(sendInput.Message.Body.Html.Data).toContain('Hello Admin');
   });
 });
 
@@ -264,6 +262,7 @@ describe('admin-email-send handler', () => {
           Attributes: [
             { Name: 'email', Value: 'fan1@example.com' },
             { Name: 'email_verified', Value: 'true' },
+            { Name: 'given_name', Value: 'Fiona' },
           ],
         },
       ],
@@ -341,28 +340,35 @@ describe('admin-email-send handler', () => {
     const body = JSON.parse(res?.body ?? '');
     expect(body.sentCount).toBe(1);
     expect(mocks.sesSend).toHaveBeenCalledTimes(1);
+    const sendInput = mocks.sesSend.mock.calls[0][0].input;
+    expect(sendInput.Message.Body.Html.Data).toContain('Hello Fiona');
+    expect(sendInput.Message.Body.Text.Data).toContain('Hello Fiona');
   });
 });
 
 describe('admin-email renderer', () => {
   it('strips unsafe link schemes', () => {
-    expect(
-      validateEmailContent({
-        version: 1,
-        blocks: [
-          {
-            type: 'paragraph',
-            children: [{ type: 'link', text: 'bad', href: 'javascript:alert(1)' }],
-          },
-        ],
-      }),
-    ).toBeNull();
+    const content = validateEmailContent({
+      version: 2,
+      html: '<p><a href="javascript:alert(1)">bad</a></p>',
+    });
+
+    expect(content).toEqual({ version: 2, html: '<p><span>bad</span></p>' });
+  });
+
+  it('strips script tags from pasted html documents', () => {
+    const content = validateEmailContent({
+      version: 2,
+      html: '<!doctype html><html><body><h1>Hi</h1><script>alert(1)</script></body></html>',
+    });
+
+    expect(content).toEqual({ version: 2, html: '<h1>Hi</h1>' });
   });
 
   it('renders branded html shell', () => {
-    const html = renderEmailHtml('Hello', sampleContent);
+    const html = renderEmailHtml('Hello {{first_name}}', sampleContent, { firstName: 'Fiona' });
     expect(html).toContain('RiffSync');
-    expect(html).toContain('Hello fans');
+    expect(html).toContain('Hello Fiona');
     expect(html).not.toContain('<script');
   });
 });

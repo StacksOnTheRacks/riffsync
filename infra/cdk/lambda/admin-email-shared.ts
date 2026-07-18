@@ -6,40 +6,38 @@ import {
   type UserType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import sanitizeHtml from 'sanitize-html';
 import { getStaffJwtClaims, decodeJwtPayload } from './admin-session-shared';
 
-export const EMAIL_CONTENT_VERSION = 1 as const;
+export const EMAIL_CONTENT_VERSION = 2 as const;
 export const BROADCAST_CONFIRMATION_PHRASE = 'SEND TO CUSTOMERS';
 export const TEST_PROOF_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HTTPS_LINK_RE = /^https:\/\/.+/i;
-const RIFFSYNC_LINK_RE = /^https:\/\/(www\.)?riffsync\.tv(\/|$)/i;
+const MERGE_TOKEN_RE = /\{\{\s*first_name\s*\}\}/g;
+const BODY_RE = /<body\b[^>]*>([\s\S]*?)<\/body>/i;
 
 const MAX_SUBJECT_LENGTH = 200;
-const MAX_BLOCKS = 50;
-const MAX_INLINE_TEXT = 4000;
-const MAX_LIST_ITEMS = 30;
-
-export type InlineSpan =
-  | { type: 'text'; text: string; bold?: boolean; italic?: boolean }
-  | { type: 'link'; text: string; href: string; bold?: boolean; italic?: boolean };
-
-export type EmailBlock =
-  | { type: 'paragraph'; children: InlineSpan[] }
-  | { type: 'heading'; level: 1 | 2 | 3; children: InlineSpan[] }
-  | { type: 'bulletedList'; items: InlineSpan[][] }
-  | { type: 'numberedList'; items: InlineSpan[][] };
+const MAX_HTML_LENGTH = 100_000;
 
 export type EmailContent = {
   version: typeof EMAIL_CONTENT_VERSION;
-  blocks: EmailBlock[];
+  html: string;
 };
 
 export type ParsedEmailDraft = {
   subject: string;
   content: EmailContent;
   contentHash: string;
+};
+
+export type EmailMergeContext = {
+  firstName: string;
+};
+
+export type FanEmailRecipient = EmailMergeContext & {
+  email: string;
 };
 
 const cognito = new CognitoIdentityProviderClient({});
@@ -50,63 +48,162 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-function isValidLinkHref(href: string): boolean {
-  const trimmed = href.trim();
-  if (!HTTPS_LINK_RE.test(trimmed)) {
-    return false;
-  }
-  if (RIFFSYNC_LINK_RE.test(trimmed)) {
-    return true;
-  }
-  try {
-    const url = new URL(trimmed);
-    return url.protocol === 'https:';
-  } catch {
-    return false;
-  }
+function extractBodyHtml(html: string): string {
+  const match = BODY_RE.exec(html);
+  return match?.[1] ?? html;
 }
 
-function validateInlineSpan(span: unknown, path: string): string | null {
-  if (!span || typeof span !== 'object') {
-    return `${path}: invalid span`;
-  }
-  const s = span as Record<string, unknown>;
-  const type = s.type;
-  if (type === 'text') {
-    if (typeof s.text !== 'string') {
-      return `${path}: text span requires text`;
-    }
-    if (s.text.length === 0 || s.text.length > MAX_INLINE_TEXT) {
-      return `${path}: text length out of range`;
-    }
+function sanitizeEmailHtml(rawHtml: string): string {
+  const bodyHtml = extractBodyHtml(rawHtml);
+  return sanitizeHtml(bodyHtml, {
+    allowedTags: [
+      'a',
+      'b',
+      'blockquote',
+      'br',
+      'div',
+      'em',
+      'h1',
+      'h2',
+      'h3',
+      'hr',
+      'i',
+      'img',
+      'li',
+      'ol',
+      'p',
+      'span',
+      'strong',
+      'table',
+      'tbody',
+      'td',
+      'th',
+      'thead',
+      'tr',
+      'u',
+      'ul',
+    ],
+    allowedAttributes: {
+      a: ['href', 'target', 'rel', 'title'],
+      img: ['src', 'alt', 'width', 'height'],
+      td: ['align', 'colspan', 'rowspan'],
+      th: ['align', 'colspan', 'rowspan'],
+      p: ['align'],
+      div: ['align'],
+      table: ['align', 'cellpadding', 'cellspacing', 'width'],
+      '*': ['style'],
+    },
+    allowedSchemes: ['https'],
+    allowedSchemesByTag: {
+      img: ['https'],
+    },
+    allowedStyles: {
+      '*': {
+        color: [/^#[0-9a-f]{3,8}$/i, /^rgb\(/i, /^rgba\(/i, /^[a-z]+$/i],
+        'background-color': [/^#[0-9a-f]{3,8}$/i, /^rgb\(/i, /^rgba\(/i, /^[a-z]+$/i],
+        'font-size': [/^\d+(\.\d+)?(px|em|rem|%)$/i],
+        'font-weight': [/^(normal|bold|[1-9]00)$/i],
+        'line-height': [/^\d+(\.\d+)?(px|em|rem|%)?$/i],
+        'margin-bottom': [/^\d+(\.\d+)?(px|em|rem|%)$/i],
+        'margin-top': [/^\d+(\.\d+)?(px|em|rem|%)$/i],
+        'text-align': [/^(left|right|center)$/i],
+        'text-decoration': [/^(none|underline)$/i],
+      },
+    },
+    transformTags: {
+      a: (tagName, attribs) => {
+        const href = attribs.href?.trim() ?? '';
+        if (!HTTPS_LINK_RE.test(href)) {
+          return { tagName: 'span', attribs: {} };
+        }
+        return {
+          tagName,
+          attribs: {
+            ...attribs,
+            href,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+          },
+        };
+      },
+      img: (tagName, attribs) => {
+        const src = attribs.src?.trim() ?? '';
+        if (!HTTPS_LINK_RE.test(src)) {
+          return { tagName: 'span', attribs: {} };
+        }
+        return { tagName, attribs: { ...attribs, src } };
+      },
+    },
+  }).trim();
+}
+
+function htmlHasText(html: string): boolean {
+  const text = sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} })
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > 0;
+}
+
+function getAttribute(user: UserType, name: string): string | null {
+  const value = user.Attributes?.find((attr) => attr.Name === name)?.Value;
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function localPart(email: string): string {
+  const [local] = email.split('@');
+  return local?.trim() || 'there';
+}
+
+function firstWord(value: string | null): string | null {
+  if (!value) {
     return null;
   }
-  if (type === 'link') {
-    if (typeof s.text !== 'string' || s.text.length === 0 || s.text.length > 500) {
-      return `${path}: link text invalid`;
-    }
-    if (typeof s.href !== 'string' || !isValidLinkHref(s.href)) {
-      return `${path}: link href must be https`;
-    }
-    return null;
-  }
-  return `${path}: unsupported span type`;
+  const [first] = value.trim().split(/\s+/);
+  return first || null;
 }
 
-function validateInlineSpans(spans: unknown, path: string): string | null {
-  if (!Array.isArray(spans)) {
-    return `${path}: children must be an array`;
-  }
-  for (let i = 0; i < spans.length; i += 1) {
-    const err = validateInlineSpan(spans[i], `${path}[${i}]`);
-    if (err) {
-      return err;
-    }
-  }
-  return null;
+export function applyMergeTokens(
+  value: string,
+  context: EmailMergeContext,
+  mode: 'html' | 'text' = 'text',
+): string {
+  const firstName = mode === 'html' ? escapeHtml(context.firstName) : context.firstName;
+  return value.replace(MERGE_TOKEN_RE, firstName);
+}
+
+export function resolveFirstNameFromEmail(email: string): string {
+  return firstWord(localPart(email)) ?? 'there';
+}
+
+function resolveFanFirstName(user: UserType, email: string): string {
+  return (
+    firstWord(getAttribute(user, 'given_name')) ??
+    firstWord(getAttribute(user, 'name')) ??
+    resolveFirstNameFromEmail(email)
+  );
+}
+
+export function resolveStaffMergeContext(event: APIGatewayProxyEventV2, staffEmail: string): EmailMergeContext {
+  const claims = getStaffJwtClaims(event);
+  const givenName = typeof claims?.given_name === 'string' ? claims.given_name : null;
+  const name = typeof claims?.name === 'string' ? claims.name : null;
+  return {
+    firstName: firstWord(givenName) ?? firstWord(name) ?? resolveFirstNameFromEmail(staffEmail),
+  };
+}
+
+function htmlToPlainText(html: string): string {
+  const normalized = html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h1|h2|h3|li|tr)>/gi, '\n')
+    .replace(/<li\b[^>]*>/gi, '- ');
+  return sanitizeHtml(normalized, { allowedTags: [], allowedAttributes: {} })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export function validateEmailContent(raw: unknown): EmailContent | null {
@@ -114,51 +211,21 @@ export function validateEmailContent(raw: unknown): EmailContent | null {
     return null;
   }
   const o = raw as Record<string, unknown>;
-  if (o.version !== EMAIL_CONTENT_VERSION) {
-    return null;
-  }
-  if (!Array.isArray(o.blocks) || o.blocks.length === 0 || o.blocks.length > MAX_BLOCKS) {
+  if (o.version !== EMAIL_CONTENT_VERSION || typeof o.html !== 'string') {
     return null;
   }
 
-  const blocks: EmailBlock[] = [];
-  for (let i = 0; i < o.blocks.length; i += 1) {
-    const block = o.blocks[i];
-    if (!block || typeof block !== 'object') {
-      return null;
-    }
-    const b = block as Record<string, unknown>;
-    if (b.type === 'paragraph' || b.type === 'heading') {
-      if (b.type === 'heading') {
-        const level = b.level;
-        if (level !== 1 && level !== 2 && level !== 3) {
-          return null;
-        }
-      }
-      const err = validateInlineSpans(b.children, `blocks[${i}].children`);
-      if (err) {
-        return null;
-      }
-      blocks.push(block as EmailBlock);
-      continue;
-    }
-    if (b.type === 'bulletedList' || b.type === 'numberedList') {
-      if (!Array.isArray(b.items) || b.items.length === 0 || b.items.length > MAX_LIST_ITEMS) {
-        return null;
-      }
-      for (let j = 0; j < b.items.length; j += 1) {
-        const err = validateInlineSpans(b.items[j], `blocks[${i}].items[${j}]`);
-        if (err) {
-          return null;
-        }
-      }
-      blocks.push(block as EmailBlock);
-      continue;
-    }
+  const rawHtml = o.html.trim();
+  if (rawHtml.length === 0 || rawHtml.length > MAX_HTML_LENGTH) {
     return null;
   }
 
-  return { version: EMAIL_CONTENT_VERSION, blocks };
+  const html = sanitizeEmailHtml(rawHtml);
+  if (html.length === 0 || html.length > MAX_HTML_LENGTH || !htmlHasText(html)) {
+    return null;
+  }
+
+  return { version: EMAIL_CONTENT_VERSION, html };
 }
 
 export function parseEmailDraft(body: Record<string, unknown>): ParsedEmailDraft | null {
@@ -178,63 +245,23 @@ export function computeContentHash(subject: string, content: EmailContent): stri
   return createHash('sha256').update(payload).digest('hex');
 }
 
-function renderInlineSpanHtml(span: InlineSpan): string {
-  let inner: string;
-  if (span.type === 'link') {
-    inner = `<a href="${escapeHtml(span.href.trim())}">${escapeHtml(span.text)}</a>`;
-  } else {
-    inner = escapeHtml(span.text);
-  }
-  if (span.bold) {
-    inner = `<strong>${inner}</strong>`;
-  }
-  if (span.italic) {
-    inner = `<em>${inner}</em>`;
-  }
-  return inner;
-}
-
-function renderInlineSpansHtml(spans: InlineSpan[]): string {
-  return spans.map(renderInlineSpanHtml).join('');
-}
-
-function renderInlineSpanText(span: InlineSpan): string {
-  const text = span.type === 'link' ? `${span.text} (${span.href})` : span.text;
-  return text;
-}
-
-function renderInlineSpansText(spans: InlineSpan[]): string {
-  return spans.map(renderInlineSpanText).join('');
-}
-
-export function renderEmailHtml(subject: string, content: EmailContent): string {
-  const bodyParts: string[] = [];
-  for (const block of content.blocks) {
-    if (block.type === 'paragraph') {
-      bodyParts.push(`<p>${renderInlineSpansHtml(block.children)}</p>`);
-    } else if (block.type === 'heading') {
-      const tag = block.level === 1 ? 'h1' : block.level === 2 ? 'h2' : 'h3';
-      bodyParts.push(`<${tag}>${renderInlineSpansHtml(block.children)}</${tag}>`);
-    } else if (block.type === 'bulletedList') {
-      bodyParts.push(
-        `<ul>${block.items.map((item) => `<li>${renderInlineSpansHtml(item)}</li>`).join('')}</ul>`,
-      );
-    } else if (block.type === 'numberedList') {
-      bodyParts.push(
-        `<ol>${block.items.map((item) => `<li>${renderInlineSpansHtml(item)}</li>`).join('')}</ol>`,
-      );
-    }
-  }
+export function renderEmailHtml(
+  subject: string,
+  content: EmailContent,
+  mergeContext: EmailMergeContext = { firstName: 'there' },
+): string {
+  const renderedSubject = applyMergeTokens(subject, mergeContext, 'text');
+  const renderedBody = applyMergeTokens(content.html, mergeContext, 'html');
 
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head>
+<head><meta charset="utf-8"><title>${escapeHtml(renderedSubject)}</title></head>
 <body style="font-family: system-ui, sans-serif; line-height: 1.5; color: #111; max-width: 640px; margin: 0 auto; padding: 24px;">
   <header style="margin-bottom: 24px;">
     <p style="font-size: 14px; color: #666; margin: 0;">RiffSync</p>
-    <h1 style="font-size: 20px; margin: 8px 0 0;">${escapeHtml(subject)}</h1>
+    <h1 style="font-size: 20px; margin: 8px 0 0;">${escapeHtml(renderedSubject)}</h1>
   </header>
-  <main>${bodyParts.join('\n')}</main>
+  <main>${renderedBody}</main>
   <footer style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #ddd; font-size: 12px; color: #666;">
     <p>You received this message because you have a RiffSync account. Visit <a href="https://riffsync.tv/account">riffsync.tv/account</a> to manage your profile.</p>
   </footer>
@@ -242,25 +269,14 @@ export function renderEmailHtml(subject: string, content: EmailContent): string 
 </html>`;
 }
 
-export function renderEmailPlainText(subject: string, content: EmailContent): string {
-  const lines: string[] = [`RiffSync`, subject, ''];
-  for (const block of content.blocks) {
-    if (block.type === 'paragraph') {
-      lines.push(renderInlineSpansText(block.children), '');
-    } else if (block.type === 'heading') {
-      lines.push(renderInlineSpansText(block.children).toUpperCase(), '');
-    } else if (block.type === 'bulletedList') {
-      for (const item of block.items) {
-        lines.push(`- ${renderInlineSpansText(item)}`);
-      }
-      lines.push('');
-    } else if (block.type === 'numberedList') {
-      block.items.forEach((item, idx) => {
-        lines.push(`${idx + 1}. ${renderInlineSpansText(item)}`);
-      });
-      lines.push('');
-    }
-  }
+export function renderEmailPlainText(
+  subject: string,
+  content: EmailContent,
+  mergeContext: EmailMergeContext = { firstName: 'there' },
+): string {
+  const renderedSubject = applyMergeTokens(subject, mergeContext, 'text');
+  const renderedBody = applyMergeTokens(htmlToPlainText(content.html), mergeContext, 'text');
+  const lines: string[] = ['RiffSync', renderedSubject, '', renderedBody, ''];
   lines.push(
     '---',
     'You received this message because you have a RiffSync account.',
@@ -306,8 +322,18 @@ export function extractFanEmail(user: UserType): string | null {
   if (!fanUserIsEligible(user)) {
     return null;
   }
-  const emailAttr = user.Attributes?.find((a) => a.Name === 'email');
-  return typeof emailAttr?.Value === 'string' ? emailAttr.Value.trim() : null;
+  return getAttribute(user, 'email');
+}
+
+export function extractFanRecipient(user: UserType): FanEmailRecipient | null {
+  const email = extractFanEmail(user);
+  if (!email) {
+    return null;
+  }
+  return {
+    email,
+    firstName: resolveFanFirstName(user, email),
+  };
 }
 
 export async function countEligibleFanRecipients(): Promise<number> {
@@ -337,13 +363,13 @@ export async function countEligibleFanRecipients(): Promise<number> {
   return count;
 }
 
-export async function listEligibleFanRecipientEmails(): Promise<string[]> {
+export async function listEligibleFanRecipients(): Promise<FanEmailRecipient[]> {
   const userPoolId = process.env.FAN_USER_POOL_ID?.trim();
   if (!userPoolId) {
     throw new Error('FAN_USER_POOL_ID not configured');
   }
 
-  const emails: string[] = [];
+  const recipients = new Map<string, FanEmailRecipient>();
   let paginationToken: string | undefined;
   do {
     const out = await cognito.send(
@@ -354,15 +380,15 @@ export async function listEligibleFanRecipientEmails(): Promise<string[]> {
       }),
     );
     for (const user of out.Users ?? []) {
-      const email = extractFanEmail(user);
-      if (email) {
-        emails.push(email);
+      const recipient = extractFanRecipient(user);
+      if (recipient && !recipients.has(recipient.email)) {
+        recipients.set(recipient.email, recipient);
       }
     }
     paginationToken = out.PaginationToken;
   } while (paginationToken);
 
-  return [...new Set(emails)];
+  return [...recipients.values()];
 }
 
 export function createTestProof(sub: string, contentHash: string, testSentAt: string, secret: string): string {

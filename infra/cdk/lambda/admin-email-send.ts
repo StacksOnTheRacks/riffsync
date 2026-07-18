@@ -2,9 +2,10 @@ import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { requireAdminAccess, resolveStaffSub } from './admin-staff-access';
 import {
   BROADCAST_CONFIRMATION_PHRASE,
+  applyMergeTokens,
   computeContentHash,
   customerEmailSendEnabled,
-  listEligibleFanRecipientEmails,
+  listEligibleFanRecipients,
   logAdminEmailEvent,
   maxBroadcastRecipients,
   parseEmailDraft,
@@ -87,9 +88,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     });
   }
 
-  let recipients: string[];
+  let recipients: Awaited<ReturnType<typeof listEligibleFanRecipients>>;
   try {
-    recipients = await listEligibleFanRecipientEmails();
+    recipients = await listEligibleFanRecipients();
   } catch (e) {
     console.error('admin-email-send recipient load failed', e);
     return jsonResponse(503, {
@@ -121,18 +122,18 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     });
   }
 
-  const html = renderEmailHtml(draft.subject, draft.content);
-  const text = renderEmailPlainText(draft.subject, draft.content);
   const reqId = event.requestContext.requestId;
 
   let sentCount = 0;
   let failedCount = 0;
 
-  for (const email of recipients) {
+  for (const recipient of recipients) {
     try {
+      const html = renderEmailHtml(draft.subject, draft.content, recipient);
+      const text = renderEmailPlainText(draft.subject, draft.content, recipient);
       await sendRenderedEmail({
-        toAddresses: [email],
-        subject: draft.subject,
+        toAddresses: [recipient.email],
+        subject: applyMergeTokens(draft.subject, recipient),
         html,
         text,
       });

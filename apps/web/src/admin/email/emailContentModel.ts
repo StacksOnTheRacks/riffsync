@@ -1,25 +1,16 @@
-export const EMAIL_CONTENT_VERSION = 1 as const
+export const EMAIL_CONTENT_VERSION = 2 as const
 export const BROADCAST_CONFIRMATION_PHRASE = 'SEND TO CUSTOMERS'
-
-export type InlineSpan =
-  | { type: 'text'; text: string; bold?: boolean; italic?: boolean }
-  | { type: 'link'; text: string; href: string; bold?: boolean; italic?: boolean }
-
-export type EmailBlock =
-  | { type: 'paragraph'; children: InlineSpan[] }
-  | { type: 'heading'; level: 1 | 2 | 3; children: InlineSpan[] }
-  | { type: 'bulletedList'; items: InlineSpan[][] }
-  | { type: 'numberedList'; items: InlineSpan[][] }
+export const FIRST_NAME_MERGE_TOKEN = '{{first_name}}'
 
 export type EmailContent = {
   version: typeof EMAIL_CONTENT_VERSION
-  blocks: EmailBlock[]
+  html: string
 }
 
 export function emptyEmailContent(): EmailContent {
   return {
     version: EMAIL_CONTENT_VERSION,
-    blocks: [{ type: 'paragraph', children: [{ type: 'text', text: '' }] }],
+    html: '<p></p>',
   }
 }
 
@@ -32,62 +23,106 @@ export async function computeEmailContentHash(subject: string, content: EmailCon
     .join('')
 }
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
-function renderInlineSpanHtml(span: InlineSpan): string {
-  let inner =
-    span.type === 'link'
-      ? `<a href="${escapeHtml(span.href.trim())}">${escapeHtml(span.text)}</a>`
-      : escapeHtml(span.text)
-  if (span.bold) inner = `<strong>${inner}</strong>`
-  if (span.italic) inner = `<em>${inner}</em>`
-  return inner
+function extractBodyHtml(html: string): string {
+  const match = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(html)
+  return match?.[1] ?? html
 }
 
-function renderInlineSpansHtml(spans: InlineSpan[]): string {
-  return spans.map(renderInlineSpanHtml).join('')
-}
+function sanitizePreviewHtml(html: string): string {
+  const document = new DOMParser().parseFromString(extractBodyHtml(html), 'text/html')
+  const allowedTags = new Set([
+    'A',
+    'B',
+    'BLOCKQUOTE',
+    'BR',
+    'DIV',
+    'EM',
+    'H1',
+    'H2',
+    'H3',
+    'HR',
+    'I',
+    'IMG',
+    'LI',
+    'OL',
+    'P',
+    'SPAN',
+    'STRONG',
+    'TABLE',
+    'TBODY',
+    'TD',
+    'TH',
+    'THEAD',
+    'TR',
+    'U',
+    'UL',
+  ])
+  const dropTags = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED'])
 
-export function renderEmailPreviewHtml(subject: string, content: EmailContent): string {
-  const bodyParts: string[] = []
-  for (const block of content.blocks) {
-    if (block.type === 'paragraph') {
-      bodyParts.push(`<p>${renderInlineSpansHtml(block.children)}</p>`)
-    } else if (block.type === 'heading') {
-      const tag = block.level === 1 ? 'h1' : block.level === 2 ? 'h2' : 'h3'
-      bodyParts.push(`<${tag}>${renderInlineSpansHtml(block.children)}</${tag}>`)
-    } else if (block.type === 'bulletedList') {
-      bodyParts.push(
-        `<ul>${block.items.map((item) => `<li>${renderInlineSpansHtml(item)}</li>`).join('')}</ul>`,
-      )
-    } else if (block.type === 'numberedList') {
-      bodyParts.push(
-        `<ol>${block.items.map((item) => `<li>${renderInlineSpansHtml(item)}</li>`).join('')}</ol>`,
-      )
+  for (const element of Array.from(document.body.querySelectorAll('*'))) {
+    if (dropTags.has(element.tagName)) {
+      element.remove()
+      continue
+    }
+    if (!allowedTags.has(element.tagName)) {
+      element.replaceWith(...Array.from(element.childNodes))
+      continue
+    }
+
+    for (const attr of Array.from(element.attributes)) {
+      const name = attr.name.toLowerCase()
+      const value = attr.value.trim()
+      if (name.startsWith('on') || name === 'style') {
+        element.removeAttribute(attr.name)
+        continue
+      }
+      if ((name === 'href' || name === 'src') && !/^https:\/\//i.test(value)) {
+        element.removeAttribute(attr.name)
+        continue
+      }
+      if (!['href', 'src', 'alt', 'title', 'width', 'height', 'align', 'colspan', 'rowspan'].includes(name)) {
+        element.removeAttribute(attr.name)
+      }
     }
   }
 
+  for (const anchor of Array.from(document.body.querySelectorAll('a[href]'))) {
+    anchor.setAttribute('target', '_blank')
+    anchor.setAttribute('rel', 'noopener noreferrer')
+  }
+
+  return document.body.innerHTML.trim()
+}
+
+export function applyPreviewMergeTokens(value: string, mode: 'html' | 'text' = 'html'): string {
+  const firstName = mode === 'html' ? escapeHtml('Alex') : 'Alex'
+  return value.replace(/\{\{\s*first_name\s*\}\}/g, firstName)
+}
+
+export function normalizeEmailHtml(html: string): string {
+  return extractBodyHtml(html).trim()
+}
+
+export function renderEmailPreviewHtml(subject: string, content: EmailContent): string {
+  const previewSubject = applyPreviewMergeTokens(subject || 'Subject', 'text')
+  const previewBody = applyPreviewMergeTokens(sanitizePreviewHtml(content.html), 'html')
+
   return `<article class="riffsync-email-preview">
-    <header><p class="riffsync-email-preview__brand">RiffSync</p><h2>${escapeHtml(subject || 'Subject')}</h2></header>
-    <div class="riffsync-email-preview__body">${bodyParts.join('')}</div>
+    <header><p class="riffsync-email-preview__brand">RiffSync</p><h2>${escapeHtml(previewSubject)}</h2></header>
+    <div class="riffsync-email-preview__body">${previewBody}</div>
   </article>`
 }
 
 export function emailContentHasText(content: EmailContent): boolean {
-  for (const block of content.blocks) {
-    if (block.type === 'paragraph' || block.type === 'heading') {
-      if (block.children.some((span) => span.text.trim().length > 0)) return true
-    } else {
-      for (const item of block.items) {
-        if (item.some((span) => span.text.trim().length > 0)) return true
-      }
-    }
-  }
-  return false
+  const document = new DOMParser().parseFromString(sanitizePreviewHtml(content.html), 'text/html')
+  return (document.body.textContent ?? '').trim().length > 0
 }

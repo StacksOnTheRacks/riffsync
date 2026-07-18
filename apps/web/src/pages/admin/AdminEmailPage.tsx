@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAdminSession } from '../../admin/useAdminSession'
 import { staffHasAdminGroup } from '../../admin/staffHasAdminGroup'
-import { EmailBlockEditor } from '../../admin/email/EmailComposerEditor'
-import { useEmailComposerState } from '../../admin/email/useEmailComposerState'
+import { EmailWysiwygEditor } from '../../admin/email/EmailWysiwygEditor'
 import {
   BROADCAST_CONFIRMATION_PHRASE,
-  computeEmailContentHash,
   emailContentHasText,
   emptyEmailContent,
+  FIRST_NAME_MERGE_TOKEN,
   renderEmailPreviewHtml,
 } from '../../admin/email/emailContentModel'
 import { refreshStaffTokensIfStale } from '../../auth/staffHostedUiPkce'
@@ -36,10 +35,9 @@ type TestState = {
 
 export function AdminEmailPage() {
   const { session, loading, error } = useAdminSession()
-  const { content, setBlockText, setBlockType, toggleInline, addBlock, removeBlock } =
-    useEmailComposerState(emptyEmailContent())
 
   const [subject, setSubject] = useState('')
+  const [content, setContent] = useState(emptyEmailContent())
   const [audienceCount, setAudienceCount] = useState<number | null>(null)
   const [audienceError, setAudienceError] = useState<string | null>(null)
   const [testState, setTestState] = useState<TestState | null>(null)
@@ -182,12 +180,11 @@ export function AdminEmailPage() {
       if (!token) {
         throw new StaffSessionUnauthorizedError()
       }
-      const contentHash = await computeEmailContentHash(subject.trim(), content)
       const res = await sendStaffEmailBroadcast(token, {
         subject: subject.trim(),
         content,
         confirmationPhrase: BROADCAST_CONFIRMATION_PHRASE,
-        contentHash,
+        contentHash: testState.contentHash,
         audienceCount,
         testSentAt: testState.testSentAt,
         testProof: testState.testProof,
@@ -264,7 +261,8 @@ export function AdminEmailPage() {
     <div className="container riffsync-admin-page riffsync-admin-email-page">
       <h1>Email</h1>
       <p className="riffsync-admin-email-page__intro">
-        Compose a message, send a test to your staff email, then broadcast to verified fan customers.
+        Paste HTML or write visually, use merge tokens like <code>{FIRST_NAME_MERGE_TOKEN}</code>, send a test to
+        yourself, then broadcast to verified fan customers.
       </p>
 
       {pageError ? (
@@ -292,42 +290,18 @@ export function AdminEmailPage() {
                 setTestState(null)
               }}
             />
+            <span className="riffsync-admin-field__hint">
+              You can type <code>{FIRST_NAME_MERGE_TOKEN}</code> here too.
+            </span>
           </label>
 
-          {content.blocks.map((block, index) => (
-            <EmailBlockEditor
-              key={index}
-              index={index}
-              block={block}
-              canRemove={content.blocks.length > 1}
-              onTextChange={(i, text) => {
-                setBlockText(i, text)
-                setTestState(null)
-              }}
-              onTypeChange={(i, type) => {
-                setBlockType(i, type)
-                setTestState(null)
-              }}
-              onToggleBold={(i) => {
-                toggleInline(i, 'bold')
-                setTestState(null)
-              }}
-              onToggleItalic={(i) => {
-                toggleInline(i, 'italic')
-                setTestState(null)
-              }}
-              onRemove={(i) => {
-                removeBlock(i)
-                setTestState(null)
-              }}
-            />
-          ))}
-
-          <p>
-            <button type="button" className="btn btn-secondary" onClick={addBlock}>
-              Add block
-            </button>
-          </p>
+          <EmailWysiwygEditor
+            content={content}
+            onChange={(nextContent) => {
+              setContent(nextContent)
+              setTestState(null)
+            }}
+          />
 
           <p>
             <button type="button" className="btn btn-primary" disabled={!canSendTest} onClick={() => void onSendTest()}>

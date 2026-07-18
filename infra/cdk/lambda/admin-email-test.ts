@@ -2,11 +2,13 @@ import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { requireAdminAccess, resolveStaffSub } from './admin-staff-access';
 import {
   createTestProof,
+  applyMergeTokens,
   logAdminEmailEvent,
   parseEmailDraft,
   renderEmailHtml,
   renderEmailPlainText,
   resolveStaffEmail,
+  resolveStaffMergeContext,
   sendRenderedEmail,
 } from './admin-email-shared';
 import { jsonResponse } from './giphy-search-shared';
@@ -51,15 +53,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return jsonResponse(500, { error: 'Server misconfigured' });
   }
 
-  const html = renderEmailHtml(draft.subject, draft.content);
-  const text = renderEmailPlainText(draft.subject, draft.content);
+  const mergeContext = resolveStaffMergeContext(event, staffEmail);
+  const html = renderEmailHtml(draft.subject, draft.content, mergeContext);
+  const text = renderEmailPlainText(draft.subject, draft.content, mergeContext);
   const testSentAt = new Date().toISOString();
   const reqId = event.requestContext.requestId;
 
   try {
     await sendRenderedEmail({
       toAddresses: [staffEmail],
-      subject: `[RiffSync test] ${draft.subject}`,
+      subject: `[RiffSync test] ${applyMergeTokens(draft.subject, mergeContext)}`,
       html,
       text,
     });
