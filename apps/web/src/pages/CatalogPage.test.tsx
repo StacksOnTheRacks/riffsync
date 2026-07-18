@@ -85,15 +85,16 @@ describe('CatalogPage', () => {
     }
   })
 
-  it('renders four hub entry links above search and the mixed grid in fixed order', () => {
+  it('renders four hub entry links in the page header above search and the mixed grid in fixed order', () => {
     renderCatalogPage()
 
-    const breadcrumbHeader = container.querySelector('.gen-breadcrumb nav[aria-label="breadcrumb"]')
-    expect(breadcrumbHeader?.querySelector('h1')?.textContent).toBe('Catalog')
-    expect(breadcrumbHeader?.querySelector('.breadcrumb-item.active')?.textContent?.trim()).toBe('Catalog')
+    const pageHeader = container.querySelector('.riffsync-catalog-page-header')
+    expect(pageHeader?.querySelector('h1')?.textContent).toBe('Catalog')
+    expect(pageHeader?.querySelector('nav[aria-label="breadcrumb"]')).toBeNull()
 
-    const hubNav = container.querySelector('.riffsync-catalog-hub-entry-links')
+    const hubNav = pageHeader?.querySelector('.riffsync-catalog-hub-entry-links')
     expect(hubNav).not.toBeNull()
+    expect(container.textContent).not.toContain('Push the button, Frank')
 
     const filterBar = container.querySelector('.riffsync-catalog-filter-bar')
     const grid = container.querySelector('.riffsync-catalog-grid')

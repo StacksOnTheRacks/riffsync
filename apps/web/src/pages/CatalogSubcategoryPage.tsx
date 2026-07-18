@@ -72,7 +72,7 @@ export function CatalogSubcategoryPage() {
 
   return (
     <>
-      <CatalogPageHeader title={subcategory.label} subcategoryLabel={subcategory.label} />
+      <CatalogPageHeader title={subcategory.label} subtitle={subcategory.subtitle} />
       <section className="gen-section-padding-3">
         <div className="container riffsync-catalog-page riffsync-catalog-subcategory-page">
           <CatalogFilterBar

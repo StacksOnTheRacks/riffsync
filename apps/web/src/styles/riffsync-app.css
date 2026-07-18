@@ -92,6 +92,14 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   z-index: 1;
 }
 
+.riffsync-catalog-page-header__subtitle {
+  color: var(--white-color);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-top: 0.75rem;
+}
+
 .riffsync-main:has(.riffsync-solo-watch-page:not(.riffsync-solo-watch-page--party-capture)) {
   padding-top: 0.75rem;
   padding-bottom: 1.5rem;
@@ -375,13 +383,8 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   height: 100% !important;
 }
 
-.riffsync-catalog-page__lede {
-  margin-bottom: 1.5rem;
-  max-width: 48rem;
-}
-
 .riffsync-catalog-hub-entry-links {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
 }
 
 .riffsync-catalog-hub-entry-links__list {

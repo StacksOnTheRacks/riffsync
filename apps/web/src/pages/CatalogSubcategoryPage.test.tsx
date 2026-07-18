@@ -78,25 +78,20 @@ describe('CatalogSubcategoryPage', () => {
     })
   }
 
-  it.each(CATALOG_SUBCATEGORIES.map((entry) => [entry.path, entry.label] as const))(
-    'renders H1, breadcrumbs, search, and filtered grid for %s',
-    (path, label) => {
+  it.each(
+    CATALOG_SUBCATEGORIES.map((entry) => [entry.path, entry.label, entry.subtitle] as const),
+  )(
+    'renders H1, subtitle, search, and filtered grid for %s',
+    (path, label, subtitle) => {
       renderSubcategoryPage(path)
 
       const h1 = container.querySelector('h1')
       expect(h1?.textContent).toBe(label)
 
-      const breadcrumbNav = container.querySelector('.gen-breadcrumb nav[aria-label="breadcrumb"]')
-      expect(breadcrumbNav).not.toBeNull()
-
-      const breadcrumbLinks = Array.from(
-        breadcrumbNav!.querySelectorAll('a'),
-      ) as HTMLAnchorElement[]
-      expect(breadcrumbLinks.map((link) => link.textContent?.trim())).toEqual(['Home', 'Catalog'])
-      expect(breadcrumbLinks.map((link) => link.getAttribute('href'))).toEqual(['/', '/catalog'])
-
-      const currentCrumb = breadcrumbNav!.querySelector('.breadcrumb-item.active[aria-current="page"]')
-      expect(currentCrumb?.textContent?.trim()).toBe(label)
+      expect(container.querySelector('.gen-breadcrumb nav[aria-label="breadcrumb"]')).toBeNull()
+      expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+        subtitle,
+      )
 
       expect(container.querySelector('.riffsync-catalog-filter-bar')).not.toBeNull()
       expect(container.querySelector('.riffsync-catalog-filter-bar__era-group')).toBeNull()
@@ -131,7 +126,9 @@ describe('CatalogSubcategoryPage', () => {
     renderSubcategoryPage('/catalog/riff-ready')
 
     expect(container.querySelector('h1')?.textContent).toBe('Riff-Ready')
-    expect(container.querySelector('[aria-current="page"]')?.textContent?.trim()).toBe('Riff-Ready')
+    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+      'Cheesy Flicks Ready to Riff',
+    )
 
     const cards = container.querySelectorAll('.riffsync-catalog-card')
     expect(cards).toHaveLength(1)

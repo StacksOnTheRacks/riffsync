@@ -14,10 +14,10 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - **Home route** (**`/`**) renders **exactly one** static, visually-hidden (**`sr-only`**) **`<h1>RiffSync</h1>`** at the top of **`HomePage`** output (including loading/error/empty branches) so the document outline satisfies a landmark heading without changing visible hero markup (**`presentation.md`** → *Home route document outline*).
 - **Catalog hub and subcategory routes** (**`/catalog`**, **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-ready`**, **`/catalog/movie-night`**) extend the same public catalog baselines: keyboard-reachable browse controls, semantic landmarks/headings, poster **`alt={episode.title}`**, and **`prefers-reduced-motion`** for non-critical motion. No new accessibility obligation class beyond these routes.
 - **Catalog card images** (**`CatalogGridCard`** on **`/catalog`** and all four subcategory routes) use **`alt={episode.title}`** (catalog **`title`** field) instead of **`alt=""`**.
-- **Subcategory page heading:** each subcategory route exposes one primary heading with the subcategory display name (page header).
-- **Breadcrumb landmark:** subcategory breadcrumbs use a navigational landmark (e.g. **`<nav aria-label="breadcrumb">`**) with trail **Home > Catalog > {Subcategory}**. **Home** and **Catalog** are real text links (**`/`** and **`/catalog`**); the current subcategory crumb is non-linked / **`aria-current="page"`** (or equivalent).
+- **Catalog page heading:** each catalog hub and subcategory route exposes one primary heading with the page display name.
+- **Catalog header subtitle:** the hub subtitle contains the four category links as a native link list/nav. Subcategory subtitles are plain text copy under the heading; they do not replace the primary heading or introduce a breadcrumb landmark.
 - **Catalog nav dropdown:** the Catalog disclosure exposes **`aria-haspopup`** / **`aria-expanded`** (or equivalent disclosure semantics); opens via keyboard (**Enter** / **Space**) as well as pointer; **Escape** closes and returns focus to the trigger; the four subcategory links are native focusable links in logical tab order (**MST3K**, **Community**, **Riff-Ready**, **Movie Night**). Hover-open on desktop is progressive enhancement, not the only path. On narrow viewports, Catalog expands as an **inline accordion** inside **`navbar-collapse`** (same four links; not a nested flyout).
-- **Hub entry links:** the four large horizontal hub links on **`/catalog`** are native links (or equivalent) with accessible names matching their destination labels (**MST3K**, **Community**, **Riff-Ready**, **Movie Night**).
+- **Hub entry links:** the four large horizontal hub links on **`/catalog`** are native links in the page-header subtitle slot with accessible names matching their destination labels (**MST3K**, **Community**, **Riff-Ready**, **Movie Night**).
 - **`/watch/:catalogEpisodeId`** keeps its existing **`sr-only`** **`<h1>{episode.title}</h1>`** on **`SoloWatchPage`** — unaffected by M30 beyond parallel head-tag work (M29).
 - **Ephemeral/authenticated/receiver-only routes** (**`/room/:roomId`**, **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**) are unaffected — they keep the existing app-shell heading/landmark baseline, not a new accessibility commitment.
 
@@ -109,7 +109,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open implementation decisions remain. The home **`sr-only`** H1 and catalog **`alt`** text are additive, non-visual fixes with no accessibility ambiguity — see **Public catalog and marketing surfaces** above.
 
 ### catalog-sub-pages
-- No open decisions remain for M32 catalog subcategory browse IA (#340). Breadcrumb Home is a **text** link to **`/`** (not icon-only); landmark, Catalog-hub link, dropdown, and accordion requirements above are settled. See **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
+- No open decisions remain for M32 catalog subcategory browse IA (#340). Catalog hub subtitle links, subcategory plain-text subtitles, dropdown, and accordion requirements above are settled. See **`presentation.md`** -> **Decisions (M32 - catalog subcategory browse IA - #340)**.
 
 ## Primary code pointers (optional)
 

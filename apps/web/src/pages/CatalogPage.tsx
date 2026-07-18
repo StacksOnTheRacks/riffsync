@@ -55,11 +55,9 @@ export function CatalogPage() {
 
   return (
     <>
-      <CatalogPageHeader title="Catalog" />
+      <CatalogPageHeader title="Catalog" subtitle={<CatalogHubEntryLinks />} />
       <section className="gen-section-padding-3">
         <div className="container riffsync-catalog-page">
-          <p className="riffsync-catalog-page__lede">Push the button, Frank</p>
-          <CatalogHubEntryLinks />
           <CatalogFilterBar
             titleQuery={titleQuery}
             onTitleQueryChange={setTitleQuery}

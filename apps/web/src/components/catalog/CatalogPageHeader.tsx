@@ -1,45 +1,20 @@
-import { Link } from 'react-router-dom'
+import type { ReactNode } from 'react'
 
 export interface CatalogPageHeaderProps {
   title: string
-  subcategoryLabel?: string
+  subtitle: ReactNode
 }
 
-export function CatalogPageHeader({ title, subcategoryLabel }: CatalogPageHeaderProps) {
+export function CatalogPageHeader({ title, subtitle }: CatalogPageHeaderProps) {
   return (
     <div className="gen-breadcrumb riffsync-catalog-page-header">
       <div className="container">
         <div className="row align-items-center">
           <div className="col-lg-12">
-            <nav aria-label="breadcrumb">
-              <div className="gen-breadcrumb-title">
-                <h1>{title}</h1>
-              </div>
-              <div className="gen-breadcrumb-container">
-                <ol className="breadcrumb">
-                  <li className="breadcrumb-item">
-                    <Link to="/">
-                      <i className="fas fa-home mr-2" aria-hidden />
-                      Home
-                    </Link>
-                  </li>
-                  {subcategoryLabel ? (
-                    <>
-                      <li className="breadcrumb-item">
-                        <Link to="/catalog">Catalog</Link>
-                      </li>
-                      <li className="breadcrumb-item active" aria-current="page">
-                        {subcategoryLabel}
-                      </li>
-                    </>
-                  ) : (
-                    <li className="breadcrumb-item active" aria-current="page">
-                      Catalog
-                    </li>
-                  )}
-                </ol>
-              </div>
-            </nav>
+            <div className="gen-breadcrumb-title">
+              <h1>{title}</h1>
+            </div>
+            <div className="riffsync-catalog-page-header__subtitle">{subtitle}</div>
           </div>
         </div>
       </div>
