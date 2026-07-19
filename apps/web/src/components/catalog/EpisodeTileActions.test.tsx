@@ -40,19 +40,18 @@ function episode(overrides: Partial<CatalogEpisode> = {}): CatalogEpisode {
 describe('EpisodeTileActions', () => {
   let container: HTMLDivElement
   let root: Root
-  let open: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    open = vi.spyOn(window, 'open').mockReturnValue(null)
+    vi.spyOn(window, 'open').mockReturnValue(null)
   })
 
   afterEach(() => {
     act(() => root.unmount())
     container.remove()
-    open.mockRestore()
+    vi.restoreAllMocks()
   })
 
   function renderActions(ep: CatalogEpisode) {
@@ -75,7 +74,7 @@ describe('EpisodeTileActions', () => {
       watchSolo?.click()
     })
 
-    expect(open).toHaveBeenCalledWith(
+    expect(window.open).toHaveBeenCalledWith(
       'https://www.youtube.com/watch?v=NXGXtm6gcxk',
       '_blank',
       'noopener,noreferrer',

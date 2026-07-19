@@ -5,7 +5,7 @@ import {
 } from '../catalog/catalogYoutubePlayback'
 
 type HostSourceTabArgs = {
-  catalogEp: Pick<CatalogEpisode, 'id' | 'embedAllows' | 'youtubeWatchUrl' | 'youtubeVideoId'> | undefined
+  catalogEp: Pick<CatalogEpisode, 'id' | 'embedAllows' | 'youtubeWatchUrl' | 'youtubeVideoId'> | null | undefined
   catalogEpisodeId: string
   origin: string
 }
