@@ -4,6 +4,11 @@ import { catalogToRoomPlayback, createRoom } from '../../api/roomsApi'
 import { getFanAccessToken } from '../../auth/fanTokens'
 import { startFanHostedUiSignIn } from '../../auth/fanHostedUiPkce'
 import { PENDING_PARTY_EPISODE_KEY } from '../../catalog/pendingPartyStorage'
+import {
+  episodeAllowsInAppEmbed,
+  openCatalogYoutubeWatch,
+  resolveCatalogYoutubeWatchUrl,
+} from '../../catalog/catalogYoutubePlayback'
 
 export function EpisodeTileActions({
   episode,
@@ -17,6 +22,7 @@ export function EpisodeTileActions({
   const location = useLocation()
   const token = getFanAccessToken()
   const returnPath = `${location.pathname}${location.search}` || '/'
+  const directYoutubeWatchUrl = episodeAllowsInAppEmbed(episode) ? null : resolveCatalogYoutubeWatchUrl(episode)
 
   const startParty = async () => {
     if (!token) return
@@ -45,9 +51,19 @@ export function EpisodeTileActions({
           : 'riffsync-episode-tile-actions'
       }
     >
-      <Link to={`/watch/${episode.id}`} className="gen-button gen-button--ghost">
-        Watch Solo
-      </Link>
+      {directYoutubeWatchUrl ? (
+        <button
+          type="button"
+          className="gen-button gen-button--ghost"
+          onClick={() => openCatalogYoutubeWatch(directYoutubeWatchUrl)}
+        >
+          Watch Solo
+        </button>
+      ) : (
+        <Link to={`/watch/${episode.id}`} className="gen-button gen-button--ghost">
+          Watch Solo
+        </Link>
+      )}
       <button type="button" className="gen-button" onClick={token ? () => void startParty() : signInThenStartParty}>
         Start Party
       </button>

@@ -32,6 +32,7 @@ import { RoomPageSidebar } from '../room/RoomPageSidebar'
 import { RoomRenameModal } from '../room/RoomRenameModal'
 import { RIFFSYNC_SFU_CONFIG_ALERT_ID } from '../room/drawerErrorPresentation'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
+import { hostSourceOpensOnYoutube, resolveHostSourceTabUrl } from '../room/hostSourceTab'
 import { useCastAvailability } from '../room/cast/useCastAvailability'
 import { useCastStartSession } from '../room/cast/useCastStartSession'
 import { CastActiveStagePanel } from '../room/cast/CastActiveStagePanel'
@@ -349,7 +350,11 @@ export function RoomPage() {
 
   const openCapturePlayerTab = () => {
     if (!room) return
-    const url = `${getPublicOrigin()}/watch/${encodeURIComponent(room.catalogEpisodeId)}?partyCapture=1`
+    const url = resolveHostSourceTabUrl({
+      catalogEp,
+      catalogEpisodeId: room.catalogEpisodeId,
+      origin: getPublicOrigin(),
+    })
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
@@ -524,6 +529,15 @@ export function RoomPage() {
                     playGuestVideo={playGuestVideo}
                     startCapture={startCapture}
                     openCapturePlayerTab={openCapturePlayerTab}
+                    hostSourceOpensOnYoutube={
+                      room
+                        ? hostSourceOpensOnYoutube({
+                            catalogEp,
+                            catalogEpisodeId: room.catalogEpisodeId,
+                            origin: getPublicOrigin(),
+                          })
+                        : false
+                    }
                   />
                 )
               }

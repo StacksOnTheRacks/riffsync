@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { RoomPlaybackPanel } from './RoomPlaybackPanel'
 import { RIFFSYNC_VIDEO_RELAY_STATUS_ID } from './drawerErrorPresentation'
 
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
 const baseProps = {
   captureStream: null,
   captureErr: null,
@@ -166,5 +168,24 @@ describe('RoomPlaybackPanel host video-relay status (#210)', () => {
     expect(video).not.toBeNull()
     expect(video.getAttribute('controlsList')).toBe('nodownload noremoteplayback')
     expect(video.disableRemotePlayback).toBe(true)
+  })
+
+  it('tells hosts to choose the YouTube tab when the source opens on YouTube', () => {
+    act(() => {
+      root.render(
+        <MemoryRouter>
+          <RoomPlaybackPanel
+            isPublisher
+            videoRelayStatus={null}
+            {...baseProps}
+            hostSourceOpensOnYoutube
+          />
+        </MemoryRouter>,
+      )
+    })
+
+    expect(container.textContent).toContain('YouTube opens in a new tab')
+    expect(container.textContent).toContain('choose the YouTube tab')
+    expect(container.textContent).not.toContain('Share this tab')
   })
 })

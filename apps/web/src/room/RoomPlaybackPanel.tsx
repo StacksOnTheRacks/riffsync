@@ -19,6 +19,7 @@ type RoomPlaybackPanelProps = {
   playGuestVideo: () => Promise<void>
   startCapture: () => Promise<void>
   openCapturePlayerTab: () => void
+  hostSourceOpensOnYoutube?: boolean
 }
 
 export function RoomPlaybackPanel({
@@ -38,6 +39,7 @@ export function RoomPlaybackPanel({
   playGuestVideo,
   startCapture,
   openCapturePlayerTab,
+  hostSourceOpensOnYoutube = false,
 }: RoomPlaybackPanelProps) {
   if (isPublisher) {
     return (
@@ -67,8 +69,16 @@ export function RoomPlaybackPanel({
               </p>
               <p className="riffsync-room-page__host-preview-intro">
                 First open a source media tab by clicking <strong>Open Source Tab</strong>. Then come back to this tab
-                and click <strong>Share Source Tab</strong>. In the picker, choose the tab whose title starts with{' '}
-                <strong>Share this tab</strong>.
+                and click <strong>Share Source Tab</strong>.{' '}
+                {hostSourceOpensOnYoutube ? (
+                  <>
+                    YouTube opens in a new tab; in the picker, choose the <strong>YouTube tab</strong>.
+                  </>
+                ) : (
+                  <>
+                    In the picker, choose the tab whose title starts with <strong>Share this tab</strong>.
+                  </>
+                )}
               </p>
               <div className="riffsync-room-page__center-share-buttons">
                 <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
