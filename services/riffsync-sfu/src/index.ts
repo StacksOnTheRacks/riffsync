@@ -560,6 +560,30 @@ async function onMessage(ws: WebSocket, p: PendingSession, raw: string): Promise
         break;
       }
 
+      case 'closeProducer': {
+        if (p.claims.role !== 'producer') {
+          send(ws, errResponse(id, 'forbidden'));
+          return;
+        }
+        const producerId = typeof data.producerId === 'string' ? data.producerId : '';
+        if (!producerId) {
+          send(ws, errResponse(id, 'bad closeProducer params'));
+          return;
+        }
+        const entry = getProducerEntry(p.roomKey, producerId);
+        if (!entry) {
+          send(ws, { type: 'response', id, data: { ok: true, alreadyClosed: true } });
+          return;
+        }
+        if (entry.sessionId !== p.claims.sessionId) {
+          send(ws, errResponse(id, 'forbidden'));
+          return;
+        }
+        entry.producer.close();
+        send(ws, { type: 'response', id, data: { ok: true } });
+        break;
+      }
+
       case 'consume': {
         if (p.claims.role !== 'consumer' && p.claims.role !== 'producer') {
           send(ws, errResponse(id, 'forbidden'));

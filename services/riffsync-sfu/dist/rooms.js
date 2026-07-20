@@ -231,6 +231,18 @@ export function listProducerSummaries(roomKey) {
     }
     return out;
 }
+/** Close idle router when the room has no producers (called after last subscriber disconnects). */
+export function maybeCloseIdleRoom(roomKey) {
+    const rt = roomMap.get(roomKey);
+    if (!rt || rt.producers.size > 0)
+        return;
+    if (rt.closeTimer) {
+        clearTimeout(rt.closeTimer);
+        rt.closeTimer = null;
+    }
+    rt.router.close();
+    roomMap.delete(roomKey);
+}
 export function attachTransportHandlers(transport, sess, onProducerClose) {
     transport.on('dtlsstatechange', (dtlsState) => {
         if (dtlsState === 'closed') {

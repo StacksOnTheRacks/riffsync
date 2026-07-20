@@ -377,7 +377,7 @@ Full UX copy and stable **`code`** strings for toggle surfaces remain in **`.ai/
 
 | Topic | Decision |
 | --- | --- |
-| **`unpublishProducerKind`** | Add **`(producerClass, kind)`** to **`SfuUnifiedSessionHandle`**. Closes the single live producer matching the tuple, removes it from **`liveProducers`**, and relies on **`producer.close()`** so the SFU emits **`producerClosed`** for that **`producerId`**. No-op when no matching producer. |
+| **`unpublishProducerKind`** | Add **`(producerClass, kind)`** to **`SfuUnifiedSessionHandle`**. Sends **`closeProducer`** for the live server producer matching the tuple, closes the local mediasoup-client producer, removes it from **`liveProducers`**, and relies on the SFU server producer close to emit **`producerClosed`** for that **`producerId`**. No-op when no matching producer. |
 | **`unpublishProducerClass`** | Unchanged semantics — closes **all** producers for a class. Used for session **`close()`**, both-axes-off, kill switch, and room leave. **Not** for camera-off-mic-on or mic-off-camera-on. |
 | **`publishStream` incremental produce** | Remove the leading **`unpublishProducerClass(producerClass)`** call. For each track in the stream: if the same **`(producerClass, kind)`** already publishes that **track id**, skip; else **`unpublishProducerKind(producerClass, kind)`** then **`produce`**. Kinds **not** present in the stream are **left running** — callers close them via **`unpublishProducerKind`**. |
 | **`classAlreadyPublishing`** | Evaluate per **`(producerClass, kind)`** tuple, not class-wide. |

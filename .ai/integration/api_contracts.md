@@ -226,7 +226,7 @@ Entering **`videoChat`** still fully stops host tab-capture and **`host_screen`*
 
 | Method | Contract |
 | --- | --- |
-| **`unpublishProducerKind(producerClass, kind)`** | Close the single live producer for the tuple; SFU broadcasts **`producerClosed`**. No-op if absent. |
+| **`unpublishProducerKind(producerClass, kind)`** | Send **`closeProducer`** for the single live server producer in the tuple, then close the local mediasoup-client producer; SFU broadcasts **`producerClosed`** from the server producer close. No-op if absent. |
 | **`unpublishProducerClass(producerClass)`** | Close **all** producers for the class — session teardown, both axes off, kill switch only. |
 | **`publishStream(stream, producerClass)`** | Incremental produce: per track, skip if same track id already live; else replace that **kind** only. **Does not** close kinds missing from **`stream`**. |
 | **`pauseProducerKind` / `resumeProducerKind`** | Unchanged — mic mute with camera on. |

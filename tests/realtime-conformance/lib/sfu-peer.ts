@@ -586,6 +586,7 @@ export function closeProducerKindForClass(
   for (const producer of peer.producers) {
     const appClass = (producer.appData as { producerClass?: SfuProducerClass }).producerClass
     if (producer.kind === kind && appClass === producerClass) {
+      void peer.signaling.request('closeProducer', { producerId: producer.id }).catch(() => undefined)
       try {
         producer.close()
       } catch {

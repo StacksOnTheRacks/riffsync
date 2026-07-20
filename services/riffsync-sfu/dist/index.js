@@ -2,16 +2,16 @@ import { timingSafeEqual } from 'node:crypto';
 import * as http from 'node:http';
 import process from 'node:process';
 import { WebSocketServer } from 'ws';
-import { attachTransportHandlers, closeSessionTransports, countProducersForSession, countProducersInRoom, getOrCreateRoom, getMediasoupHealthSnapshot, getProducerEntry, hasProducerForTuple, listProducerSummaries, removeProducer, removeProducersByProducerClass, removeProducersForSession, roomKeyFromClaims, shutdownMediasoup, transportListenIps, upsertProducer, verifySfuJoinToken, } from './rooms.js';
-import { isProducerClass } from './jwt.js';
-import { emitMediaLimitRejected } from './media-observability.js';
+import { attachTransportHandlers, closeSessionTransports, countProducersForSession, countProducersInRoom, getOrCreateRoom, getMediasoupHealthSnapshot, getProducerEntry, hasProducerForTuple, listProducerSummaries, removeProducer, removeProducersByProducerClass, removeProducersForSession, roomKeyFromClaims, shutdownMediasoup, maybeCloseIdleRoom, transportListenIps, upsertProducer, verifySfuJoinToken, } from './rooms.js';
+import { isProducerClass, isProducerClassAllowed, } from './jwt.js';
+import { emitMediaLimitRejected, emitProduceFailure } from './media-observability.js';
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const JWT_SECRET = process.env.SFU_JWT_SECRET?.trim() ?? '';
 const SFU_ADMIN_SECRET = process.env.SFU_ADMIN_SECRET?.trim() ?? '';
 const SFU_ADMIN_SECRET_HEADER = 'x-sfu-admin-secret';
 const MAX_TRANSPORTS = Math.max(1, Number.parseInt(process.env.SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION ?? '8', 10));
 const MAX_CONSUMERS = Math.max(1, Number.parseInt(process.env.SFU_MAX_CONSUMERS_PER_SESSION ?? '64', 10));
-const MAX_PRODUCERS_PER_SESSION = Math.max(1, Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_SESSION ?? '3', 10));
+const MAX_PRODUCERS_PER_SESSION = Math.max(1, Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_SESSION ?? '4', 10));
 const MAX_PRODUCERS_PER_ROOM = Math.max(1, Number.parseInt(process.env.SFU_MAX_PRODUCERS_PER_ROOM ?? '24', 10));
 function logJson(level, msg, fields) {
     const row = { ts: new Date().toISOString(), level, msg, ...fields };
@@ -47,6 +47,7 @@ function unregisterSubscriber(roomKey, sessionId, ws) {
     }
     if (s.size === 0) {
         subscribersByRoom.delete(roomKey);
+        maybeCloseIdleRoom(roomKey);
     }
 }
 function broadcast(roomKey, exceptSessionId, o) {
@@ -402,6 +403,7 @@ async function onMessage(ws, p, raw) {
             }
             case 'produce': {
                 if (p.claims.role !== 'producer') {
+                    emitProduceFailure('forbidden');
                     send(ws, errResponse(id, 'forbidden'));
                     return;
                 }
@@ -412,19 +414,23 @@ async function onMessage(ws, p, raw) {
                 const rtpParameters = data.rtpParameters;
                 const transport = p.transports.get(transportId);
                 if (!transport || !kind || !producerClass || typeof rtpParameters !== 'object' || rtpParameters === null) {
+                    emitProduceFailure('bad_params');
                     send(ws, errResponse(id, 'bad produce params'));
                     return;
                 }
-                if (p.claims.producerClass && p.claims.producerClass !== producerClass) {
+                if (!isProducerClassAllowed(p.claims, producerClass)) {
+                    emitProduceFailure('producer_class_mismatch');
                     send(ws, errResponse(id, 'producer_class_mismatch'));
                     return;
                 }
                 const replacing = hasProducerForTuple(p.roomKey, p.claims.sessionId, producerClass, kind);
                 if (!replacing && countProducersForSession(p.roomKey, p.claims.sessionId) >= MAX_PRODUCERS_PER_SESSION) {
+                    emitProduceFailure('session_producer_limit');
                     send(ws, errResponse(id, 'session producer limit reached'));
                     return;
                 }
                 if (!replacing && countProducersInRoom(p.roomKey) >= MAX_PRODUCERS_PER_ROOM) {
+                    emitProduceFailure('room_producer_limit');
                     send(ws, errResponse(id, 'room producer limit reached'));
                     return;
                 }
@@ -461,6 +467,29 @@ async function onMessage(ws, p, raw) {
                         producerClass,
                     },
                 });
+                break;
+            }
+            case 'closeProducer': {
+                if (p.claims.role !== 'producer') {
+                    send(ws, errResponse(id, 'forbidden'));
+                    return;
+                }
+                const producerId = typeof data.producerId === 'string' ? data.producerId : '';
+                if (!producerId) {
+                    send(ws, errResponse(id, 'bad closeProducer params'));
+                    return;
+                }
+                const entry = getProducerEntry(p.roomKey, producerId);
+                if (!entry) {
+                    send(ws, { type: 'response', id, data: { ok: true, alreadyClosed: true } });
+                    return;
+                }
+                if (entry.sessionId !== p.claims.sessionId) {
+                    send(ws, errResponse(id, 'forbidden'));
+                    return;
+                }
+                entry.producer.close();
+                send(ws, { type: 'response', id, data: { ok: true } });
                 break;
             }
             case 'consume': {

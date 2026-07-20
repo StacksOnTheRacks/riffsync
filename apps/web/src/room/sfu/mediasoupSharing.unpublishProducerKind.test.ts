@@ -5,9 +5,12 @@ vi.mock('../../config/sfuWsUrl', () => ({
 }))
 
 type WsListener = (ev?: { data?: string }) => void
+type SentRequest = { method: string; data: Record<string, unknown> }
 
 class MockWebSocket {
   static instances: MockWebSocket[] = []
+  static sentRequests: SentRequest[] = []
+  static nextProducerId = 0
   static OPEN = 1
   static CLOSED = 3
 
@@ -32,9 +35,15 @@ class MockWebSocket {
   }
 
   send(raw: string) {
-    const msg = JSON.parse(raw) as { type?: string; id?: number; method?: string }
+    const msg = JSON.parse(raw) as {
+      type?: string
+      id?: number
+      method?: string
+      data?: Record<string, unknown>
+    }
     const { type, id, method } = msg
     if (type !== 'request' || id === undefined || !method) return
+    MockWebSocket.sentRequests.push({ method, data: msg.data ?? {} })
     queueMicrotask(() => {
       const data = this.responseData(method)
       this.onmessage?.({
@@ -62,7 +71,10 @@ class MockWebSocket {
       case 'connectWebRtcTransport':
         return {}
       case 'produce':
-        return { producerId: `producer-${Date.now()}` }
+        MockWebSocket.nextProducerId += 1
+        return { producerId: `producer-${MockWebSocket.nextProducerId}` }
+      case 'closeProducer':
+        return { ok: true }
       case 'listProducers':
         return { producers: [] }
       default:
@@ -219,9 +231,15 @@ async function connectProducerSession() {
   return session
 }
 
+function closeProducerRequests(): SentRequest[] {
+  return MockWebSocket.sentRequests.filter((request) => request.method === 'closeProducer')
+}
+
 describe('connectSfuUnifiedSession unpublishProducerKind', () => {
   beforeEach(() => {
     MockWebSocket.instances = []
+    MockWebSocket.sentRequests = []
+    MockWebSocket.nextProducerId = 0
     createdProducers.length = 0
     mockSendTransport.on.mockReset()
     mockSendTransport.removeListener.mockReset()
@@ -261,6 +279,9 @@ describe('connectSfuUnifiedSession unpublishProducerKind', () => {
 
     expect(videoProducer!.close).toHaveBeenCalledOnce()
     expect(audioProducer!.close).not.toHaveBeenCalled()
+    expect(closeProducerRequests()).toEqual([
+      { method: 'closeProducer', data: { producerId: videoProducer!.id } },
+    ])
     expect(session.getProducerCount()).toBe(1)
     session.close()
   })
@@ -278,6 +299,9 @@ describe('connectSfuUnifiedSession unpublishProducerKind', () => {
 
     expect(audioProducer!.close).toHaveBeenCalledOnce()
     expect(videoProducer!.close).not.toHaveBeenCalled()
+    expect(closeProducerRequests()).toEqual([
+      { method: 'closeProducer', data: { producerId: audioProducer!.id } },
+    ])
     expect(session.getProducerCount()).toBe(1)
     session.close()
   })
@@ -295,6 +319,10 @@ describe('connectSfuUnifiedSession unpublishProducerKind', () => {
 
     expect(audioProducer!.close).toHaveBeenCalledOnce()
     expect(videoProducer!.close).toHaveBeenCalledOnce()
+    expect(closeProducerRequests()).toEqual([
+      { method: 'closeProducer', data: { producerId: audioProducer!.id } },
+      { method: 'closeProducer', data: { producerId: videoProducer!.id } },
+    ])
     expect(session.getProducerCount()).toBe(0)
     session.close()
   })

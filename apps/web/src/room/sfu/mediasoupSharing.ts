@@ -371,10 +371,16 @@ export async function connectSfuUnifiedSession(options: {
     onRemoteStream(remoteStream.getTracks().length > 0 ? remoteStream : null)
   }
 
+  const closeServerProducer = (producerId: string) => {
+    if (!producerId || signaling.closed) return
+    void signaling.request('closeProducer', { producerId }).catch(() => undefined)
+  }
+
   const unpublishProducerKind = (producerClass: SfuProducerClass, kind: 'audio' | 'video') => {
     const keep: LiveProducer[] = []
     for (const lp of liveProducers) {
       if (lp.producerClass === producerClass && lp.kind === kind) {
+        closeServerProducer(lp.producer.id)
         try {
           lp.producer.close()
         } catch {
@@ -392,6 +398,7 @@ export async function connectSfuUnifiedSession(options: {
     const keep: LiveProducer[] = []
     for (const lp of liveProducers) {
       if (lp.producerClass === producerClass) {
+        closeServerProducer(lp.producer.id)
         try {
           lp.producer.close()
         } catch {
