@@ -4,6 +4,7 @@ import {
   startFanHostedUiSignIn,
 } from '../../auth/fanHostedUiPkce'
 import { useFanSession } from '../../auth/useFanSession'
+import { useShowGetAppNav } from '../../pwa/useShowGetAppNav'
 import { useRoomChromeOptional } from '../../room/useRoomChrome'
 import { CatalogNavItem } from './CatalogNavItem'
 
@@ -33,6 +34,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
   const roomChrome = useRoomChromeOptional()
   const nowPlayingLabel = roomChrome?.nowPlayingLabel ?? null
   const { fanToken } = useFanSession()
+  const showGetAppNav = useShowGetAppNav()
   const location = useLocation()
   const returnPath = `${location.pathname}${location.search}` || '/'
 
@@ -89,6 +91,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
                       </PrimaryNavItem>
                       <CatalogNavItem />
                       <PrimaryNavItem to="/lobby">Lobby</PrimaryNavItem>
+                      {showGetAppNav ? <PrimaryNavItem to="/download">Get App</PrimaryNavItem> : null}
                       {fanToken ? (
                         <PrimaryNavItem to="/account">Account</PrimaryNavItem>
                       ) : (

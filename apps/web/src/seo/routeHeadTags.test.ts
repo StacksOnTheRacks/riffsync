@@ -81,6 +81,16 @@ describe('buildStaticRouteHeadTags', () => {
     expect(head.canonicalUrl).toBe('https://riffsync.tv/catalog')
   })
 
+  it('uses normative download page copy', () => {
+    const head = buildStaticRouteHeadTags('/download', 'https://riffsync.tv')
+    expect(head.documentTitle).toBe('Install the RiffSync app - download and add to home screen')
+    expect(head.description).toBe(
+      'Install RiffSync as an app on your phone, tablet, or computer. Step-by-step instructions for Chrome, Edge, Safari, and more. Fan watch parties with a curated catalog.',
+    )
+    expect(head.canonicalUrl).toBe('https://riffsync.tv/download')
+    expect(head.ogImageUrl).toBe('https://riffsync.tv/og-card.png')
+  })
+
   it('uses normative subcategory copy for catalog subcategory routes', () => {
     const subcategories = [
       {
@@ -122,8 +132,8 @@ describe('buildStaticRouteHeadTags', () => {
     }
   })
 
-  it('indexes nine static routes', () => {
-    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(9)
+  it('indexes ten static routes', () => {
+    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(10)
   })
 })
 

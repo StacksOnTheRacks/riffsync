@@ -13,6 +13,7 @@ import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { TermsOfServicePage } from './pages/TermsOfServicePage'
 import { DataRemovalRequestPage } from './pages/DataRemovalRequestPage'
 import { HowToHostWatchPartyPage } from './pages/HowToHostWatchPartyPage'
+import { DownloadAppPage } from './pages/DownloadAppPage'
 import { StaffAuthCallbackPage } from './pages/admin/StaffAuthCallbackPage'
 import { AdminLoginPage } from './pages/admin/AdminLoginPage'
 import { AdminCatalogCreatePage } from './pages/admin/AdminCatalogCreatePage'
@@ -50,6 +51,7 @@ export function AppRoutes() {
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/download" element={<DownloadAppPage />} />
         <Route path="/how-to-host-a-watchparty" element={<HowToHostWatchPartyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />

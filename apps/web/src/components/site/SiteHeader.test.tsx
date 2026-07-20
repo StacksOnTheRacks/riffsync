@@ -8,6 +8,7 @@ import { SiteHeader } from './SiteHeader'
 
 const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
 const useFanSession = vi.fn()
+const useShowGetAppNav = vi.fn()
 
 vi.mock('../../auth/fanHostedUiPkce', () => ({
   startFanHostedUiSignIn: (returnPath: string) => startFanHostedUiSignIn(returnPath),
@@ -15,6 +16,10 @@ vi.mock('../../auth/fanHostedUiPkce', () => ({
 
 vi.mock('../../auth/useFanSession', () => ({
   useFanSession: () => useFanSession(),
+}))
+
+vi.mock('../../pwa/useShowGetAppNav', () => ({
+  useShowGetAppNav: () => useShowGetAppNav(),
 }))
 
 vi.mock('../../room/useRoomChrome', () => ({
@@ -30,6 +35,7 @@ describe('SiteHeader fan session nav', () => {
   beforeEach(() => {
     startFanHostedUiSignIn.mockReset()
     startFanHostedUiSignIn.mockResolvedValue(undefined)
+    useShowGetAppNav.mockReturnValue(true)
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -57,6 +63,7 @@ describe('SiteHeader fan session nav', () => {
     expect(container.querySelector('a[href="/account"]')).toBeNull()
     expect(container.textContent).toContain('Sign In')
     expect(container.textContent).toContain('Lobby')
+    expect(container.querySelector('a[href="/download"]')?.textContent).toBe('Get App')
   })
 
   it('starts Hosted UI sign-in with the current path', () => {
@@ -77,6 +84,15 @@ describe('SiteHeader fan session nav', () => {
 
     expect(container.querySelector('a[href="/account"]')?.textContent).toBe('Account')
     expect(container.querySelector('.riffsync-site-nav-sign-in')).toBeNull()
+  })
+
+  it('hides Get App when the site is running as an installed PWA', () => {
+    useFanSession.mockReturnValue({ fanToken: null })
+    useShowGetAppNav.mockReturnValue(false)
+    renderHeader('/catalog')
+
+    expect(container.querySelector('a[href="/download"]')).toBeNull()
+    expect(container.textContent).not.toContain('Get App')
   })
 
   it('renders catalog nav chrome inside navbar-collapse', () => {

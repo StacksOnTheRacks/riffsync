@@ -39,6 +39,13 @@ async function main() {
   const robotsPath = resolve(distDir, 'robots.txt')
   const sitemapPath = resolve(distDir, 'sitemap.xml')
   const spaShellPath = resolve(distDir, 'spa-shell.html')
+  const pwaAssetPaths = [
+    'manifest.webmanifest',
+    'sw.js',
+    'icons/riffsync-icon-192.png',
+    'icons/riffsync-icon-512.png',
+    'download/index.html',
+  ]
 
   const [robotsTxt, sitemapXml, episodes] = await Promise.all([
     readFile(robotsPath, 'utf8'),
@@ -69,6 +76,14 @@ async function main() {
       await readFile(resolve(distDir, relativePath), 'utf8')
     } catch {
       throw new Error(`Missing prerendered file: dist/${relativePath}`)
+    }
+  }
+
+  for (const relativePath of pwaAssetPaths) {
+    try {
+      await readFile(resolve(distDir, relativePath))
+    } catch {
+      throw new Error(`Missing PWA/download artifact: dist/${relativePath}`)
     }
   }
 

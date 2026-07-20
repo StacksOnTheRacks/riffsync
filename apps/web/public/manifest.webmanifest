@@ -1,0 +1,24 @@
+{
+  "name": "RiffSync",
+  "short_name": "RiffSync",
+  "description": "Fan watch parties with a curated catalog and room chat.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08060d",
+  "theme_color": "#08060d",
+  "icons": [
+    {
+      "src": "/icons/riffsync-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/riffsync-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

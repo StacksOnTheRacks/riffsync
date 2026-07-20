@@ -12,4 +12,11 @@ describe('public site shell (index.html)', () => {
     expect(html).toMatch(/https:\/\/riffsync\.tv\//)
     expect(html).toMatch(/https:\/\/riffsync\.tv\/og-card\.png/)
   })
+
+  it('links the PWA manifest and install metadata', () => {
+    const html = readFileSync(indexHtmlPath, 'utf8')
+    expect(html).toContain('<link rel="manifest" href="/manifest.webmanifest" />')
+    expect(html).toContain('<meta name="theme-color" content="#08060d" />')
+    expect(html).toContain('<link rel="apple-touch-icon" href="/icons/riffsync-icon-192.png" />')
+  })
 })

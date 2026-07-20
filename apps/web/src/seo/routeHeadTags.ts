@@ -37,6 +37,11 @@ const STATIC_ROUTE_COPY = {
     description:
       'Browse Movie Night titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
   },
+  '/download': {
+    title: 'Install the RiffSync app - download and add to home screen',
+    description:
+      'Install RiffSync as an app on your phone, tablet, or computer. Step-by-step instructions for Chrome, Edge, Safari, and more. Fan watch parties with a curated catalog.',
+  },
   '/how-to-host-a-watchparty': {
     title: 'How to host a watch party — RiffSync',
     description:

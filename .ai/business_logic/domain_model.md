@@ -20,7 +20,7 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 
   | Indexable | Not indexed (`noindex`) |
   | --- | --- |
-  | **`/`**, **`/catalog`**, **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-material`**, **`/catalog/movie-night`**, **`/watch/:catalogEpisodeId`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** | **`/room/:roomId`** (and **`/room/:roomId/experimental/:experimental`**), **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**, **`/privacy/data-removal`**, **`/auth/callback`**, **`/admin/auth/callback`** |
+  | **`/`**, **`/catalog`**, **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-material`**, **`/catalog/movie-night`**, **`/download`**, **`/watch/:catalogEpisodeId`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** | **`/room/:roomId`** (and **`/room/:roomId/experimental/:experimental`**), **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**, **`/privacy/data-removal`**, **`/auth/callback`**, **`/admin/auth/callback`** |
 
   Ephemeral, authenticated, and receiver-only routes carry no durable identity worth surfacing to crawlers — this mirrors the existing **Identity modes** boundary below, not a new access rule. **`/watch/:catalogEpisodeId`** is indexable only for episodes satisfying the existing lawful-playback YouTube-link filter (**Invariant 1**) — an episode without a live YouTube link has no lawful surface to summarize or link to and is excluded from indexing and the sitemap until a link exists.
 
@@ -85,7 +85,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 8. **Reconnect privacy:** after refresh or disconnect, each signed-in fan’s camera and microphone **default off**; the fan must manually re-enable.
 9. **Catalog title:** never replaced by TMDB **`title`** / **`original_title`**. This extends to public search and share metadata — page titles, meta descriptions, and Open Graph/Twitter tags for **`/watch/:catalogEpisodeId`** always source the catalog **`title`** field, never TMDB's **`title`** or **`original_title`**.
 10. **Public catalog read** does not require authentication (hub **`/catalog`** and all catalog subcategory routes alike).
-11. **Public discoverability boundary:** only the durable public surfaces listed under **Public discoverable surface** — including the catalog hub and its subcategory browse routes — are indexable. Ephemeral per-instance state (**rooms**, **lobby**) and authenticated or receiver-only surfaces (**account**, **admin**, **Cast receiver**, **auth callbacks**) never carry indexable metadata or sitemap entries, regardless of the rendering or build mechanism that produces them.
+11. **Public discoverability boundary:** only the durable public surfaces listed under **Public discoverable surface** - including the catalog hub, its subcategory browse routes, and the app install instructions page - are indexable. Ephemeral per-instance state (**rooms**, **lobby**) and authenticated or receiver-only surfaces (**account**, **admin**, **Cast receiver**, **auth callbacks**) never carry indexable metadata or sitemap entries, regardless of the rendering or build mechanism that produces them.
 
 ## Decisions (answered)
 
@@ -101,7 +101,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Operator onboarding (MVP)? | **Invite-only** — manual Cognito console invite and group assignment acceptable; no in-app “request access” flow. |
 | `admin` vs `curator` on routes? | **Deferred** until catalog/list handlers — auth slice treats either group as authorized for staff API probe. |
 | Operator moderation of rooms? | **Out of scope** for auth slice; when it ships, remains a **staff** capability separate from **room admin** capture authority. |
-| Public catalog SEO indexing scope? | Catalog hub, catalog subcategory browse routes, episode landing, host-help, and legal pages are indexable; rooms, lobby, account, admin, Cast receiver, and auth callbacks stay **`noindex`** — mirrors the existing lawful-playback and identity-mode boundaries, not a new access rule. |
+| Public catalog SEO indexing scope? | Catalog hub, catalog subcategory browse routes, app install instructions, episode landing, host-help, and legal pages are indexable; rooms, lobby, account, admin, Cast receiver, and auth callbacks stay **`noindex`** - mirrors the existing lawful-playback and identity-mode boundaries, not a new access rule. |
 | Who may publish participant camera/mic? | **Signed-in fans only** — anonymous guests subscribe-only for participant A/V. |
 | Theater mic audio while movie plays? | **Yes** — participant microphones audible alongside host movie stream when **`avDisabled`** is false. |
 | Room mode durability? | **Durable** on room document — host **`PATCH`**; snapshot/join returns current mode; survives refresh and late join. |

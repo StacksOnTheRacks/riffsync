@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
+import { useShowGetAppNav } from '../../pwa/useShowGetAppNav'
 
 export function SiteFooter({ compact = false }: { compact?: boolean }) {
   const year = new Date().getFullYear()
+  const showGetAppNav = useShowGetAppNav()
 
   if (compact) {
     return (
@@ -18,6 +20,12 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               <Link to="/catalog">Catalog</Link>
               <span aria-hidden>·</span>
               <Link to="/lobby">Lobby</Link>
+              {showGetAppNav ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <Link to="/download">Get App</Link>
+                </>
+              ) : null}
               <span aria-hidden>·</span>
               <Link to="/how-to-host-a-watchparty">Host help</Link>
               <span aria-hidden>·</span>
@@ -70,6 +78,11 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                       <li className="menu-item">
                         <Link to="/lobby">Lobby</Link>
                       </li>
+                      {showGetAppNav ? (
+                        <li className="menu-item">
+                          <Link to="/download">Get App</Link>
+                        </li>
+                      ) : null}
                       <li className="menu-item">
                         <Link to="/how-to-host-a-watchparty">How to Host</Link>
                       </li>
