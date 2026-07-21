@@ -7,7 +7,7 @@ const BASE_TITLE = 'RiffSync'
 export function PrivacyPolicyPage() {
   useEffect(() => {
     const previous = document.title
-    document.title = `Privacy Policy — ${BASE_TITLE}`
+    document.title = `Privacy Policy - ${BASE_TITLE}`
     return () => {
       document.title = previous
     }

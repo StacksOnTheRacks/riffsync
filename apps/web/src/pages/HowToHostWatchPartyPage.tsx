@@ -4,7 +4,7 @@ import { SITE_DOCUMENT_TITLE } from '../config/documentTitle'
 export function HowToHostWatchPartyPage() {
   useEffect(() => {
     const previous = document.title
-    document.title = `How to host a watch party — ${SITE_DOCUMENT_TITLE}`
+    document.title = `How to Host a Watch Party - ${SITE_DOCUMENT_TITLE}`
     return () => {
       document.title = previous
     }

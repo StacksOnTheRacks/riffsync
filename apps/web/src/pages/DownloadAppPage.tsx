@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { SITE_DOCUMENT_TITLE } from '../config/documentTitle'
+import { staticRouteDocumentTitle } from '../seo/routeHeadTags'
 import { usePwaInstallPrompt } from '../pwa/usePwaInstallPrompt'
 
 export function DownloadAppPage() {
@@ -8,7 +8,7 @@ export function DownloadAppPage() {
 
   useEffect(() => {
     const previous = document.title
-    document.title = `Install the RiffSync app - ${SITE_DOCUMENT_TITLE}`
+    document.title = staticRouteDocumentTitle('/download')
     return () => {
       document.title = previous
     }

@@ -18,11 +18,11 @@ const TEMPLATE_HTML = `<!doctype html>
       content="Generic description"
     />
     <link rel="canonical" href="https://riffsync.tv/" />
-    <meta property="og:title" content="RiffSync — watch parties" />
+    <meta property="og:title" content="RiffSync - Watch Parties" />
     <meta property="og:description" content="Generic OG description" />
     <meta property="og:url" content="https://riffsync.tv/" />
     <meta property="og:image" content="https://riffsync.tv/og-card.png" />
-    <meta name="twitter:title" content="RiffSync — watch parties" />
+    <meta name="twitter:title" content="RiffSync - Watch Parties" />
     <meta name="twitter:description" content="Generic Twitter description" />
     <meta name="twitter:image" content="https://riffsync.tv/og-card.png" />
   </head>
@@ -55,7 +55,7 @@ function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>
 describe('buildStaticRouteHeadTags', () => {
   it('produces normative home copy', () => {
     const head = buildStaticRouteHeadTags('/', 'https://riffsync.tv')
-    expect(head.documentTitle).toBe('RiffSync — watch parties')
+    expect(head.documentTitle).toBe('RiffSync - Watch Parties')
     expect(head.description).toContain('fan watch parties')
     expect(head.canonicalUrl).toBe('https://riffsync.tv/')
     expect(head.ogImageUrl).toBe('https://riffsync.tv/og-card.png')
@@ -74,7 +74,7 @@ describe('buildStaticRouteHeadTags', () => {
 
   it('uses normative catalog title and description', () => {
     const head = buildStaticRouteHeadTags('/catalog', 'https://riffsync.tv')
-    expect(head.documentTitle).toBe('RiffSync Catalog — browse the library')
+    expect(head.documentTitle).toBe('RiffSync Catalog - Browse the Library')
     expect(head.description).toBe(
       'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff Material, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
     )
@@ -83,7 +83,7 @@ describe('buildStaticRouteHeadTags', () => {
 
   it('uses normative download page copy', () => {
     const head = buildStaticRouteHeadTags('/download', 'https://riffsync.tv')
-    expect(head.documentTitle).toBe('Install the RiffSync app - download and add to home screen')
+    expect(head.documentTitle).toBe('Install the RiffSync App - Download and Add to Home Screen')
     expect(head.description).toBe(
       'Install RiffSync as an app on your phone, tablet, or computer. Step-by-step instructions for Chrome, Edge, Safari, and more. Fan watch parties with a curated catalog.',
     )
@@ -95,28 +95,28 @@ describe('buildStaticRouteHeadTags', () => {
     const subcategories = [
       {
         route: '/catalog/mst3k' as const,
-        title: 'MST3K — RiffSync Catalog',
+        title: 'MST3K - RiffSync Catalog',
         description:
           'Browse Mystery Science Theater 3000 episodes on RiffSync — Joel, Mike, Jonah, and Emily eras with lawful YouTube embeds. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/mst3k',
       },
       {
         route: '/catalog/community' as const,
-        title: 'Community — RiffSync Catalog',
+        title: 'Community - RiffSync Catalog',
         description:
           'Browse Community catalog titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/community',
       },
       {
         route: '/catalog/riff-material' as const,
-        title: 'Riff Material — RiffSync Catalog',
+        title: 'Riff Material - RiffSync Catalog',
         description:
           'Browse Riff Material titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/riff-material',
       },
       {
         route: '/catalog/movie-night' as const,
-        title: 'Movie Night — RiffSync Catalog',
+        title: 'Movie Night - RiffSync Catalog',
         description:
           'Browse Movie Night titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/movie-night',
@@ -143,8 +143,8 @@ describe('buildWatchRouteHeadTags', () => {
       episode({ id: '101-the-crawling-eye', title: 'The Crawling Eye' }),
       'https://riffsync.tv',
     )
-    expect(head.documentTitle).toBe('The Crawling Eye — RiffSync')
-    expect(head.ogTitle).toBe('The Crawling Eye — RiffSync')
+    expect(head.documentTitle).toBe('The Crawling Eye - RiffSync')
+    expect(head.ogTitle).toBe('The Crawling Eye - RiffSync')
     expect(head.description).toBe(
       'Watch The Crawling Eye on RiffSync — fan watch parties with lawful YouTube embeds. Unofficial fan project.',
     )
@@ -198,7 +198,7 @@ describe('buildWatchRouteHeadTags', () => {
       'https://riffsync.tv',
     )
     expect(head.documentTitle.length).toBeLessThanOrEqual(70)
-    expect(head.ogTitle).toBe(`${longTitle} — RiffSync`)
+    expect(head.ogTitle).toBe(`${longTitle} - RiffSync`)
     expect(head.documentTitle).not.toBe(head.ogTitle)
   })
 })
@@ -216,7 +216,7 @@ describe('buildPrerenderDocument', () => {
   it('injects home head tags without changing body markup', () => {
     const head = buildStaticRouteHeadTags('/', 'https://riffsync.tv')
     const html = buildPrerenderDocument(TEMPLATE_HTML, head)
-    expect(html).toContain('<title>RiffSync — watch parties</title>')
+    expect(html).toContain('<title>RiffSync - Watch Parties</title>')
     expect(html).toContain('rel="canonical" href="https://riffsync.tv/"')
     expect(html).toContain('<div id="root"></div>')
     expect(html).toContain('<script type="module" src="/assets/main.js"></script>')

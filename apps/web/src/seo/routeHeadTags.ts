@@ -9,51 +9,51 @@ export const GENERIC_FAN_DESCRIPTION =
 
 const STATIC_ROUTE_COPY = {
   '/': {
-    title: 'RiffSync — watch parties',
+    title: 'RiffSync - Watch Parties',
     description: GENERIC_FAN_DESCRIPTION,
   },
   '/catalog': {
-    title: 'RiffSync Catalog — browse the library',
+    title: 'RiffSync Catalog - Browse the Library',
     description:
       'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff Material, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
   },
   '/catalog/mst3k': {
-    title: 'MST3K — RiffSync Catalog',
+    title: 'MST3K - RiffSync Catalog',
     description:
       'Browse Mystery Science Theater 3000 episodes on RiffSync — Joel, Mike, Jonah, and Emily eras with lawful YouTube embeds. Unofficial fan project.',
   },
   '/catalog/community': {
-    title: 'Community — RiffSync Catalog',
+    title: 'Community - RiffSync Catalog',
     description:
       'Browse Community catalog titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
   },
   '/catalog/riff-material': {
-    title: 'Riff Material — RiffSync Catalog',
+    title: 'Riff Material - RiffSync Catalog',
     description:
       'Browse Riff Material titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
   },
   '/catalog/movie-night': {
-    title: 'Movie Night — RiffSync Catalog',
+    title: 'Movie Night - RiffSync Catalog',
     description:
       'Browse Movie Night titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
   },
   '/download': {
-    title: 'Install the RiffSync app - download and add to home screen',
+    title: 'Install the RiffSync App - Download and Add to Home Screen',
     description:
       'Install RiffSync as an app on your phone, tablet, or computer. Step-by-step instructions for Chrome, Edge, Safari, and more. Fan watch parties with a curated catalog.',
   },
   '/how-to-host-a-watchparty': {
-    title: 'How to host a watch party — RiffSync',
+    title: 'How to Host a Watch Party - RiffSync',
     description:
       'Step-by-step help for hosting a RiffSync watch party: share your YouTube tab, keep guests in sync, and fix common screen-share issues.',
   },
   '/terms': {
-    title: 'Terms of Service — RiffSync',
+    title: 'Terms of Service - RiffSync',
     description:
       'RiffSync Terms of Service — rules for using the fan watch-party site, catalog, chat, and related features. Unofficial fan project; not affiliated with MST3K or RiffTrax.',
   },
   '/privacy': {
-    title: 'Privacy Policy — RiffSync',
+    title: 'Privacy Policy - RiffSync',
     description:
       'RiffSync Privacy Policy — what we collect when you browse the catalog, join watch parties, or sign in, and how we use that information.',
   },
@@ -89,6 +89,10 @@ export function defaultOgCardUrl(origin: string): string {
   return absoluteUrl(origin, '/og-card.png')
 }
 
+export function staticRouteDocumentTitle(route: StaticIndexableRoute): string {
+  return STATIC_ROUTE_COPY[route].title
+}
+
 export function buildStaticRouteHeadTags(
   route: StaticIndexableRoute,
   origin: string,
@@ -106,7 +110,7 @@ export function buildStaticRouteHeadTags(
 }
 
 export function buildWatchRouteHeadTags(episode: CatalogEpisode, origin: string): RouteHeadTags {
-  const untrimmedTitle = `${episode.title} — ${SITE_SUFFIX}`
+  const untrimmedTitle = `${episode.title} - ${SITE_SUFFIX}`
   const documentTitle =
     untrimmedTitle.length > 70 ? trimTabTitleSegment(untrimmedTitle) : untrimmedTitle
 

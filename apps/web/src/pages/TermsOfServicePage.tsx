@@ -7,7 +7,7 @@ const BASE_TITLE = 'RiffSync'
 export function TermsOfServicePage() {
   useEffect(() => {
     const previous = document.title
-    document.title = `Terms of Service — ${BASE_TITLE}`
+    document.title = `Terms of Service - ${BASE_TITLE}`
     return () => {
       document.title = previous
     }
