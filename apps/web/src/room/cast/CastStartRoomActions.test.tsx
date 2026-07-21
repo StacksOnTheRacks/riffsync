@@ -49,7 +49,8 @@ describe('CastStartRoomActions', () => {
   it('renders Cast to TV when available and idle', () => {
     renderActions('available', 'idle')
     expect(container.textContent).toContain('Cast to TV')
-    expect(container.querySelector('google-cast-launcher')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__cast-launcher-glyph')).not.toBeNull()
+    expect(container.querySelector('google-cast-launcher')).toBeNull()
   })
 
   it('shows device chooser status without replacing playback surfaces', () => {
