@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { catalogCardImageUrl } from '../../catalog/mockCatalog'
 import { formatCatalogLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
-import { PlaybackExpectationBadge } from '../watch/PlaybackExpectationBadge'
 import { EpisodeTileActions } from './EpisodeTileActions'
 
 export function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
@@ -30,13 +29,14 @@ export function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
                   </li>
                 ))}
               </ul>
-              <div className="riffsync-catalog-card__advisory">
-                <PlaybackExpectationBadge expectation={episode.playbackExpectation} />
-              </div>
-              {episode.embedAllows === false && (
-                <p className="riffsync-catalog-card__embed" role="status">
-                  Not embeddable in-app — use YouTube directly if available.
-                </p>
+              {episode.tags.length > 0 && (
+                <div className="riffsync-catalog-card__advisory">
+                  {episode.tags.map((tag) => (
+                    <span key={tag} className="riffsync-catalog-card__tag">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           </div>
