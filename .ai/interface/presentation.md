@@ -58,6 +58,10 @@ Meta titles/descriptions/OG for **`/watch/:id`** always use the catalog **`title
 
 **`CatalogGridCard`** poster **`<img>`** elements use **`alt={episode.title}`** (catalog **`title`** field only — Invariant 9) instead of today's empty **`alt=""`**. Do **not** append **`poster`**, catalog labels, or experiment numbers to alt text; the adjacent visible **`h3`** link already carries the title for sighted users. Applies on **`/catalog`** and all four subcategory routes. Additive accessibility/SEO fix — no new interaction pattern, no visible layout change. **`HomeMovieCard`** on home rows is unchanged in this slice.
 
+### Catalog card browse metadata
+
+**`CatalogGridCard`** renders **`episode.tags`** in the card metadata area in the exact order received from the API. Tag strings are displayed as provided (namespace-agnostic; no hard-coded **`Season`**, **`Era`**, or **`Genre`** rendering rules). When **`episode.tags`** is empty, the card shows no fallback playback-advisory copy (**`Ads may appear`**, **`Premium-friendly`**, **`Likely ad-supported`**, or equivalent). Catalog cards do **not** show a visible not-embeddable message; **`embedAllows === false`** continues to gate in-app embed affordances through **`EpisodeTileActions`** / watch routing only.
+
 ### `/watch/:catalogEpisodeId` heading
 
 The existing **`sr-only`** **`<h1>{episode.title}</h1>`** on **`SoloWatchPage`** already satisfies the document-outline contract; this initiative adds only head-tag metadata (title/description/canonical/OG/Twitter per the table above) — no markup change to the existing heading.

@@ -128,4 +128,4 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ## Primary code pointers (optional)
 
 - Link GitHub issues when filed.
-- **US-P0-01 (browse):** `apps/web` home + `/catalog` hub and `/catalog/*` subcategory routes load from **`GET /v1/catalog`** when **`VITE_PUBLIC_API_BASE_URL`** is set (**M4 / issue #13**); **US-P0-07 (advisory):** `PlaybackExpectationBadge` + optional `playbackExpectation` on catalog rows (honor-system; see **`README`**).
+- **US-P0-01 (browse):** `apps/web` home + `/catalog` hub and `/catalog/*` subcategory routes load from **`GET /v1/catalog`** when **`VITE_PUBLIC_API_BASE_URL`** is set (**M4 / issue #13**); **US-P0-07 (advisory):** honor-system **`playbackExpectation`** on room/share surfaces (see **`README`**); **`CatalogGridCard`** shows **`episode.tags`** in source order with no playback-advisory fallback when tags are empty (**#349**).
