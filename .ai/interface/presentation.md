@@ -12,7 +12,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | **Room / lobby** | **Room-admin** controls only when **`JWT.sub === hostSub`**; anonymous guests see **read-only** player/chat chrome (**picker hidden**, subscribe-only WebRTC). |
 | **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes the player, optional Theater camera row, and RiffSync chrome) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
 | **Share** | **Copy `/room/:id` URL**; show advisory **`playbackExpectation`** near share affordance. |
-| **Get App** | Main public nav and footer expose **Get App** linking to **`/download`** when the site is running in a normal browser tab. Hide the nav item in compact room chrome and when the browser reports installed PWA display mode (`standalone` / `minimal-ui` or iOS `navigator.standalone`). |
+| **Get App** | Main public nav and footer expose **Get App** linking to **`/download`** when the site is running in a normal browser tab. Room routes render without site header/footer; hide the nav item when the browser reports installed PWA display mode (`standalone` / `minimal-ui` or iOS `navigator.standalone`). |
 | **Rate / caps** | Server may return **429** / **WS business `error`** when limits hit (**`api_contracts.md`**); toast or inline message—**no** infinite retry storms. |
 | **Catalog browse IA** | Public **`/catalog`** is a **hub**: four large **text** entry links (no imagery) in the page-header subtitle slot above title-search / sort and the retained mixed/all-titles title grid. Link order and labels: **MST3K**, **Community**, **Riff Material**, **Movie Night** (display names only). **Era chips are removed** from **`/catalog`**. Public copy uses **Riff Material** (not Riff Material); route slug **`riff-material`**. Staff-only **`other`** never appears on the hub, nav dropdown, or subcategory chrome. |
 | **Catalog subcategory shell** | Routes **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-material`**, **`/catalog/movie-night`** share a Streamlab-style shell: page header with the subcategory display name and route-fixed subtitle, the same title-search / sort chrome as the hub (scoped to the route-fixed `catalogs` set), then the existing title/card grid (**`CatalogGridCard`**). Subtitles are **`"Push the button, Frank"`**, **Community Made Riffs**, **Cheesy Flicks Ready to Riff**, and **Pull the Family Together for a Movie Night** respectively. **`/catalog/mst3k`** is one aggregated grid over Joel, Mike, Jonah, and Emily — **no** secondary host-catalog chips this capability. Per-subcategory visual customization is **deferred**. |
@@ -92,6 +92,7 @@ Tabbed popover on chat compose (**`ChatComposeMediaPicker`**) — **Emojis** and
 
 - **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (Theater camera row or Video Chat grid), host tab-capture chrome, and **video-relay** drawer status.
 - **`riffsync-room-page__chat-column`** holds sidebar tabs (**Chat**, **People**, **Room**, **Profile**), participant AV toggles, message log, compose, and **chat** drawer status.
+- **`/room/:roomId`** renders as a full-viewport room shell with no site header or footer. Users leave the party through the room **Leave Party** action to return to other RiffSync pages.
 - **Theater room mode** (host layout policy) is distinct from **theater fullscreen** (wrapper **`requestFullscreen`**) and from **expanded view** (in-page stage layout). UI copy must not conflate the three.
 - **`RoomPage`** is a **thin shell**; realtime drawers are owned by **`ChatSession`**, **`SfuMediaSession`**, and **`TheaterPlayback`** (**`runtime/execution_model.md`**). Presentation contracts describe what users see regardless of module wiring.
 
@@ -166,7 +167,7 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 - Visible only when **`JWT.sub === hostSub`**.
 - Flex row directly below the stage: **room layout** segmented control (**Theater** default, **Video Chat** alternate) on the left; **Disable room A/V** kill switch on the right. Wraps on narrow widths; extension point for future host share controls.
-- When **`avDisabled`** is false, the **Video Chat** segment carries visible **Beta** text adjacent to the control label (host-only; not a guest-facing mode pill). **`aria-describedby`** / tooltip: **`Video Chat layout is experimental. Participant video quality and reliability are still improving.`** When **AV kill switch** is on, **Video Chat** selection is unavailable or inert until AV is re-enabled (Beta chrome hidden with inert segment).
+- **Video Chat** is a normal A/V room mode. Do not label it **Beta** or **Experimental**. When **AV kill switch** is on, **Video Chat** selection is unavailable or inert until AV is re-enabled.
 
 ### Participant camera/microphone toggles
 
@@ -248,7 +249,7 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 
 ### Expanded view (in-page, #259)
 
-**Expanded view** is an optional **in-page** layout within **`/room/:roomId`** — **not** browser **`requestFullscreen`**, **not** YouTube iframe-native fullscreen, and **not** the same as **theater fullscreen** above. Compact site header and footer remain visible; the **stage region** fills the width available beneath header within the room shell.
+**Expanded view** is an optional **in-page** layout within **`/room/:roomId`** - **not** browser **`requestFullscreen`**, **not** YouTube iframe-native fullscreen, and **not** the same as **theater fullscreen** above. The room route already uses a chrome-free full-viewport shell; Expanded View changes only the in-room stage/sidebar/chat presentation.
 
 | Concern | Contract |
 | --- | --- |
@@ -274,7 +275,7 @@ Optional Chromecast support is a local room presentation layer for Cast-capable 
 
 | Concern | Contract |
 | --- | --- |
-| **Availability** | Show **Cast to TV** only in **normal room view** when sender support is detected and the existing experimental room feature opt-in is enabled. Cast entry is hidden or inert in expanded view. Until Cast is repaired and release-ready, non-experimental sessions hide or cannot activate the Cast entry point. Missing support or a disabled experimental opt-in must not block normal playback, chat, expanded view, host controls, or room participation. |
+| **Availability** | Show **Cast to TV** only in **normal room view** when sender support is detected and the existing experimental room feature opt-in is enabled. Cast entry is hidden or inert in expanded view. Until Cast is repaired and release-ready, non-experimental sessions hide or cannot activate the Cast entry point. Missing support or a disabled experimental opt-in must not block normal playback, chat, expanded view, host controls, participant A/V, or room participation. |
 | **Start point** | Cast starts from the standard stage/sidebar room layout only. The sender does not need to enter expanded view before starting Cast. |
 | **Receiver presentation** | The custom RiffSync Cast receiver must render the expanded-view composition model: stage primary/video plus bottom-right chat overlay. During an active Theater share, stage primary is the live `host_screen` stream, not placeholder text. The Cast presentation does **not** include the sidebar tab strip; **People**, **Room**, and **Profile** remain sender-side room surfaces. Native media-only or YouTube-only Cast does not satisfy this presentation contract. |
 | **Sender active state** | After receiver render confirmation, the sender's normal stage replaces the regular video/playback surface with **`Now Casting`** and a stop affordance. The regular in-page video surface does not remain visible while local Cast is active. **`requestSession()`** resolution alone must not show **`Now Casting`**. |
@@ -386,7 +387,7 @@ The render-confirmation slice gates the sender's active Cast UI after #302 reach
 | People badges? | **Online** (connected) + **active** (2-minute window) on roster rows; host row included. |
 | Speaking on tiles? | **Yes** — border/glow on Theater strip and Video Chat grid when video on and mic unmuted. |
 | Mic-only speaking? | **People tab rows only** — no stage tile or audible-only chrome. |
-| Video Chat label? | **Beta** on host control bar segment when **`avDisabled`** is false; tooltip per host control bar section. |
+| Video Chat label? | No **Beta** or **Experimental** label; **Video Chat** is a normal host-selectable A/V room mode while **`avDisabled`** is false. |
 | People cam/mic icons? | **Yes** — live SFU producer state per **`sessionId`**; mic muted vs off distinct. |
 | Speaking VAD? | **`fftSize` 512**, RMS **≥ 0.02**, **150ms** attack, **300ms** hang — **`execution_model.md`**. |
 | Separate chat vs video-relay drawers? | **Unchanged** — independent banners per **`getDiagnostics().drawers`**; no combined copy. |

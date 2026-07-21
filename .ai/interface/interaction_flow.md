@@ -120,7 +120,7 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 ### Expanded view (local UI, #259)
 
 1. **Per-viewer toggle:** Any participant may enter or exit **expanded view** independently — **not** host-authoritative and **not** fan-out over WebSocket.
-2. **Enter expanded (≥ 992px):** Stage primary fills the room stage column span; chat moves from sidebar column to **bottom-right transparent overlay** (chat-only chrome).
+2. **Enter expanded (≥ 992px):** Stage primary fills the room stage column span; chat moves from sidebar column to **bottom-right transparent overlay** (chat-only chrome). The room route is already a no-header/no-footer full-viewport shell, so Expanded View does not control site chrome.
 3. **Theater expanded:** Movie player remains primary inside the expanded stage container. When participant cameras are on, render the Theater camera row as a bottom-left overlay over the movie; when no cameras are on, omit the row so the movie may use the available expanded stage.
 4. **Video Chat expanded:** Participant video grid fills stage; mic-only rules unchanged.
 5. **Exit expanded:** Restore standard side-by-side stage + sidebar grid; active sidebar tab unchanged (defaults to last tab before expand if implementation tracks it; **Chat** tab content remains wired).
@@ -132,7 +132,7 @@ Implementation note: the expanded toggle is client-local React state in `RoomPag
 
 ### Chromecast Cast flow (local UI)
 
-1. **Availability gate:** In normal room view, a Cast-capable sender may see **Cast to TV** after local sender support is detected and the existing experimental room feature opt-in is enabled. Until Cast is repaired and release-ready, non-experimental sessions must not show or activate **Cast to TV**. Unsupported, unavailable, or non-experimental Cast never blocks the normal stage, chat, expanded view, or room controls.
+1. **Availability gate:** In normal room view, a Cast-capable sender may see **Cast to TV** after local sender support is detected and the existing experimental room feature opt-in is enabled. Until Cast is repaired and release-ready, non-experimental sessions must not show or activate **Cast to TV**. Unsupported, unavailable, or non-experimental Cast never blocks the normal stage, chat, expanded view, host controls, participant A/V, or room controls.
 2. **Expanded-view exclusion:** Expanded view does not expose Cast entry. A viewer starts Cast from normal room view; the implementation may reuse expanded-view composition internally without toggling the sender into expanded view.
 3. **Start Cast:** Activating **Cast to TV** begins a local Cast start attempt. The sender keeps the normal room session joined and chat usable during the attempt.
 4. **Successful start:** Only after the custom receiver confirms that stage-primary video and the chat overlay rendered, the sender's normal stage replaces the regular video surface with **`Now Casting`** plus a stop affordance. **`requestSession()`** resolution or receiver launch alone must not trigger **`Now Casting`**. Other participants receive no room event and see no change.
@@ -273,7 +273,7 @@ Mesh-only strings (**`negotiating_ice`**, **`recovering_ice`**, **`Establishing 
 | Join/leave lines? | **Signed-in fans only**; ephemeral WS fan-out; not in **RoomChat** or scrollback replay. |
 | Speaking — video on? | Theater strip + Video Chat grid tile border/glow when mic unmuted. |
 | Speaking — mic-only? | **People** tab row only. |
-| Video Chat Beta? | Host control bar label when **`avDisabled`** false; layout fan-out unchanged. |
+| Video Chat label? | No **Beta** or **Experimental** label; layout fan-out unchanged. |
 | AV decoupling UX? | Chat vs SFU reconnect and status **unchanged** from hardening — separate drawers. |
 
 ## Decisions (answered — M22 typing UX)

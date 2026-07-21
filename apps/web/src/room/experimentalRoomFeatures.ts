@@ -1,8 +1,8 @@
 const STORAGE_KEY = 'riffsync.experimentalRoomFeatures'
 
 /**
- * Experimental room media (camera/mic, room-mode switcher, participant audio mixing) is opt-in.
- * Tab sharing is the primary feature and must never depend on this being enabled.
+ * Experimental room features are opt-in. Cast to TV is the remaining experimental room feature;
+ * tab sharing and room A/V must never depend on this being enabled.
  *
  * Enabled when the URL carries `/experimental/true` in the path or `?experimental=true` in the
  * query. The choice is persisted so it survives canonical redirects that drop the path segment;

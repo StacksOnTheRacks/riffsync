@@ -531,7 +531,7 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     expect(container.querySelector('.riffsync-room-page__tabs')).not.toBeNull()
   })
 
-  it('hides compact header and applies expanded site chrome class (#259)', async () => {
+  it('keeps room site chrome hidden while expanded view toggles in-room layout (#259)', async () => {
     drawerStatusMockConfig.set({
       diagnostics: drawerDiagnostics({
         chat: { state: 'connected' },
@@ -542,7 +542,9 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     renderRoomWithSiteLayout()
 
     await vi.waitFor(() => {
-      expect(container.querySelector('.riffsync-header--compact')).not.toBeNull()
+      expect(container.querySelector('.riffsync-header--compact')).toBeNull()
+      expect(container.querySelector('#gen-footer')).toBeNull()
+      expect(container.querySelector('.riffsync-main--room')).not.toBeNull()
       expect(expandViewButton()?.textContent).toBe('Expand view')
     })
 
@@ -551,9 +553,11 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     })
 
     await vi.waitFor(() => {
-      expect(container.querySelector('.riffsync-site--room-expanded')).not.toBeNull()
-      expect(container.querySelector('.riffsync-main--room-expanded')).not.toBeNull()
+      const expandedStage = container.querySelector('.riffsync-room-page__stage--expanded')
+      expect(expandedStage).not.toBeNull()
+      expect(expandedStage?.getAttribute('data-expanded-view')).toBe('true')
       expect(container.querySelector('.riffsync-header--compact')).toBeNull()
+      expect(container.querySelector('#gen-footer')).toBeNull()
     })
 
     act(() => {
@@ -561,8 +565,11 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     })
 
     await vi.waitFor(() => {
-      expect(container.querySelector('.riffsync-site--room-expanded')).toBeNull()
-      expect(container.querySelector('.riffsync-header--compact')).not.toBeNull()
+      const stage = container.querySelector('.riffsync-room-page__stage')
+      expect(container.querySelector('.riffsync-room-page__stage--expanded')).toBeNull()
+      expect(stage?.getAttribute('data-expanded-view')).toBe('false')
+      expect(container.querySelector('.riffsync-header--compact')).toBeNull()
+      expect(container.querySelector('#gen-footer')).toBeNull()
     })
   })
 })

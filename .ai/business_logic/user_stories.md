@@ -38,7 +38,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P0-12b | signed-in fan in room | see ephemeral join/leave system lines when other signed-in fans arrive or leave | I notice who joined the party without cluttering durable chat history |
 | US-P0-12c | anyone in room | see speaking affordance on video tiles when a participant is talking | I can follow who has the floor during face-to-face moments |
 | US-P0-12d | anyone in room | see speaking state for mic-only participants on the **People** tab | I know who is talking even when they have no camera tile |
-| US-P0-12e | room admin | **Video Chat** in the host control bar labeled **Beta** when room A/V is enabled | I understand the layout mode is still maturing |
+| US-P0-12e | room admin | **Video Chat** in the host control bar when room A/V is enabled | I can switch between Theater and Video Chat without treating A/V as experimental |
 | US-P0-12f | signed-in fan in room | chat and video relay to reconnect independently | a chat blip does not force full media rebuild and vice versa |
 
 | ID | As a… | I want… | So that… |
@@ -94,7 +94,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 
 | Question | Decision |
 | --- | --- |
-| P0 presence stories? | **US-P0-12** roster online/active badges; **US-P0-12a** typing; **US-P0-12b** signed-in join/leave lines; **US-P0-12c/d** speaking on tiles + People mic-only; **US-P0-12e** Video Chat Beta label; **US-P0-12f** AV decoupling (orthogonal reconnect). |
+| P0 presence stories? | **US-P0-12** roster online/active badges; **US-P0-12a** typing; **US-P0-12b** signed-in join/leave lines; **US-P0-12c/d** speaking on tiles + People mic-only; **US-P0-12e** Video Chat host control; **US-P0-12f** AV decoupling (orthogonal reconnect). |
 | P1 presence story? | **US-P1-06** — **`lastActiveAt`** rehydrates **active** after reconnect for accurate People badges. |
 
 ## Open implementation decisions

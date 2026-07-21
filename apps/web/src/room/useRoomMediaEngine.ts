@@ -37,7 +37,6 @@ export function useRoomMediaEngine(options: {
   announceRoomA11y: (message: string) => void
   hostPatchSuppressAnnounceUntilRef: RefObject<number>
   setRoom: Dispatch<SetStateAction<RoomSnapshot | null | undefined>>
-  experimentalFeatures: boolean
 }): {
   wsStatus: ChatSessionStatus
   sendJson: (payload: Record<string, unknown>) => boolean
@@ -88,7 +87,6 @@ export function useRoomMediaEngine(options: {
     announceRoomA11y,
     hostPatchSuppressAnnounceUntilRef,
     setRoom,
-    experimentalFeatures,
   } = options
 
   const engine = useMemo(() => acquireRoomMediaEngine(roomId), [roomId])
@@ -146,7 +144,6 @@ export function useRoomMediaEngine(options: {
       displayName: displayNameRef.current,
       fanToken,
       isPublisher,
-      experimentalFeatures,
       wsBase,
       captureStreamRef,
       announceRoomA11y: (message) => announceRoomA11yRef.current(message),
@@ -180,7 +177,6 @@ export function useRoomMediaEngine(options: {
     engine,
     hostPatchSuppressAnnounceUntilRef,
     isPublisher,
-    experimentalFeatures,
     roomAvailable,
     roomId,
     sessionId,

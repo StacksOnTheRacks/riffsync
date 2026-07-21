@@ -320,7 +320,7 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 | Active idle window? | **2 minutes** after last qualifying signal. |
 | **`lastActiveAt` durability? | **Yes** — persist on **RoomPresence**; **`presence_request`** and roster fan-out rehydrate **active** for late joiners and refresh after reconnect. |
 | Join/leave chat lines? | **Signed-in fans only** — ephemeral room WebSocket fan-out; **not** **RoomChat**; guests connect silently. |
-| Video Chat mode while A/V matures? | **Keep** in host control bar with explicit **Beta** / **Experimental** label when **`avDisabled`** is false. |
+| Video Chat mode while A/V matures? | **Keep** in host control bar without **Beta** or **Experimental** labeling when **`avDisabled`** is false. |
 | Server-side theater audio mix? | **Later phase** — client Web Audio equal-gain mix remains normative until a follow-on initiative. |
 | Speaking indicator scope? | **Video tiles plus People tab** — speaking affordance on Theater strip and Video Chat grid when video is on; **mic-only** participants show speaking state on **People** roster rows only (no new stage chrome). |
 | SFU decoupling depth? | **Single SFU signaling WebSocket per tab** with **mandatory per-class send transport isolation** — not dual signaling WebSockets. |

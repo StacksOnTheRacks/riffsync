@@ -2,25 +2,22 @@ import { Outlet, useMatch, useSearchParams } from 'react-router-dom'
 import { SiteHeader } from '../components/site/SiteHeader'
 import { SiteFooter } from '../components/site/SiteFooter'
 import { RoomChromeProvider } from '../room/RoomChromeProvider'
-import { useRoomChromeOptional } from '../room/useRoomChrome'
 import { useVisualViewportRoomShell } from '../room/useVisualViewportRoomShell'
 
 function SiteLayoutShell() {
-  const roomMatch = useMatch({ path: '/room/:roomId', end: true })
-  const compactChrome = Boolean(roomMatch)
-  const viewportShell = useVisualViewportRoomShell(compactChrome)
-  const roomChrome = useRoomChromeOptional()
-  const expandedViewActive = Boolean(roomChrome?.expandedViewActive)
+  const roomMatch = useMatch({ path: '/room/:roomId/*', end: false })
+  const roomShell = Boolean(roomMatch)
+  const viewportShell = useVisualViewportRoomShell(roomShell)
 
   return (
     <div
-      className={`riffsync-site${compactChrome ? ` riffsync-site--room${viewportShell.className}` : ''}${expandedViewActive ? ' riffsync-site--room-expanded' : ''}`}
-      style={compactChrome ? viewportShell.style : undefined}
+      className={`riffsync-site${roomShell ? ` riffsync-site--room${viewportShell.className}` : ''}`}
+      style={roomShell ? viewportShell.style : undefined}
     >
-      {expandedViewActive ? null : <SiteHeader compact={compactChrome} />}
+      {!roomMatch ? <SiteHeader /> : null}
       <main
         id="riffsync-main"
-        className={`riffsync-main${compactChrome ? ' riffsync-main--room' : ''}${expandedViewActive ? ' riffsync-main--room-expanded' : ''}`}
+        className={`riffsync-main${roomShell ? ' riffsync-main--room' : ''}`}
       >
         <Outlet />
       </main>

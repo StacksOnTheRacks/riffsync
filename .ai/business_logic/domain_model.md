@@ -71,7 +71,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 ## Enumerations
 
 - **`playbackExpectation`:** **`premium`** | **`free-ad-supported`** — **advisory**; not verified subscription state.
-- **`roomMode`:** **`theater`** (default on room open) | **`videoChat`** — host-authoritative layout policy; one current value per room; fan-out to all connected participants and late joiners via durable room document + realtime sync. While **`avDisabled`** is false, **Video Chat** remains selectable in the host control bar with an explicit **Beta** / **Experimental** label (A/V maturity disclaimer — not a separate product mode).
+- **`roomMode`:** **`theater`** (default on room open) | **`videoChat`** — host-authoritative layout policy; one current value per room; fan-out to all connected participants and late joiners via durable room document + realtime sync. While **`avDisabled`** is false, **Video Chat** remains selectable in the host control bar as a normal A/V room mode, not a **Beta** or **Experimental** mode.
 
 ## Invariants
 
@@ -210,7 +210,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Ping within window? | **Counts toward active** — idle viewers watching without chatting remain **active** while heartbeats continue. |
 | Join/leave system chat lines? | **Signed-in fans only** — guests connect silently; named signed-in fans get ephemeral join/leave lines on room WebSocket (**not** persisted in **RoomChat**). |
 | Speaking indicator scope? | **Video tiles plus People tab** — speaking on Theater strip and Video Chat grid when video is on; **mic-only** speaking state on **People** roster rows only. |
-| Video Chat mode while A/V matures? | **Keep** in host control bar with explicit **Beta** / **Experimental** label when **`avDisabled`** is false. |
+| Video Chat mode while A/V matures? | **Keep** in host control bar without **Beta** or **Experimental** labeling when **`avDisabled`** is false. |
 | SFU decoupling depth? | **Single SFU signaling WebSocket per tab** with mandatory per-class send transport isolation, per-kind unpublish, and prohibition of session-level **`close()`** for class-scoped failures. |
 | Server-side theater audio mix? | **Later phase** — decoupling, presence, typing, and speaking ship first; client Web Audio equal-gain mix remains normative. |
 

@@ -635,10 +635,10 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
-  --riffsync-room-chrome-height: 4.5rem;
+  --riffsync-room-chrome-height: 0px;
   --riffsync-vv-height: 100dvh;
   --riffsync-vv-offset-top: 0px;
-  --riffsync-room-stage-max-height: calc(100dvh - var(--riffsync-room-chrome-height));
+  --riffsync-room-stage-max-height: 100dvh;
 }
 
 .riffsync-site--room.riffsync-site--room-expanded {
@@ -647,11 +647,13 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 }
 
 @media (min-width: 992px) {
+  .riffsync-main--room,
   .riffsync-main--room-expanded {
     padding-top: 0;
     padding-bottom: 0;
   }
 
+  .riffsync-main--room .container.riffsync-room-page,
   .riffsync-main--room-expanded .container.riffsync-room-page {
     padding-inline: 0;
   }

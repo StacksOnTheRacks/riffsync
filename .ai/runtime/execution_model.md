@@ -456,7 +456,7 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 | **Active signal set** | **Union** — **`typing_start`**, **`chat`** send, **`chat_gif`** post, **`react`** toggle, and qualifying **`ping`** within the active window all mark a participant **active**. |
 | **Active idle window** | **2 minutes** after last qualifying signal. |
 | **Active on reconnect** | **Yes** — persist **`lastActiveAt`** on **RoomPresence** so **`presence_request`** and roster fan-out rehydrate **active** for late joiners and refresh. |
-| **Video Chat mode while A/V matures** | **Keep** in host control bar with explicit **Beta** / **Experimental** label when **`avDisabled`** is false. |
+| **Video Chat mode while A/V matures** | **Keep** in host control bar without **Beta** or **Experimental** labeling when **`avDisabled`** is false. |
 | **Join/leave system chat lines** | **Signed-in fans only** — guests connect silently; named signed-in fans get ephemeral join/leave system lines on room WebSocket (not persisted in **RoomChat**). |
 | **Server-side theater audio mix** | **Later phase** — client Web Audio equal-gain mix remains normative until a follow-on initiative. |
 | **Speaking indicator scope** | **Video tiles plus People tab** — speaking on Theater strip and Video Chat grid when video is on; **mic-only** participants show speaking on **People** tab roster rows only (no new stage chrome). |

@@ -81,7 +81,7 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - Control is **revealed on stage hover** for pointer users; **:focus-visible** keeps it visible for keyboard users.
 - **Theater camera row (standard and expanded):** participant tiles are informational video surfaces and must not add unexpected tab stops or steal focus when the row appears, scrolls, or wraps. Tile labels and speaking affordances remain available through visible text and accessible names.
 - **Tab order in expanded view:** expand/exit toggle → chat overlay (drawer status if present → message log scroll region → jump-to-latest when visible → AV toggles when rendered → compose) → host control bar (host only). **No** sidebar tab strip in tab order while expanded.
-- **People / Room / Profile:** reachable only after **exit expanded view** (or via site chrome navigation).
+- **People / Room / Profile:** reachable only after **exit expanded view**. Leaving the room uses the normal **Leave Party** action in the Room tab.
 - **Touch targets:** expand/exit control minimum **44×44** CSS px.
 - **Not offered < 992px:** toggle absent or **`aria-hidden`** / inert — no expanded keyboard path on narrow viewports in MVP.
 - **Implementation:** the overlay reuses the interactive room chat plane without rendering `.riffsync-room-page__tabs`; standard sidebar tabs return immediately after exit. Do not substitute the Chromecast receiver read-only overlay for regular Expanded View (#318).

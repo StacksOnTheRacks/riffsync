@@ -478,7 +478,7 @@ export function RoomPageSidebar({
         ) : null}
 
         <div className="riffsync-room-page__sidebar-footer">
-          {fanToken && experimentalFeatures ? (
+          {fanToken ? (
             <ParticipantAvToggles
               controller={participantAvController}
               avDisabled={avDisabled}

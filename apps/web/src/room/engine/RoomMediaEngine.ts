@@ -85,7 +85,6 @@ export type RoomMediaEngineMountOptions = {
   displayName: string
   fanToken: string | null
   isPublisher: boolean
-  experimentalFeatures: boolean
   wsBase: string | undefined
   captureStreamRef: { current: MediaStream | null }
   announceRoomA11y: (message: string) => void
@@ -320,7 +319,7 @@ export class RoomMediaEngine {
       wsUrl: options.wsBase,
       apiBaseUrl: getPublicApiBaseUrl(),
       isHost: options.isPublisher,
-      mixEnabled: options.experimentalFeatures,
+      mixEnabled: true,
       getIceServers: () => this.getIceServers(),
       getHostScreenStream: () => options.captureStreamRef.current,
       youtubeVideoId: initialRoom.youtubeVideoId,

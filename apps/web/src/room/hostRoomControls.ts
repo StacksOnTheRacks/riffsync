@@ -48,6 +48,3 @@ export function visibilityAnnounceCopy(visibility: RoomVisibility): string {
     ? 'Room hidden from lobby. Party link still works.'
     : 'Room visible in lobby.'
 }
-
-export const VIDEO_CHAT_BETA_DESCRIPTION =
-  'Video Chat layout is experimental. Participant video quality and reliability are still improving.'

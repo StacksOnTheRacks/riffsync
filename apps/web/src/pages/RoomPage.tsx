@@ -186,7 +186,6 @@ export function RoomPage() {
     announceRoomA11y,
     hostPatchSuppressAnnounceUntilRef,
     setRoom,
-    experimentalFeatures,
   })
 
   const { captureErr, startCapture, stopCapture } = useHostScreenCapture({
@@ -546,7 +545,7 @@ export function RoomPage() {
 
           {!expandedViewActive ? <RoomPageSidebar {...roomSidebarProps} /> : null}
         </div>
-        {isPublisher && experimentalFeatures ? (
+        {isPublisher ? (
           <HostControlBar
             roomMode={roomMode}
             avDisabled={avDisabled}
