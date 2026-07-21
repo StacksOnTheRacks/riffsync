@@ -431,6 +431,27 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   margin-bottom: 1rem;
 }
 
+.riffsync-catalog-filter-bar__tag-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.riffsync-catalog-filter-bar__tag-group {
+  align-items: center;
+}
+
+.riffsync-catalog-filter-bar__tag-group-label {
+  flex: 0 0 100%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.65);
+}
+
 .riffsync-catalog-filter-bar__era-group {
   display: flex;
   flex-wrap: wrap;

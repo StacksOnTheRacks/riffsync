@@ -1,7 +1,7 @@
 {
   "$schema": "./catalog.schema.json",
   "version": 1,
-  "updated": "2026-07-18",
+  "updated": "2026-07-21",
   "entries": [
     {
       "id": "003-contact",
@@ -731,7 +731,8 @@
       "title": "The Crawling Eye",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "lJgQrjYaLbQ",
@@ -749,7 +750,8 @@
       "title": "The Robot vs. the Aztec Mummy",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "Bhg2ofmCSaY",
@@ -767,7 +769,8 @@
       "title": "The Mad Monster",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "l5QBBRxURvY",
@@ -785,7 +788,8 @@
       "title": "Women of the Prehistoric Planet",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "eRdMQlDJ6iE",
@@ -802,7 +806,8 @@
       "title": "The Corpse Vanishes",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "_15ikumkeec",
@@ -819,7 +824,8 @@
       "title": "The Crawling Hand",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "2TwcffdAU2o",
@@ -836,7 +842,8 @@
       "title": "Robot Monster",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "U5hS_V6V31Q",
@@ -853,7 +860,8 @@
       "title": "The Slime People",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "YKWQ1yO4aGE",
@@ -870,7 +878,8 @@
       "title": "Project Moonbase",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "yAZzdODQx1U",
@@ -887,7 +896,8 @@
       "title": "Robot Holocaust",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "-cU9Evn5fQQ",
@@ -904,7 +914,8 @@
       "title": "Moon Zero Two",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "8i5fKkG5SlQ",
@@ -921,7 +932,8 @@
       "title": "Untamed Youth",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "5B948vMI9yg",
@@ -938,7 +950,8 @@
       "title": "The Black Scorpion",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 1"
       ],
       "labels": [],
       "youtubeVideoId": "YJvlu_Mo-4g",
@@ -955,7 +968,8 @@
       "title": "Rocketship X-M",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "DdZMGT0CRlE",
@@ -972,7 +986,8 @@
       "title": "The Sidehackers",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "q8w2EdEsR7k",
@@ -989,7 +1004,8 @@
       "title": "Jungle Goddess",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "p0B9RPz7OIc",
@@ -1006,7 +1022,8 @@
       "title": "Catalina Caper",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "UJQvVe1gIL8",
@@ -1023,7 +1040,8 @@
       "title": "Rocket Attack U.S.A.",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "DmpoPV20MdU",
@@ -1040,7 +1058,8 @@
       "title": "Ring of Terror",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "7zIF_KSCDUc",
@@ -1057,7 +1076,8 @@
       "title": "Wild Rebels",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "IGnrVqOScNI",
@@ -1074,7 +1094,8 @@
       "title": "Lost Continent",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "3_B2vW24lxA",
@@ -1091,7 +1112,8 @@
       "title": "The Hellcats",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "AmLXdxZNoII",
@@ -1108,7 +1130,8 @@
       "title": "King Dinosaur",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "qrH7kmo6JJs",
@@ -1125,7 +1148,8 @@
       "title": "First Spaceship on Venus",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 2"
       ],
       "labels": [],
       "youtubeVideoId": "BVmgb3jEimQ",
@@ -1142,7 +1166,8 @@
       "title": "Cave Dwellers",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "hT1C0abePgw",
@@ -1159,7 +1184,8 @@
       "title": "Gamera",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "Z4azLdp_hx4",
@@ -1176,7 +1202,8 @@
       "title": "Pod People",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "VqPUqub98-c",
@@ -1193,7 +1220,8 @@
       "title": "Gamera vs. Barugon",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "qbcpqw2p7y8",
@@ -1210,7 +1238,8 @@
       "title": "Stranded in Space",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "T1Lndo6IH3s",
@@ -1227,7 +1256,8 @@
       "title": "Time of the Apes",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "bOBibhv7Q_8",
@@ -1244,7 +1274,8 @@
       "title": "Daddy-O",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "VX4klPxBB-o",
@@ -1261,7 +1292,8 @@
       "title": "Gamera vs. Gaos",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "bEMYY27_d_Q",
@@ -1278,7 +1310,8 @@
       "title": "Fugitive Alien",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "2mtdWhLBw_s",
@@ -1295,7 +1328,8 @@
       "title": "Gamera vs. Guiron",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "0VIA8GikYDY",
@@ -1312,7 +1346,8 @@
       "title": "Earth vs. the Spider",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "IiUQ78kozjk",
@@ -1329,7 +1364,8 @@
       "title": "Mighty Jack",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "SJUvmn_H8Ps",
@@ -1346,7 +1382,8 @@
       "title": "Teenage Caveman",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "7XG0zAjYMvE",
@@ -1363,7 +1400,8 @@
       "title": "Gamera vs. Zigra",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "RtSSoEoh4Xg",
@@ -1380,7 +1418,8 @@
       "title": "Viking Women and the Sea Serpent",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "xKTrWWUVzo0",
@@ -1397,7 +1436,8 @@
       "title": "Star Force: Fugitive Alien II",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "mg5tTEXhKJs",
@@ -1414,7 +1454,8 @@
       "title": "War of the Colossal Beast",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "MzUNlezFFWg",
@@ -1431,7 +1472,8 @@
       "title": "The Unearthly",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "1wVeHuXMlT8",
@@ -1448,7 +1490,8 @@
       "title": "Santa Claus Conquers the Martians",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "sd_NklaAc4w",
@@ -1465,7 +1508,8 @@
       "title": "Master Ninja I",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "mLZzQ_LIWTs",
@@ -1483,7 +1527,8 @@
       "title": "The Castle of Fu Manchu",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "LCPWe-3jkrQ",
@@ -1500,7 +1545,8 @@
       "title": "Master Ninja II",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 3"
       ],
       "labels": [],
       "youtubeVideoId": "9SZrvOCYXP8",
@@ -1517,7 +1563,8 @@
       "title": "The Giant Gila Monster",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "bX2XjgtZYWM",
@@ -1534,7 +1581,8 @@
       "title": "City Limits",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "w1K8bqOMXdk",
@@ -1551,7 +1599,8 @@
       "title": "Teenagers from Outer Space",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "ykM3ZqdrcMo",
@@ -1568,7 +1617,8 @@
       "title": "Being from Another Planet",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "UvE020hFVgc",
@@ -1585,7 +1635,8 @@
       "title": "Attack of the Giant Leeches",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "1tkGSQKrI-U",
@@ -1602,7 +1653,8 @@
       "title": "The Killer Shrews",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "RHo5Icmk2yk",
@@ -1619,7 +1671,8 @@
       "title": "Hercules Unchained",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "qC9f8j_BWNU",
@@ -1636,7 +1689,8 @@
       "title": "Indestructible Man",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "9OJGMJEKSX8",
@@ -1653,7 +1707,8 @@
       "title": "Hercules Against the Moon Men",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "rFvXUUFtF2I",
@@ -1670,7 +1725,8 @@
       "title": "The Magic Sword",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "A1ZmUThXmZQ",
@@ -1687,7 +1743,8 @@
       "title": "Hercules and the Captive Women",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "scNmf4wy67E",
@@ -1704,7 +1761,8 @@
       "title": "Manhunt in Space",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "yHVuEQfHmuo",
@@ -1721,7 +1779,8 @@
       "title": "Tormented",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "WUIesxXd4GA",
@@ -1738,7 +1797,8 @@
       "title": "The Beatniks",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "9LAYK_gvNGE",
@@ -1755,7 +1815,8 @@
       "title": "Crash of Moons",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "u3aMHKt9KeY",
@@ -1772,7 +1833,8 @@
       "title": "The Rebel Set",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "EE2tBETgwQc",
@@ -1789,7 +1851,8 @@
       "title": "The Human Duplicators",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "VY__v3ClXDw",
@@ -1806,7 +1869,8 @@
       "title": "Monster a Go-Go",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "878RF7GUrVw",
@@ -1823,7 +1887,8 @@
       "title": "The Day the Earth Froze",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "LGpLQEVj4Fo",
@@ -1840,7 +1905,8 @@
       "title": "Bride of the Monster",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "p1G8FvQyfnI",
@@ -1858,7 +1924,8 @@
       "title": "Manos: The Hands of Fate",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 4"
       ],
       "labels": [],
       "youtubeVideoId": "C71Oj68sN5M",
@@ -1876,7 +1943,8 @@
       "title": "Warrior of the Lost World",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "xW55BgVBFpw",
@@ -1893,7 +1961,8 @@
       "title": "Hercules",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "ICJfHlnVP9o",
@@ -1910,7 +1979,8 @@
       "title": "Swamp Diamonds",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "UObz6Q1nU2k",
@@ -1927,7 +1997,8 @@
       "title": "Secret Agent Super Dragon",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "_S7HsXTeqqg",
@@ -1944,7 +2015,8 @@
       "title": "The Magic Voyage of Sinbad",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "nEbr-_rLyH0",
@@ -1962,7 +2034,8 @@
       "title": "Eegah",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "L-cGsH6o6CY",
@@ -1979,7 +2052,8 @@
       "title": "I Accuse My Parents",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "o-Y4J62isw8",
@@ -1996,7 +2070,8 @@
       "title": "Operation Double 007",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "tlJiLK3Qc7Y",
@@ -2013,7 +2088,8 @@
       "title": "The Girl in Lovers Lane",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "VOfe1B6iffw",
@@ -2030,7 +2106,8 @@
       "title": "The Painted Hills",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "3gr9vxvAwD4",
@@ -2047,7 +2124,8 @@
       "title": "Gunslinger",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "H43htS3Enj0",
@@ -2064,7 +2142,8 @@
       "title": "Mitchell",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "vmNZwJTp9nM",
@@ -2081,7 +2160,8 @@
       "title": "The Brain That Wouldn't Die",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "xo64fnJP1qw",
@@ -2098,7 +2178,8 @@
       "title": "Teen-Age Strangler",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "n6sOSTdl4WA",
@@ -2115,7 +2196,8 @@
       "title": "The Wild Wild World of Batwoman",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "FXLqcDMqUZ4",
@@ -2132,7 +2214,8 @@
       "title": "Alien from L.A.",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "8r2PyTZSQRE",
@@ -2149,7 +2232,8 @@
       "title": "Beginning of the End",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "KCVcHTix6No",
@@ -2166,7 +2250,8 @@
       "title": "The Atomic Brain",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "T03o50jY5dU",
@@ -2183,7 +2268,8 @@
       "title": "Outlaw",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "UrDdryreuRc",
@@ -2200,7 +2286,8 @@
       "title": "Radar Secret Service",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "i-gJzi5Z514",
@@ -2217,7 +2304,8 @@
       "title": "Santa Claus",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "E0wH6grLzJA",
@@ -2234,7 +2322,8 @@
       "title": "Village of the Giants",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": "g8aoosDgthM",
@@ -2251,7 +2340,8 @@
       "title": "12 to the Moon",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 5"
       ],
       "labels": [],
       "youtubeVideoId": null,
@@ -2268,7 +2358,8 @@
       "title": "Invasion U.S.A.",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "rcEonfo8abA",
@@ -2285,7 +2376,8 @@
       "title": "The Dead Talk Back",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "1PE74J7SMHI",
@@ -2302,7 +2394,8 @@
       "title": "Zombie Nightmare",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "iwyI6zo7NAc",
@@ -2319,7 +2412,8 @@
       "title": "Colossus and the Headhunters",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "9gFEmOf7TNI",
@@ -2336,7 +2430,8 @@
       "title": "The Creeping Terror",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "5LSEJ5Q-FZU",
@@ -2353,7 +2448,8 @@
       "title": "Bloodlust!",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "voMfAh-Beu8",
@@ -2370,7 +2466,8 @@
       "title": "Code Name: Diamond Head",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "YMkFK_5CyLI",
@@ -2387,7 +2484,8 @@
       "title": "The Skydivers",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "T4JCFE7IXAc",
@@ -2404,7 +2502,8 @@
       "title": "The Violent Years",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "yIYQH52k57I",
@@ -2421,7 +2520,8 @@
       "title": "Last of the Wild Horses",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "AE5RDDk0-DQ",
@@ -2438,7 +2538,8 @@
       "title": "The Starfighters",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "Tzs4iPNq1kw",
@@ -2455,7 +2556,8 @@
       "title": "The Sinister Urge",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "J63ugjk7K80",
@@ -2472,7 +2574,8 @@
       "title": "Kitten with a Whip",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "mvuOHxsq3h4",
@@ -2489,7 +2592,8 @@
       "title": "Racket Girls",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "KRNhCVZ-fLw",
@@ -2506,7 +2610,8 @@
       "title": "The Sword and the Dragon",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "pcXd5RfVulQ",
@@ -2523,7 +2628,8 @@
       "title": "High School Big Shot",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "zRZsUmQKO-U",
@@ -2540,7 +2646,8 @@
       "title": "Red Zone Cuba",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "YhfvlZYN8IU",
@@ -2557,7 +2664,8 @@
       "title": "Danger!! Death Ray",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "ogNcBXv_0aI",
@@ -2574,7 +2682,8 @@
       "title": "The Beast of Yucca Flats",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "fC_ePuCWdOg",
@@ -2591,7 +2700,8 @@
       "title": "Angels Revenge",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "XSWqqHQ15VA",
@@ -2608,7 +2718,8 @@
       "title": "The Amazing Transparent Man",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "myg3JcJ-PNY",
@@ -2625,7 +2736,8 @@
       "title": "Samson vs. the Vampire Women",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 6"
       ],
       "labels": [],
       "youtubeVideoId": "zJDkuBeV_QA",
@@ -2642,7 +2754,8 @@
       "title": "Night of the Blood Beast",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 7"
       ],
       "labels": [],
       "youtubeVideoId": "OPoo-Osivdo",
@@ -2659,7 +2772,8 @@
       "title": "The Brute Man",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 7"
       ],
       "labels": [],
       "youtubeVideoId": "Phk3tVbQ99c",
@@ -2676,7 +2790,8 @@
       "title": "Deathstalker and the Warriors from Hell",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 7"
       ],
       "labels": [],
       "youtubeVideoId": "RtA0g58oG7E",
@@ -2693,7 +2808,8 @@
       "title": "Escape 2000",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 7"
       ],
       "labels": [],
       "youtubeVideoId": "cTLWdhrk2_E",
@@ -2710,7 +2826,8 @@
       "title": "Laserblast",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 7"
       ],
       "labels": [],
       "youtubeVideoId": "1xnFa0Tx1JM",
@@ -2727,7 +2844,8 @@
       "title": "Revenge of the Creature",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": null,
@@ -2744,7 +2862,8 @@
       "title": "The Mole People",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "hq6AlUUCgi4",
@@ -2761,7 +2880,8 @@
       "title": "The Undead",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "XQgF7vnTG14",
@@ -2778,7 +2898,8 @@
       "title": "The She-Creature",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "JgkJ4e6C9QI",
@@ -2795,7 +2916,8 @@
       "title": "The Giant Spider Invasion",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "MMm0kLeogwQ",
@@ -2812,7 +2934,8 @@
       "title": "Parts: The Clonus Horror",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "0ZRzU81qtHA",
@@ -2829,7 +2952,8 @@
       "title": "The Incredibly Strange Creatures Who Stopped Living and Became Mixed-Up Zombies",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "vsUM9r8ctsI",
@@ -2846,7 +2970,8 @@
       "title": "Jack Frost",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "caKO-BZAWaE",
@@ -2863,7 +2988,8 @@
       "title": "Prince of Space",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "LNq_zBuBBhE",
@@ -2880,7 +3006,8 @@
       "title": "The Horror of Party Beach",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "BAVxbJB9T7c",
@@ -2897,7 +3024,8 @@
       "title": "Invasion of the Neptune Men",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "w58PsaFWbjQ",
@@ -2914,7 +3042,8 @@
       "title": "Space Mutiny",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "cbfsCVuqG9g",
@@ -2931,7 +3060,8 @@
       "title": "Time Chasers",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "aVTKWhHMIyY",
@@ -2948,7 +3078,8 @@
       "title": "Overdrawn at the Memory Bank",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 8"
       ],
       "labels": [],
       "youtubeVideoId": "2hBEh1JJ1E0",
@@ -2966,7 +3097,8 @@
       "title": "The Phantom Planet",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "55QHwLkPlik",
@@ -2983,7 +3115,8 @@
       "title": "The Pumaman",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "je8Rjn0JIGs",
@@ -3000,7 +3133,8 @@
       "title": "Werewolf",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "WwUmShhVeWE",
@@ -3017,7 +3151,8 @@
       "title": "Hobgoblins",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "4_aIvHr5SOk",
@@ -3034,7 +3169,8 @@
       "title": "The Touch of Satan",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "B60QiOTOJ3k",
@@ -3051,7 +3187,8 @@
       "title": "Gorgo",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "fqrSZ9YQzMM",
@@ -3068,7 +3205,8 @@
       "title": "The Final Sacrifice",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "l7yqX5t2R7A",
@@ -3085,7 +3223,8 @@
       "title": "Devil Fish",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "N7wkKXMlKYc",
@@ -3102,7 +3241,8 @@
       "title": "The Screaming Skull",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "JagQ6qFbwxI",
@@ -3119,7 +3259,8 @@
       "title": "Quest of the Delta Knights",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 9"
       ],
       "labels": [],
       "youtubeVideoId": "MOoVR47KWPQ",
@@ -3136,7 +3277,8 @@
       "title": "Girl in Gold Boots",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "ThRgQoKqyMo",
@@ -3153,7 +3295,8 @@
       "title": "Merlin's Shop of Mystical Wonders",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "3fuosyQA1Ho",
@@ -3170,7 +3313,8 @@
       "title": "Future War",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "q_7dThFqOTE",
@@ -3187,7 +3331,8 @@
       "title": "Blood Waters of Dr. Z",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "ud9J-uuXgUo",
@@ -3204,7 +3349,8 @@
       "title": "Boggy Creek II: And the Legend Continues",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "0wja-198VeY",
@@ -3221,7 +3367,8 @@
       "title": "Track of the Moon Beast",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "FFlg0jzgLDI",
@@ -3238,7 +3385,8 @@
       "title": "Final Justice",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "cBlhOrSOqbg",
@@ -3255,7 +3403,8 @@
       "title": "Hamlet",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "V25yQNCaCCk",
@@ -3272,7 +3421,8 @@
       "title": "It Lives By Night",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "MLRzoBaN0ho",
@@ -3289,7 +3439,8 @@
       "title": "Horrors of Spider Island",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "AGJ3O3KZP7g",
@@ -3306,7 +3457,8 @@
       "title": "Diabolik",
       "catalog": "mst3k",
       "tags": [
-        "Era: Mike"
+        "Era: Mike",
+        "Season: 10"
       ],
       "labels": [],
       "youtubeVideoId": "L49o_PHPcKU",
@@ -3323,7 +3475,8 @@
       "title": "Reptilicus",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "hVdnugYv0XQ",
@@ -3341,7 +3494,8 @@
       "title": "Cry Wilderness",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "beJMHZlgtz8",
@@ -3358,7 +3512,8 @@
       "title": "The Time Travelers",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "Z6jShZs_VLk",
@@ -3375,7 +3530,8 @@
       "title": "Avalanche",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "-9AZZJyCLlY",
@@ -3392,7 +3548,8 @@
       "title": "The Beast of Hollow Mountain",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "eY_lHqGeLXo",
@@ -3409,7 +3566,8 @@
       "title": "Starcrash",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "to6oKFR4REE",
@@ -3426,7 +3584,8 @@
       "title": "The Land That Time Forgot",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "njcuHF2Mhzk",
@@ -3443,7 +3602,8 @@
       "title": "The Loves of Hercules",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "fVm5NybIjms",
@@ -3460,7 +3620,8 @@
       "title": "Yongary, Monster from the Deep",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "qDpPYdRyzWA",
@@ -3477,7 +3638,8 @@
       "title": "Wizards of the Lost Kingdom",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "J6APLgPqk2w",
@@ -3494,7 +3656,8 @@
       "title": "Wizards of the Lost Kingdom II",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "Rd3S69425tQ",
@@ -3511,7 +3674,8 @@
       "title": "Carnival Magic",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "3AgqerOyyoE",
@@ -3528,7 +3692,8 @@
       "title": "The Christmas That Almost Wasn't",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "JSyspVzjDok",
@@ -3545,7 +3710,8 @@
       "title": "At the Earth's Core",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 11"
       ],
       "labels": [],
       "youtubeVideoId": "OwMfM63y7dM",
@@ -3562,7 +3728,8 @@
       "title": "Mac and Me",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 12"
       ],
       "labels": [],
       "youtubeVideoId": "bMqtcsv6P5c",
@@ -3581,7 +3748,8 @@
       "title": "Atlantic Rim",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 12"
       ],
       "labels": [],
       "youtubeVideoId": "Ku6rYR1cbso",
@@ -3598,7 +3766,8 @@
       "title": "Lords of the Deep",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 12"
       ],
       "labels": [],
       "youtubeVideoId": "sRB7Hml0xfs",
@@ -3615,7 +3784,8 @@
       "title": "The Day Time Ended",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 12"
       ],
       "labels": [],
       "youtubeVideoId": "LfE6DddsSEQ",
@@ -3632,7 +3802,8 @@
       "title": "Killer Fish",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 12"
       ],
       "labels": [],
       "youtubeVideoId": "lliFBNQe2JE",
@@ -3649,7 +3820,8 @@
       "title": "Ator, the Fighting Eagle",
       "catalog": "mst3k",
       "tags": [
-        "Era: Jonah"
+        "Era: Jonah",
+        "Season: 12"
       ],
       "labels": [],
       "youtubeVideoId": "_st2656CRNk",
@@ -3666,7 +3838,8 @@
       "title": "The Bubble",
       "catalog": "mst3k",
       "tags": [
-        "Era: Joel"
+        "Era: Joel",
+        "Season: 12"
       ],
       "labels": [],
       "youtubeVideoId": "DNkmPjIF6A4",
@@ -3687,7 +3860,8 @@
       "title": "The Christmas Dragon",
       "catalog": "mst3k",
       "tags": [
-        "Era: Emily"
+        "Era: Emily",
+        "Season: 12"
       ],
       "labels": [],
       "youtubeVideoId": "0-DwicyXWM4",
