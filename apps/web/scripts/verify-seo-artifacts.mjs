@@ -105,11 +105,11 @@ async function main() {
     )
   }
 
-  await assertFileContains('index.html', '<title>RiffSync — watch parties</title>')
+  await assertFileContains('index.html', '<title>RiffSync - Watch Parties</title>')
   await assertFileContains('index.html', 'rel="canonical" href="https://riffsync.tv/"')
   await assertFileContains(
     `watch/${WATCH_FIXTURE_ID}/index.html`,
-    'The Crawling Eye — RiffSync',
+    'The Crawling Eye - RiffSync',
   )
   await assertFileContains(
     `watch/${WATCH_FIXTURE_ID}/index.html`,

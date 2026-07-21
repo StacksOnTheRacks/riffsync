@@ -8,7 +8,7 @@ export function DownloadAppPage() {
 
   useEffect(() => {
     const previous = document.title
-    document.title = `Install the RiffSync app - ${SITE_DOCUMENT_TITLE}`
+    document.title = `Install the RiffSync App - ${SITE_DOCUMENT_TITLE}`
     return () => {
       document.title = previous
     }
