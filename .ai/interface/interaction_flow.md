@@ -121,7 +121,7 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 
 1. **Per-viewer toggle:** Any participant may enter or exit **expanded view** independently — **not** host-authoritative and **not** fan-out over WebSocket.
 2. **Enter expanded (≥ 992px):** Stage primary fills the room stage column span; chat moves from sidebar column to **bottom-right transparent overlay** (chat-only chrome).
-3. **Theater expanded:** Movie player remains primary inside the expanded stage container. When participant cameras are on, render the Theater camera row beneath the movie; when no cameras are on, omit the row so the movie may use the available expanded stage.
+3. **Theater expanded:** Movie player remains primary inside the expanded stage container. When participant cameras are on, render the Theater camera row as a bottom-left overlay over the movie; when no cameras are on, omit the row so the movie may use the available expanded stage.
 4. **Video Chat expanded:** Participant video grid fills stage; mic-only rules unchanged.
 5. **Exit expanded:** Restore standard side-by-side stage + sidebar grid; active sidebar tab unchanged (defaults to last tab before expand if implementation tracks it; **Chat** tab content remains wired).
 6. **Room mode change while expanded:** Apply new mode to stage primary **without** forcing exit — overlay chat rules stay the same.

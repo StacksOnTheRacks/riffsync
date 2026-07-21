@@ -1124,15 +1124,22 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 }
 
 .riffsync-room-page__participant-row--expanded {
+  position: absolute;
+  left: clamp(0.75rem, 1.4vw, 1.1rem);
+  bottom: clamp(0.75rem, 1.4vw, 1.1rem);
+  z-index: 6;
   display: flex;
   flex-direction: row;
   gap: 0.45rem;
+  flex: none;
+  width: max-content;
+  max-width: calc(100% - clamp(16rem, 28%, 24rem) - clamp(2.25rem, 4vw, 3rem));
   overflow-x: auto;
-  padding: 0.15rem 0.2rem 0;
-  flex-shrink: 0;
+  padding: 0.15rem 0.2rem;
 }
 
 .riffsync-room-page__participant-row--expanded .riffsync-room-page__participant-tile {
+  flex: 0 0 auto;
   width: min(16vw, 180px);
 }
 

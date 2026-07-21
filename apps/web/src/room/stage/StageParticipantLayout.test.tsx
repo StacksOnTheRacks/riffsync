@@ -76,7 +76,7 @@ describe('StageParticipantLayout', () => {
     expect(container.textContent).toContain('You')
   })
 
-  it('moves theater participant cameras to a bottom row in expanded view', () => {
+  it('moves theater participant cameras to a bottom overlay row in expanded view', () => {
     const stream = new MediaStream()
     renderLayout({
       roomMode: 'theater',

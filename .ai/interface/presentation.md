@@ -254,7 +254,7 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 | --- | --- |
 | **Availability** | Offered in **Theater** and **Video Chat** room modes when viewport **≥ 992px**. **Hidden or inert** below 992px — standard stacked layout unchanged. |
 | **Stage primary** | **Theater:** shared movie player (host capture / guest inbound **`host_screen`**) remains primary inside the expanded stage container. **Video Chat:** participant **video-on** tile grid fills the stage region. |
-| **Theater camera row** | When one or more participant cameras are on, the expanded stage container reserves a bottom camera row **beneath** the movie. When zero cameras are on, omit the row and allow the movie to occupy the available expanded stage. Visibility rules for mic-only participants are unchanged. |
+| **Theater camera row** | When one or more participant cameras are on, overlay the camera row **bottom-left over** the movie. When zero cameras are on, omit the row and allow the movie to occupy the available expanded stage. Visibility rules for mic-only participants are unchanged. |
 | **Chat overlay** | **Transparent** panel **over** the stage, anchored **bottom-right**. Occupies **at most 50% of stage height** and **at most ~40% of stage width** (exact width via CSS **`clamp`** acceptable). **Does not** span the full right column height. |
 | **Overlay contents** | **Chat plane only:** chat drawer status, scrollable message log (bounded flex + stick-to-bottom per chat contract), jump-to-latest, participant AV toggles when fan JWT present, compose. **No** sidebar tab strip (**Chat / People / Room / Profile**). **People / Room / Profile** require **exit expanded view**. |
 | **Optional polish** | **Top fade gradient** on the overlay zone (video visible through chat background) is **nice-to-have**, not MVP-required. |
@@ -266,7 +266,7 @@ When **iOS Safari** (iPad and iPhone) opens the **software keyboard** on **`/roo
 
 Regular Expanded View remains a live room surface. Its chat overlay uses the normal room chat plane and must keep compose, GIF posts, reactions, typing indicators, jump-to-latest, chat drawer status, and signed-in / anonymous gates interactive exactly as they are in the standard sidebar. Treating `presentation="overlay"` or `expandedViewActive` as a Chromecast receiver/source mode is a contract violation (#318).
 
-Implementation: `RoomPage.tsx` owns session-only expanded state, `RoomPageSidebar.tsx` renders the shared chat plane as either sidebar or overlay, and `StageParticipantLayout.tsx` renders Theater cameras in a bottom horizontal row (standard and expanded desktop layouts).
+Implementation: `RoomPage.tsx` owns session-only expanded state, `RoomPageSidebar.tsx` renders the shared chat plane as either sidebar or overlay, and `StageParticipantLayout.tsx` renders Theater cameras in a bottom horizontal row for standard desktop layout and a bottom-left overlay row for expanded desktop layout.
 
 ### Chromecast Cast view (viewer-local)
 
