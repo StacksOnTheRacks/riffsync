@@ -89,6 +89,10 @@ export function defaultOgCardUrl(origin: string): string {
   return absoluteUrl(origin, '/og-card.png')
 }
 
+export function staticRouteDocumentTitle(route: StaticIndexableRoute): string {
+  return STATIC_ROUTE_COPY[route].title
+}
+
 export function buildStaticRouteHeadTags(
   route: StaticIndexableRoute,
   origin: string,

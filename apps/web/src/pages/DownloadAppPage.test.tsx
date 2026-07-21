@@ -44,6 +44,7 @@ describe('DownloadAppPage', () => {
   it('renders indexable install instructions for major browser families', () => {
     renderPage()
 
+    expect(document.title).toBe('Install the RiffSync App - Download and Add to Home Screen')
     expect(container.querySelector('h1')?.textContent).toBe('Install the RiffSync app')
     expect(container.textContent).toContain('Chrome or Edge on desktop')
     expect(container.textContent).toContain('iPhone or iPad Safari')
