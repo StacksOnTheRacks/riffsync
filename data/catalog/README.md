@@ -27,7 +27,7 @@ Until that migration lands, **`episodes.json`** is the practical place to bulk-e
 2. Confirm the upload is **embeddable** in your test app (many uploads block embedding) before setting a non-null `youtubeVideoId`.
 3. Set `youtubeVideoId` to the **11-character** id from the watch URL when known; leave `null` for metadata-first rows awaiting a curator mapping.
 4. Fill `catalog` for top-level pages (`mst3k` \| `community` \| `riff_material` \| `movie_night` \| `other`). Public catalog UI omits **`other`**; use **`other`** only as a staff staging bucket while recategorizing rows.
-5. Use `tags` for search/filter metadata such as **`Era: Joel`**, **`Genre: Comedy`**, or **`Season: 3`**. Use `labels` for short badges displayed on catalog cards.
+5. Use `tags` for search/filter metadata such as **`Era: Joel`**, **`Genre: Comedy`**, or **`Season: 3`**. MST3K rows should include both **`Era:*`** and **`Season: N`** tags when the numbered season is known from experiment numbering (see **Experiment numbering**). Shorts rows (`2000+`) may omit **`Season:*`** until curated. Use `labels` for short badges displayed on catalog cards.
 6. Bump **`updated`** on the seed bundle (`YYYY-MM-DD`) when you ship a coordinated seed edit.
 7. **`youtubeWatchUrl`** is explicitly nullable; pairing it with **`youtubeVideoId`** is strongly recommended whenever the id is set (typically `https://www.youtube.com/watch?v=<11-char-id>`).
 

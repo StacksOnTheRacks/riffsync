@@ -37,10 +37,30 @@ function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>
 }
 
 const catalogFixtures: CatalogEpisode[] = [
-  episode({ id: 'ep-joel', experimentNumber: 200, title: 'Pod People', tags: ['Era: Joel'] }),
-  episode({ id: 'ep-mike', experimentNumber: 101, title: 'Cave Dwellers', tags: ['Era: Mike'] }),
-  episode({ id: 'ep-jonah', experimentNumber: 310, title: 'Giant Spider', tags: ['Era: Jonah'] }),
-  episode({ id: 'ep-emily', experimentNumber: 1200, title: 'Emily Special', tags: ['Era: Emily'] }),
+  episode({
+    id: 'ep-joel',
+    experimentNumber: 200,
+    title: 'Pod People',
+    tags: ['Era: Joel', 'Season: 1'],
+  }),
+  episode({
+    id: 'ep-mike',
+    experimentNumber: 101,
+    title: 'Cave Dwellers',
+    tags: ['Era: Mike', 'Season: 1'],
+  }),
+  episode({
+    id: 'ep-jonah',
+    experimentNumber: 310,
+    title: 'Giant Spider',
+    tags: ['Era: Jonah', 'Season: 3'],
+  }),
+  episode({
+    id: 'ep-emily',
+    experimentNumber: 1200,
+    title: 'Emily Special',
+    tags: ['Era: Emily', 'Season: 12'],
+  }),
   episode({ id: 'ep-community', experimentNumber: 500, title: 'Community Riff', catalog: 'community' }),
   episode({
     id: 'ep-riff-material',
@@ -85,10 +105,22 @@ describe('CatalogSubcategoryPage', () => {
     })
   }
 
+  function clickPill(label: string) {
+    const pill = Array.from(container.querySelectorAll('.riffsync-catalog-filter-bar__era')).find(
+      (button) => button.textContent?.trim() === label,
+    )
+    expect(pill).toBeTruthy()
+    act(() => {
+      pill?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+  }
+
   it.each(
-    CATALOG_SUBCATEGORIES.map((entry) => [entry.path, entry.label, entry.subtitle] as const),
+    CATALOG_SUBCATEGORIES.filter((entry) => entry.slug !== 'mst3k').map(
+      (entry) => [entry.path, entry.label, entry.subtitle] as const,
+    ),
   )(
-    'renders H1, subtitle, search, and filtered grid for %s',
+    'renders H1, subtitle, search, and filtered grid for %s without tag pills',
     (path, label, subtitle) => {
       renderSubcategoryPage(path)
 
@@ -101,7 +133,7 @@ describe('CatalogSubcategoryPage', () => {
       )
 
       expect(container.querySelector('.riffsync-catalog-filter-bar')).not.toBeNull()
-      expect(container.querySelector('.riffsync-catalog-filter-bar__era-group')).toBeNull()
+      expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
       expect(container.querySelector('input[type="search"]')).not.toBeNull()
 
       const subcategory = CATALOG_SUBCATEGORIES.find((entry) => entry.path === path)!
@@ -114,6 +146,89 @@ describe('CatalogSubcategoryPage', () => {
       expect(cards).toHaveLength(expectedIds.length)
     },
   )
+
+  it('renders Era and Season pill groups on /catalog/mst3k', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+
+    const pillLabels = Array.from(container.querySelectorAll('.riffsync-catalog-filter-bar__era')).map(
+      (button) => button.textContent?.trim(),
+    )
+
+    expect(pillLabels).toEqual(
+      expect.arrayContaining(['Era: Joel', 'Era: Mike', 'Era: Jonah', 'Era: Emily', 'Season: 1', 'Season: 3', 'Season: 12']),
+    )
+    expect(container.querySelectorAll('[aria-label="Filter by Era"]').length).toBe(1)
+    expect(container.querySelectorAll('[aria-label="Filter by Season"]').length).toBe(1)
+  })
+
+  it('filters MST3K grid when an Era pill is selected', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+    clickPill('Era: Joel')
+
+    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+      (link) => link.textContent?.trim(),
+    )
+    expect(titles).toEqual(['Pod People'])
+  })
+
+  it('filters MST3K grid when a Season pill is selected', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+    clickPill('Season: 1')
+
+    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+      (link) => link.textContent?.trim(),
+    )
+    expect(titles).toEqual(['Cave Dwellers', 'Pod People'])
+  })
+
+  it('combines Era and Season pill filters with AND semantics', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+    clickPill('Era: Joel')
+    clickPill('Season: 1')
+
+    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+      (link) => link.textContent?.trim(),
+    )
+    expect(titles).toEqual(['Pod People'])
+  })
+
+  it('keeps title search working with selected MST3K pills', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+    clickPill('Season: 1')
+
+    const search = container.querySelector('input[type="search"]') as HTMLInputElement
+    act(() => {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set
+      nativeInputValueSetter?.call(search, 'cave')
+      search.dispatchEvent(new Event('input', { bubbles: true }))
+      search.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+
+    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+      (link) => link.textContent?.trim(),
+    )
+    expect(titles).toEqual(['Cave Dwellers'])
+  })
+
+  it('gracefully omits the Season pill group when no Season tags exist', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: [
+        episode({ id: 'ep-joel-only', experimentNumber: 200, title: 'Pod People', tags: ['Era: Joel'] }),
+      ],
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderSubcategoryPage('/catalog/mst3k')
+
+    expect(container.querySelector('[aria-label="Filter by Era"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Filter by Season"]')).toBeNull()
+  })
 
   it('MST3K includes host-tagged rows and excludes other catalogs', () => {
     renderSubcategoryPage('/catalog/mst3k')

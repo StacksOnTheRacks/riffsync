@@ -4,10 +4,16 @@ import { useCatalogListQuery } from '../catalog/catalogQueries'
 import { getCatalogSubcategoryByPath } from '../catalog/catalogBrowseIa'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { CatalogFilterBar } from '../components/catalog/CatalogFilterBar'
+import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagFilterBar'
 import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
+import {
+  EMPTY_MST3K_TAG_PILLS,
+  filterMst3kCatalogEntries,
+  type SelectedMst3kTagPills,
+} from '../catalog/mst3kTagFilters'
 import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 
@@ -19,6 +25,8 @@ export function CatalogSubcategoryPage() {
   const subcategory = getCatalogSubcategoryByPath(pathname)
   const { data, isPending, isError, error, refetch } = useCatalogListQuery()
   const [titleQuery, setTitleQuery] = useState('')
+  const [selectedTagPills, setSelectedTagPills] = useState<SelectedMst3kTagPills>(EMPTY_MST3K_TAG_PILLS)
+  const isMst3kRoute = subcategory?.slug === 'mst3k'
 
   useResumePendingPartyRoom(data, navigate)
 
@@ -27,16 +35,33 @@ export function CatalogSubcategoryPage() {
     () => catalogEntriesWithYoutubeLink(allEntries),
     [allEntries],
   )
+  const routeCatalogEntries = useMemo(
+    () =>
+      subcategory
+        ? filterCatalogEntries(youtubeEntries, { titleQuery: '', catalogs: [subcategory.catalog] })
+        : [],
+    [youtubeEntries, subcategory],
+  )
   const filteredEntries = useMemo(
     () =>
       subcategory
-        ? filterCatalogEntries(youtubeEntries, { titleQuery, catalogs: [subcategory.catalog] })
+        ? isMst3kRoute
+          ? filterMst3kCatalogEntries(routeCatalogEntries, {
+              titleQuery,
+              catalogs: [subcategory.catalog],
+              selectedTagPills,
+            })
+          : filterCatalogEntries(youtubeEntries, { titleQuery, catalogs: [subcategory.catalog] })
         : [],
-    [youtubeEntries, titleQuery, subcategory],
+    [routeCatalogEntries, youtubeEntries, titleQuery, subcategory, isMst3kRoute, selectedTagPills],
   )
 
   const filterBarDisabled = isPending && !data
-  const isFilterNoMatch = youtubeEntries.length > 0 && filteredEntries.length === 0
+  const hasActiveTagPills =
+    selectedTagPills.Era.length > 0 || selectedTagPills.Season.length > 0
+  const isFilterNoMatch = isMst3kRoute
+    ? routeCatalogEntries.length > 0 && filteredEntries.length === 0
+    : youtubeEntries.length > 0 && filteredEntries.length === 0
 
   if (!subcategory) {
     return (
@@ -84,6 +109,14 @@ export function CatalogSubcategoryPage() {
             disabled={filterBarDisabled}
             showCatalogChips={false}
           />
+          {isMst3kRoute && (
+            <Mst3kCatalogTagFilterBar
+              entries={routeCatalogEntries}
+              selectedTagPills={selectedTagPills}
+              onSelectedTagPillsChange={setSelectedTagPills}
+              disabled={filterBarDisabled}
+            />
+          )}
           <div className="riffsync-catalog-grid">
             {filteredEntries.map((ep) => (
               <CatalogGridCard key={ep.id} episode={ep} />
@@ -99,7 +132,11 @@ export function CatalogSubcategoryPage() {
           {isFilterNoMatch && (
             <div className="riffsync-catalog-no-match">
               <p>No episodes match your filters.</p>
-              <p className="riffsync-catalog-no-match-hint">Clear the search field to see all episodes.</p>
+              <p className="riffsync-catalog-no-match-hint">
+                {hasActiveTagPills || titleQuery.trim()
+                  ? 'Clear the search field and tag pills to see all episodes.'
+                  : 'Clear the search field to see all episodes.'}
+              </p>
             </div>
           )}
         </div>

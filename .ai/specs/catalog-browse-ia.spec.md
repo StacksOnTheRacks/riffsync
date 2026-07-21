@@ -17,7 +17,7 @@ Fans browse the RiffSync catalog through a hub at `/catalog` plus four dedicated
 | Route | Browse responsibility |
 | --- | --- |
 | `/catalog` | Hub: four large text entry links (no imagery) in the page-header subtitle slot above title-search / sort and the mixed/all-titles catalog grid; no public catalog-chip toggles. |
-| `/catalog/mst3k` | Aggregated grid of episodes whose `catalog` is `joel`, `mike`, `jonah`, or `emily`. Header subtitle: **`"Push the button, Frank"`**. No secondary host-catalog chips on this page for this capability. |
+| `/catalog/mst3k` | Filtered grid for `catalog` = `mst3k`. Header subtitle: **`"Push the button, Frank"`**. Renders **Era** and **Season** tag pill groups derived from loaded YouTube-linked rows (no Joel/Mike/Jonah/Emily catalog-enum chips). Multiple selections within one namespace OR together; Era and Season combine with AND; title/tag/label search combines with AND against selected pills. |
 | `/catalog/community` | Filtered grid for `catalog` = `community`. Header subtitle: **Community Made Riffs**. |
 | `/catalog/riff-material` | Filtered grid for `catalog` = `riff_material`; public label **Riff Material**. Header subtitle: **Cheesy Flicks Ready to Riff**. |
 | `/catalog/movie-night` | Filtered grid for `catalog` = `movie_night`. Header subtitle: **Pull the Family Together for a Movie Night**. |
