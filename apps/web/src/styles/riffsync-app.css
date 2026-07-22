@@ -524,6 +524,30 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   gap: 1.25rem;
 }
 
+.riffsync-catalog-grid > .riffsync-catalog-card {
+  min-width: 0;
+}
+
+.riffsync-catalog-card .gen-info-contain,
+.riffsync-catalog-card .gen-movie-meta-holder {
+  overflow: visible;
+}
+
+.riffsync-catalog-card .gen-movie-meta-holder::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.riffsync-catalog-card .gen-movie-meta-holder ul {
+  float: none;
+  display: block;
+  width: auto;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: unset;
+}
+
 /* Home rows + catalog grid: 16:9 thumb area so portrait poster fallbacks don't stretch layout */
 .riffsync-catalog-grid .gen-carousel-movies-style-3 .gen-movie-contain .gen-movie-img,
 .riffsync-home-row-swiper .gen-carousel-movies-style-3 .gen-movie-contain .gen-movie-img {
@@ -577,12 +601,24 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-top: 0.35rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  clear: both;
 }
 
 .riffsync-catalog-card__tag {
-  font-size: 0.85rem;
-  opacity: 0.9;
+  display: inline-block;
+  max-width: 100%;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  background: rgb(0 0 0 / 0.25);
+  color: rgb(255 255 255 / 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (min-width: 992px) {

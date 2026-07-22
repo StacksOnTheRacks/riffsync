@@ -29,16 +29,16 @@ export function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
                   </li>
                 ))}
               </ul>
-              {episode.tags.length > 0 && (
-                <div className="riffsync-catalog-card__advisory">
-                  {episode.tags.map((tag) => (
-                    <span key={tag} className="riffsync-catalog-card__tag">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
+            {episode.tags.length > 0 && (
+              <div className="riffsync-catalog-card__advisory">
+                {episode.tags.map((tag) => (
+                  <span key={tag} className="riffsync-catalog-card__tag">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
