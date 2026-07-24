@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import './styles/riffsync-app.css'
 import { FanSessionKeepAlive } from './auth/FanSessionKeepAlive'
+import { FanDmSessionKeepAlive } from './friends/FanDmSessionKeepAlive'
 import { GoogleAnalytics } from './components/GoogleAnalytics'
 import { ScrollToTop } from './components/ScrollToTop'
 import { AppRoutes } from './AppRoutes.tsx'
@@ -31,6 +32,7 @@ createRoot(document.getElementById('root')!).render(
         <ScrollToTop />
         <GoogleAnalytics />
         <FanSessionKeepAlive />
+        <FanDmSessionKeepAlive />
         <AppRoutes />
       </BrowserRouter>
     </QueryClientProvider>
