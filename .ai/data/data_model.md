@@ -82,8 +82,10 @@ Durable **pending** social request between two signed-in fans. Exists **before**
 | Concept | Contract |
 | --- | --- |
 | **Participants** | Cognito fan **`sub`** pair: **`requesterSub`**, **`recipientSub`**. |
-| **Lifecycle** | Created on invite send; ends on **accept** (edge created, request removed or terminal), **decline**, or cancel by requester (exact terminal retention tier-TW). |
-| **Uniqueness** | At most one open pending request for an unordered fan pair (or directed pair policy — tier-TW). |
+| **Lifecycle** | Created on invite send with **`status: pending`**. Terminal on **accept** (edge created, request row **hard-deleted**), **decline** (hard-deleted), or **cancel** by requester (hard-deleted). No tombstone attribute on requests for MVP. |
+| **Uniqueness** | At most one open pending request per **unordered** fan pair (either direction), keyed by canonical **`pairKey`**. Same-direction re-invite while pending is idempotent (returns existing **`requestId`**). |
+| **`requestId`** | UUID primary identifier for accept/decline/cancel routes. |
+| **`createdAt`** | Epoch ms on create. |
 | **Not a friendship** | Pending requests do **not** authorize DM compose or friends-list membership. |
 
 ## Friendship (durable edge)
@@ -92,7 +94,9 @@ Mutual social relationship between two signed-in fans. Durable until **remove-fr
 
 | Concept | Contract |
 | --- | --- |
-| **Participants** | Unordered pair of Cognito fan **`sub`s** (canonical pair key — tier-TW). |
+| **Participants** | Unordered pair of Cognito fan **`sub`s**. |
+| **`pairKey`** | **`min(subA, subB) + '#' + max(subA, subB)`** (lexicographic on **`sub`** strings). Primary key for the **Friendships** item. |
+| **`createdAt`** | Epoch ms when the edge formed (accept time). |
 | **Created when** | Recipient **accepts** a **FriendshipRequest**. Instant mutual-add without accept is out of scope. |
 | **Remove-friend** | **Immediately mutual**: both parties lose the edge at once. No one-sided lingering friendship. |
 | **DM eligibility** | Active **Friendship** is required to open/send on the pair’s 1:1 DM. |
@@ -202,14 +206,24 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 | Identity keys? | Cognito fan **`sub`** only; no guest friends/DM rows. |
 | System of record? | Existing **DynamoDB** class; **no new RDBMS**. |
 
+## Decisions (answered — friendship invite/accept lifecycle #356)
+
+| Question | Decision |
+| --- | --- |
+| **FriendshipRequest terminal retention?** | **Hard-delete** on accept, decline, and cancel. |
+| **Pending pair uniqueness?** | **Unordered** — one open pending per **`pairKey`** (either direction). |
+| **Canonical pair key?** | **`min(subA, subB) + '#' + max(subA, subB)`** for **Friendship** PK and pending **`pairKey`** GSI. |
+| **Physical tables (this slice)?** | Dedicated **`FriendshipRequests`** and **`Friendships`** Dynamo tables. |
+| **FriendshipRequests access** | PK **`requestId`**; GSI **`recipientSub`** (inbound pending), GSI **`requesterSub`** (outbound pending), sparse GSI **`pairKey`** (pending uniqueness). |
+| **Friendships access** | PK **`pairKey`**; GSI **`fanSub`** + SK **`pairKey`** for list-my-friends (#357). |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
 - Future scaling (out of scope for catalog subcategory browse IA): if the full catalog bundle grows large enough that client-side fetch + `filterCatalogEntries({ catalogs })` becomes a performance concern, consider a server-side **`catalog`** / **`catalogs`** query parameter on **`GET /v1/catalog`**. Current access pattern remains full-bundle fetch with client Set-membership filter; hub mixed grid uses no catalog constraint (`catalogs: []`).
-- Friends/DM physical Dynamo table split vs co-location (new tables vs patterns alongside **FanProfiles**): **FriendshipRequest**, **Friendship**, **DmThread**, **DirectMessage**, unread watermark items.
-- Partition/sort keys and GSI shapes for: list-my-friends, list-pending-requests (in/out), open-thread-by-peer, page DM history newest-first, unread badge aggregation.
-- Canonical unordered pair key encoding for friendship and **DmThread** (sort order of the two **`sub`s**, delimiter, collision rules).
-- **FriendshipRequest** terminal retention: hard-delete on accept/decline vs tombstone status attribute; directed vs undirected uniqueness constraint.
+- Friends/DM physical Dynamo table split for **DmThread**, **DirectMessage**, unread watermark items (friendship tables decided above).
+- Partition/sort keys and GSI shapes for: open-thread-by-peer, page DM history newest-first, unread badge aggregation.
+- Canonical **`pairKey`** reuse for **DmThread** partition (same encoding as **Friendship**).
 - **DirectMessage** row identity and ordering keys (e.g. thread partition + `m#<ts>#<messageId>` analogue) — no RoomChat-style TTL attribute on bodies.
 - Soft-delete / tombstone vs hard-delete of **DirectMessage** rows (and thread metadata) when remove-friend hides history for both, and on account closure / explicit delete.
 - Whether remove-friend deletes message bodies immediately, retains tombstoned rows inaccessible to both, or schedules deferred purge.

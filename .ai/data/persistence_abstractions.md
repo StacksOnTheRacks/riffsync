@@ -15,8 +15,8 @@ Storage responsibilities; physical layout is IaC (**`architecture.server.md`**).
 | **RoomChat** | Bounded room chat retention keyed **`roomId`** + **`sk`**. Message rows use **`m#<ts>#<messageId>`**; active reaction rows use **`r#<messageId>#<emoji>#<sessionId>`**. **TTL** **`expiresAt`**. Queried on **`presence_request`** to post requester-only **`chat_history`**. |
 | **Lists** *(when shipped)* | Curated list meta + membership rows (**`docs/architecture.admin.md`**). |
 | **FanProfiles** | **`sub`** → **`displayName`**, optional **`avatarUrl`** / timestamps (signed-in fan continuity). |
-| **FriendshipRequests** *(logical)* | Durable pending invite rows (**`requesterSub`**, **`recipientSub`**) before a friendship edge. Physical table split vs co-location with friendships — tier-TW. |
-| **Friendships** *(logical)* | Durable mutual edges between fan **`sub`** pairs until remove-friend / account lifecycle. |
+| **FriendshipRequests** *(logical)* | Durable pending invite rows (**`requestId`**, **`requesterSub`**, **`recipientSub`**, **`status: pending`**, **`pairKey`**, **`createdAt`**) before a friendship edge. **Hard-deleted** on accept, decline, or cancel. |
+| **Friendships** *(logical)* | Durable mutual edges keyed **`pairKey`** until remove-friend / account lifecycle. GSI on **`fanSub`** for list-my-friends. |
 | **DmThreads** / **DirectMessages** *(logical)* | Account-lifetime 1:1 DM thread metadata and message bodies — **distinct** from **RoomChat**. **No** RoomChat-style TTL on DM bodies. |
 | **DmUnread** *(logical)* | Per-recipient unread watermarks / cursors for DM threads (may co-locate with thread or friendship items — tier-TW). |
 | **Events** *(optional)* | Append-only audit per admin docs—add when needed. |
@@ -76,8 +76,17 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | Friends/DM SoR? | **DynamoDB** only — same class as **FanProfiles** / **RoomChat**; **no new RDBMS** or external social SaaS. |
 | DM vs RoomChat tables? | **Distinct logical persistence** — DM history is not stored as **RoomChat** room-partitioned rows. |
 | DM body TTL? | **None** for account-lifetime retention (RoomChat keeps **`expiresAt`** TTL). Purge on explicit delete / account closure only. |
-| Pending requests durable? | **Yes** — **FriendshipRequest** rows exist before the edge. |
+| Pending requests durable? | **Yes** — **FriendshipRequest** rows exist before the edge; **hard-deleted** on terminal transitions (#356). |
 | Friends online materialization? | **Ephemeral derivation** from **RoomPresence**; do not add durable last-seen attributes for this product meaning. |
+
+## Decisions (answered — friendship invite/accept lifecycle #356)
+
+| Question | Decision |
+| --- | --- |
+| **Physical tables** | Dedicated **`FriendshipRequests`** and **`Friendships`** Dynamo tables (env-suffixed names in IaC). |
+| **FriendshipRequests keys** | PK **`requestId`**; GSI **`recipientSub`** + **`createdAt`**; GSI **`requesterSub`** + **`createdAt`**; sparse GSI **`pairKey`** for pending uniqueness. |
+| **Friendships keys** | PK **`pairKey`**; GSI **`fanSub`** + SK **`pairKey`**. |
+| **Env vars** | Lambdas receive **`FRIENDSHIP_REQUESTS_TABLE_NAME`**, **`FRIENDSHIPS_TABLE_NAME`**. |
 
 ## Open implementation decisions
 
@@ -86,11 +95,11 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 - SFU multi-producer registry structure (map key, **`tearDownSession`** per-session vs room-wide wipe) and idle room close when only consumers remain.
 - Kill-switch enforcement storage touchpoints: read **`avDisabled`** on **`POST /v1/webrtc/sfu-token`**, SFU **`produce`**, and whether Lambda triggers SFU admin tear-down vs client-only close.
 - IaC env wiring already passes **`ROOM_PRESENCE_TABLE_NAME`** to WS and SFU-token Lambdas — document any additional consumers (e.g. layout fan-out Lambda).
-- Exact Dynamo table resource split for **FriendshipRequest**, **Friendship**, **DmThread**, **DirectMessage**, **DmUnread** (dedicated tables vs single social table with entity-prefixed keys).
-- Partition key / sort key / GSI attribute shapes and names for friends list, pending inbox/outbox, thread-by-peer, message paging, unread aggregation.
+- Exact Dynamo table resource split for **DmThread**, **DirectMessage**, **DmUnread** (friendship tables decided #356).
+- Partition key / sort key / GSI attribute shapes and names for thread-by-peer, message paging, unread aggregation.
 - Whether **RoomPresence** gains a **`fanSub`** GSI (or equivalent) for any-room online checks; projection and TTL interaction with existing **`expiresAt`**.
 - Soft-delete / tombstone attributes vs hard-delete for friendships, threads, and DM bodies on remove-friend and account closure; cascade order and idempotency.
-- Env/IaC table name wiring for friends/DM Lambdas (parallel to **`ROOM_PRESENCE_TABLE_NAME`** / **`ROOM_CHAT_TABLE_NAME`** patterns).
+- Env/IaC table name wiring for DM Lambdas ( **`FRIENDSHIP_*`** decided #356; parallel to **`ROOM_PRESENCE_TABLE_NAME`** / **`ROOM_CHAT_TABLE_NAME`** patterns).
 
 ## Primary code pointers (optional)
 

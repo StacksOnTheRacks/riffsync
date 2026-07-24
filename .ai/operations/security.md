@@ -45,7 +45,7 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | **Retention classes (normative)** | **RoomChat** = bounded TTL room retention + do not log bodies. **DM** = account-lifetime private retention + do not log bodies + no staff DM read path. Typing, join/leave **`chat_system`**, and similar control-plane lines remain ephemeral fan-out and are **not** RoomChat/DM body classes. |
 | **Private vs room** | UI may reuse room-chat interaction language; ops must **not** treat DM bodies as room-broadcast content. Private threads stay participant-scoped. |
 | **Moderation (this initiative)** | **No** staff moderation of DM bodies. No admin tooling that dumps DM history for operators. |
-| **Abuse controls** | Friend-request send, accept/decline, remove-friend, DM send, unread mark-read, and friends-online query/push inherit the existing **API Gateway / WAF / Lambda** per-identity / per-route throttle mindset used for chat, Giphy, and SFU token mint. Exact numeric bands are TW. |
+| **Abuse controls** | Friend-request send (**10**/min), accept/decline/cancel (**30**/min combined), remove-friend, DM send, unread mark-read, and friends-online query/push inherit the existing **API Gateway / WAF / Lambda** per-identity / per-route throttle mindset. DM and remove bands refined in peer issues. |
 | **Account closure** | DM history and friendship state follow normal account lifecycle deletion/closure obligations once those flows exist; no separate archive/export staff plane in this initiative. |
 
 ## Service expectations (OSS / cost)
@@ -93,9 +93,9 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 ## Open implementation decisions
 
 ### friends-and-direct-messaging
-- Exact **rate-limit bands** (per-`fanSub` / per-route / rolling window) for friend-request send, accept/decline, remove-friend, DM send, unread mark-read, and friends-online query or push.
-- WAF / API Gateway throttle key placement vs Lambda in-memory counters for new friends/DM HTTP (and any WS) routes.
-- Soft-delete / hide flag vs hard-delete purge job for mutual unfriend thread closure (privacy obligation is closed/hidden for both; mechanism is TW with data).
+- Exact **rate-limit bands** for remove-friend, DM send, unread mark-read, and friends-online query or push — **#358**, **M35**, **#357**.
+- WAF / API Gateway throttle key placement vs Lambda in-memory counters for DM HTTP (and any WS) routes.
+- Soft-delete / hide flag vs hard-delete purge job for mutual unfriend thread closure (privacy obligation is closed/hidden for both; mechanism is TW with data) — **#358**.
 - Account-closure cascade timing for durable DM rows (batch purge schedule, Dynamo TTL on tombstones, or synchronous delete) once account deletion flows are wired.
 - Whether any sampled DEBUG redaction helpers are shared between RoomChat and DM log paths (implementation detail; INFO remains body-free).
 

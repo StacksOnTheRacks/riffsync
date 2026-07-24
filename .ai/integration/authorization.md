@@ -28,7 +28,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 | Authorizer | Issuer / audience | Routes |
 | --- | --- | --- |
-| **Fan JWT** | Fan pool id + fan SPA client id | **`POST /v1/rooms`**, room-admin **`PATCH`/`PUT`**, **`/v1/fans/*`**, **`GET /v1/giphy/search`**, **friends lifecycle** and **DM** routes (same fan authorizer family; exact path prefix open), publisher WebSocket paths requiring **`sub === hostSub`**. |
+| **Fan JWT** | Fan pool id + fan SPA client id | **`POST /v1/rooms`**, room-admin **`PATCH`/`PUT`**, **`/v1/fans/*`**, **`/v1/friends/*`**, **`GET /v1/giphy/search`**, **DM** routes (fan authorizer family), publisher WebSocket paths requiring **`sub === hostSub`**. |
 | **Staff JWT** | Staff pool id + staff SPA client id | **`/v1/admin/*`** only. **Does not** bind to friends/DM body or friendship mutation routes. |
 
 - **Cross-pool rejection:** API Gateway validates **issuer** and **jwt audience** per route binding. A fan token on **`/v1/admin/*`** or a staff token on fan-gated routes **fails at the authorizer** (typically **401**) without Lambda involvement.
@@ -92,10 +92,33 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | Remove-friend authz effect? | **Mutual** edge teardown; **both** lose DM send and history access — enforced on DM routes. |
 | Staff DM moderation? | **Out of scope** — no staff DM body read path. |
 
+## Decisions (answered — friendship invite/accept lifecycle #356)
+
+| Question | Decision |
+| --- | --- |
+| **Invite / accept / decline / cancel authz?** | **Fan JWT `sub` only**. Recipient-only accept/decline; requester-only cancel. Guests **401**; staff token on route **401** at authorizer. |
+| **Pending vs friendship for DM?** | Pending request grants **no** DM or accepted-friends list authority. |
+
+## Friendship lifecycle HTTP deny codes (#356)
+
+When status is **400**, **403**, **404**, or **409**, body includes stable **`code`** (optional **`message`**):
+
+| **`code`** | HTTP | Meaning |
+| --- | --- | --- |
+| **`cannot_friend_self`** | **400** | **`recipientSub`** equals caller **`sub`**. |
+| **`fan_auth_required`** | **401** | Missing or invalid fan JWT (authorizer or handler). |
+| **`friend_request_not_recipient`** | **403** | Accept/decline by non-recipient. |
+| **`friend_request_not_requester`** | **403** | Cancel by non-requester. |
+| **`friend_request_not_found`** | **404** | Unknown **`requestId`** or no longer pending. |
+| **`already_friends`** | **409** | Active **Friendship** **`pairKey`** exists. |
+| **`friend_request_pending`** | **409** | Same-direction pending already exists (non-idempotent clients; prefer idempotent **200**). |
+| **`friend_request_inbound_exists`** | **409** | Opposite-direction pending exists; accept/decline inbound instead. |
+| **`rate_limited`** | **429** | Per-**`fanSub`** throttle exceeded. |
+
 ## Open implementation decisions
 
 ### friends-and-dm-authz-codes
-- Exact HTTP / WS deny **`code`** strings for not-friends, pending-exists, cannot-friend-self, thread-closed-after-remove, guest-forbidden, rate-limited (refine with **`api_contracts.md`**).
+- Exact HTTP / WS deny **`code`** strings for not-friends, thread-closed-after-remove, and DM rate-limited paths (**M35** / **#358**).
 - Whether closed-thread state is an explicit durable flag vs inferred solely from missing friendship edge (data domain may own persistence; authz only requires a deniable check on every DM list/send/history call).
 
 ## SFU join token claims (`SfuJoinClaims`)
