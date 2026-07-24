@@ -4,6 +4,7 @@ import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from '@aws-s
 import { verifyAccessToken } from './cognito-jwt';
 import { maintainPublicLobbyOnHostConnect } from './room-lobby-cleanup';
 import { fanOutChatSystem, isWithinJoinReconnectCooldown } from './ws-chat-system-shared';
+import { fanSubRoomPresenceSk } from './room-presence-shared';
 import { broadcastRoomPresenceNow, presenceDisplayNameForSession } from './ws-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -86,7 +87,9 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
     presenceKey,
     sessionId,
     ...(displayName ? { displayName } : {}),
-    ...(fanSub ? { fanSub, lastActiveAt: nowSec } : {}),
+    ...(fanSub
+      ? { fanSub, fanSubRoomSk: fanSubRoomPresenceSk(roomId, presenceKey), lastActiveAt: nowSec }
+      : {}),
     ...(hostSub ? { hostSub } : {}),
     connectedAt: nowSec,
     lastSeenAt: nowSec,

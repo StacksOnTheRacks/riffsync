@@ -10,6 +10,7 @@ export const FRIENDSHIPS_FAN_SUB_INDEX = 'FanSubIndex';
 
 export const FRIEND_INVITE_LIMIT_PER_MINUTE = 10;
 export const FRIEND_ACTION_LIMIT_PER_MINUTE = 30;
+export const FRIEND_LIST_LIMIT_PER_MINUTE = 60;
 
 export type FriendshipDenyCode =
   | 'cannot_friend_self'
@@ -124,7 +125,7 @@ export function minuteBucketEpochMs(nowMs: number = Date.now()): number {
 }
 
 export function friendshipRateLimitKey(
-  kind: 'invite' | 'action',
+  kind: 'invite' | 'action' | 'list',
   fanSub: string,
   bucketMs: number,
 ): { pk: string; sk: string } {
@@ -134,7 +135,7 @@ export function friendshipRateLimitKey(
 export async function enforceFriendshipRateLimit(
   doc: DynamoDBDocumentClient,
   tableName: string,
-  kind: 'invite' | 'action',
+  kind: 'invite' | 'action' | 'list',
   fanSub: string,
   limit: number,
   nowMs: number = Date.now(),
@@ -227,6 +228,20 @@ export async function friendshipExists(
     }),
   );
   return (out.Items?.length ?? 0) > 0;
+}
+
+export function parseFriendshipMemberItem(raw: Record<string, unknown> | undefined): FriendshipMemberItem | null {
+  if (!raw) return null;
+  const pairKey = typeof raw.pairKey === 'string' ? raw.pairKey : '';
+  const fanSub = typeof raw.fanSub === 'string' ? raw.fanSub : '';
+  const peerSub = typeof raw.peerSub === 'string' ? raw.peerSub : '';
+  const fanSubA = typeof raw.fanSubA === 'string' ? raw.fanSubA : '';
+  const fanSubB = typeof raw.fanSubB === 'string' ? raw.fanSubB : '';
+  const createdAt = typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : NaN;
+  if (!pairKey || !fanSub || !peerSub || !fanSubA || !fanSubB || !Number.isFinite(createdAt)) {
+    return null;
+  }
+  return { pairKey, fanSub, peerSub, fanSubA, fanSubB, createdAt };
 }
 
 export function friendshipMemberItems(
