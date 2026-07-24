@@ -14,6 +14,18 @@ Realtime modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`*
 
 Local Cast state follows the same independence rule: Cast stop, failure, or receiver disconnect clears local Cast resources and sender **`Now Casting`** UI only. It must not tear down **`ChatSession`**, **`SfuMediaSession`**, or **`TheaterPlayback`** unless the user also leaves the room or another explicit media policy applies.
 
+Friends/DM client state follows the same independence rule: closing a DM panel, friends dropdown, or Friends tab — or a friends/DM reconnect failure — clears only that social surface. It must not tear down **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, or Cast. Global room leave may stop room-scoped listeners, but must not invent a coupled “leave friends” that closes healthy media/chat drawers solely because Friends unmounted.
+
+## Friends online and DM teardown
+
+| Trigger | Contract |
+| --- | --- |
+| **Friend leaves all rooms (`$disconnect` / presence TTL)** | That friend’s **RoomPresence** rows clear per existing room disconnect. Friends-list **online** for observers becomes false on next derive/query (or push if a friends online channel exists). No last-seen durable write. Room People roster for *other* rooms is unchanged. |
+| **Viewer closes friends dropdown / DM panel (main site)** | Local UI + optional DM listeners for that surface stop. No room leave, no SFU teardown, no **`ChatSession`** close. |
+| **Viewer leaves Friends tab (room shell)** | Local Friends/DM listeners for that tab may stop. **`ChatSession`**, SFU, theater, Cast, and People remain per their own policies. |
+| **Global room leave / navigate away** | Existing ordered room teardown applies. Friends/DM main-site session (if any) is orthogonal and may continue on catalog routes after leave. |
+| **Account-closure / explicit DM delete purge (later)** | Bounded **Scheduler → Lambda** batch class (same as stale-room sweeper). Not a long-lived worker. Exact rule names and batch sizing are open. |
+
 ## Typing and active teardown (`ChatSession`)
 
 | Trigger | Contract |
@@ -102,6 +114,11 @@ Local Cast state follows the same independence rule: Cast stop, failure, or rece
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### friends-dm-lifecycle
+- Whether friends online updates on the main site use push, poll/snapshot refresh, or hybrid after a peer’s room `$disconnect` (integration wire; runtime requires eventual consistency with **RoomPresence** truth, not a new presence process).
+- Client cleanup order when leaving a room while a DM panel is open in the room Friends pane (preserve compose draft locally or discard — UX TW; must not close SFU/chat).
+- Account-closure DM purge Scheduler/Lambda naming and batch continuation tokens when that job is scheduled.
 
 ### chromecast-lifecycle-shutdown
 - No open implementation decisions remain for M25 Cast lifecycle cleanup verification. See **SPA local Cast** and **Verification (#279)** above.

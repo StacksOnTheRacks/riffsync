@@ -14,8 +14,14 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 - **Speaking indicator:** client-side affordance when a participant's microphone energy crosses a threshold while their mic producer is unmuted. **Video-on** participants show speaking state on **Theater strip** and **Video Chat grid** tiles. **Mic-only** participants show speaking state on **People** tab roster rows **only** (no new stage chrome for audible-only participants).
 - **Chat message (bounded retention):** room-scoped broadcast with **`messageId`**, kind **`text`** | **`gif`**, sender identity, timestamp; persisted in **RoomChat** for capped replay on join.
 - **Chat reaction (bounded retention):** emoji on a **`messageId`**; toggle per signed-in sender; active reaction rows persisted in **RoomChat** and replayed as aggregated chips in **`chat_history`**.
+- **FriendshipRequest (pending):** invite from one signed-in fan Cognito **`sub`** to another. Exists while the recipient has not yet accepted or declined. A durable **Friendship** edge does **not** exist until accept. Decline ends that request without creating an edge. Anonymous guests cannot send, receive, accept, or decline friendship requests.
+- **Friendship:** durable undirected social edge between exactly two signed-in fan Cognito **`sub`s**. Forms only when a **FriendshipRequest** is accepted. Remains until **remove friend** or normal account closure. Orthogonal to ephemeral **RoomPresence** / room **People** roster. No time-based soft expiry of the edge.
+- **DmThread:** private 1:1 conversation between an unordered pair of fan Cognito **`sub`s**. Not room-partitioned and not stored in **RoomChat**. Opening or sending requires an **active Friendship** between those two principals. Multi-party / group threads are out of scope.
+- **DirectMessage:** private message in a **DmThread** with sender identity and timestamp. Retention class is **account-lifetime durable** until explicit delete or account closure. Distinct from TTL-bounded **RoomChat** public room history.
+- **DmUnread:** per-recipient outcome that newer **DirectMessage** content from a friend has not yet been **viewed**. Viewing those messages clears unread for them. Server-authoritative so the outcome survives refresh and device change.
+- **Friends online (room-derived):** on a friends-list row, **online** means the friend currently holds **RoomPresence** in **any** RiffSync room. It is **not** platform-wide browsing presence, **not** last-seen, and **not** same-room-only relative to the viewer. Distinct from room **People** roster **online** / **active** badges, which remain room-scoped.
 - **Room admin:** signed-in participant whose **fan-pool Cognito `sub`** equals the room’s **`hostSub`** — **exclusive authority** to drive the **embedded player**, **start/stop broadcast capture**, select **`roomMode`**, operate the room-wide **`avDisabled`** kill switch, and mutate durable room playback metadata. **Anonymous users cannot host.** **Guest promotion** and token-based **admin reclaim** beyond normal Cognito re-login for the same user are **out of scope** for MVP. When the room admin enables a **participant camera**, they appear in Theater strip and Video Chat grid **like other signed-in fans** (not as a separate host-only surface).
-- **Operator (staff):** invite-only principal in the **staff** Cognito pool, provisioned **out-of-band** (console, CLI, or IaC). When authorized, carries **`cognito:groups`** including **`admin`** and/or **`curator`**. **Distinct** from **Participant** and **Room admin** — operator identity does **not** grant fan **`hostSub`** authority, room publisher role, or participant chat identity unless the same person also holds a separate **fan** session.
+- **Operator (staff):** invite-only principal in the **staff** Cognito pool, provisioned **out-of-band** (console, CLI, or IaC). When authorized, carries **`cognito:groups`** including **`admin`** and/or **`curator`**. **Distinct** from **Participant** and **Room admin** — operator identity does **not** grant fan **`hostSub`** authority, room publisher role, participant chat identity, friendship management, or DM authority unless the same person also holds a separate **fan** session.
 - **Public discoverable surface:** the subset of routes that represent durable, indexable fan-facing content for search engines and social sharing, distinct from ephemeral, authenticated, or receiver-only surfaces that must stay out of search.
 
   | Indexable | Not indexed (`noindex`) |
@@ -32,9 +38,9 @@ Three orthogonal client compartments own distinct realtime concerns. Each has it
 
 | Compartment | Owns | Does not own |
 | --- | --- | --- |
-| **ChatSession** | Room WebSocket for ephemeral chat, reactions, presence, and host-authoritative control events (`share_state`, `roomMode`, `avDisabled` fan-out). Chat send failure and chat reconnect. | SFU signaling, producer registry, ICE/TURN, theater tile layout, Web Audio mix. |
-| **SfuMediaSession** | SFU signaling WebSocket; mediasoup join; publish/unpublish for **`host_screen`** and **`participant_av`**; consumer attach/detach per producer class; SFU token refresh and reconnect. | Chat message delivery, scrollback, compose validation. |
-| **TheaterPlayback** | Host movie presentation (embed or tab-capture-derived stream); **Theater** strip and **Video Chat** grid of **video-on** participants; equal-gain client-side Web Audio mix of movie audio and participant microphones. | Chat transport; SFU token mint; durable room document writes. |
+| **ChatSession** | Room WebSocket for ephemeral chat, reactions, presence, and host-authoritative control events (`share_state`, `roomMode`, `avDisabled` fan-out). Chat send failure and chat reconnect. | SFU signaling, producer registry, ICE/TURN, theater tile layout, Web Audio mix. **Friendship**, **DmThread**, and **DirectMessage** delivery (friends/DM are a separate social plane; room chat UX patterns may be reused without merging jurisdiction). |
+| **SfuMediaSession** | SFU signaling WebSocket; mediasoup join; publish/unpublish for **`host_screen`** and **`participant_av`**; consumer attach/detach per producer class; SFU token refresh and reconnect. | Chat message delivery, scrollback, compose validation. Friends/DM. |
+| **TheaterPlayback** | Host movie presentation (embed or tab-capture-derived stream); **Theater** strip and **Video Chat** grid of **video-on** participants; equal-gain client-side Web Audio mix of movie audio and participant microphones. | Chat transport; SFU token mint; durable room document writes. Friends/DM. |
 
 **Narrow public SDK (behavioral):** Outward room realtime operations are **`RoomRealtimeSdk.join`**, **`publishAv`**, **`subscribe`**, **`getDiagnostics`**, and **`teardown`** (**`apps/web/src/room/sessions/RoomRealtimeSdk.ts`**). The room shell delegates to compartments via the SDK only; cross-compartment side effects follow **Decoupled lifecycles** below, not implicit handler coupling.
 
@@ -57,7 +63,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Mode | Pool / credential | Satisfies |
 | --- | --- | --- |
 | **Anonymous guest** | **`sessionId`** (no JWT) | Public catalog read, guest room join, chat read |
-| **Signed-in fan (host-capable)** | **Fan** pool JWT | Room create/host, publisher paths, chat send/react, avatar |
+| **Signed-in fan (host-capable)** | **Fan** pool JWT | Room create/host, publisher paths, chat send/react, avatar, friendship manage, 1:1 DM open/send |
 | **Operator (staff)** | **Staff** pool JWT | **`/v1/admin/*`** only in this slice |
 
 **Rules:**
@@ -67,6 +73,7 @@ Three coexisting modes (see **`integration/authorization.md`**):
 3. **Invite-only staff:** No self-service operator registration in MVP; group assignment is out-of-band.
 4. **Group gate (MVP auth slice):** Valid staff JWT with **`admin`** **or** **`curator`** suffices for admin API probe routes; **no route-level split** between those groups until catalog/list handlers ship.
 5. **Room domain unchanged:** **Room admin** remains **`JWT.sub === hostSub`** on the **fan** pool only. Staff auth does not add operator room takeover or bypass **lost admin / stale room** rules.
+6. **Friends and DM gate:** Friendship and DM principals are fan Cognito **`sub`** only. Anonymous guests cannot manage friends or send DMs. Staff identity does not grant friendship or DM authority without a separate fan session. Staff moderation of DM bodies is out of scope.
 
 ## Enumerations
 
@@ -86,6 +93,43 @@ Three coexisting modes (see **`integration/authorization.md`**):
 9. **Catalog title:** never replaced by TMDB **`title`** / **`original_title`**. This extends to public search and share metadata — page titles, meta descriptions, and Open Graph/Twitter tags for **`/watch/:catalogEpisodeId`** always source the catalog **`title`** field, never TMDB's **`title`** or **`original_title`**.
 10. **Public catalog read** does not require authentication (hub **`/catalog`** and all catalog subcategory routes alike).
 11. **Public discoverability boundary:** only the durable public surfaces listed under **Public discoverable surface** - including the catalog hub, its subcategory browse routes, and the app install instructions page - are indexable. Ephemeral per-instance state (**rooms**, **lobby**) and authenticated or receiver-only surfaces (**account**, **admin**, **Cast receiver**, **auth callbacks**) never carry indexable metadata or sitemap entries, regardless of the rendering or build mechanism that produces them.
+12. **Friendship create path:** a durable **Friendship** forms only via **invite/accept**. One signed-in fan sends a **FriendshipRequest**; the recipient accepts or declines. Pending requests are part of the lifecycle. No durable edge exists before accept.
+13. **DM eligibility:** opening a **DmThread** and sending a **DirectMessage** require an **active Friendship** between the two fan **`sub`s**. Stranger and guest DMs are out of scope.
+14. **Remove friend is immediately mutual:** when either party removes the other, both lose the **Friendship** at once. The existing **DmThread** becomes closed/hidden for **both**: neither may compose nor access history. Re-friending creates a **new** **Friendship** edge; prior thread history remains inaccessible unless a later product decision restores it. Teardown verb is **remove friend** (no separate block product in this surface).
+15. **Friends vs People:** the friends list is a durable social relationship store. It does **not** replace the room **People** roster. Both may coexist in a watch-party session (public room chat alongside private 1:1 DM).
+16. **DM retention class:** **DirectMessage** history is account-lifetime durable until explicit delete or account closure, and must not reuse **RoomChat** TTL / capped-replay semantics.
+
+## Friends and direct messaging
+
+Signed-in fans maintain friendships and exchange private 1:1 messages as a social layer alongside public room chat.
+
+### Friendship lifecycle
+
+| Phase | Outcome |
+| --- | --- |
+| **Invite** | Requester (signed-in fan) creates a **FriendshipRequest** toward a recipient fan **`sub`**. Edge does not exist yet. |
+| **Pending** | Recipient may **accept** or **decline**. Duplicate pending requests follow idempotent / conflict rules (see open implementation decisions). |
+| **Accept** | Durable **Friendship** edge exists between the two **`sub`s**. DM open/send becomes eligible. |
+| **Decline** | Request ends without a **Friendship**. No DM eligibility from that request alone. |
+| **Remove friend** | Immediately mutual: edge gone for both. Existing **DmThread** closed/hidden for both (no compose, no history access). |
+| **Re-friend** | New invite/accept may create a new **Friendship**. Prior DM history stays inaccessible by default. |
+
+### Friends online vs room People presence
+
+| Signal | Scope | Meaning |
+| --- | --- | --- |
+| Room **People** **online** | Single room **RoomPresence** roster | Live connection on that room WebSocket |
+| Room **People** **active** | Single room | Engagement within the 2-minute idle window |
+| Friends-list **online** | Any RiffSync room | Friend currently has **RoomPresence** in at least one room |
+
+Friends online is room-presence-derived and aggregate across rooms. It is not a separate SFU-plane signal and does not imply the friend is in the viewer's current room.
+
+### DM thread access
+
+- **Eligible:** active **Friendship** between the two fan **`sub`s**.
+- **Ineligible after remove:** both parties lose compose and history access; thread is closed/hidden for both.
+- **Retention:** messages remain in the account-lifetime durable class until explicit delete or account closure; access policy after unfriend is independent of physical retention (history may still exist in storage while remaining inaccessible to both parties).
+- **Coexistence:** public **RoomChat** and private **DmThread** messaging may both be available during a watch party without leaving the room.
 
 ## Decisions (answered)
 
@@ -284,5 +328,31 @@ Three coexisting modes (see **`integration/authorization.md`**):
 | Participant tile identity? | Strip/grid tiles keyed by **`sessionId`** + **`producerClass`** from SFU metadata. One fan with two tabs may appear twice when both publish camera — no **`fanSub`** dedupe in MVP. |
 | Theater audio mixing? | **Equal-gain** client-side mix (Web Audio **1.0** per source). Movie audio and participant mics play in parallel; **no** automatic ducking in MVP. When host tab-capture is inactive, participant mic audio still mixes normally. |
 | Kill switch client reaction? | Immediate local teardown on authoritative **`avDisabled`** WebSocket event — stop **`getUserMedia`**, close producers, tear down participant consumers. |
+
+## Decisions (answered — friends and direct messaging)
+
+| Question | Decision |
+| --- | --- |
+| Friendship creation model? | **Invite/accept** — durable **Friendship** only after the recipient accepts a **FriendshipRequest**. Pending requests are part of the lifecycle. |
+| Friends-list online meaning? | Friend is currently present in **any** RiffSync room (**RoomPresence**-derived). Not platform-wide, not last-seen, not same-room-only. |
+| DM retention class? | **Account-lifetime durable** until explicit delete or account closure. Distinct from TTL-bounded **RoomChat**. |
+| Remove-friend semantics? | **Immediately mutual**. Existing **DmThread** closed/hidden for **both** (no compose, no history access). Re-friend creates a new edge; prior history remains inaccessible by default. |
+| DM eligibility? | **Active Friendship** required to open or send. |
+| Thread shape? | Exactly **1:1** between two fan **`sub`s**. |
+| Group DMs / voice-video friends / public feeds / staff DM moderation / replace People? | **Out of scope**. |
+| Separate block product? | **No** — teardown verb is **remove friend**. |
+| Friends vs room People? | Orthogonal durable social store; does not replace **People**. |
+
+## Open implementation decisions
+
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### friends-and-direct-messaging
+- Exact friendship state labels and transition names (pending / active / declined / removed) and idempotent handling for duplicate invites, accept-after-remove, and concurrent mutual invites.
+- Cross-room aggregation rules for friends-list **online** from **RoomPresence** (multi-tab / multi-room fan, stale presence after disconnect, field names for the derived signal).
+- Explicit DM delete semantics and account-closure cascade relative to inaccessible-after-unfriend history (soft-hide vs hard delete; whether storage purge jobs are required).
+- Whether re-friend ever restores prior **DmThread** history (default remains inaccessible).
+- Whether **DirectMessage** supports the same message kinds as room chat (text, emoji, Giphy GIF, reactions) or a reduced v1 set.
+- Friend row display label / avatar resolution source and ordering when profile data is missing.
 
 - Domain services colocated with Lambda packages when implemented.

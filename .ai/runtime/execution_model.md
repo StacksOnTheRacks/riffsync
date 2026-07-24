@@ -154,6 +154,20 @@ Implementation may colocate helpers; **module boundaries and lifecycle rules abo
 
 **Active boolean at broadcast:** server **precomputes** **`active`** on each **`presence`** member and includes **`lastActiveAt`** (epoch seconds) when set. Clients treat server **`active`** as authoritative for People badges.
 
+### Friends online and DM execution (control plane)
+
+Friends and 1:1 DMs reuse the **serverless MVP** topology (API Gateway HTTP/WebSocket → Lambda; optional EventBridge/Scheduler → Lambda). They do **not** introduce a long-lived presence daemon, Redis presence fabric, platform-wide browsing presence plane, or durable last-seen process.
+
+| Topic | Contract |
+| --- | --- |
+| **Friends online meaning** | A friend is **online** when that friend’s Cognito **`fanSub`** has **at least one** open **RoomPresence** row in **any** RiffSync room. Offline when no such row exists. Not same-room-only, not platform-wide signed-in browsing, not last-seen. |
+| **Derivation** | Server derives the boolean from the existing **RoomPresence** store (room connect / `$disconnect` / TTL already maintain rows). No separate friends-presence write path and no SFU media-plane signal. |
+| **Main-site query** | Authenticated main-site friends list may obtain online flags over **fan JWT HTTP** without room join, **`RoomRealtimeSdk.join()`**, or SFU ICE warm — query/derive against presence, not a new presence plane. |
+| **Room People unchanged** | Watch-party **People** roster keeps room-scoped **online** / **active** semantics above. Friends online is a **cross-room** OR over **`fanSub`**; it does not replace People badges or change **`ChatSession`** presence ownership inside a room. |
+| **DM process class** | DM history sync-on-open and realtime push stay Lambda / API Gateway class (write-then-fan-out analogue). Account-lifetime retention may later add **Scheduler → Lambda** purge on account closure; that reuses the existing scheduled-job class, not a new process topology. |
+| **SFU boundary** | Friends online and DM traffic **must not** use the SFU signaling WebSocket or mediasoup Worker. |
+| **Drawer isolation** | Friends/DM client failure, leave, or reconnect **must not** tear down healthy **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, or Cast. Inverse: chat/SFU outage **must not** force friends/DM teardown beyond that surface’s own reconnect policy. |
+
 ### Speaking indicator (client VAD)
 
 Speaking affordance is **client-side only** — local mic **`AnalyserNode`** and remote audio tracks where the client subscribes. **No** SFU signaling or server mix input.
@@ -229,6 +243,8 @@ Each module implements the four drawer lifecycle states. Internal enums may diff
 | **`share_state: stopped`** | Full SFU session close; participant AV producer teardown |
 | Chat send failure | SFU reconnect or unpublish |
 | Cast failure / stop | ChatSession teardown, SfuMediaSession teardown, host **`share_state`** mutation, room leave, or participant A/V policy change |
+| Friends/DM error, leave, or reconnect | **`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**, or Cast teardown |
+| Room WS / SFU / Cast failure alone | Friends/DM forced global teardown beyond that surface’s own reconnect or HTTP retry |
 
 ### Decouple destructive hooks (room WebSocket → media)
 
@@ -486,6 +502,13 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### friends-dm-runtime
+- Exact client module name/home for friends list + DM session state on **main site** vs **room shell** (new module vs thin hooks; whether any demux shares routes with **`ChatSession`**).
+- When main-site friends online subscribe / refresh starts relative to fan token availability and refresh (and failure isolation so friends errors do not block catalog browse).
+- Room shell: when Friends tab mounts presence/DM listeners relative to **`ChatSession`** **`connected`**; reconnect isolation; whether friends/DM diagnostics appear in or stay out of **`RoomRealtimeSdk.getDiagnostics()`**.
+- Exact HTTP/query shape used to derive “any **RoomPresence** for **`fanSub`**” for friends-list online (integration owns wire; runtime only requires derivation from the presence store without a new process class).
+- If account-closure DM purge ships: Scheduler rule group, Lambda entrypoint naming, and batch sizing (not retention length itself).
 
 ### existing-realtime-harness
 - **Harness extension** — **`realtime-conformance`** steps for typing routes, **`lastActiveAt`** / **active** fan-out after **`presence_request`**, and drawer-isolation matrix extensions documented in **`.ai/operations/observability.md`**.

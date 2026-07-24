@@ -6,10 +6,10 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 | Mode | Representation | Typical use |
 | --- | --- | --- |
-| **Anonymous guest** | Opaque **`sessionId`** (UUID) + **display name** in **`localStorage`** once the user crosses **lobby** or **joins `/room/:id`** (**lazy mint**); **`X-Session-Id`** + WS **`$connect`**. | **Browse**, **join**, **watch**, **view room chat** (text, GIFs, reactions, avatars)—**cannot** **send** chat, **react**, upload avatars, create rooms, or **publish** WebRTC (host screen share **or** participant camera/mic). May **subscribe** to participant A/V when the room **`avDisabled`** kill switch is off. |
-| **Signed-in fan** | **Cognito JWT** (**`sub`**, claims); **`fanSub`** stored on WS connection row when JWT verified at **`$connect`**. | **Send** chat/GIF/react; **publish participant camera/mic** over SFU when **`avDisabled`** is false; **consume** host screen share and participant A/V. Non-host fans **cannot** mutate **`roomMode`**, **`avDisabled`**, or authoritative playback. |
-| **Signed-in fan (host)** | Same fan JWT; **`JWT.sub === room.hostSub`**. | **Create room**, **room admin**, **PATCH** authoritative playback + **`roomMode`** + **`avDisabled`**, **host screen-share SFU producer**, **participant camera/mic** (same publish tier as other signed-in fans), host-only WS control actions (**`share_state`**, room mode, AV kill switch). **`hostSub`** on room **=** **`sub`**. |
-| **Staff / operator** | **Invite-only** Cognito **staff user pool** (distinct from the fan pool) + **staff JWT authorizer** on **`/v1/admin/*`**. Tokens live in a **separate browser namespace** from fan auth; fan and staff sessions may **coexist** in one browser. | Catalog edits, curated lists, roster/API tools—not fan Facebook login. |
+| **Anonymous guest** | Opaque **`sessionId`** (UUID) + **display name** in **`localStorage`** once the user crosses **lobby** or **joins `/room/:id`** (**lazy mint**); **`X-Session-Id`** + WS **`$connect`**. | **Browse**, **join**, **watch**, **view room chat** (text, GIFs, reactions, avatars)—**cannot** **send** chat, **react**, upload avatars, create rooms, **publish** WebRTC (host screen share **or** participant camera/mic), or use **friends / DM** manage or send. May **subscribe** to participant A/V when the room **`avDisabled`** kill switch is off. |
+| **Signed-in fan** | **Cognito JWT** (**`sub`**, claims); **`fanSub`** stored on WS connection row when JWT verified at **`$connect`**. | **Send** chat/GIF/react; **publish participant camera/mic** over SFU when **`avDisabled`** is false; **consume** host screen share and participant A/V; **friends lifecycle** (invite / accept / decline / list / remove) and **1:1 DM** (open history, send, clear unread) under fan JWT only. Non-host fans **cannot** mutate **`roomMode`**, **`avDisabled`**, or authoritative playback. |
+| **Signed-in fan (host)** | Same fan JWT; **`JWT.sub === room.hostSub`**. | **Create room**, **room admin**, **PATCH** authoritative playback + **`roomMode`** + **`avDisabled`**, **host screen-share SFU producer**, **participant camera/mic** (same publish tier as other signed-in fans), host-only WS control actions (**`share_state`**, room mode, AV kill switch). **`hostSub`** on room **=** **`sub`**. Host status does **not** grant extra friends/DM authority over another fan’s social graph. |
+| **Staff / operator** | **Invite-only** Cognito **staff user pool** (distinct from the fan pool) + **staff JWT authorizer** on **`/v1/admin/*`**. Tokens live in a **separate browser namespace** from fan auth; fan and staff sessions may **coexist** in one browser. | Catalog edits, curated lists, roster/API tools—not fan Facebook login. **No** staff authority to read DM bodies, list another fan’s DMs, or mutate friendships unless the same browser also holds a **separate fan** session acting as that fan. |
 
 ## Staff pool (operator)
 
@@ -28,8 +28,8 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 | Authorizer | Issuer / audience | Routes |
 | --- | --- | --- |
-| **Fan JWT** | Fan pool id + fan SPA client id | **`POST /v1/rooms`**, room-admin **`PATCH`/`PUT`**, **`/v1/fans/*`**, **`GET /v1/giphy/search`**, publisher WebSocket paths requiring **`sub === hostSub`**. |
-| **Staff JWT** | Staff pool id + staff SPA client id | **`/v1/admin/*`** only. |
+| **Fan JWT** | Fan pool id + fan SPA client id | **`POST /v1/rooms`**, room-admin **`PATCH`/`PUT`**, **`/v1/fans/*`**, **`GET /v1/giphy/search`**, **friends lifecycle** and **DM** routes (same fan authorizer family; exact path prefix open), publisher WebSocket paths requiring **`sub === hostSub`**. |
+| **Staff JWT** | Staff pool id + staff SPA client id | **`/v1/admin/*`** only. **Does not** bind to friends/DM body or friendship mutation routes. |
 
 - **Cross-pool rejection:** API Gateway validates **issuer** and **jwt audience** per route binding. A fan token on **`/v1/admin/*`** or a staff token on fan-gated routes **fails at the authorizer** (typically **401**) without Lambda involvement.
 - **Group enforcement:** The staff authorizer proves **pool + client** only. Lambdas (or route-specific authorizer logic) **must** read **`cognito:groups`** from authorizer context and return **403** when the JWT is valid but **required group membership** is missing (auth slice: **`admin`** or **`curator`** suffices on probe routes; finer **`admin` vs `curator`** splits land with catalog handlers).
@@ -38,7 +38,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 | Layer | Behavior |
 | --- | --- |
-| **HTTP** | **Staff JWT authorizer** on **`/v1/admin/*`**; **fan JWT authorizer** on fan-gated routes; **`POST /v1/rooms`** and room-admin **`PATCH`/`PUT`** require **fan JWT** (**`sub`**); **`GET /v1/catalog`**, **`GET /v1/lobby`**, room **read/join** paths accept **`sessionId`** via **`X-Session-Id`** for anonymous guests. |
+| **HTTP** | **Staff JWT authorizer** on **`/v1/admin/*`**; **fan JWT authorizer** on fan-gated routes (including friends lifecycle and DM); **`POST /v1/rooms`** and room-admin **`PATCH`/`PUT`** require **fan JWT** (**`sub`**); **`GET /v1/catalog`**, **`GET /v1/lobby`**, room **read/join** paths accept **`sessionId`** via **`X-Session-Id`** for anonymous guests. Friends/DM Lambdas additionally enforce participant membership and friendship state (below). |
 | **WebSocket** | **`$connect`**: **`roomId`** + **`sessionId`**; optional fan JWT (**query `accessToken`** or **`Authorization`**) stores **`fanSub`**. **Host-only inbound route:** **`share_state`** (connection row **`hostSub === room.hostSub`**). **Durable **`roomMode`** / **`avDisabled`** use HTTP host **`PATCH`** only (#103 fans out outbound **`room_mode`** / **`av_disabled`**). Map **`connectionId → roomId`** (+ optional **`fanSub`** / **`sessionId`** metadata). |
 | **SFU join token** | **`POST /v1/webrtc/sfu-token`**: **`X-Session-Id`** + active presence row required; **`Authorization`** fan JWT required for **producer** grants. Host screen-share producer: **`JWT.sub === room.hostSub`**. Participant A/V producer: **`fanSub`** on connection row, room **`avDisabled`** false, caller not anonymous. **403** when kill switch on or prerequisites missing. |
 
@@ -56,8 +56,22 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 - **Participant publish:** signed-in non-host fans and the host (when using participant toggles) may publish **participant A/V** only; never room-admin playback or layout fields.
 - **AV kill switch (server-enforced):** when **`avDisabled`** is true, deny new participant producer SFU tokens, tear down active participant producers on the SFU, and broadcast authoritative disabled state; room reverts to movie + text chat (no participant A/V publish or consumption).
 - **Viewer-local Cast:** starting, stopping, or failing a Cast session does not grant room-admin authority, does not require host status, and does not change fan/guest chat or SFU permissions. Any connected participant may use local Cast when their browser/device supports it, subject to the same room access they already have.
-- **Moderation:** target **`sessionId`** / **`connectionId`** for anonymous guests; **`sub`** for signed-in hosts (**`docs/architecture.admin.md`**).
-- **Principle:** never require an IdP to **browse catalog**, **join**, **watch**, or **read** room chat; **do** require **fan JWT** to **send** chat (text/emoji/GIF), **react**, **upload avatar**, **publish participant A/V**, or **host**.
+- **Moderation:** target **`sessionId`** / **`connectionId`** for anonymous guests; **`sub`** for signed-in hosts (**`docs/architecture.admin.md`**). Staff moderation of **DM bodies** is **out of scope** for this product slice.
+- **Principle:** never require an IdP to **browse catalog**, **join**, **watch**, or **read** room chat; **do** require **fan JWT** to **send** chat (text/emoji/GIF), **react**, **upload avatar**, **publish participant A/V**, **host**, or use **friends / DM** manage and send.
+
+## Friends and DM authorization
+
+| Concern | Contract |
+| --- | --- |
+| **Identity** | Friendship and DM principals are fan Cognito **`sub`** only. Guests (**`sessionId`**) cannot invite, accept, decline, list-manage, remove, open DM history, send DMs, or clear unread. |
+| **Authorizer** | Friends lifecycle and DM routes use the **fan JWT authorizer** on the shared HTTP API (no new IdP; no staff authorizer binding). |
+| **Invite / accept / decline** | Caller must be a signed-in fan. Only the **recipient** of a pending request may **accept** or **decline** it. Durable friendship exists **only after accept**. |
+| **DM eligibility** | Open history, send, and unread clear require an **active friendship** between caller **`sub`** and peer **`sub`**. Stranger DMs are denied. |
+| **Remove-friend** | Remove is **immediately mutual**: both parties lose the friendship edge at once. |
+| **Post-remove DM access** | After mutual remove, **both** parties lose **compose (send)** and **history** access for that 1:1 thread (closed / hidden for both). DM list, history, and send handlers **must** re-check active friendship (or explicit closed-thread state) and deny when the edge is gone. Re-friending may create a new edge; whether prior history is restored is a later product decision (default: remains inaccessible). |
+| **Staff** | Staff JWT **never** grants DM body read, DM send, or friendship mutation. No admin DM moderation path in this slice. |
+| **Room membership** | Being in the same room (or holding host) does **not** by itself authorize friendship or DM actions. Room **People** roster ≠ friends graph. |
+| **Realtime DM** | Any DM push plane (when implemented) authenticates the fan **`sub`** and fans out only to the other thread participant; never room-wide **`roomId`** broadcast of DM bodies. |
 
 ## Decisions (answered)
 
@@ -72,6 +86,17 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | AV kill switch enforcement? | **Server-enforced** — deny SFU participant producer tokens, tear down active participant producers, broadcast **`avDisabled`**; not client-cooperative-only. |
 | Host participant A/V while screen sharing? | **Allowed** — host may publish **participant A/V** alongside **host screen** (two video sources on the same SFU router). |
 | Chromecast authority? | **No new authority tier.** Cast is local to the sender/receiver and does not mutate room state or authorize room-wide actions. |
+| Friends / DM identity? | **Fan Cognito JWT `sub` only** — guests out; staff pool does not grant DM body or friendship authority. |
+| Friendship create authz? | **Invite / accept / decline** under fan JWT; durable edge only after accept. |
+| DM send / history authz? | Requires **active friendship** between the two fan **`sub`s**. |
+| Remove-friend authz effect? | **Mutual** edge teardown; **both** lose DM send and history access — enforced on DM routes. |
+| Staff DM moderation? | **Out of scope** — no staff DM body read path. |
+
+## Open implementation decisions
+
+### friends-and-dm-authz-codes
+- Exact HTTP / WS deny **`code`** strings for not-friends, pending-exists, cannot-friend-self, thread-closed-after-remove, guest-forbidden, rate-limited (refine with **`api_contracts.md`**).
+- Whether closed-thread state is an explicit durable flag vs inferred solely from missing friendship edge (data domain may own persistence; authz only requires a deniable check on every DM list/send/history call).
 
 ## SFU join token claims (`SfuJoinClaims`)
 

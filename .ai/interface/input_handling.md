@@ -30,7 +30,7 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 ### Participant camera/microphone toggles
 
 - **Placement:** above chat compose when fan JWT present; **omitted entirely** for anonymous guests (not in tab order, no overlay).
-- When rendered: **always** in tab order regardless of active sidebar tab (**Chat**, **People**, **Room**, **Profile**).
+- When rendered: **always** in tab order regardless of active sidebar tab (**Chat**, **People**, **Room**, **Profile**, and **Friends** when present).
 - **Activation:** click or keyboard (**Enter** / **Space**) toggles local publish intent when enabled.
 - **Disabled state (host AV kill switch):** control receives focus but does not activate; **`aria-disabled="true"`** or native **`disabled`** with explanation text associated via **`aria-describedby`**.
 - **No keyboard shortcuts** (e.g. mute hotkey) in MVP.
@@ -62,11 +62,21 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - Existing chat compose, emoji picker, and tab switching behavior unchanged; AV toggles sit **above** compose and precede it in focus order within the chat column.
 - **Jump to latest** control remains keyboard-activatable above compose when scrollback is not at bottom.
 - **Chat plane unhealthy:** disable compose **keyboard submit** (**Enter** in textarea) **and** show inline compose **`role="status"`** at **`#riffsync-chat-compose-status`** with **`CHAT_SEND_DROPPED`** copy in addition to the chat drawer banner (**`presentation.md`**).
+- When the additive **Friends** tab is present for a signed-in fan, it participates in the same sidebar tab keyboard switching pattern as **Chat** / **People** / **Room** / **Profile**. Exact tab order among those five is tier-TW (**`presentation.md`** / **`interaction_flow.md`** open decisions).
+
+### Friends dropdown and DM (signed-in fans)
+
+- **Main-site person icon:** keyboard-reachable when rendered (authenticated only). **Enter** / **Space** opens or toggles the friends dropdown; **Escape** closes and returns focus to the trigger (Catalog disclosure archetype). Friend rows, pending accept/decline, remove-friend, and open-DM controls inside the dropdown are keyboard-activatable native buttons/links in logical order.
+- **Signed-out:** person-icon friends control omitted from tab order entirely.
+- **Room Friends pane:** Friends list, pending accept/decline, remove-friend, and open-DM controls are keyboard-reachable when the Friends surface is active. DM message log scroll region, jump-to-latest (when shown), and DM compose follow the same keyboard posture as room chat compose.
+- **Remove-friend confirm (if present):** dialog actions are keyboard-operable; focus moves into the dialog on open and returns to a sensible friends-list control on dismiss/confirm (exact copy and whether confirm is required are tier-TW).
+- **Guests:** no friends/DM controls in tab order.
+- **Touch targets:** minimum **44×44** CSS px on person-icon trigger, accept/decline, remove-friend, and primary DM open controls.
 
 ### iOS software keyboard (text focus, #240)
 
 - Focusing any room **text input** that opens the **iOS software keyboard** must **not** displace the **video stage** off the visual viewport (**`presentation.md`** iOS virtual keyboard table).
-- **In scope:** chat compose **`<input>`**, **Profile** tab text fields, **room rename modal** input, and equivalent native text controls on the room page.
+- **In scope:** chat compose **`<input>`**, **DM compose** when open in the room shell, **Profile** tab text fields, **room rename modal** input, friendship-invite text fields when present on the room page, and equivalent native text controls on the room page.
 - **Focus scroll-into-view:** browser default document scroll that hides the player is **disallowed** — contain scroll to chat-column internals and adjust layout from **`visualViewport`** when the keyboard is visible.
 - **Physical keyboard** (iPad with hardware keyboard, no software keyboard) follows baseline focus order; no special viewport shrink applies.
 
@@ -81,7 +91,7 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 - Control is **revealed on stage hover** for pointer users; **:focus-visible** keeps it visible for keyboard users.
 - **Theater camera row (standard and expanded):** participant tiles are informational video surfaces and must not add unexpected tab stops or steal focus when the row appears, scrolls, or wraps. Tile labels and speaking affordances remain available through visible text and accessible names.
 - **Tab order in expanded view:** expand/exit toggle → chat overlay (drawer status if present → message log scroll region → jump-to-latest when visible → AV toggles when rendered → compose) → host control bar (host only). **No** sidebar tab strip in tab order while expanded.
-- **People / Room / Profile:** reachable only after **exit expanded view**. Leaving the room uses the normal **Leave Party** action in the Room tab.
+- **People / Room / Profile / Friends:** reachable only after **exit expanded view**. Leaving the room uses the normal **Leave Party** action in the Room tab.
 - **Touch targets:** expand/exit control minimum **44×44** CSS px.
 - **Not offered < 992px:** toggle absent or **`aria-hidden`** / inert — no expanded keyboard path on narrow viewports in MVP.
 - **Implementation:** the overlay reuses the interactive room chat plane without rendering `.riffsync-room-page__tabs`; standard sidebar tabs return immediately after exit. Do not substitute the Chromecast receiver read-only overlay for regular Expanded View (#318).
@@ -112,6 +122,12 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### catalog-sub-pages
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Focus after hub/dropdown navigation is browser default (see **Public catalog browse** above). Search/sort keyboard reachability on subcategory routes is settled in **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
+
+### friends-and-direct-messaging
+- Exact focus trap vs focus-return behavior for the main-site friends dropdown on desktop vs mobile (beyond Escape-to-trigger baseline).
+- Tab order among Chat / People / Room / Profile / Friends; focus target when opening a nested DM panel vs in-column replace.
+- Remove-friend confirm dialog focus order and initial focus target (when confirmation is used).
+- Whether GIF/emoji picker keyboard paths ship in DM compose v1 (pairs with presentation GIF-in-DM open decision).
 
 ## Primary code pointers (optional)
 

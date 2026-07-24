@@ -22,7 +22,9 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | **`GET /v1/fans/me`**, **`PATCH /v1/fans/me`** | **Fan Cognito JWT**. | Read/update **`displayName`** on **FanProfiles** row keyed by **`sub`**; **`GET`** also returns optional **`avatarUrl`** / **`avatarUpdatedAt`**. |
 | **`POST /v1/fans/me/avatar`** *(multipart body; presigned PUT deferred)* | **Fan Cognito JWT**. | Upload/replace **one** avatar image; persists **`avatarUrl`** + **`avatarUpdatedAt`** on FanProfiles; object in **S3** served via **public HTTPS** (see **`data_model.md`**). |
 | **`GET /v1/giphy/search`** | **Fan Cognito JWT**. | Server-side **Giphy** search proxy; returns normalized GIF candidates for compose UI; **API key never in browser**. |
-| **`/v1/admin/*`** | **Staff-only** Cognito JWT (separate pool or app client). | Full route surface aligned with **`docs/architecture.admin.md`** (summary below). **CloudWatch** remains the primary ops chart layer. |
+| **Friends lifecycle (invite / accept / decline / list / remove)** | **Fan Cognito JWT** only. | Signed-in fans create **pending** friendship requests, **accept** or **decline** inbound requests, list friends and pending, and **remove** an accepted friendship. Durable friendship exists only after accept. Exact path prefix and field names are open (see **Open implementation decisions**). Main-site friends affordance and watch-party Friends pane call the **same** fan-gated APIs. |
+| **DM thread / history / send / unread clear** | **Fan Cognito JWT** only. | 1:1 DM between two fan **`sub`s** with an **active friendship**. History is **account-lifetime durable** (distinct from TTL-bounded **RoomChat**). Delivery: **history sync on open** plus **realtime push while connected** (write-then-fan-out class — **`messaging_async.md`**). After mutual remove-friend, **both** parties lose send and history access on that thread (**`authorization.md`**). Exact paths, envelopes, and error **`code`** strings are open. |
+| **`/v1/admin/*`** | **Staff-only** Cognito JWT (separate pool or app client). | Full route surface aligned with **`docs/architecture.admin.md`** (summary below). **CloudWatch** remains the primary ops chart layer. **No** staff route grants DM body read or friendship mutation for this product slice. |
 
 **Admin HTTP (normative summary — detail in `docs/architecture.admin.md`):**
 
@@ -71,6 +73,44 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 **Prohibited scope:** no fine-grained presence (selected sidebar tab, profile tab, cursor position). Typing and **active** stay on the room WebSocket — never on SFU signaling.
 
+## Friends and direct messaging (social plane)
+
+Friends and 1:1 DMs are a **fan social plane** beside watch-party room chat. They reuse fan Cognito identity and the shared HTTP API authorizer family; they do **not** replace room **People** / **RoomPresence** roster contracts.
+
+### Friendship HTTP lifecycle
+
+| Step | Contract |
+| --- | --- |
+| **Invite** | Caller (**fan JWT `sub`**) sends a friendship request to another fan **`sub`**. Creates a **pending** request; no durable friendship edge yet. |
+| **Accept** | Recipient accepts an inbound pending request → durable mutual friendship. |
+| **Decline** | Recipient declines an inbound pending request → no friendship edge; pending cleared. |
+| **List** | Authenticated fan lists accepted friends (and pending inbound/outbound as product surfaces require). Friend display name / avatar resolve from **FanProfiles**. |
+| **Remove** | Either party removes an accepted friendship → **immediately mutual** edge teardown. Both lose DM send and history access for that pair (**`authorization.md`**). |
+
+Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** authorize friendship mutations.
+
+### Friends-list online (RoomPresence-derived)
+
+| Topic | Contract |
+| --- | --- |
+| **Meaning** | A friend row is **online** when that friend’s fan **`sub`** has an **open RoomPresence** row in **any** RiffSync room. |
+| **Not** | Platform-wide browsing presence, last-seen timestamp product, or same-room-only. Room **People** **online** vs **active** semantics inside a room are **unchanged**. |
+| **Derivation** | Server **queries / derives** across room presence (existing **RoomPresence** class). No SFU media-plane signal. Main-site friends list does **not** require the viewer to join a room. |
+| **Wire keys** | Exact online boolean / presence payload field names are open (see **Open implementation decisions**). |
+
+### DM plane vs room `ChatSession`
+
+| Plane | Owner / scope | Contract |
+| --- | --- | --- |
+| **Room chat / presence / control** | **`ChatSession`** + room WebSocket keyed by **`roomId`** | Public (party) chat, **RoomPresence**, typing, join/leave, **`share_state`**, room control fan-out. Unchanged by friends/DM. |
+| **1:1 DM** | Distinct **DM plane** (HTTP history + realtime push while connected) | Private account-lifetime history between friend pair. **Must not** be implied by reusing room-chat UX language. Prefer **not** overloading the room **`ChatSession` `roomId` channel** for DM bodies; if a future implementation shares transport machinery, the contract **must** note the shared topology explicitly and keep authz/thread identity separate from **`roomId`**. |
+
+**Delivery class:** durable DM write, then fan-out to connected peers (**write-then-fan-out** analogue of room chat); clients also **sync history on open**. Exact WebSocket vs HTTP long-poll / hybrid topology, route keys, and **`type` / `schemaVersion`** discriminators remain open.
+
+**Unread:** server-authoritative per recipient; clears when the viewer **views** those messages. Badge aggregation (per-friend vs aggregate) wire shape is open.
+
+**Surfaces:** main-site person-icon friends flow and watch-party Friends pane share the same fan-gated APIs.
+
 ## HTTP idempotency & abuse (cost-first OSS)
 
 | Concern | MVP decision |
@@ -84,7 +124,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | --- | --- |
 | **Participants per room** | **50** hard cap (reject join / WS connect with clear error). |
 | **Lobby listing** | **50** rows per page; clients paginate (caps total listed rooms if needed for cost). |
-| **Chat** | **20** chat actions per **minute** per **`sessionId`** (text, GIF post, and reaction add/remove each count; HTTP/WS enforced); ephemeral only (**no durable chat log** in Dynamo—see **`operations/security.md`**). |
+| **Chat** | **20** chat actions per **minute** per **`sessionId`** (text, GIF post, and reaction add/remove each count; HTTP/WS enforced). Bodies persist in **RoomChat** with **bounded TTL** retention (not account-lifetime inbox); do not log raw bodies at INFO — see **`operations/security.md`** and **`data/persistence_abstractions.md`**. |
 | **Typing indicators** | **30** **`typing_start`** + **`typing_stop`** pairs per **minute** per **`sessionId`** (WS enforced; over-cap **`typing_start`** / **`typing_stop`** **drops silently** — no business **`error`** envelope to client). Counts toward the same abuse posture as chat compose; does **not** bypass chat send limits. |
 | **Giphy search** | **30** search requests per **minute** per **`sub`** (HTTP; tune in IaC). |
 | **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
@@ -111,6 +151,19 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Chromecast room API? | **None.** Viewer-local Cast state does not add HTTP fields, WebSocket routes, `share_state` payload fields, SFU token claims, lobby fields, or room snapshot fields. |
 | Chromecast side effects for #277? | **None.** Local Cast lifecycle paths must not call **`PATCH /v1/rooms/{roomId}`**, add room snapshot fields, emit room WebSocket payloads, alter **`share_state`**, request different SFU token claims, or change other participants' room diagnostics/status through integration surfaces. |
 | Chromecast verification for #279? | Tests must assert Cast lifecycle, failure, and cleanup paths keep Cast out of HTTP room fields, lobby payloads, room WebSocket routes/fan-out, **`share_state`**, SFU token claims, **`activeErrorCodes`**, and **`RoomRealtimeSdk.getDiagnostics().drawers.*`**. |
+
+## Decisions (answered — friends and direct messaging)
+
+| Question | Decision |
+| --- | --- |
+| Friendship creation APIs? | **Invite / accept / decline** — pending request then durable edge on accept. Fan JWT HTTP lifecycle; guests out. |
+| Friends-list online? | **RoomPresence-derived:** friend is online if they have an open presence in **any** room. Not platform browsing presence; not last-seen; not same-room-only. |
+| DM durability vs RoomChat? | **Account-lifetime durable** until explicit delete or account closure. Distinct retention class from TTL-bounded **RoomChat**. |
+| DM delivery? | **History sync on open** + **realtime push while connected** (serverless write-then-fan-out class). Exact WS vs HTTP topology open. |
+| DM vs **`ChatSession`**? | **`ChatSession`** stays the **room** plane. DM is a separate social/DM plane; do not silently overload room **`roomId`** channel. |
+| Remove-friend access? | **Mutual** teardown; **both** parties lose DM send and history access. Encode on DM list/send/history authz. |
+| Staff DM body access? | **None** for this slice — fan JWT only; no **`/v1/admin/*`** DM body read. |
+| Shared API surfaces? | Main site and room Friends pane use the **same** fan-gated friends/DM APIs. |
 
 ## Decisions (answered — #101 HTTP room AV)
 
@@ -333,6 +386,17 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 ## Open implementation decisions
 
 - **Server-side catalog `catalog` / `catalogs` query params:** **Out of scope** for catalog subcategory SPA browse. If a future initiative moves catalog filtering to the API (for payload size or cache variants), that is a new contract change; do not treat subcategory routes as requiring it now.
+
+### friends-and-direct-messaging (paths, envelopes, codes)
+
+- Exact HTTP **path** and **method** set for friendship invite / accept / decline / list / remove and for DM thread open, history page, send, and unread clear (e.g. under **`/v1/fans/...`** vs **`/v1/friends`** / **`/v1/dms`**), plus request/response field names.
+- Stable business **`code`** strings for deny cases (not friends, pending already exists, cannot friend self, thread closed after remove, auth miss, rate limited) — analogous to **`CHAT_SEND_DROPPED`** / SFU denial codes.
+- DM realtime topology: new WebSocket application routes, fan-scoped connection (not **`roomId`**-keyed), HTTP sync-only with optional push, or hybrid; exact outbound/inbound **`type`** and **`schemaVersion`** discriminators. Prefer documenting any shared transport with room WS **explicitly** rather than silently reusing **`ChatSession`**.
+- Friends-list online payload keys (boolean field name, whether to include room id of presence, reuse of **`fanSub`** / **`displayName`** / **`avatarUrl`** shapes).
+- Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape.
+- Client drop / unavailable codes for DM send when the chosen realtime plane is down (DM analogue of **`CHAT_SEND_DROPPED`**).
+- Rate-limit numeric thresholds for friend requests and DM send (operations may own abuse posture; numbers stay here or in ops refine).
+- IaC / env names for any new tables, WS APIs, or Lambda grants.
 
 ## Decisions (answered — M22 presence routes)
 

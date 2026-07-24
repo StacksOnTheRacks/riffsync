@@ -40,6 +40,14 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P0-12d | anyone in room | see speaking state for mic-only participants on the **People** tab | I know who is talking even when they have no camera tile |
 | US-P0-12e | room admin | **Video Chat** in the host control bar when room A/V is enabled | I can switch between Theater and Video Chat without treating A/V as experimental |
 | US-P0-12f | signed-in fan in room | chat and video relay to reconnect independently | a chat blip does not force full media rebuild and vice versa |
+| US-P0-13 | signed-in fan | send a friendship invite and accept or decline invites from others | durable friendships form only after accept |
+| US-P0-13a | signed-in fan | see my friends list with room-derived online indicators | I know which friends are currently in any RiffSync room |
+| US-P0-13b | signed-in fan | open a 1:1 DM with a friend and send/receive private messages | we can talk privately without using public room chat |
+| US-P0-13c | signed-in fan | see unread DM activity on the friends list and clear it when I view those messages | I notice new private messages and mark them read by viewing |
+| US-P0-13d | signed-in fan | remove a friend | the friendship ends for both of us immediately and neither of us can compose or read that DM thread |
+| US-P0-13e | signed-in fan on the main site | open friends from the person-icon header entry when authenticated | I manage friends and DMs outside a room; signed-out visitors do not see that affordance |
+| US-P0-13f | signed-in fan in a watch party | use a Friends panel in the room right pane alongside public chat and People | I DM friends without leaving the party and without replacing the People roster |
+| US-P0-13g | anonymous guest | remain unable to manage friends or send DMs | private social features stay fan-authenticated |
 
 | ID | As a… | I want… | So that… |
 | --- | --- | --- | --- |
@@ -72,6 +80,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 - Room-wide Chromecast or host-controlled casting for all participants (Cast is viewer-local only)
 - Native media-only Cast or YouTube-only Cast as the current Cast maturity substitute; the current Cast scope is the custom RiffSync receiver presentation with chat overlay.
 - Search-engine indexing of **`/room/*`** or **`/lobby`** — ephemeral, per-instance state with no durable identity worth surfacing to crawlers (**`domain_model.md`** → *Public discoverable surface*).
+- **Group DMs**, voice/video calls between friends, public social profiles/feeds, staff moderation of DM bodies, and replacing the room **People** roster with Friends
 
 ## Decisions (answered — realtime hardening)
 
@@ -97,6 +106,17 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | P0 presence stories? | **US-P0-12** roster online/active badges; **US-P0-12a** typing; **US-P0-12b** signed-in join/leave lines; **US-P0-12c/d** speaking on tiles + People mic-only; **US-P0-12e** Video Chat host control; **US-P0-12f** AV decoupling (orthogonal reconnect). |
 | P1 presence story? | **US-P1-06** — **`lastActiveAt`** rehydrates **active** after reconnect for accurate People badges. |
 
+## Decisions (answered — friends and direct messaging)
+
+| Question | Decision |
+| --- | --- |
+| Friendship create? | Invite/accept with pending **FriendshipRequest**; durable edge only after accept (**US-P0-13**). |
+| Friends online? | Currently in any RiffSync room (**US-P0-13a**). |
+| DM retention? | Account-lifetime durable until explicit delete or account closure (**US-P0-13b** outcome; storage class in data contracts). |
+| Remove friend? | Immediately mutual; both lose compose and history access (**US-P0-13d**). |
+| Auth gate? | Fan session required; main-site person-icon friends entry hidden when signed out (**US-P0-13e**, **US-P0-13g**). |
+| Room surface? | Friends panel/tab in right pane; does not replace **People** (**US-P0-13f**). |
+
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
@@ -111,6 +131,13 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### viewer-local-cast
 - Specify acceptance tests for "mature and diagnosable" Cast without adding room-wide metrics, room diagnostics, or aggregate product telemetry.
 - Specify story-level proof that failed, unsupported, ended, blocked, stopped, reloaded, and cleaned-up Cast states preserve normal room participation and do not affect other participants.
+
+### friends-and-direct-messaging
+- Unread badge chrome: per-friend only vs header/pane aggregate vs both; clear-on-open-thread vs clear-on-visible-messages; multi-tab race rules.
+- Remove-friend confirmation copy and whether the other party receives a notification or a silent edge drop.
+- Empty-state copy for zero friends, pending-only inbox, and zero DM history.
+- Friend discovery / invite entry UX (how the requester selects a recipient fan) once invite/accept lifecycle is fixed.
+- QA matrices for invite → accept/decline → DM → unread clear → remove → re-friend (history stays inaccessible).
 
 ## Decisions (answered — M25 Chromecast delivery slices)
 

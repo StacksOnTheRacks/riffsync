@@ -86,6 +86,18 @@ Accessible-by-default contract for presentation and interaction surfaces.
 | Drawer reconnect status | Separate chat-column and stage **`role="status"`** regions; simultaneous text when both drawers **`reconnecting`**; not routed through announcer |
 | Narrow viewport tiles | Horizontal scroll row tiles have per-tile accessible names (**You** / display name); row is not sole identity source |
 
+### Friends and direct messaging
+
+- **Main-site friends disclosure:** person-icon trigger exposes **`aria-haspopup`** / **`aria-expanded`** (or equivalent); opens via keyboard (**Enter** / **Space**); **Escape** closes and returns focus to the trigger (same archetype as Catalog nav dropdown).
+- **Signed-out:** friends trigger absent from the accessibility tree (not a disabled control announcing “sign in”).
+- **Friend row online:** accessible name must communicate friends-list **online** (in a RiffSync room) without using the People roster **Active** chip wording. Color/dot alone is insufficient.
+- **Unread:** badge or count has an accessible name (or is included in the row/trigger name) so unread is not color-only. Aggregation chrome (per-friend vs aggregate on trigger) is tier-TW.
+- **Pending requests:** accept and decline are distinct named controls; pending vs accepted state is programmatically determinable.
+- **Remove-friend:** control has a clear accessible name; if a confirm dialog is used, it is a modal dialog with labeled actions and focus management (**`input_handling.md`**).
+- **DM panel:** message log and compose follow room-chat accessible patterns (scroll region, compose label). Closed/hidden after remove must not leave a stale “open conversation with {name}” accessible surface.
+- **Room Friends tab:** when present, participates in sidebar tab semantics with the other chat-column tabs; does not replace **People** identity discovery for mic-only participants.
+- **Expanded View / Cast:** no requirement to expose full Friends tab strip in overlay/receiver; Cast receiver must not expose DM compose.
+
 ## Theater fullscreen
 
 - Fullscreen wrapper including participant strip/grid must preserve **escape** to exit fullscreen and not trap keyboard focus inside video elements.
@@ -110,6 +122,12 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### catalog-sub-pages
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Catalog hub subtitle links, subcategory plain-text subtitles, dropdown, and accordion requirements above are settled. See **`presentation.md`** -> **Decisions (M32 - catalog subcategory browse IA - #340)**.
+
+### friends-and-direct-messaging
+- Exact friends-online **`aria-label`** / accessible name string (must stay distinct from People **Active**).
+- Per-friend vs aggregate unread accessible naming on person-icon trigger and Friends tab.
+- Remove-friend confirm dialog accessible name and button labels (when confirmation is used).
+- Whether DM typing indicator (if shipped) announces via polite live region or stays visual-only like room chat ellipsis posture.
 
 ## Primary code pointers (optional)
 

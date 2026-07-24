@@ -21,6 +21,14 @@
 - **General:** read **`sessionId`** / display name from **localStorage**; configure API Gateway **WebSocket URL** + HTTP **API base URL** from build-time env (**`architecture.frontend.md`**). **Production** SPA canonical page origin is **`https://riffsync.tv`** (**`.ai/runtime/configuration.md`**, **`.ai/project.json`** **`public_domain`**).
 - **Fan auth:** Hosted UI + PKCE on **`/auth/callback`**; fan tokens in the fan **localStorage** namespace; fan refresh and API attachment independent of staff.
 
+### Friends / DM (main site and room shell)
+
+- **Trust boundary:** Friends and DM bootstrap require an authenticated **fan Cognito** session only. Guests do not bootstrap friends/DM manage or send. Staff admin bootstrap is unchanged and unrelated.
+- **Main site (non-room):** After fan auth is available, the header friends affordance may load friends list, online flags, unread, and DM history over **fan JWT HTTP** (and optional control-plane push once a DM plane is connected). It does **not** require room snapshot, **`RoomRealtimeSdk.join()`**, room WebSocket open, SFU token/ICE, or **`TheaterPlayback`**. Friends online is derived from **RoomPresence** (any room) per **`execution_model.md`** — the client does not invent a platform-wide presence join.
+- **Watch-party room shell:** Friends panel/tab may start after the room shell can render and fan JWT is present. It is **additive** beside **People** / public room chat. Mounting Friends/DM listeners must **not** gate or reorder the room bootstrap chain (snapshot → **`ChatSession`** → ICE → **`SfuMediaSession`** → optional **`TheaterPlayback`**).
+- **Failure isolation:** Friends/DM load or subscribe failure must not block catalog browse, room join, chat send, or SFU media. Conversely, room/SFU bootstrap failure must not clear a healthy main-site friends session beyond that surface’s own error handling.
+- **Config:** Uses existing public SPA API/WS bases and fan Cognito build-time config (**`configuration.md`**). No staff authorizer or new secret class for friends/DM bootstrap.
+
 ### Staff admin paths (`/admin/*`)
 
 - **Scope:** Routes under **`/admin/*`** (including **`/admin/login`**, **`/admin/auth/callback`**, protected admin shell) run a **separate bootstrap** from fan/guest bootstrap. Fan **`sessionId`**, fan JWT refresh, and room flows must **not** clear or overwrite staff tokens.
@@ -88,6 +96,11 @@ Developers **cannot** exercise watch-party media without a running SFU (+ TURN w
 
 - **`webrtc-sfu-token`** branches for participant producer grant and **`avDisabled`** check at mint time (**#102** / **`integration/api_contracts.md`**).
 - Rate limits on participant producer token mint per **`sub`** (**#102** / **`operations/security.md`**).
+
+### friends-dm-bootstrap
+- Exact subscribe / first-fetch timing for main-site friends online relative to fan token refresh completion.
+- Room Friends tab: mount timing vs **`ChatSession`** **`connected`** (and whether DM realtime attach waits on chat plane health or runs independently).
+- Client module ownership for friends/DM state on catalog routes vs **`RoomPage`** (names/paths — see **`execution_model.md`** → **friends-dm-runtime**).
 
 ### chromecast-bootstrap
 - Specify the SDK loader ownership, duplicate-load behavior, and cleanup behavior if multiple room mounts occur in one browser tab.

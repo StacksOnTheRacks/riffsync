@@ -30,16 +30,30 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | Data class | Handling |
 | --- | --- |
 | **PII (optional Cognito)** | Minimize retention in logs; **mask** in admin roster UI by default per **`architecture.admin.md`**. |
-| **Chat** | **Ephemeral** over WebSocket only—**no Dynamo persistence** of message body, reactions, or GIF posts (moderation is **rate limits** + **disconnect**; see **`api_contracts.md`**). |
+| **RoomChat (public room)** | **Bounded TTL** retention in Dynamo (**RoomChat**). Message bodies, reactions, and GIF posts persist only for the room retention window and may appear in capped requester-only **`chat_history`** on **`presence_request`**. Room chat is public to room members for that window, not a private inbox. Do **not** log raw room-chat text, GIF rendition URLs, or reaction payloads at **INFO**. Abuse handling is **validation**, **rate limits**, and **disconnect** (not staff body review). Retention mechanics: **[`persistence_abstractions.md`](../data/persistence_abstractions.md)**; wire: **[`messaging_async.md`](../integration/messaging_async.md)**. |
+| **Direct messages (private 1:1)** | **Account-lifetime** durable private content until explicit delete or account closure. Stricter privacy than **RoomChat** even when room chat is TTL-bounded: DM bodies are private between the two fan principals, not room-visible. Do **not** log raw DM text, GIF URLs, or equivalent body payloads at **INFO**. **No** staff Cognito / **`/v1/admin/*`** path to read DM bodies in this initiative. Abuse stays deny / throttle / validation, not operator content review. |
+| **Friendship graph** | Durable friendship edges and pending invite/accept requests keyed by fan Cognito **`sub`**. Invite/accept is an abuse surface (enumeration / spam / harassment): first-class **per-identity / per-route** throttle class alongside DM send and remove-friend. Remove-friend is **immediately mutual**; both parties lose compose and history access to the existing 1:1 thread (closed/hidden for both). Ops honors that hide/delete posture without staff reading bodies. Soft-delete vs hard-delete mechanics are data/TW; privacy obligation is that neither party retains a product-visible history path after mutual unfriend. |
+| **Friends online** | Online on a friend row means the friend is currently present in **any** RiffSync room, derived from **RoomPresence**-class signals. **Not** platform-wide browsing presence and **not** a new durable last-seen PII class. Do not introduce last-seen timestamps or log identity-rich presence dumps for this signal. |
 | **Fan avatars** | **S3** objects with **public HTTPS** URLs; validate upload size/MIME server-side; **no** chat or GIF bytes in Dynamo. |
 | **Giphy** | API key in **Secrets Manager** only; proxy search is JWT-gated and rate limited. **Operator runbook:** [`docs/operations/giphy.md`](../../docs/operations/giphy.md). |
+
+## Friends and direct messaging (privacy and abuse)
+
+| Topic | Contract |
+| --- | --- |
+| **AuthZ class** | Friends manage, friend-request, accept/decline, remove-friend, DM history, DM send, and unread clear require **fan pool JWT** only. Staff JWT does **not** grant friendship/DM authority or DM body read. |
+| **Retention classes (normative)** | **RoomChat** = bounded TTL room retention + do not log bodies. **DM** = account-lifetime private retention + do not log bodies + no staff DM read path. Typing, join/leave **`chat_system`**, and similar control-plane lines remain ephemeral fan-out and are **not** RoomChat/DM body classes. |
+| **Private vs room** | UI may reuse room-chat interaction language; ops must **not** treat DM bodies as room-broadcast content. Private threads stay participant-scoped. |
+| **Moderation (this initiative)** | **No** staff moderation of DM bodies. No admin tooling that dumps DM history for operators. |
+| **Abuse controls** | Friend-request send, accept/decline, remove-friend, DM send, unread mark-read, and friends-online query/push inherit the existing **API Gateway / WAF / Lambda** per-identity / per-route throttle mindset used for chat, Giphy, and SFU token mint. Exact numeric bands are TW. |
+| **Account closure** | DM history and friendship state follow normal account lifecycle deletion/closure obligations once those flows exist; no separate archive/export staff plane in this initiative. |
 
 ## Service expectations (OSS / cost)
 
 | Topic | Contract |
 | --- | --- |
 | **Availability** | **No formal SLA** for the open-source project; self-hosters tune **CloudWatch** alarms and **budgets** per **`.ai/operations/observability.md`**. |
-| **Logs** | Avoid logging **raw chat text** at **INFO** in production—prefer **metrics** + sampled **DEBUG** if needed (cardinality / cost). |
+| **Logs** | Avoid logging **raw RoomChat text** or **raw DM bodies** (including GIF URLs and reaction payloads) at **INFO** in production. Prefer **aggregate metrics** + sampled **DEBUG** if needed (cardinality / cost). Denial logs use **`code`** / **`reason`** only, not **`fanSub`**, peer ids, or thread ids. |
 
 ## Participant AV (WebRTC media)
 
@@ -75,6 +89,15 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | **Per-room cap** | Lambda rejects mint when estimated **`participant_av`** publishers would exceed **`SFU_MAX_PRODUCERS_PER_ROOM`**; SFU enforces hard cap at **`produce`**. |
 | **Logging** | Denials log **`code`** / **`reason`** only at INFO — **no** **`fanSub`** or JWT material. |
 | **Metrics** | **`RiffSync/Media/sfu_token_denied`** with **`reason`** dimension. |
+
+## Open implementation decisions
+
+### friends-and-direct-messaging
+- Exact **rate-limit bands** (per-`fanSub` / per-route / rolling window) for friend-request send, accept/decline, remove-friend, DM send, unread mark-read, and friends-online query or push.
+- WAF / API Gateway throttle key placement vs Lambda in-memory counters for new friends/DM HTTP (and any WS) routes.
+- Soft-delete / hide flag vs hard-delete purge job for mutual unfriend thread closure (privacy obligation is closed/hidden for both; mechanism is TW with data).
+- Account-closure cascade timing for durable DM rows (batch purge schedule, Dynamo TTL on tombstones, or synchronous delete) once account deletion flows are wired.
+- Whether any sampled DEBUG redaction helpers are shared between RoomChat and DM log paths (implementation detail; INFO remains body-free).
 
 ## Primary code pointers (optional)
 

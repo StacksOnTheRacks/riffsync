@@ -100,13 +100,13 @@ The receiver render-confirmation acknowledgement is Google Cast sender/receiver 
 | --- | --- |
 | **API Gateway v2** | HTTP + WebSocket front door. |
 | **Lambda** | Sync handlers + scheduled workers. |
-| **DynamoDB** | System of record: catalog, rooms, connections, optional lists/profiles/events. |
+| **DynamoDB** | System of record: catalog, rooms, connections, optional lists/profiles/events, and (when shipped) **friendship** edges / pending requests, **1:1 DM** threads/messages, and DM unread watermarks. Friends/DM do **not** introduce an external social-graph SaaS. |
 | **EventBridge / Scheduler** | Sweeper, TMDB + YouTube thumb reconcile. |
 | **Secrets Manager** | TMDB, **Giphy**, optional other backend secrets. |
 | **S3** | Catalog assets, **fan avatars** (public HTTPS delivery). |
 | **CloudWatch** | Metrics, dashboards, logs, alarms (**`docs/architecture.server.md`** Observability). |
-| **Cognito (fan pool)** | **Fan user pool** + public SPA app client: optional **fan JWT** for hosting, **`/v1/fans/*`**, Giphy proxy; **self-sign-up enabled**; **COGNITO-only** IdP in current CDK (Facebook IdP remains **optional** per product—see Meta row). Hosted UI + PKCE; OAuth callback **`/auth/callback`**. Room **host** authority remains **`JWT.sub === room.hostSub`** on **fan** tokens only. |
-| **Cognito (staff pool)** | **Separate invite-only staff user pool** + staff SPA app client for **`/v1/admin/*`**: **`selfSignUpEnabled: false`**, **COGNITO-only** (no Facebook IdP), predefined groups **`admin`** / **`curator`**, **second HTTP JWT authorizer** (staff issuer + staff client audience) on the **same HTTP API** as fan routes. Hosted UI + PKCE; OAuth callback **`/admin/auth/callback`** on **same SPA origins** as fan. Staff verification/invite email reuses fan **SES From** (**`noreply@riffsync.tv`**) and shared configuration set. Operator onboarding MVP: **manual console invite** acceptable. |
+| **Cognito (fan pool)** | **Fan user pool** + public SPA app client: optional **fan JWT** for hosting, **`/v1/fans/*`**, Giphy proxy, and **friends / DM** manage-and-send; **self-sign-up enabled**; **COGNITO-only** IdP in current CDK (Facebook IdP remains **optional** per product—see Meta row). Hosted UI + PKCE; OAuth callback **`/auth/callback`**. Room **host** authority remains **`JWT.sub === room.hostSub`** on **fan** tokens only. Friends/DM principals are fan **`sub`** only. |
+| **Cognito (staff pool)** | **Separate invite-only staff user pool** + staff SPA app client for **`/v1/admin/*`**: **`selfSignUpEnabled: false`**, **COGNITO-only** (no Facebook IdP), predefined groups **`admin`** / **`curator`**, **second HTTP JWT authorizer** (staff issuer + staff client audience) on the **same HTTP API** as fan routes. Hosted UI + PKCE; OAuth callback **`/admin/auth/callback`** on **same SPA origins** as fan. Staff verification/invite email reuses fan **SES From** (**`noreply@riffsync.tv`**) and shared configuration set. Operator onboarding MVP: **manual console invite** acceptable. Staff tokens do **not** authorize DM body access or friendship mutation. |
 | **ElastiCache** | Optional read-through cache for catalog/lobby. |
 | **EC2 (`RiffSyncTurn`)** | **mediasoup SFU** + **coturn** on shared VPC instances; **`POST /v1/webrtc/sfu-token`** mints HMAC join JWTs; browsers connect **`wss://`** for RTP. Multi-producer rooms replace single **`producersByKind`** slot model. **Local dev and CI** use disposable SFU + TURN containers or profiles with the same signaling contract — not mesh fallback. |
 
@@ -146,6 +146,9 @@ The receiver render-confirmation acknowledgement is Google Cast sender/receiver 
 | Mesh dev fallback? | **No** — SFU + TURN in all environments; mesh removed. |
 | Server-side theater audio mix? | **Deferred** — client-side Web Audio remains default (**`api_contracts.md`**). |
 | Chromecast boundary? | **Viewer-local only.** Optional sender/receiver integration; no room API, WebSocket fan-out, `share_state`, or room-authority change. |
+| External social graph for friends/DM? | **No** — Dynamo-backed inside RiffSync; fan Cognito **`sub`** identity only. |
+| New IdP for friends/DM? | **No** — existing fan Cognito pool + fan JWT authorizer. |
+| Staff access to DM bodies via admin tools? | **No** for this slice — staff pool remains catalog/ops only. |
 
 ## Decisions (local disposable profile — #136)
 
@@ -171,6 +174,11 @@ The receiver render-confirmation acknowledgement is Google Cast sender/receiver 
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### friends-dm-aws-surfaces
+- Whether DM realtime adds a **new** API Gateway WebSocket API / stage vs reusing the room WS API with non-room routes (must stay explicit if shared).
+- New Dynamo table names, GSIs, and Lambda env vars for friendship / DM / unread (coordinate with data domain).
+- Optional EventBridge/Scheduler purge jobs for account-closure DM cleanup (reuse existing Scheduler → Lambda class; no new fabric).
 
 ### chromecast-provider-boundary
 - No open decisions remain for #303 receiver bootstrap. **`apps/web/src/pages/cast/castReceiverSession.ts`** owns Cast receiver framework loading, namespace listener registration, custom namespace options, and context start; **`apps/web/src/pages/cast/castReceiverSession.test.ts`** proves the RiffSync namespace is registered before start and that sender-proxied presentation messages do not introduce room-service access.

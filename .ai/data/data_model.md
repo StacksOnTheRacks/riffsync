@@ -75,6 +75,67 @@ Ephemeral **`connectionId` → roomId`** (+ **`sessionId`** metadata) for **`Pos
 
 Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-images.md`** for the same **S3 + public read** delivery pattern as catalog art.
 
+## FriendshipRequest (pending invite)
+
+Durable **pending** social request between two signed-in fans. Exists **before** a **Friendship** edge. Guests never appear as requester or recipient.
+
+| Concept | Contract |
+| --- | --- |
+| **Participants** | Cognito fan **`sub`** pair: **`requesterSub`**, **`recipientSub`**. |
+| **Lifecycle** | Created on invite send; ends on **accept** (edge created, request removed or terminal), **decline**, or cancel by requester (exact terminal retention tier-TW). |
+| **Uniqueness** | At most one open pending request for an unordered fan pair (or directed pair policy — tier-TW). |
+| **Not a friendship** | Pending requests do **not** authorize DM compose or friends-list membership. |
+
+## Friendship (durable edge)
+
+Mutual social relationship between two signed-in fans. Durable until **remove-friend** or normal account lifecycle teardown. Orthogonal to ephemeral **RoomPresence** / room **People** roster.
+
+| Concept | Contract |
+| --- | --- |
+| **Participants** | Unordered pair of Cognito fan **`sub`s** (canonical pair key — tier-TW). |
+| **Created when** | Recipient **accepts** a **FriendshipRequest**. Instant mutual-add without accept is out of scope. |
+| **Remove-friend** | **Immediately mutual**: both parties lose the edge at once. No one-sided lingering friendship. |
+| **DM eligibility** | Active **Friendship** is required to open/send on the pair’s 1:1 DM. |
+| **Display** | Friend-row labels resolve from **FanProfiles** (`displayName`, `avatarUrl`), not from room presence labels alone. |
+| **Online indicator** | **Derived**, not stored on the friendship: friend is **online** when that **`fanSub`** has at least one live **RoomPresence** row in **any** RiffSync room. Not platform-wide browsing presence, not durable last-seen, not same-room-only. |
+
+## DmThread (1:1 conversation)
+
+Logical **1:1** conversation for an unordered fan pair. Distinct from room-scoped **RoomChat**.
+
+| Concept | Contract |
+| --- | --- |
+| **Cardinality** | One logical thread per unordered fan pair once messaging is allowed. No group DMs. |
+| **Participants** | Two Cognito fan **`sub`s**. |
+| **Access while friends** | Both parties may compose and read history while an active **Friendship** exists. |
+| **After remove-friend** | Thread is **closed/hidden for both**: both lose compose and history access immediately. Re-friending may create a new edge; whether prior history is restored later is a product decision outside this contract (default: history remains inaccessible after mutual unfriend). |
+| **Retention class** | Account-lifetime durable until explicit delete or account closure — **not** RoomChat TTL. |
+
+## DirectMessage (DM body)
+
+Individual message in a **DmThread**.
+
+| Concept | Contract |
+| --- | --- |
+| **Identity** | Stable **`messageId`** within the thread (or globally unique — tier-TW). |
+| **Sender** | Cognito fan **`sub`** of the author (must be a thread participant with active friendship at send time). |
+| **Body / kind** | Text (and other kinds if product extends) — wire and kind parity with room chat are integration/interface concerns; storage holds the private history. |
+| **Ordering** | Server timestamp (and optional sequence) for chronological history — exact key shape tier-TW. |
+| **Retention** | Account-lifetime in Dynamo until explicit delete / account closure. **No TTL** on DM body rows for the RoomChat-style bounded window. |
+| **Storage** | Distinct logical store from **RoomChat** (not room-partitioned message rows). |
+
+## DmUnread (per-recipient watermark)
+
+Server-authoritative unread state for DM activity. Survives refresh and device change. Cleared when the recipient **views** the relevant messages.
+
+| Concept | Contract |
+| --- | --- |
+| **Scope** | Per recipient **`fanSub`**, keyed to a **DmThread** (or peer **`sub`**). |
+| **Meaning** | Recipient has not yet viewed newer messages in that thread. |
+| **Clear** | Viewing updated messages clears unread for those messages (watermark / cursor advance). |
+| **Not client-only** | Badge state is not ephemeral browser-only; server owns truth for list badges. |
+| **Aggregation** | Per-friend vs aggregate badge chrome is presentation tier-TW; data must support per-thread (per-friend) unread at minimum. |
+
 ## Optional: audit events
 
 **`EVT#...`** patterns per admin/observability docs—defer until needed.
@@ -84,7 +145,7 @@ Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-imag
 | Question | Decision |
 | --- | --- |
 | Store TMDB `original_title`? | **No**. |
-| Single table vs multi-table Dynamo? | **Multiple tables** (physical separation for clarity, IAM, and TTL): at minimum **`Catalog`**, **`Rooms`**, **`Connections`**, **`RoomPresence`**, **`FanProfiles`**. Add **`Lists`** (and optional **`Events`**) when those features ship—see **`persistence_abstractions.md`** and **`docs/architecture.server.md`**. |
+| Single table vs multi-table Dynamo? | **Multiple tables** (physical separation for clarity, IAM, and TTL): at minimum **`Catalog`**, **`Rooms`**, **`Connections`**, **`RoomPresence`**, **`FanProfiles`**. Add **`Lists`** (and optional **`Events`**) when those features ship—see **`persistence_abstractions.md`** and **`docs/architecture.server.md`**. Friends/DM may add further tables or co-located social items; exact split is open implementation (still Dynamo, not a new RDBMS). |
 | Participant camera/mic toggle persistence? | **No** — not on **Rooms** or **RoomPresence**; reconnect defaults **off**; SFU runtime holds active producers. |
 | Room mode / AV kill switch durability? | **Yes** — **`roomMode`** and **`avDisabled`** on **Rooms** item; host **`PATCH`** with **`version`** optimistic lock. |
 
@@ -126,10 +187,34 @@ Avatar bytes are **not** stored in Dynamo; see **`docs/architecture.catalog-imag
 | Lobby eligibility? | Public **Rooms** rows whose **`hostSub`** has no non-empty **FanProfiles.displayName** are **excluded** from lobby listing results (not returned with a placeholder). |
 | In-room rename vs lobby? | WS **`rename`** updates **RoomPresence** / **Connections** only; lobby continues to show **FanProfiles** name. |
 
+## Decisions (answered — friends and direct messaging)
+
+| Question | Decision |
+| --- | --- |
+| Friendship creation? | **Invite/accept** — durable **FriendshipRequest** before **Friendship** edge; edge only after accept. |
+| Friendship edge lifetime? | **Durable until remove-friend** (and account lifecycle); not time-bounded soft-expiry. |
+| Friends-list online? | **Derived from RoomPresence** — friend **`fanSub`** present in **any** room; no durable last-seen on friendship/DM entities. |
+| DM storage vs RoomChat? | **Distinct logical store** — not room-partitioned **RoomChat** rows. |
+| DM retention class? | **Account-lifetime durable** in Dynamo until explicit delete / account closure. RoomChat remains TTL-bounded. |
+| DM TTL attribute? | **N/A** for DM body retention window (unlike RoomChat **`expiresAt`**). Account-closure / explicit-delete purge paths are separate. |
+| Remove-friend edge? | **Immediately mutual** teardown. |
+| Remove-friend DM access? | **Both** parties lose compose and history access (thread closed/hidden for both). |
+| Identity keys? | Cognito fan **`sub`** only; no guest friends/DM rows. |
+| System of record? | Existing **DynamoDB** class; **no new RDBMS**. |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
 - Future scaling (out of scope for catalog subcategory browse IA): if the full catalog bundle grows large enough that client-side fetch + `filterCatalogEntries({ catalogs })` becomes a performance concern, consider a server-side **`catalog`** / **`catalogs`** query parameter on **`GET /v1/catalog`**. Current access pattern remains full-bundle fetch with client Set-membership filter; hub mixed grid uses no catalog constraint (`catalogs: []`).
+- Friends/DM physical Dynamo table split vs co-location (new tables vs patterns alongside **FanProfiles**): **FriendshipRequest**, **Friendship**, **DmThread**, **DirectMessage**, unread watermark items.
+- Partition/sort keys and GSI shapes for: list-my-friends, list-pending-requests (in/out), open-thread-by-peer, page DM history newest-first, unread badge aggregation.
+- Canonical unordered pair key encoding for friendship and **DmThread** (sort order of the two **`sub`s**, delimiter, collision rules).
+- **FriendshipRequest** terminal retention: hard-delete on accept/decline vs tombstone status attribute; directed vs undirected uniqueness constraint.
+- **DirectMessage** row identity and ordering keys (e.g. thread partition + `m#<ts>#<messageId>` analogue) — no RoomChat-style TTL attribute on bodies.
+- Soft-delete / tombstone vs hard-delete of **DirectMessage** rows (and thread metadata) when remove-friend hides history for both, and on account closure / explicit delete.
+- Whether remove-friend deletes message bodies immediately, retains tombstoned rows inaccessible to both, or schedules deferred purge.
+- Unread watermark representation: per-thread cursor / last-read message id vs denormalized unread count on friendship or thread summary; clear-on-view write shape.
+- Cross-query for friends online: scan/query **RoomPresence** by **`fanSub`** (requires GSI if not present) vs denormalized ephemeral presence map (still not durable last-seen).
 
 ## Primary code pointers (optional)
 

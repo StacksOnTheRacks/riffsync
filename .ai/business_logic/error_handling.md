@@ -26,6 +26,18 @@ Stable drawer codes extend the participant A/V taxonomy in **`error_state.md`** 
 | **5xx server** | Generic message to client; **full detail in logs** only. |
 | **Conflict (409)** | **Optimistic lock / version mismatch** on room **`UpdateItem`** (concurrent host commands or stale **ETag**-style version). **Not** used for a separate “reclaim” protocol in MVP. |
 
+## Friends and direct messaging
+
+Friends/DM mutations and reads are fan JWT-gated HTTP (and optional realtime push while connected). Failures follow the same structured-reject posture as other fan APIs: stable **`code`** + recoverable client messaging. Friends/DM failure must **not** tear down a healthy room **ChatSession** or **SfuMediaSession**.
+
+| Class | Behavior |
+| --- | --- |
+| **Auth miss** | Missing/invalid fan JWT → **401/403** with structured **`code`**; clients hide or disable friends/DM chrome for signed-out and guest sessions. |
+| **Business deny** | No active **Friendship**, pending-only peer, self-invite, or closed **DmThread** after remove → structured reject; compose/history stay unavailable. |
+| **Conflict** | Duplicate pending invite, accept of already-resolved request, or concurrent mutual invites → structured conflict/idempotent outcome (exact codes TW). |
+| **Rate limit / abuse** | Friend-request or DM send throttle → **429** (or equivalent) with recoverable copy; no staff DM-body moderation path. |
+| **Delivery / sync** | History sync or realtime push failure is recoverable on the friends/DM surface only; room chat drawer codes stay independent. |
+
 ## WebSocket
 
 | Class | Behavior |
@@ -73,6 +85,15 @@ After durable **`avDisabled`** write on room document, room **`PATCH`** Lambda f
 | Typed failure domains? | Extend taxonomy with drawer codes; failures name drawer in logs/metrics contracts (**`operations/observability.md`** peer). |
 | SFU config vs transient failure? | Classify **`LOCAL_SFU_UNREACHABLE`** / **`SFU_RELAY_UNREACHABLE`** per **`configuration.md`** thresholds; **no** mesh fallback. |
 | Drawer code → surface mapping? | Normative table in **`error_state.md`** **Surface mapping (#141)**; shared enum in **`realtimeDrawerErrors.ts`**. |
+
+## Open implementation decisions
+
+Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### friends-and-direct-messaging
+- Stable structured **`code`** names for auth miss, not-friends, request-already-pending, request-not-found, thread-closed-after-remove, and rate-limited friend/DM paths.
+- Whether DM send denials after remove use the same envelope family as room **`CHAT_SEND_DROPPED`** analogues or a friends/DM-specific code set.
+- Retry/backoff guidance copy for DM sync failure vs friend-list load failure.
 
 ## Primary code pointers (optional)
 

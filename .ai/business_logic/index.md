@@ -11,6 +11,7 @@ Scopes **domain concepts**, **user stories**, **errors** and recovery UX—not U
 - Covers **room layout mode** (**Theater** | **Video Chat**), **participant camera/microphone** eligibility and lifecycle, the host **AV kill switch**, and **realtime hardening** jurisdictions (**ChatSession**, **SfuMediaSession**, **TheaterPlayback**), decoupled lifecycles, and drawer-typed failures.
 - Covers **public discoverability**: which durable public routes (catalog hub and subcategory browse, episode landing, host-help, legal) are indexable content vs ephemeral/authenticated/receiver-only surfaces that must stay out of search — see **`domain_model.md`** → *Public discoverable surface*.
 - Covers **catalog browse IA**: hub mixed browse vs subcategory filtered views (MST3K host-catalog aggregation, Community, Riff Material label, Movie Night) without new auth or domain entities — see **`domain_model.md`** and **US-P0-01** in **`user_stories.md`**.
+- Covers **friends and 1:1 direct messaging**: invite/accept **FriendshipRequest** → **Friendship**, room-derived friends online, friends-only **DmThread** / **DirectMessage** eligibility, account-lifetime DM retention class (distinct from **RoomChat**), mutual remove-friend with closed/hidden thread for both, and unread-clears-on-view — see **`domain_model.md`**, **US-P0-13*** in **`user_stories.md`**, and friends/DM rows in **`error_state.md`** / **`error_handling.md`**.
 - Keep this file aligned with mapped child contracts.
 
 ## Primary code pointers (optional)
