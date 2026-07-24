@@ -137,15 +137,18 @@ Individual message in a **DmThread**.
 
 ## DmUnread (per-recipient watermark)
 
-Server-authoritative unread state for DM activity. Survives refresh and device change. Cleared when the recipient **views** the relevant messages.
+Server-authoritative unread state for DM activity. Survives refresh and device change. Cleared when the recipient **views** the relevant messages (#361).
 
 | Concept | Contract |
 | --- | --- |
-| **Scope** | Per recipient **`fanSub`**, keyed to a **DmThread** (or peer **`sub`**). |
-| **Meaning** | Recipient has not yet viewed newer messages in that thread. |
-| **Clear** | Viewing updated messages clears unread for those messages (watermark / cursor advance). |
+| **Scope** | Per recipient **`fanSub`**, keyed to a **DmThread** via canonical **`pairKey`**. |
+| **Storage keys** | PK **`recipientSub`**, SK **`pairKey`** on dedicated **DmUnread** Dynamo table (env-suffixed in IaC). |
+| **Cursor (source of truth)** | **`lastReadSentAt`** (epoch ms) and **`lastReadMessageId`** (UUID). A **DirectMessage** is unread for the recipient when **`(sentAt > lastReadSentAt)`** OR **`(sentAt === lastReadSentAt && messageId > lastReadMessageId)`** (lexicographic UUID tie-break). |
+| **List denormalization** | **`hasUnread`** boolean on the **DmUnread** item — updated on inbound send (set **`true`** for recipient) and on **`POST .../read`** when cursor advances past the thread tip. Avoids per-friend latest-message queries on **`GET /v1/friends`**. |
+| **Missing row** | No **DmUnread** item ⇒ cursor **`(0, "")`**, **`hasUnread: false`** until the first inbound message for that recipient sets **`hasUnread: true`**. |
+| **Clear** | Explicit **`POST /v1/dm/threads/{pairKey}/read`** with **`{ lastReadSentAt, lastReadMessageId }`**. Server applies **monotonic max** only (concurrent tabs safe). **`GET .../messages`** does **not** implicitly clear. Client sends read ack when the user **views** messages (not on thread open alone — M36 stick-to-bottom rules). |
 | **Not client-only** | Badge state is not ephemeral browser-only; server owns truth for list badges. |
-| **Aggregation** | Per-friend vs aggregate badge chrome is presentation tier-TW; data must support per-thread (per-friend) unread at minimum. |
+| **Aggregation wire** | **`GET /v1/friends`** exposes per-friend **`hasUnread`** and response **`anyUnread`** (OR across friends). Header/tab aggregate badge chrome is **M36** presentation. |
 
 ## Optional: audit events
 
@@ -247,6 +250,19 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 | **Remove rate limit?** | **30**/min per **`fanSub`**. |
 | **Concurrent remove vs DM send?** | DM handlers re-check before write; remove wins → **403** `friendship_not_active` / **`dm_thread_closed`**. |
 
+## Decisions (answered — DM unread watermark #361)
+
+| Question | Decision |
+| --- | --- |
+| **Watermark representation?** | **Last-read cursor** — **`lastReadSentAt`** + **`lastReadMessageId`** on **DmUnread** items. **Not** count-only storage. Denormalized **`hasUnread`** boolean for friends-list reads. |
+| **Physical table?** | Dedicated **`DmUnread`** Dynamo table (env-suffixed). PK **`recipientSub`**, SK **`pairKey`**. |
+| **Set unread on inbound?** | **`dm-messages-send`** (#360) sets recipient **`hasUnread: true`** after **DirectMessage** persist (sender ≠ recipient). Does not advance recipient read cursor. |
+| **Clear trigger?** | **View-based** — **`POST /v1/dm/threads/{pairKey}/read`**. History **GET** does not auto-clear. |
+| **Multi-tab races?** | Read POST applies **monotonic max** cursor; concurrent tabs safe. |
+| **Other sessions?** | After read write, **best-effort** **`dm_unread`** Fan DM WS push to recipient's other **`FanConnections`** (HTTP remains source of truth). |
+| **Friends list wire?** | **`GET /v1/friends`** adds per-entry **`hasUnread`** and response **`anyUnread`**. No per-friend numeric count in #361. |
+| **Remove-friend?** | Orphan **DmUnread** rows acceptable when friendship edge deleted; friends list no longer surfaces the peer. |
+
 ## Decisions (answered — DM thread open and history #359)
 
 | Question | Decision |
@@ -263,7 +279,6 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
 - Future scaling (out of scope for catalog subcategory browse IA): if the full catalog bundle grows large enough that client-side fetch + `filterCatalogEntries({ catalogs })` becomes a performance concern, consider a server-side **`catalog`** / **`catalogs`** query parameter on **`GET /v1/catalog`**. Current access pattern remains full-bundle fetch with client Set-membership filter; hub mixed grid uses no catalog constraint (`catalogs: []`).
-- Unread watermark representation: per-thread cursor / last-read message id vs denormalized unread count on friendship or thread summary; clear-on-view write shape — **#361**.
 - Account-closure cascade and explicit per-message user delete jobs relative to retained-after-unfriend bodies — future ops slice (not #359).
 
 ## Primary code pointers (optional)

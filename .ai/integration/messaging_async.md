@@ -80,7 +80,16 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 - Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
 
 ### friends-and-dm-delivery-topology
-- Whether unread-clear acknowledgment is HTTP-only or also pushed to the viewer's other sessions — **#361**.
+- No open decisions remain for unread-clear transport (#361). **`POST /v1/dm/threads/{pairKey}/read`** is the durable write; **best-effort `dm_unread`** Fan DM WS push notifies the recipient's other sessions to refresh badges.
+
+## Decisions (answered — DM unread #361)
+
+| Topic | Decision |
+| --- | --- |
+| Read acknowledgment transport | **HTTP `POST .../read`** is source of truth; **best-effort `dm_unread`** push to recipient **`FanConnections`** after cursor advance. |
+| **`dm_unread` envelope** | **`{ "type": "dm_unread", "schemaVersion": 1, "pairKey", "hasUnread", "lastReadSentAt", "lastReadMessageId" }`**. Recipient-only fan-out (same as **`dm_message`**). |
+| Push failure | Log + metric; **no** retry queue. Other tabs refresh on next **`GET /v1/friends`** or inbound **`dm_message`**. |
+| Inbound unread | Send persist sets recipient **`hasUnread: true`** on **DmUnread** row (#361); separate from **`dm_message`** push. |
 
 ## Decisions (answered — DM history sync #359)
 

@@ -125,8 +125,8 @@ Both surfaces present the same capabilities for the authenticated fan:
 ### Unread presentation
 
 - Friends list surfaces unread DM activity so new messages are visible without opening every thread.
-- **Viewing** the updated messages in that friend’s DM panel **clears** unread for those messages (server-authoritative outcome; badge follows).
-- Per-friend vs aggregate badge on the person-icon trigger and/or Friends tab label is presentation tier-TW (see **Open implementation decisions**).
+- **Viewing** the updated messages in that friend’s DM panel **clears** unread via **`POST /v1/dm/threads/{pairKey}/read`** when the user **views** those messages (server-authoritative cursor; badge follows). History **GET** alone does not clear.
+- Per-friend vs aggregate badge on the person-icon trigger and/or Friends tab label is **M36** presentation (#361 supplies **`hasUnread`** / **`anyUnread`** data only).
 
 ### Direct message panel
 
