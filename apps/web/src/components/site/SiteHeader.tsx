@@ -4,6 +4,7 @@ import {
   startFanHostedUiSignIn,
 } from '../../auth/fanHostedUiPkce'
 import { useFanSession } from '../../auth/useFanSession'
+import { FriendsDropdown } from '../../friends/FriendsDropdown'
 import { useShowGetAppNav } from '../../pwa/useShowGetAppNav'
 import { useRoomChromeOptional } from '../../room/useRoomChrome'
 import { CatalogNavItem } from './CatalogNavItem'
@@ -108,16 +109,19 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
                     </ul>
                   </div>
                 </div>
-                <button
-                  className="navbar-toggler"
-                  type="button"
-                  onClick={() => setMobileOpen((o) => !o)}
-                  aria-controls="navbarSupportedContent"
-                  aria-expanded={mobileOpen}
-                  aria-label="Toggle navigation"
-                >
-                  <i className="fas fa-bars" aria-hidden />
-                </button>
+                <div className="gen-header-info-box riffsync-header-info-box">
+                  {fanToken ? <FriendsDropdown /> : null}
+                  <button
+                    className="navbar-toggler"
+                    type="button"
+                    onClick={() => setMobileOpen((o) => !o)}
+                    aria-controls="navbarSupportedContent"
+                    aria-expanded={mobileOpen}
+                    aria-label="Toggle navigation"
+                  >
+                    <i className="fas fa-bars" aria-hidden />
+                  </button>
+                </div>
               </nav>
             </div>
           </div>

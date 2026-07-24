@@ -9,6 +9,7 @@ import { SiteHeader } from './SiteHeader'
 const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
 const useFanSession = vi.fn()
 const useShowGetAppNav = vi.fn()
+const getFanAccessToken = vi.fn<() => string | null>()
 
 vi.mock('../../auth/fanHostedUiPkce', () => ({
   startFanHostedUiSignIn: (returnPath: string) => startFanHostedUiSignIn(returnPath),
@@ -18,12 +19,43 @@ vi.mock('../../auth/useFanSession', () => ({
   useFanSession: () => useFanSession(),
 }))
 
+vi.mock('../../auth/fanTokens', () => ({
+  getFanAccessToken: () => getFanAccessToken(),
+}))
+
 vi.mock('../../pwa/useShowGetAppNav', () => ({
   useShowGetAppNav: () => useShowGetAppNav(),
 }))
 
 vi.mock('../../room/useRoomChrome', () => ({
   useRoomChromeOptional: () => null,
+}))
+
+vi.mock('../../friends/useRoomFriendsPane', () => ({
+  useRoomFriendsPane: () => ({
+    loading: false,
+    loadError: false,
+    snapshot: { friends: [], inbound: [], outbound: [], anyUnread: false },
+    openPeer: null,
+    dmMessages: [],
+    dmClosed: false,
+    dmLoading: false,
+    dmDraft: '',
+    dmComposeError: null,
+    removeTarget: null,
+    anyUnread: false,
+    setDmDraft: () => undefined,
+    refreshRoster: () => undefined,
+    acceptRequest: () => undefined,
+    declineRequest: () => undefined,
+    cancelRequest: () => undefined,
+    openDm: () => undefined,
+    closeDm: () => undefined,
+    confirmRemove: () => undefined,
+    cancelRemove: () => undefined,
+    executeRemove: () => undefined,
+    sendDm: () => undefined,
+  }),
 }))
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -36,6 +68,7 @@ describe('SiteHeader fan session nav', () => {
     startFanHostedUiSignIn.mockReset()
     startFanHostedUiSignIn.mockResolvedValue(undefined)
     useShowGetAppNav.mockReturnValue(true)
+    getFanAccessToken.mockReturnValue(null)
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -79,19 +112,25 @@ describe('SiteHeader fan session nav', () => {
     expect(startFanHostedUiSignIn).toHaveBeenCalledWith('/lobby')
   })
 
-  it('shows Account link when signed in', () => {
+  it('shows Account link and person-icon friends control when signed in (#363)', () => {
     useFanSession.mockReturnValue({ fanToken: 'fan-token' })
+    getFanAccessToken.mockReturnValue('fan-token')
     renderHeader()
 
     expect(container.querySelector('a[href="/account"]')?.textContent).toBe('Account')
     expect(container.querySelector('.riffsync-site-nav-sign-in')).toBeNull()
+    expect(container.querySelector('.riffsync-friends-nav')).not.toBeNull()
+    expect(container.querySelector('#gen-user-btn')).not.toBeNull()
+    expect(container.querySelector('.fa-user')).not.toBeNull()
   })
 
   it('does not render main-site friends affordance when signed out (#365)', () => {
     useFanSession.mockReturnValue({ fanToken: null })
+    getFanAccessToken.mockReturnValue(null)
     renderHeader('/catalog')
 
     expect(container.querySelector('.riffsync-friends-nav')).toBeNull()
+    expect(container.querySelector('#gen-user-btn')).toBeNull()
     expect(container.querySelector('[aria-label="Friends"]')).toBeNull()
   })
 
