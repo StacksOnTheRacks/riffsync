@@ -54,7 +54,11 @@ Ephemeral **per-connection** rows in **RoomPresence** Dynamo (distinct from **Co
 
 ## Connection (WebSocket mapping)
 
-Ephemeral **`connectionId` → roomId`** (+ **`sessionId`** metadata) for **`PostToConnection`** targeting—see **`architecture.server.md`**. Written in the same connect transaction as the matching **RoomPresence** row.
+Ephemeral **`connectionId` → roomId`** (+ **`sessionId`** metadata) for **`PostToConnection`** targeting room **ChatSession** fan-out—see **`architecture.server.md`**. Written in the same connect transaction as the matching **RoomPresence** row.
+
+## FanConnection (DM push WebSocket mapping)
+
+Ephemeral **`connectionId` → fanSub`** for **Fan DM WebSocket** **`PostToConnection`** targeting—**distinct** from room **`Connections`**. Written on Fan DM WS **`$connect`** when fan JWT validates; deleted on **`$disconnect`**. **No** **`roomId`** on this row. GSI on **`fanSub`** enables 1:1 peer fan-out (#360).
 
 ## Curated list (when shipped)
 

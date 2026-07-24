@@ -39,7 +39,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | Layer | Behavior |
 | --- | --- |
 | **HTTP** | **Staff JWT authorizer** on **`/v1/admin/*`**; **fan JWT authorizer** on fan-gated routes (including friends lifecycle and DM); **`POST /v1/rooms`** and room-admin **`PATCH`/`PUT`** require **fan JWT** (**`sub`**); **`GET /v1/catalog`**, **`GET /v1/lobby`**, room **read/join** paths accept **`sessionId`** via **`X-Session-Id`** for anonymous guests. Friends/DM Lambdas additionally enforce participant membership and friendship state (below). |
-| **WebSocket** | **`$connect`**: **`roomId`** + **`sessionId`**; optional fan JWT (**query `accessToken`** or **`Authorization`**) stores **`fanSub`**. **Host-only inbound route:** **`share_state`** (connection row **`hostSub === room.hostSub`**). **Durable **`roomMode`** / **`avDisabled`** use HTTP host **`PATCH`** only (#103 fans out outbound **`room_mode`** / **`av_disabled`**). Map **`connectionId → roomId`** (+ optional **`fanSub`** / **`sessionId`** metadata). |
+| **WebSocket** | **`$connect`**: **`roomId`** + **`sessionId`**; optional fan JWT (**query `accessToken`** or **`Authorization`**) stores **`fanSub`**. **Host-only inbound route:** **`share_state`** (connection row **`hostSub === room.hostSub`**). **Durable **`roomMode`** / **`avDisabled`** use HTTP host **`PATCH`** only (#103 fans out outbound **`room_mode`** / **`av_disabled`**). Map **`connectionId → roomId`** (+ optional **`fanSub`** / **`sessionId`** metadata). **Fan DM push plane (#360):** separate WebSocket API; **`$connect`** requires fan JWT and writes **`FanConnections`** **`connectionId → fanSub`** only — **no** **`roomId`**, **no** room chat inbound routes. |
 | **SFU join token** | **`POST /v1/webrtc/sfu-token`**: **`X-Session-Id`** + active presence row required; **`Authorization`** fan JWT required for **producer** grants. Host screen-share producer: **`JWT.sub === room.hostSub`**. Participant A/V producer: **`fanSub`** on connection row, room **`avDisabled`** false, caller not anonymous. **403** when kill switch on or prerequisites missing. |
 
 ## WebRTC publish tiers
@@ -71,7 +71,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 | **Post-remove DM access** | After mutual remove, **both** parties lose **compose (send)** and **history** access for that 1:1 thread (closed / hidden for both). DM list, history, and send handlers **must** re-check active friendship (or explicit closed-thread state) and deny when the edge is gone. Re-friending may create a new edge; whether prior history is restored is a later product decision (default: remains inaccessible). |
 | **Staff** | Staff JWT **never** grants DM body read, DM send, or friendship mutation. No admin DM moderation path in this slice. |
 | **Room membership** | Being in the same room (or holding host) does **not** by itself authorize friendship or DM actions. Room **People** roster ≠ friends graph. |
-| **Realtime DM** | Any DM push plane (when implemented) authenticates the fan **`sub`** and fans out only to the other thread participant; never room-wide **`roomId`** broadcast of DM bodies. |
+| **Realtime DM** | Fan DM push plane authenticates **`fanSub`** at **`$connect`**. Send is fan JWT HTTP **`POST`**. Push fans out only to the **recipient** participant's **`FanConnections`** rows — never room-wide **`roomId`** broadcast of DM bodies. |
 
 ## Decisions (answered)
 

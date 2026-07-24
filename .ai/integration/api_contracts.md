@@ -180,6 +180,35 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 | **`dm_thread_not_found`** | **404** | History requested for **`pairKey`** with no **DmThread** item (empty thread — client should **`PUT`** ensure first). |
 | **`rate_limited`** | **429** | Throttle exceeded. |
 
+### DM send (#360)
+
+| Route | Auth | Contract |
+| --- | --- | --- |
+| **`POST /v1/dm/threads/{pairKey}/messages`** | Fan JWT | Send **DirectMessage** when **Friendship** active and **DmThread** **`open`**. Request body: **`{ "messageId": "<uuid>", "kind": "text", "body": "<string>" }`**. **`body`**: trimmed non-empty, max **2000** chars. **201** **`{ "pairKey", "messageId", "senderSub", "kind", "body", "sentAt" }`**. After persist, **`PostToConnection`** **`dm_message`** push to peer's **`FanConnections`** (best-effort). Throttle **20/min** per caller **`fanSub`**. |
+
+### DM send deny / validation codes (#360)
+
+| **`code`** | HTTP | When |
+| --- | --- | --- |
+| **`fan_auth_required`** | **401** | Missing/invalid fan JWT. |
+| **`invalid_dm_body`** | **400** | Empty **`body`**, exceeds max length, or unsupported **`kind`**. |
+| **`cannot_dm_self`** | **400** | Caller not a valid sender for the **`pairKey`**. |
+| **`dm_not_member`** | **403** | Caller **`sub`** not in path **`pairKey`**. |
+| **`friendship_not_active`** | **403** | No active **Friendship** (includes after remove). |
+| **`dm_thread_closed`** | **403** | **DmThread** **`status: closed`**. |
+| **`dm_thread_not_found`** | **404** | No **DmThread** row — client should **`PUT`** ensure first (#359). |
+| **`rate_limited`** | **429** | Send throttle exceeded (**20/min** per **`fanSub`**). |
+
+### Fan DM WebSocket (push plane #360)
+
+| Item | Contract |
+| --- | --- |
+| **API** | **Separate** API Gateway WebSocket from room **ChatSession** WS. Same deployment **class** (Lambda + **`PostToConnection`**), **distinct** API id, handlers, and **`FanConnections`** store. |
+| **`$connect`** | Fan JWT required (**query `accessToken`** or **`Authorization`**). Writes **`FanConnections`** row: PK **`connectionId`**, **`fanSub`**, **`connectedAt`**, optional browser **`sessionId`**. **No** **`roomId`**. |
+| **Routes** | **`$connect`**, **`$disconnect`**, **`ping`** only. **No** inbound DM send route — send is HTTP **`POST`**. |
+| **Outbound push** | **`type: dm_message`**, **`schemaVersion: 1`**, fields per **`messaging_async.md`**. Delivered only to connections whose stored **`fanSub`** equals the **recipient** (the non-sender participant). **Never** room-wide **`roomId`** broadcast. |
+| **Failure** | **`PostToConnection`** errors: log + metric; **no** retry queue. Persisted message available via history **GET**. |
+
 ### DM plane vs room `ChatSession`
 
 | Plane | Owner / scope | Contract |
@@ -187,7 +216,7 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 | **Room chat / presence / control** | **`ChatSession`** + room WebSocket keyed by **`roomId`** | Public (party) chat, **RoomPresence**, typing, join/leave, **`share_state`**, room control fan-out. Unchanged by friends/DM. |
 | **1:1 DM** | Distinct **DM plane** (HTTP history + realtime push while connected) | Private account-lifetime history between friend pair. **Must not** be implied by reusing room-chat UX language. Prefer **not** overloading the room **`ChatSession` `roomId` channel** for DM bodies; if a future implementation shares transport machinery, the contract **must** note the shared topology explicitly and keep authz/thread identity separate from **`roomId`**. |
 
-**Delivery class:** durable DM write, then fan-out to connected peers (**write-then-fan-out** analogue of room chat); clients also **sync history on open** via **`GET /v1/dm/threads/{pairKey}/messages`** (#359). Exact WebSocket vs HTTP long-poll / hybrid topology, route keys, and **`type` / `schemaVersion`** discriminators for realtime push remain open (**#360**).
+**Delivery class:** durable DM write via **`POST /v1/dm/threads/{pairKey}/messages`**, then fan-out to peer **`fanSub`** **`FanConnections`** over the **Fan DM WebSocket** API (**`type: dm_message`**, **`schemaVersion: 1`**). Clients also **sync history on open** via **`GET /v1/dm/threads/{pairKey}/messages`** (#359). **Does not** use room **`Connections`** or **`roomId`** broadcast (#360).
 
 **Unread:** server-authoritative per recipient; clears when the viewer **views** those messages. Badge aggregation (per-friend vs aggregate) wire shape is open (**#361**).
 
@@ -213,6 +242,8 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 | **Friend-request accept / decline / cancel** | **30** combined actions per **minute** per **`fanSub`**. |
 | **Remove friend** | **30** **`DELETE /v1/friends/{pairKey}`** per **minute** per **`fanSub`**. |
 | **Friends list read** | **60** **`GET /v1/friends`** per **minute** per **`fanSub`**. |
+| **DM thread ensure + history read** | **60** combined **`PUT /v1/dm/threads/{peerSub}`** + **`GET .../messages`** per **minute** per **`fanSub`** (#359). |
+| **DM send** | **20** **`POST /v1/dm/threads/{pairKey}/messages`** per **minute** per **`fanSub`** (#360). |
 | **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
 | **WebSocket** | Subject to **API Gateway** account/service quotas; design for **≤50 concurrent connections per room** under normal use (matches participant cap). |
 
@@ -245,7 +276,7 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 | Friendship creation APIs? | **Invite / accept / decline** — pending request then durable edge on accept. Fan JWT HTTP lifecycle; guests out. |
 | Friends-list online? | **RoomPresence-derived:** friend is online if they have an open presence in **any** room. Not platform browsing presence; not last-seen; not same-room-only. |
 | DM durability vs RoomChat? | **Account-lifetime durable** until explicit delete or account closure. Distinct retention class from TTL-bounded **RoomChat**. |
-| DM delivery? | **History sync on open** + **realtime push while connected** (serverless write-then-fan-out class). Exact WS vs HTTP topology open. |
+| DM delivery? | **History sync on open** + **realtime push while connected** (serverless write-then-fan-out class). **HTTP POST send** + **Fan DM WebSocket** push (#360). |
 | DM vs **`ChatSession`**? | **`ChatSession`** stays the **room** plane. DM is a separate social/DM plane; do not silently overload room **`roomId`** channel. |
 | Remove-friend access? | **Mutual** teardown; **both** parties lose DM send and history access. Encode on DM list/send/history authz. |
 | Staff DM body access? | **None** for this slice — fan JWT only; no **`/v1/admin/*`** DM body read. |
@@ -404,6 +435,8 @@ Beyond participant A/V publish errors (**`error_state.md`**, **`authorization.md
 | **Signaling (SFU WS)** | **`SIGNALING_TIMEOUT`** | SFU WebSocket connect or request-ack timeout | Video relay status; maps to **`sfu_signaling_failed`** at publish toggles when blocking |
 | **Media lifecycle** | **`PRODUCER_CLOSED`** | Inbound SFU **`producerClosed`** event | Stage tile detach, theater audio mix (informational at consumer boundary) |
 | **Chat (room WS)** | **`CHAT_SEND_DROPPED`** | Outbound chat/react failed after client retry budget; room WS unavailable | Chat compose / chat status |
+| **Friends / DM** | **`DM_SEND_DROPPED`** | HTTP DM send failed after client retry budget | DM compose on friends/DM surface |
+| **Friends / DM** | **`DM_PUSH_UNAVAILABLE`** | Fan DM WebSocket not **`open`**; realtime push paused | DM status on friends/DM surface (HTTP send/history still allowed) |
 
 - **Separate status surfaces** for chat vs video relay (**`interface/presentation.md`**); integration assigns **`code`** values to planes, not consolidated chrome.
 - Observability: **`RiffSync/Realtime`** and **`RiffSync/Media`** metrics with **`drawer`** and **`code`** dimensions (**`operations/observability.md`**).
@@ -496,10 +529,8 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 
 ### friends-and-direct-messaging (paths, envelopes, codes)
 
-- DM send HTTP path, realtime push topology, and send failure **`code`** — **#360**.
 - Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape — **#361**.
-- Rate-limit numeric thresholds for DM send (friend-request bands decided above).
-- IaC / env names for DM unread table or co-located unread items — **#361** ( **`DM_THREADS_TABLE_NAME`** / **`DIRECT_MESSAGES_TABLE_NAME`** decided #359).
+- IaC / env names for DM unread table or co-located unread items — **#361** ( **`DM_THREADS_TABLE_NAME`** / **`DIRECT_MESSAGES_TABLE_NAME`** decided #359; **`FAN_CONNECTIONS_TABLE_NAME`** / Fan DM WS API decided #360).
 
 ## Decisions (answered — M22 presence routes)
 

@@ -48,6 +48,12 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | DM vs **`ChatSession`**? | Room **`ChatSession`** unchanged; DM uses a distinct social/DM plane (exact WS vs HTTP topology open). |
 | Friends online signal? | Derived from existing **RoomPresence** (open presence in **any** room) — query/derive across rooms; not a new browsing-presence bus and not SFU. |
 | SQS for DM fan-out? | **Not** baseline — same direct Lambda **`PostToConnection`** (or equivalent push) class as room chat unless later cost forces a queue. |
+| DM send HTTP path? | **`POST /v1/dm/threads/{pairKey}/messages`** — persist **DirectMessage** then fan-out to peer **`fanSub`** connections (#360). |
+| DM realtime transport? | **Separate Fan DM WebSocket API** + **`FanConnections`** table (GSI on **`fanSub`**). **Not** room **`Connections`** / **`roomId`** map. Reuses WebSocket + Lambda + **`PostToConnection`** **machinery class** only — explicit shared-topology note in **`api_contracts.md`**. |
+| DM push envelope? | Outbound **`type: dm_message`**, **`schemaVersion: 1`** (#360). |
+| DM push failure after persist? | **Best-effort** + log/metric; **no** outbound retry queue. Recipient syncs on next history fetch. |
+| DM send client drop code? | **`DM_SEND_DROPPED`** when HTTP POST fails after client retry budget. |
+| DM push plane status code? | **`DM_PUSH_UNAVAILABLE`** when Fan DM WS not **`open`**; HTTP send/history unaffected. |
 
 ## Decisions (answered — presence and AV maturity)
 
@@ -74,11 +80,7 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 - Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
 
 ### friends-and-dm-delivery-topology
-- Exact DM realtime transport: new WebSocket application routes, fan-scoped connection map (not **`roomId`**-keyed), HTTP sync with optional push, or hybrid sharing infrastructure with room WS **only if** documented explicitly — **#360**.
-- Outbound/inbound DM envelope **`type`** / **`schemaVersion`** discriminators for realtime push — **#360**.
 - Whether unread-clear acknowledgment is HTTP-only or also pushed to the viewer's other sessions — **#361**.
-- DM send failure client **`code`** when push plane unavailable (analogue of **`CHAT_SEND_DROPPED`**); retry budget remains **no outbound retry queue** unless a later decision changes room-chat precedent — **#360**.
-- Cross-room **RoomPresence** query pattern for friends online (GSI vs fan-out index vs scan-by-sub) — physical access pattern with data/IaC; messaging only requires derive-from-presence semantics (GSI decided #357).
 
 ## Decisions (answered — DM history sync #359)
 
@@ -88,6 +90,20 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | Thread ensure HTTP | **`PUT /v1/dm/threads/{peerSub}`** before first history fetch when thread metadata may not exist. |
 | Cursor encoding | base64url JSON **`{"sentAt", "messageId"}`** for exclusive older pagination. |
 | Not RoomChat | DM history **Query** targets **DirectMessages** table only — never **RoomChat** **`roomId`** partition. |
+
+## Decisions (answered — DM realtime send/receive #360)
+
+| Topic | Decision |
+| --- | --- |
+| Send path | **`POST /v1/dm/threads/{pairKey}/messages`** with fan JWT. Body: client **`messageId`** (UUID), **`kind: text`**, trimmed **`body`** (max **2000**). **201** echoes persisted row fields. |
+| Persist-then-push | **PutItem** **DirectMessages** first; then query peer **`fanSub`** on **`FanConnections`** GSI and **`PostToConnection`** **`dm_message`** envelope to each open connection. |
+| Fan DM WebSocket | **Separate** API Gateway WebSocket API from room **ChatSession**. **`$connect`** requires fan JWT; stores **`fanSub`** on **`FanConnections`**. Routes: **`$connect`**, **`$disconnect`**, **`ping`** only — **no** inbound **`dm_send`**. |
+| Connection map | **`FanConnections`** Dynamo: PK **`connectionId`**, attribute **`fanSub`**, sparse GSI PK **`fanSub`** for 1:1 fan-out. **Not** keyed by **`roomId`**. |
+| Shared topology note | Same **serverless class** (API Gateway WS + Lambda + **`execute-api:ManageConnections`**) as room chat; **distinct** WS API, handler entrypoints, and connection table. DM bodies **never** **`PostToConnection`** on room **`roomId`** membership. |
+| Push envelope | **`{ "type": "dm_message", "schemaVersion": 1, "pairKey", "messageId", "senderSub", "kind", "body", "sentAt", "displayName?", "avatarUrl?" }`**. |
+| Push failure | Log + metric; **no** retry queue. Message remains durable; peer loads via **`GET .../messages`**. |
+| Client codes | **`DM_SEND_DROPPED`** — HTTP send failed after retry budget. **`DM_PUSH_UNAVAILABLE`** — Fan DM WS not **`open`** (realtime paused). Friends/DM drawer only — **no** **`ChatSession`** / SFU teardown. |
+| Send throttle | **20/min** per caller **`fanSub`**; **429 `rate_limited`**. |
 
 ## Kill-switch side-effect ordering (#102 / #103 split)
 

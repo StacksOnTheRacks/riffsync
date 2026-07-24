@@ -66,7 +66,7 @@ Issue #279 verifies the full local status taxonomy above across availability, st
 | **Re-friend after remove** | New edge may form via invite/accept; prior DM history remains inaccessible by default (empty or closed thread UX, not restored scrollback). |
 | **Unread DMs** | Friends list shows unread activity; viewing those messages clears unread for them. Failure to clear is recoverable (badge may persist until next successful view). |
 | **Friends online unavailable** | If room-presence aggregation cannot be resolved, show offline/unknown rather than inventing last-seen; do not block friends list or DM history load. |
-| **Friends/DM load or send failure** | Inline recoverable error on the friends/DM surface only. Healthy room chat and SFU drawers continue. |
+| **Friends/DM load or send failure** | Inline recoverable error on the friends/DM surface only. Healthy room chat and SFU drawers continue. HTTP send drop: **`DM_SEND_DROPPED`**. Fan DM WS down: **`DM_PUSH_UNAVAILABLE`** (realtime paused; compose may still send via HTTP). |
 | **Rate limited friend invite or DM send** | Recoverable wait/retry copy; local compose may disable send briefly. |
 
 ## Auth — fan
@@ -114,6 +114,8 @@ Extends participant A/V codes with **drawer-typed** failures. Each maps to **inl
 | **`code`** | Drawer | Surface | Recoverable? | User-facing copy (template) |
 | --- | --- | --- | --- | --- |
 | **`CHAT_SEND_DROPPED`** | Chat WS | Compose / chat status | Yes | Message could not be sent. Check chat connection and try again. |
+| **`DM_SEND_DROPPED`** | Fan DM HTTP send | DM compose on friends/DM surface | Yes | Message could not be sent. Try again. |
+| **`DM_PUSH_UNAVAILABLE`** | Fan DM WS | DM status on friends/DM surface | No (informational) | Live updates paused. Messages still send and load when you reconnect. |
 | **`TYPING_RATE_LIMITED`** | Chat WS | _(none — silent drop)_ | No | Excess typing signals dropped server-side; no user-facing banner. |
 | **`CHAT_RECONNECTING`** | Chat WS | Chat status only | Yes | Reconnecting chat… |
 | **`SIGNALING_TIMEOUT`** | SFU signaling | Video-relay status | Yes | Video relay is slow to connect. Waiting… |
@@ -198,9 +200,10 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open implementation decisions remain for M25 Cast error/status verification. See **Local Cast status taxonomy** and **Cast status verification (#279)** above.
 
 ### friends-and-direct-messaging
-- Exact user-facing copy templates and stable **`code`** values for not-friends, pending-only, declined, thread-closed-after-remove, invite rate limit, and DM send/sync failure.
+- Exact user-facing copy templates and stable **`code`** values for not-friends, pending-only, declined, thread-closed-after-remove, and invite rate limit (HTTP **`code`** fields from **`api_contracts.md`**).
 - Whether remove-friend success uses a transient status, toast, or silent list update for the remover and the removed party.
 - Offline vs unknown presentation when friends-list online signal cannot be derived.
+- **Resolved #360:** DM send/sync drawer codes **`DM_SEND_DROPPED`**, **`DM_PUSH_UNAVAILABLE`** (see typed error catalog above).
 
 ## Primary code pointers (optional)
 
