@@ -61,7 +61,7 @@
 | Property | Level |
 | --- | --- |
 | **Friendship edge** | Durable in Dynamo before clients treat the pair as friends. Accept creates the edge (and retires the pending request) as one product outcome; exact transactional bundling is tier-TW. |
-| **FriendshipRequest** | Durable pending state; accept/decline/cancel are authoritative server writes. Duplicate open requests for the same pair are rejected or coalesced (policy tier-TW). |
+| **FriendshipRequest** | Durable pending state; accept/decline/cancel are authoritative server writes. Duplicate open requests for the same unordered pair are rejected (**409**) or coalesced idempotently (same direction **200**). |
 | **Remove-friend** | Mutual teardown is immediate for both parties' friendship view. DM compose/history access closes for **both** in the same outcome (hide/close). Soft vs hard delete of message bodies does not change the access rule. |
 | **DM delivery / history** | **Casual / last-write-wins** ordering acceptable for MVP (room-chat precedent). History is account-lifetime durable; reconnect and open-thread sync may replay from Dynamo (unlike drawer-only room chat client buffer language). |
 | **DmUnread** | Server-authoritative per recipient; clear-on-view is a durable write. Concurrent clears coalesce to the newest watermark (LWW acceptable). |
@@ -75,11 +75,19 @@
 | Remove-friend visibility? | Both parties lose friendship and DM access together; no one-sided lingering read/compose. |
 | Friends online vs RoomPresence? | Derived signal; may lag roster reality; no durable last-seen clock to reconcile. |
 
+## Decisions (answered — friendship invite/accept lifecycle #356)
+
+| Question | Decision |
+| --- | --- |
+| **Accept write shape?** | **TransactWrite** (preferred): delete all pending **FriendshipRequest** rows for the **`pairKey`**, **Put** **Friendship** item. Retry-safe: second accept on missing request returns **404 `friend_request_not_found`**. |
+| **Decline / cancel write shape?** | Single **DeleteItem** on **`requestId`**; conditional on **`status: pending`** and caller role (recipient vs requester). |
+| **Concurrent accept on reciprocal pendings?** | First successful accept wins; transaction clears **both** pendings and creates one **Friendship**. Second accept returns **404** after pendings cleared. |
+
 ## Open implementation decisions
 
 - Whether **`lastActiveAt`** updates use unconditional **`UpdateItem`** or conditional max-timestamp write to reduce clock-skew regressions.
 - Cross-tab **`fanSub`** badge consistency when one tab disconnects while another remains **active** — roster shows multiple **RoomPresence** rows per fan today; **active** is per-row unless product merges (tier TW).
-- Accept-friendship write shape: single **TransactWrite** (delete/update request + put edge [+ ensure thread]) vs ordered multi-step with idempotency keys.
+- Accept-friendship write shape: single **TransactWrite** (delete/update request + put edge [+ ensure thread]) vs ordered multi-step with idempotency keys — **#356**: **TransactWrite** for accept; decline/cancel single delete.
 - Remove-friend write shape: edge delete + thread access close (and optional message tombstone/purge) atomicity and retry semantics.
 - Unread watermark concurrency when both devices view the same thread (conditional update vs blind LWW).
 - Online derivation freshness: strongly consistent **RoomPresence** query vs eventual; stale-online window after disconnect before TTL/row delete.

@@ -108,7 +108,7 @@ Signed-in fans maintain friendships and exchange private 1:1 messages as a socia
 | Phase | Outcome |
 | --- | --- |
 | **Invite** | Requester (signed-in fan) creates a **FriendshipRequest** toward a recipient fan **`sub`**. Edge does not exist yet. |
-| **Pending** | Recipient may **accept** or **decline**. Duplicate pending requests follow idempotent / conflict rules (see open implementation decisions). |
+| **Pending** | Recipient may **accept** or **decline**; requester may **cancel**. At most one open pending request per unordered fan pair (either direction). Same-direction re-invite while pending is idempotent (**200** with existing request). Opposite-direction invite while a pending exists returns **409** so the caller handles inbound first. **Accept** creates the edge and clears all pendings between the pair. |
 | **Accept** | Durable **Friendship** edge exists between the two **`sub`s**. DM open/send becomes eligible. |
 | **Decline** | Request ends without a **Friendship**. No DM eligibility from that request alone. |
 | **Remove friend** | Immediately mutual: edge gone for both. Existing **DmThread** closed/hidden for both (no compose, no history access). |
@@ -343,16 +343,32 @@ Friends online is room-presence-derived and aggregate across rooms. It is not a 
 | Separate block product? | **No** — teardown verb is **remove friend**. |
 | Friends vs room People? | Orthogonal durable social store; does not replace **People**. |
 
+## Decisions (answered — friendship invite/accept lifecycle #356)
+
+| Question | Decision |
+| --- | --- |
+| **FriendshipRequest status while row exists?** | **`pending`** only. Terminal transitions **hard-delete** the row (accept, decline, cancel). No tombstone attribute on requests for MVP. |
+| **Friendship edge "active"?** | Implied by durable **Friendship** row keyed by canonical unordered **`pairKey`**. **Remove friend** deletes the row (#358). No separate edge status enum. |
+| **Pair uniqueness (pending)?** | At most **one** open pending per unordered fan pair (either direction). Enforced via sparse **`pairKey`** on pending rows. |
+| **Same-direction duplicate invite?** | **Idempotent 200** returning the existing pending **`requestId`**. |
+| **Opposite-direction invite while pending?** | **409 `friend_request_inbound_exists`** — caller should accept/decline inbound instead of creating a reverse pending. |
+| **Accept authority?** | **Recipient only** on **`POST .../accept`**. Creates **Friendship** and deletes **all** pending requests between the pair (both directions). |
+| **Decline authority?** | **Recipient only**; hard-deletes that request. |
+| **Cancel authority?** | **Requester only** on **`DELETE .../requests/{requestId}`**; hard-deletes that request. |
+| **Already friends?** | **409 `already_friends`** on new invite. |
+| **Self-invite?** | **400 `cannot_friend_self`**. |
+| **Accept-after-remove / after decline?** | Allowed via a **new** invite/accept cycle. Prior DM history stays inaccessible (#358 default). |
+| **Instant mutual-add without accept?** | **Out of scope** — reciprocal pendings still require **accept** on an inbound request. |
+
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### friends-and-direct-messaging
-- Exact friendship state labels and transition names (pending / active / declined / removed) and idempotent handling for duplicate invites, accept-after-remove, and concurrent mutual invites.
-- Cross-room aggregation rules for friends-list **online** from **RoomPresence** (multi-tab / multi-room fan, stale presence after disconnect, field names for the derived signal).
-- Explicit DM delete semantics and account-closure cascade relative to inaccessible-after-unfriend history (soft-hide vs hard delete; whether storage purge jobs are required).
+- Cross-room aggregation rules for friends-list **online** from **RoomPresence** (multi-tab / multi-room fan, stale presence after disconnect, field names for the derived signal) — **#357**.
+- Explicit DM delete semantics and account-closure cascade relative to inaccessible-after-unfriend history (soft-hide vs hard delete; whether storage purge jobs are required) — **#358 / M35**.
 - Whether re-friend ever restores prior **DmThread** history (default remains inaccessible).
-- Whether **DirectMessage** supports the same message kinds as room chat (text, emoji, Giphy GIF, reactions) or a reduced v1 set.
-- Friend row display label / avatar resolution source and ordering when profile data is missing.
+- Whether **DirectMessage** supports the same message kinds as room chat (text, emoji, Giphy GIF, reactions) or a reduced v1 set — **M35**.
+- Friend row display label / avatar resolution source and ordering when profile data is missing — **#357**.
 
 - Domain services colocated with Lambda packages when implemented.

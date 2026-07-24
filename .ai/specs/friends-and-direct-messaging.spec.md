@@ -22,7 +22,9 @@ Main-site chrome: authenticated person icon opens a friends dropdown (online ind
 
 **Identity and AuthZ:** Fan Cognito JWT on the shared HTTP API authorizer family. Guests (`sessionId`) remain out of scope for friends/DM mutations. No staff `/v1/admin/*` path reads DM bodies.
 
-**Data:** DynamoDB system of record (same class as **FanProfiles** / **RoomChat**). Logical entities: **FriendshipRequest**, **Friendship**, **DmThread**, **DirectMessage**, per-recipient unread. DM bodies are not **RoomChat** rows and do not use RoomChat-style TTL. Soft-hide vs hard-delete after mutual unfriend is an open implementation detail; product-visible access is closed for both.
+**Data:** DynamoDB system of record (same class as **FanProfiles** / **RoomChat**). Logical entities: **FriendshipRequest**, **Friendship**, **DmThread**, **DirectMessage**, per-recipient unread. **FriendshipRequest** rows use **`status: pending`** only and **hard-delete** on accept, decline, or cancel. **Friendship** items use canonical **`pairKey = min(subA,subB)#max(subA,subB)`**. Dedicated **`FriendshipRequests`** and **`Friendships`** tables (#356). DM bodies are not **RoomChat** rows and do not use RoomChat-style TTL. Soft-hide vs hard-delete after mutual unfriend is an open implementation detail; product-visible access is closed for both.
+
+**HTTP (invite/accept lifecycle #356):** Fan JWT routes under **`/v1/friends/*`**: **`POST /v1/friends/requests`** (invite), **`GET /v1/friends/requests`** (pending inbound/outbound), **`POST .../{requestId}/accept`**, **`POST .../{requestId}/decline`**, **`DELETE .../{requestId}`** (requester cancel). At most one open pending per unordered pair; same-direction re-invite idempotent **200**; opposite pending **409 `friend_request_inbound_exists`**. Accept uses **TransactWrite** to put **Friendship** and delete all pendings for the pair. Friend-request send throttle **10/min** per **`fanSub`**; accept/decline/cancel **30/min**.
 
 **Presence:** Friends online is derived from existing **RoomPresence** (friend has an open presence row in any room). No new platform-wide presence plane and no durable last-seen PII class. Does not use the SFU media plane.
 
@@ -36,7 +38,9 @@ Relevant web stack versions from `@riffsync/web` package metadata: React `^19.2.
 
 ## Testing Strategy
 
-Contract and unit coverage should prove invite/accept lifecycle (pending → accept creates edge; decline does not), mutual remove closes friendship and blocks DM compose/history for both, friends online true only when any-room **RoomPresence** exists for the peer, DM history survives reload (account-lifetime class), unread clears on view, and fan JWT gates all friends/DM mutations while guests and staff tokens cannot send or read DMs.
+Contract and unit coverage should prove invite/accept lifecycle (pending → accept creates edge; decline and cancel leave no edge; duplicate and reciprocal pending rules), mutual remove closes friendship and blocks DM compose/history for both, friends online true only when any-room **RoomPresence** exists for the peer, DM history survives reload (account-lifetime class), unread clears on view, and fan JWT gates all friends/DM mutations while guests and staff tokens cannot send or read DMs.
+
+**#356 testing focus:** Lambda unit tests for **`POST/GET /v1/friends/requests`**, accept, decline, cancel; assert **401** without fan JWT, **400 `cannot_friend_self`**, **409 `already_friends`**, idempotent same-direction invite, **409 `friend_request_inbound_exists`**, recipient-only accept/decline, requester-only cancel, **TransactWrite** accept clearing reciprocal pendings, and **429 `rate_limited`** at configured thresholds. CDK route wiring smoke optional in same PR.
 
 Integration tests should cover write-then-fan-out DM delivery to a connected peer, history sync on open, and isolation from room **ChatSession** teardown. UI smoke should cover main-site person-icon dropdown (hidden when signed out) and room Friends pane coexistence with Chat and People. Abuse/rate-limit posture for friend-request and DM send should be verified at the throttle class level (exact bands refined in issues).
 

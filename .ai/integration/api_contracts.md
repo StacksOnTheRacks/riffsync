@@ -22,7 +22,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | **`GET /v1/fans/me`**, **`PATCH /v1/fans/me`** | **Fan Cognito JWT**. | Read/update **`displayName`** on **FanProfiles** row keyed by **`sub`**; **`GET`** also returns optional **`avatarUrl`** / **`avatarUpdatedAt`**. |
 | **`POST /v1/fans/me/avatar`** *(multipart body; presigned PUT deferred)* | **Fan Cognito JWT**. | Upload/replace **one** avatar image; persists **`avatarUrl`** + **`avatarUpdatedAt`** on FanProfiles; object in **S3** served via **public HTTPS** (see **`data_model.md`**). |
 | **`GET /v1/giphy/search`** | **Fan Cognito JWT**. | Server-side **Giphy** search proxy; returns normalized GIF candidates for compose UI; **API key never in browser**. |
-| **Friends lifecycle (invite / accept / decline / list / remove)** | **Fan Cognito JWT** only. | Signed-in fans create **pending** friendship requests, **accept** or **decline** inbound requests, list friends and pending, and **remove** an accepted friendship. Durable friendship exists only after accept. Exact path prefix and field names are open (see **Open implementation decisions**). Main-site friends affordance and watch-party Friends pane call the **same** fan-gated APIs. |
+| **Friends lifecycle (invite / accept / decline / list pending / remove)** | **Fan Cognito JWT** only. | Signed-in fans create **pending** friendship requests, **accept** or **decline** inbound requests, **cancel** outbound pending, and list pending inbound/outbound. **Remove** accepted friendship is **#358**. Durable friendship exists only after accept. Paths under **`/v1/friends/*`** (see **Friendship HTTP routes**). Main-site and room Friends surfaces call the **same** fan-gated APIs when UI ships (**M36**). |
 | **DM thread / history / send / unread clear** | **Fan Cognito JWT** only. | 1:1 DM between two fan **`sub`s** with an **active friendship**. History is **account-lifetime durable** (distinct from TTL-bounded **RoomChat**). Delivery: **history sync on open** plus **realtime push while connected** (write-then-fan-out class — **`messaging_async.md`**). After mutual remove-friend, **both** parties lose send and history access on that thread (**`authorization.md`**). Exact paths, envelopes, and error **`code`** strings are open. |
 | **`/v1/admin/*`** | **Staff-only** Cognito JWT (separate pool or app client). | Full route surface aligned with **`docs/architecture.admin.md`** (summary below). **CloudWatch** remains the primary ops chart layer. **No** staff route grants DM body read or friendship mutation for this product slice. |
 
@@ -81,13 +81,27 @@ Friends and 1:1 DMs are a **fan social plane** beside watch-party room chat. The
 
 | Step | Contract |
 | --- | --- |
-| **Invite** | Caller (**fan JWT `sub`**) sends a friendship request to another fan **`sub`**. Creates a **pending** request; no durable friendship edge yet. |
-| **Accept** | Recipient accepts an inbound pending request → durable mutual friendship. |
-| **Decline** | Recipient declines an inbound pending request → no friendship edge; pending cleared. |
-| **List** | Authenticated fan lists accepted friends (and pending inbound/outbound as product surfaces require). Friend display name / avatar resolve from **FanProfiles**. |
-| **Remove** | Either party removes an accepted friendship → **immediately mutual** edge teardown. Both lose DM send and history access for that pair (**`authorization.md`**). |
+| **Invite** | **`POST /v1/friends/requests`** with body **`{ "recipientSub": "<cognito-sub>" }`**. Caller **`sub`** is requester. Creates **`pending`** row; returns **`201`** with **`requestId`**, **`requesterSub`**, **`recipientSub`**, **`createdAt`**. Same-direction pending → idempotent **`200`** with existing request. |
+| **List pending** | **`GET /v1/friends/requests`** returns **`{ "inbound": [...], "outbound": [...] }`** of pending requests for caller (each entry: **`requestId`**, **`requesterSub`**, **`recipientSub`**, **`createdAt`**). Does **not** include accepted friends (**#357**). |
+| **Accept** | **`POST /v1/friends/requests/{requestId}/accept`**. **Recipient only**. Creates **Friendship** **`pairKey`** item; **hard-deletes** all pending requests for that unordered pair. **`200`** with **`pairKey`**, **`fanSubA`**, **`fanSubB`**, **`createdAt`**. |
+| **Decline** | **`POST /v1/friends/requests/{requestId}/decline`**. **Recipient only**. Hard-deletes request. **`204`**. |
+| **Cancel** | **`DELETE /v1/friends/requests/{requestId}`**. **Requester only**. Hard-deletes pending request. **`204`**. |
+| **Remove** | **`DELETE /v1/friends/{pairKey}`** or peer-scoped variant — **#358**. |
 
 Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** authorize friendship mutations.
+
+### Friendship HTTP deny codes (#356)
+
+| **`code`** | HTTP | When |
+| --- | --- | --- |
+| **`cannot_friend_self`** | **400** | **`recipientSub === caller sub`**. |
+| **`fan_auth_required`** | **401** | Missing/invalid fan JWT. |
+| **`friend_request_not_recipient`** | **403** | Accept/decline by non-recipient. |
+| **`friend_request_not_requester`** | **403** | Cancel by non-requester. |
+| **`friend_request_not_found`** | **404** | Unknown or non-pending **`requestId`**. |
+| **`already_friends`** | **409** | **`pairKey`** friendship exists. |
+| **`friend_request_inbound_exists`** | **409** | Opposite pending exists. |
+| **`rate_limited`** | **429** | Throttle exceeded. |
 
 ### Friends-list online (RoomPresence-derived)
 
@@ -127,6 +141,8 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 | **Chat** | **20** chat actions per **minute** per **`sessionId`** (text, GIF post, and reaction add/remove each count; HTTP/WS enforced). Bodies persist in **RoomChat** with **bounded TTL** retention (not account-lifetime inbox); do not log raw bodies at INFO — see **`operations/security.md`** and **`data/persistence_abstractions.md`**. |
 | **Typing indicators** | **30** **`typing_start`** + **`typing_stop`** pairs per **minute** per **`sessionId`** (WS enforced; over-cap **`typing_start`** / **`typing_stop`** **drops silently** — no business **`error`** envelope to client). Counts toward the same abuse posture as chat compose; does **not** bypass chat send limits. |
 | **Giphy search** | **30** search requests per **minute** per **`sub`** (HTTP; tune in IaC). |
+| **Friend-request send** | **10** **`POST /v1/friends/requests`** per **minute** per **`fanSub`** (HTTP; API Gateway + Lambda guard). |
+| **Friend-request accept / decline / cancel** | **30** combined actions per **minute** per **`fanSub`**. |
 | **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
 | **WebSocket** | Subject to **API Gateway** account/service quotas; design for **≤50 concurrent connections per room** under normal use (matches participant cap). |
 
@@ -164,6 +180,16 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 | Remove-friend access? | **Mutual** teardown; **both** parties lose DM send and history access. Encode on DM list/send/history authz. |
 | Staff DM body access? | **None** for this slice — fan JWT only; no **`/v1/admin/*`** DM body read. |
 | Shared API surfaces? | Main site and room Friends pane use the **same** fan-gated friends/DM APIs. |
+
+## Decisions (answered — friendship invite/accept lifecycle #356)
+
+| Question | Decision |
+| --- | --- |
+| Friendship HTTP prefix? | **`/v1/friends/*`** on fan JWT authorizer (alongside **`/v1/fans/*`**). |
+| Pending list vs friends list? | **`GET /v1/friends/requests`** = pending only; accepted friends list is **`GET /v1/friends`** (**#357**). |
+| Invite idempotency? | Same-direction pending → **200** with existing request. |
+| Pair conflict? | Opposite pending → **409 `friend_request_inbound_exists`**. |
+| Request terminal storage? | **Hard-delete** on accept, decline, cancel. |
 
 ## Decisions (answered — #101 HTTP room AV)
 
@@ -389,14 +415,15 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 
 ### friends-and-direct-messaging (paths, envelopes, codes)
 
-- Exact HTTP **path** and **method** set for friendship invite / accept / decline / list / remove and for DM thread open, history page, send, and unread clear (e.g. under **`/v1/fans/...`** vs **`/v1/friends`** / **`/v1/dms`**), plus request/response field names.
-- Stable business **`code`** strings for deny cases (not friends, pending already exists, cannot friend self, thread closed after remove, auth miss, rate limited) — analogous to **`CHAT_SEND_DROPPED`** / SFU denial codes.
+- DM thread open, history page, send, unread clear HTTP paths and envelopes — **M35**.
+- Remove-friend **`DELETE`** path shape — **#358**.
+- Stable business **`code`** strings for not-friends, thread-closed-after-remove, DM send when plane down — **M35** / **#358**.
 - DM realtime topology: new WebSocket application routes, fan-scoped connection (not **`roomId`**-keyed), HTTP sync-only with optional push, or hybrid; exact outbound/inbound **`type`** and **`schemaVersion`** discriminators. Prefer documenting any shared transport with room WS **explicitly** rather than silently reusing **`ChatSession`**.
-- Friends-list online payload keys (boolean field name, whether to include room id of presence, reuse of **`fanSub`** / **`displayName`** / **`avatarUrl`** shapes).
-- Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape.
+- Friends-list online payload keys (boolean field name, whether to include room id of presence, reuse of **`fanSub`** / **`displayName`** / **`avatarUrl`** shapes) — **#357**.
+- Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape — **M35**.
 - Client drop / unavailable codes for DM send when the chosen realtime plane is down (DM analogue of **`CHAT_SEND_DROPPED`**).
-- Rate-limit numeric thresholds for friend requests and DM send (operations may own abuse posture; numbers stay here or in ops refine).
-- IaC / env names for any new tables, WS APIs, or Lambda grants.
+- Rate-limit numeric thresholds for DM send (friend-request bands decided above).
+- IaC / env names for DM tables, WS APIs, or Lambda grants beyond **`FRIENDSHIP_REQUESTS_TABLE_NAME`** / **`FRIENDSHIPS_TABLE_NAME`**.
 
 ## Decisions (answered — M22 presence routes)
 
