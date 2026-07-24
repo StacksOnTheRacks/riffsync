@@ -2,11 +2,10 @@ import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lamb
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import {
+  assertDmThreadAccess,
   directMessageSortKey,
   dmDeny,
   enforceDmSendRateLimit,
-  friendshipActiveForCaller,
-  getDmThread,
   isPairMember,
   jsonResponse,
   parseDmSendBody,
@@ -89,17 +88,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return dmDeny(429, 'rate_limited', 'DM send rate limit exceeded');
   }
 
-  const friendshipActive = await friendshipActiveForCaller(doc, t.friendships, pairKey, auth.fanSub);
-  if (!friendshipActive) {
-    return dmDeny(403, 'friendship_not_active', 'Active friendship required');
-  }
-
-  const thread = await getDmThread(doc, t.dmThreads, pairKey);
-  if (!thread) {
-    return dmDeny(404, 'dm_thread_not_found', 'DM thread not found');
-  }
-  if (thread.status === 'closed') {
-    return dmDeny(403, 'dm_thread_closed', 'DM thread is closed');
+  const access = await assertDmThreadAccess(doc, {
+    pairKey,
+    fanSub: auth.fanSub,
+    friendshipsTable: t.friendships,
+    dmThreadsTable: t.dmThreads,
+    mode: 'send',
+  });
+  if (!access.ok) {
+    return dmDeny(access.statusCode, access.code, 'DM thread access denied');
   }
 
   const recipientFanSub = peerSubForCaller(pairKey, auth.fanSub);
@@ -109,6 +106,17 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
   const sentAt = Date.now();
   const sk = directMessageSortKey(sentAt, parsedBody.messageId);
+
+  const preWriteAccess = await assertDmThreadAccess(doc, {
+    pairKey,
+    fanSub: auth.fanSub,
+    friendshipsTable: t.friendships,
+    dmThreadsTable: t.dmThreads,
+    mode: 'send',
+  });
+  if (!preWriteAccess.ok) {
+    return dmDeny(preWriteAccess.statusCode, preWriteAccess.code, 'DM thread access denied');
+  }
 
   await doc.send(
     new PutCommand({

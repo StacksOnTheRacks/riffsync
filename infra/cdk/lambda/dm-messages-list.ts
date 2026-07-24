@@ -2,13 +2,13 @@ import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lamb
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import {
+  assertDmThreadAccess,
   decodeHistoryCursor,
+  directMessagePassesHistoryCutoff,
   directMessageSortKey,
   dmDeny,
   encodeHistoryCursor,
   enforceDmReadRateLimit,
-  friendshipActiveForCaller,
-  getDmThread,
   isPairMember,
   jsonResponse,
   parseDirectMessageItem,
@@ -65,18 +65,17 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return dmDeny(429, 'rate_limited', 'DM read rate limit exceeded');
   }
 
-  const friendshipActive = await friendshipActiveForCaller(doc, t.friendships, pairKey, auth.fanSub);
-  if (!friendshipActive) {
-    return dmDeny(403, 'friendship_not_active', 'Active friendship required');
+  const access = await assertDmThreadAccess(doc, {
+    pairKey,
+    fanSub: auth.fanSub,
+    friendshipsTable: t.friendships,
+    dmThreadsTable: t.dmThreads,
+    mode: 'history',
+  });
+  if (!access.ok) {
+    return dmDeny(access.statusCode, access.code, 'DM thread access denied');
   }
-
-  const thread = await getDmThread(doc, t.dmThreads, pairKey);
-  if (!thread) {
-    return dmDeny(404, 'dm_thread_not_found', 'DM thread not found');
-  }
-  if (thread.status === 'closed') {
-    return dmDeny(403, 'dm_thread_closed', 'DM thread is closed');
-  }
+  const thread = access.thread!;
 
   const limit = parseHistoryLimit(event.queryStringParameters?.limit);
   const beforeRaw = event.queryStringParameters?.before?.trim();
@@ -106,16 +105,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const messages = [];
   for (const raw of out.Items ?? []) {
     const parsed = parseDirectMessageItem(raw as Record<string, unknown>);
-    if (parsed) {
+    if (parsed && directMessagePassesHistoryCutoff(parsed, thread)) {
       messages.push(toDirectMessageWire(parsed));
     }
   }
 
-  const lastRaw = out.Items?.[messages.length - 1] as Record<string, unknown> | undefined;
-  const lastParsed = parseDirectMessageItem(lastRaw);
+  const lastIncluded = messages[messages.length - 1];
   const nextCursor =
-    out.LastEvaluatedKey && lastParsed
-      ? encodeHistoryCursor({ sentAt: lastParsed.sentAt, messageId: lastParsed.messageId })
+    out.LastEvaluatedKey && lastIncluded
+      ? encodeHistoryCursor({ sentAt: lastIncluded.sentAt, messageId: lastIncluded.messageId })
       : null;
 
   return jsonResponse(200, { messages, nextCursor });

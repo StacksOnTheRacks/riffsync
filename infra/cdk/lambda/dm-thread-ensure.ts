@@ -1,10 +1,10 @@
 import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import {
+  assertDmThreadAccess,
   dmDeny,
   enforceDmReadRateLimit,
-  friendshipActiveForCaller,
   friendshipPairKey,
   getDmThread,
   jsonResponse,
@@ -69,15 +69,44 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return dmDeny(403, 'dm_not_member', 'Not a member of this DM pair');
   }
 
-  const friendshipActive = await friendshipActiveForCaller(doc, t.friendships, pairKey, auth.fanSub);
-  if (!friendshipActive) {
-    return dmDeny(403, 'friendship_not_active', 'Active friendship required');
+  const access = await assertDmThreadAccess(doc, {
+    pairKey,
+    fanSub: auth.fanSub,
+    friendshipsTable: t.friendships,
+    dmThreadsTable: t.dmThreads,
+    mode: 'ensure',
+  });
+  if (!access.ok) {
+    return dmDeny(access.statusCode, access.code, 'DM thread access denied');
   }
 
-  const existing = await getDmThread(doc, t.dmThreads, pairKey);
+  const existing = access.thread;
   if (existing) {
     if (existing.status === 'closed') {
-      return dmDeny(403, 'dm_thread_closed', 'DM thread is closed');
+      const now = Date.now();
+      await doc.send(
+        new UpdateCommand({
+          TableName: t.dmThreads,
+          Key: { pairKey },
+          UpdateExpression:
+            'SET #status = :open, reopenedAt = :reopenedAt, updatedAt = :updatedAt',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':open': 'open',
+            ':reopenedAt': now,
+            ':updatedAt': now,
+            ':closed': 'closed',
+          },
+          ConditionExpression: '#status = :closed',
+        }),
+      );
+      return jsonResponse(200, {
+        pairKey,
+        peerSub,
+        status: 'open',
+        openedAt: existing.openedAt,
+        reopenedAt: now,
+      });
     }
     return jsonResponse(200, {
       pairKey,
@@ -113,7 +142,30 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       throw e;
     }
     if (raced.status === 'closed') {
-      return dmDeny(403, 'dm_thread_closed', 'DM thread is closed');
+      const now = Date.now();
+      await doc.send(
+        new UpdateCommand({
+          TableName: t.dmThreads,
+          Key: { pairKey },
+          UpdateExpression:
+            'SET #status = :open, reopenedAt = :reopenedAt, updatedAt = :updatedAt',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':open': 'open',
+            ':reopenedAt': now,
+            ':updatedAt': now,
+            ':closed': 'closed',
+          },
+          ConditionExpression: '#status = :closed',
+        }),
+      );
+      return jsonResponse(200, {
+        pairKey,
+        peerSub,
+        status: 'open',
+        openedAt: raced.openedAt,
+        reopenedAt: now,
+      });
     }
     return jsonResponse(200, {
       pairKey,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   compareReadCursors,
   decodeHistoryCursor,
+  directMessagePassesHistoryCutoff,
   directMessageSortKey,
   encodeHistoryCursor,
   isDirectMessageUnread,
@@ -59,5 +60,40 @@ describe('dm-shared helpers', () => {
     expect(isDirectMessageUnread(message, { lastReadSentAt: 99, lastReadMessageId: 'msg-a' })).toBe(true);
     expect(isDirectMessageUnread(message, { lastReadSentAt: 100, lastReadMessageId: 'msg-a' })).toBe(true);
     expect(isDirectMessageUnread(message, { lastReadSentAt: 100, lastReadMessageId: 'msg-b' })).toBe(false);
+  });
+
+  it('filters history by closedAt cutoff after re-friend reopen', () => {
+    const thread = {
+      pairKey: 'a#b',
+      subA: 'a',
+      subB: 'b',
+      status: 'open' as const,
+      openedAt: 1,
+      updatedAt: 2,
+      closedAt: 500,
+      reopenedAt: 1000,
+    };
+    const oldMessage = {
+      pairKey: 'a#b',
+      sk: 'm#1#old',
+      messageId: 'old',
+      senderSub: 'a',
+      kind: 'text' as const,
+      body: 'before',
+      sentAt: 400,
+    };
+    const cutoffMessage = {
+      ...oldMessage,
+      messageId: 'at-cutoff',
+      sentAt: 500,
+    };
+    const newMessage = {
+      ...oldMessage,
+      messageId: 'new',
+      sentAt: 600,
+    };
+    expect(directMessagePassesHistoryCutoff(oldMessage, thread)).toBe(false);
+    expect(directMessagePassesHistoryCutoff(cutoffMessage, thread)).toBe(false);
+    expect(directMessagePassesHistoryCutoff(newMessage, thread)).toBe(true);
   });
 });

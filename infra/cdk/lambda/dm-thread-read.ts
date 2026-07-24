@@ -3,11 +3,10 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { pushDmUnreadToRecipient } from './fan-dm-shared';
 import {
+  assertDmThreadAccess,
   dmDeny,
   dmUnreadCursorFromItem,
   enforceDmReadRateLimit,
-  friendshipActiveForCaller,
-  getDmThread,
   getDmUnread,
   getLatestDirectMessage,
   isDirectMessageUnread,
@@ -81,17 +80,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return dmDeny(429, 'rate_limited', 'DM read rate limit exceeded');
   }
 
-  const friendshipActive = await friendshipActiveForCaller(doc, t.friendships, pairKey, auth.fanSub);
-  if (!friendshipActive) {
-    return dmDeny(403, 'friendship_not_active', 'Active friendship required');
-  }
-
-  const thread = await getDmThread(doc, t.dmThreads, pairKey);
-  if (!thread) {
-    return dmDeny(404, 'dm_thread_not_found', 'DM thread not found');
-  }
-  if (thread.status === 'closed') {
-    return dmDeny(403, 'dm_thread_closed', 'DM thread is closed');
+  const access = await assertDmThreadAccess(doc, {
+    pairKey,
+    fanSub: auth.fanSub,
+    friendshipsTable: t.friendships,
+    dmThreadsTable: t.dmThreads,
+    mode: 'read',
+  });
+  if (!access.ok) {
+    return dmDeny(access.statusCode, access.code, 'DM thread access denied');
   }
 
   const existing = await getDmUnread(doc, t.dmUnread, auth.fanSub, pairKey);
@@ -113,6 +110,17 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const tip = await getLatestDirectMessage(doc, t.directMessages, pairKey);
   const hasUnread = tip ? isDirectMessageUnread(tip, proposedCursor) : false;
   const now = Date.now();
+
+  const preWriteAccess = await assertDmThreadAccess(doc, {
+    pairKey,
+    fanSub: auth.fanSub,
+    friendshipsTable: t.friendships,
+    dmThreadsTable: t.dmThreads,
+    mode: 'read',
+  });
+  if (!preWriteAccess.ok) {
+    return dmDeny(preWriteAccess.statusCode, preWriteAccess.code, 'DM thread access denied');
+  }
 
   await doc.send(
     new UpdateCommand({

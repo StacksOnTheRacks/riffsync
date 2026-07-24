@@ -178,12 +178,13 @@ describe('dm-thread-read handler', () => {
 
   it('returns 200, updates cursor, recomputes hasUnread, and pushes dm_unread', async () => {
     const pairKey = friendshipPairKey('fan-a', 'fan-b');
+    const openThread = {
+      Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'open', openedAt: 1, updatedAt: 2 },
+    };
     mocks.docSend
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
-      .mockResolvedValueOnce({
-        Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'open', openedAt: 1, updatedAt: 2 },
-      })
+      .mockResolvedValueOnce(openThread)
       .mockResolvedValueOnce({ Item: undefined })
       .mockResolvedValueOnce({
         Items: [
@@ -198,6 +199,8 @@ describe('dm-thread-read handler', () => {
           },
         ],
       })
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
+      .mockResolvedValueOnce(openThread)
       .mockResolvedValueOnce({});
 
     const res = await handler(
@@ -228,6 +231,63 @@ describe('dm-thread-read handler', () => {
         lastReadMessageId: 'msg-tip',
       }),
     );
+  });
+
+  it('returns 403 dm_thread_closed after remove-friend', async () => {
+    const pairKey = friendshipPairKey('fan-a', 'fan-b');
+    mocks.docSend
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
+      .mockResolvedValueOnce({
+        Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'closed', openedAt: 1, updatedAt: 2, closedAt: 3 },
+      });
+
+    const res = await handler(
+      readEvent(pairKey, { lastReadSentAt: 100, lastReadMessageId: 'msg-1' }, { claims: { sub: 'fan-a' } }),
+      {} as never,
+      {} as never,
+    );
+    expect((res as { statusCode: number }).statusCode).toBe(403);
+    expect(JSON.parse((res as { body: string }).body).code).toBe('dm_thread_closed');
+  });
+
+  it('returns 403 on pre-write re-check when remove wins concurrent race', async () => {
+    const pairKey = friendshipPairKey('fan-a', 'fan-b');
+    const openThread = {
+      Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'open', openedAt: 1, updatedAt: 2 },
+    };
+    const closedThread = {
+      Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'closed', openedAt: 1, updatedAt: 2, closedAt: 3 },
+    };
+    mocks.docSend
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
+      .mockResolvedValueOnce(openThread)
+      .mockResolvedValueOnce({ Item: undefined })
+      .mockResolvedValueOnce({
+        Items: [
+          {
+            pairKey,
+            sk: 'm#0000000000500#msg-tip',
+            messageId: 'msg-tip',
+            senderSub: 'fan-b',
+            kind: 'text',
+            body: 'latest',
+            sentAt: 500,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
+      .mockResolvedValueOnce(closedThread);
+
+    const res = await handler(
+      readEvent(pairKey, { lastReadSentAt: 500, lastReadMessageId: 'msg-tip' }, { claims: { sub: 'fan-a' } }),
+      {} as never,
+      {} as never,
+    );
+    expect((res as { statusCode: number }).statusCode).toBe(403);
+    expect(JSON.parse((res as { body: string }).body).code).toBe('dm_thread_closed');
+    expect(mocks.docSend.mock.calls.filter((c) => c[0]?.kind === 'Update' && c[0]?.input?.TableName === 'DmUnread')).toHaveLength(0);
   });
 
   it('returns 429 rate_limited at combined DM read throttle', async () => {
