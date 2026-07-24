@@ -195,14 +195,42 @@ describe('dm-messages-send handler', () => {
     expect(mocks.docSend.mock.calls[0][0].input.Key).toEqual({ pk, sk });
   });
 
+  it('returns 403 on pre-write re-check when remove wins concurrent race', async () => {
+    const pairKey = friendshipPairKey('fan-a', 'fan-b');
+    const openThread = {
+      Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'open', openedAt: 1, updatedAt: 2 },
+    };
+    const closedThread = {
+      Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'closed', openedAt: 1, updatedAt: 2, closedAt: 3 },
+    };
+    mocks.docSend
+      .mockResolvedValueOnce({}) // rate limit
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } }) // friendship (first access)
+      .mockResolvedValueOnce(openThread) // thread (first access)
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } }) // friendship (pre-write)
+      .mockResolvedValueOnce(closedThread); // thread closed on pre-write
+
+    const res = await handler(
+      sendEvent(pairKey, { messageId: 'msg-1', kind: 'text', body: 'hello' }, { claims: { sub: 'fan-a' } }),
+      {} as never,
+      {} as never,
+    );
+    expect((res as { statusCode: number }).statusCode).toBe(403);
+    expect(JSON.parse((res as { body: string }).body).code).toBe('dm_thread_closed');
+    expect(mocks.docSend.mock.calls.filter((c) => c[0]?.kind === 'Put')).toHaveLength(0);
+  });
+
   it('returns 201, persists DirectMessage, and pushes to recipient fanSub only', async () => {
     const pairKey = friendshipPairKey('fan-a', 'fan-b');
+    const openThread = {
+      Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'open', openedAt: 1, updatedAt: 2 },
+    };
     mocks.docSend
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
-      .mockResolvedValueOnce({
-        Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'open', openedAt: 1, updatedAt: 2 },
-      })
+      .mockResolvedValueOnce(openThread)
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
+      .mockResolvedValueOnce(openThread)
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
 

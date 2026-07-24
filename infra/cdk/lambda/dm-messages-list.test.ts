@@ -240,6 +240,56 @@ describe('dm-messages-list handler', () => {
     });
   });
 
+  it('excludes pre-closedAt messages after re-friend reopen', async () => {
+    const pairKey = friendshipPairKey('fan-a', 'fan-b');
+    const msgNew = {
+      pairKey: 'fan-a#fan-b',
+      sk: directMessageSortKey(2000, 'msg-new'),
+      messageId: 'msg-new',
+      senderSub: 'fan-a',
+      kind: 'text',
+      body: 'after reopen',
+      sentAt: 2000,
+    };
+    const msgOld = {
+      pairKey: 'fan-a#fan-b',
+      sk: directMessageSortKey(1000, 'msg-old'),
+      messageId: 'msg-old',
+      senderSub: 'fan-b',
+      kind: 'text',
+      body: 'before unfriend',
+      sentAt: 1000,
+    };
+
+    mocks.docSend
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
+      .mockResolvedValueOnce({
+        Item: {
+          pairKey,
+          subA: 'fan-a',
+          subB: 'fan-b',
+          status: 'open',
+          openedAt: 1,
+          updatedAt: 1500,
+          closedAt: 1500,
+          reopenedAt: 1800,
+        },
+      })
+      .mockResolvedValueOnce({ Items: [msgNew, msgOld] });
+
+    const res = await handler(
+      historyEvent(pairKey, { claims: { sub: 'fan-a' } }),
+      {} as never,
+      {} as never,
+    );
+    expect((res as { statusCode: number }).statusCode).toBe(200);
+    const body = JSON.parse((res as { body: string }).body);
+    expect(body.messages).toEqual([
+      { messageId: 'msg-new', senderSub: 'fan-a', kind: 'text', body: 'after reopen', sentAt: 2000 },
+    ]);
+  });
+
   it('returns 429 rate_limited when read throttle exceeded', async () => {
     const pairKey = friendshipPairKey('fan-a', 'fan-b');
     mocks.docSend.mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' });

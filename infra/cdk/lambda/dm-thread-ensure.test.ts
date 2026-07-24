@@ -90,18 +90,40 @@ describe('dm-thread-ensure handler', () => {
     expect(JSON.parse((res as { body: string }).body).code).toBe('friendship_not_active');
   });
 
-  it('returns 403 dm_thread_closed when thread is closed', async () => {
+  it('reopens closed thread when friendship is active (re-friend)', async () => {
     const pairKey = friendshipPairKey('fan-a', 'fan-b');
     mocks.docSend
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
       .mockResolvedValueOnce({
-        Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'closed', openedAt: 1, updatedAt: 2, closedAt: 3 },
-      });
+        Item: {
+          pairKey,
+          subA: 'fan-a',
+          subB: 'fan-b',
+          status: 'closed',
+          openedAt: 1000,
+          updatedAt: 2000,
+          closedAt: 2000,
+        },
+      })
+      .mockResolvedValueOnce({});
 
     const res = await handler(ensureEvent('fan-b', { claims: { sub: 'fan-a' } }), {} as never, {} as never);
-    expect((res as { statusCode: number }).statusCode).toBe(403);
-    expect(JSON.parse((res as { body: string }).body).code).toBe('dm_thread_closed');
+    expect((res as { statusCode: number }).statusCode).toBe(200);
+    const body = JSON.parse((res as { body: string }).body);
+    expect(body).toMatchObject({
+      pairKey: 'fan-a#fan-b',
+      peerSub: 'fan-b',
+      status: 'open',
+      openedAt: 1000,
+    });
+    expect(typeof body.reopenedAt).toBe('number');
+
+    const updateCall = mocks.docSend.mock.calls.find(
+      (c) => c[0]?.kind === 'Update' && c[0]?.input?.TableName === 'DmThreads',
+    );
+    expect(updateCall?.[0]?.input?.TableName).toBe('DmThreads');
+    expect(updateCall?.[0]?.input?.Key).toEqual({ pairKey: 'fan-a#fan-b' });
   });
 
   it('returns 200 idempotently when thread already open', async () => {

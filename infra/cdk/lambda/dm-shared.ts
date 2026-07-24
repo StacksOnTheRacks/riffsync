@@ -275,6 +275,69 @@ export async function friendshipActiveForCaller(
   return Boolean(out.Item);
 }
 
+export type DmAccessMode = 'ensure' | 'history' | 'send' | 'read';
+
+export type AssertDmThreadAccessOk = {
+  ok: true;
+  thread: DmThreadItem | null;
+  friendshipActive: boolean;
+};
+
+export type AssertDmThreadAccessDeny = {
+  ok: false;
+  statusCode: number;
+  code: DmDenyCode;
+};
+
+export type AssertDmThreadAccessResult = AssertDmThreadAccessOk | AssertDmThreadAccessDeny;
+
+export async function assertDmThreadAccess(
+  doc: DynamoDBDocumentClient,
+  params: {
+    pairKey: string;
+    fanSub: string;
+    friendshipsTable: string;
+    dmThreadsTable: string;
+    mode: DmAccessMode;
+  },
+): Promise<AssertDmThreadAccessResult> {
+  const { pairKey, fanSub, friendshipsTable, dmThreadsTable, mode } = params;
+
+  if (!isPairMember(pairKey, fanSub)) {
+    return { ok: false, statusCode: 403, code: 'dm_not_member' };
+  }
+
+  const friendshipActive = await friendshipActiveForCaller(doc, friendshipsTable, pairKey, fanSub);
+  if (!friendshipActive) {
+    return { ok: false, statusCode: 403, code: 'friendship_not_active' };
+  }
+
+  const thread = await getDmThread(doc, dmThreadsTable, pairKey);
+
+  if (mode === 'ensure') {
+    return { ok: true, thread, friendshipActive };
+  }
+
+  if (!thread) {
+    return { ok: false, statusCode: 404, code: 'dm_thread_not_found' };
+  }
+  if (thread.status === 'closed') {
+    return { ok: false, statusCode: 403, code: 'dm_thread_closed' };
+  }
+
+  return { ok: true, thread, friendshipActive };
+}
+
+export function directMessagePassesHistoryCutoff(
+  message: DirectMessageItem,
+  thread: DmThreadItem,
+): boolean {
+  if (thread.closedAt === undefined) {
+    return true;
+  }
+  return message.sentAt > thread.closedAt;
+}
+
 export async function getDmThread(
   doc: DynamoDBDocumentClient,
   tableName: string,
