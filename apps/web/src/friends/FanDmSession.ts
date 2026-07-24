@@ -77,6 +77,7 @@ export class FanDmSession {
   private status: FanDmSessionStatus = 'idle'
   private readonly sessionId: string
   private readonly handlers: FanDmSessionHandlers
+  private readonly handlerSubs = new Set<FanDmSessionHandlers>()
 
   constructor(handlers: FanDmSessionHandlers = {}, sessionId?: string) {
     this.handlers = handlers
@@ -85,6 +86,34 @@ export class FanDmSession {
       (typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
         : `fan-dm-${Date.now()}`)
+  }
+
+  registerHandlers(handlers: FanDmSessionHandlers): () => void {
+    this.handlerSubs.add(handlers)
+    return () => {
+      this.handlerSubs.delete(handlers)
+    }
+  }
+
+  private emitInboundMessage(message: InboundDmMessage): void {
+    this.handlers.onInboundMessage?.(message)
+    for (const sub of this.handlerSubs) {
+      sub.onInboundMessage?.(message)
+    }
+  }
+
+  private emitStatusChange(status: FanDmSessionStatus): void {
+    this.handlers.onStatusChange?.(status)
+    for (const sub of this.handlerSubs) {
+      sub.onStatusChange?.(status)
+    }
+  }
+
+  private emitDrawerError(error: DmDrawerError): void {
+    this.handlers.onDrawerError?.(error)
+    for (const sub of this.handlerSubs) {
+      sub.onDrawerError?.(error)
+    }
   }
 
   getStatus(): FanDmSessionStatus {
@@ -99,9 +128,9 @@ export class FanDmSession {
     if (this.status === next) return
     const wasOpen = this.status === 'open'
     this.status = next
-    this.handlers.onStatusChange?.(next)
+    this.emitStatusChange(next)
     if (wasOpen && next !== 'open') {
-      this.handlers.onDrawerError?.(dmPushUnavailableError())
+      this.emitDrawerError(dmPushUnavailableError())
     }
   }
 
@@ -109,7 +138,7 @@ export class FanDmSession {
     const wsBase = getPublicFanDmWsUrl()
     if (!wsBase) {
       this.setStatus('error')
-      this.handlers.onDrawerError?.(dmPushUnavailableError(new Error('Fan DM WebSocket URL not configured')))
+      this.emitDrawerError(dmPushUnavailableError(new Error('Fan DM WebSocket URL not configured')))
       return
     }
 
@@ -130,7 +159,7 @@ export class FanDmSession {
       try {
         const parsed = parseInboundDmMessage(JSON.parse(String(event.data)))
         if (parsed) {
-          this.handlers.onInboundMessage?.(parsed)
+          this.emitInboundMessage(parsed)
         }
       } catch {
         // ignore malformed push frames
@@ -161,7 +190,7 @@ export class FanDmSession {
 
   async sendMessage(accessToken: string, pairKey: string, payload: DmSendRequest): Promise<DmSendResponse | null> {
     if (!this.isPushAvailable()) {
-      this.handlers.onDrawerError?.(dmPushUnavailableError())
+      this.emitDrawerError(dmPushUnavailableError())
     }
 
     let lastFailure: unknown
@@ -172,7 +201,7 @@ export class FanDmSession {
           return result.message
         }
         if (result.status >= 400 && result.status < 500 && result.status !== 429) {
-          this.handlers.onDrawerError?.(dmSendDroppedError(result))
+          this.emitDrawerError(dmSendDroppedError(result))
           return null
         }
         lastFailure = result
@@ -184,7 +213,7 @@ export class FanDmSession {
       }
     }
 
-    this.handlers.onDrawerError?.(dmSendDroppedError(lastFailure))
+    this.emitDrawerError(dmSendDroppedError(lastFailure))
     return null
   }
 

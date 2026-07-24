@@ -21,6 +21,7 @@ export type FriendRosterSnapshot = {
   friends: FriendEntry[]
   inbound: FriendRequestEntry[]
   outbound: FriendRequestEntry[]
+  anyUnread: boolean
 }
 
 export type FriendApiFailure = {
@@ -107,14 +108,102 @@ export async function fetchFriendRosterSnapshot(
           )
         : []
 
+    const anyUnread =
+      typeof (friendsJson as { anyUnread?: unknown }).anyUnread === 'boolean'
+        ? (friendsJson as { anyUnread: boolean }).anyUnread
+        : friends.some((entry) => entry.hasUnread)
+
     return {
       friends,
       inbound: parseRequests(requestsJson.inbound),
       outbound: parseRequests(requestsJson.outbound),
+      anyUnread,
     }
   } catch {
     return null
   }
+}
+
+export type AcceptFriendRequestResult =
+  | { ok: true; pairKey: string; createdAt: number }
+  | FriendApiFailure
+
+export async function acceptFriendRequest(
+  accessToken: string,
+  requestId: string,
+  signal?: AbortSignal,
+): Promise<AcceptFriendRequestResult> {
+  const base = getPublicApiBaseUrl()
+  if (!base) {
+    return { ok: false, status: 0, error: 'API base URL not configured' }
+  }
+
+  const res = await fetch(`${base}/v1/friends/requests/${encodeURIComponent(requestId)}/accept`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  })
+
+  if (!res.ok) {
+    return parseFailure(res)
+  }
+
+  const json = (await res.json()) as { pairKey?: unknown; createdAt?: unknown }
+  const pairKey = typeof json.pairKey === 'string' ? json.pairKey : ''
+  const createdAt = typeof json.createdAt === 'number' ? json.createdAt : Date.now()
+  if (!pairKey) {
+    return { ok: false, status: res.status, error: 'Unexpected response from server' }
+  }
+  return { ok: true, pairKey, createdAt }
+}
+
+export async function declineFriendRequest(
+  accessToken: string,
+  requestId: string,
+  signal?: AbortSignal,
+): Promise<{ ok: true } | FriendApiFailure> {
+  const base = getPublicApiBaseUrl()
+  if (!base) {
+    return { ok: false, status: 0, error: 'API base URL not configured' }
+  }
+
+  const res = await fetch(`${base}/v1/friends/requests/${encodeURIComponent(requestId)}/decline`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  })
+
+  if (!res.ok) {
+    return parseFailure(res)
+  }
+  return { ok: true }
+}
+
+export type RemoveFriendResult = { ok: true; removedAt: number } | FriendApiFailure
+
+export async function removeFriend(
+  accessToken: string,
+  pairKey: string,
+  signal?: AbortSignal,
+): Promise<RemoveFriendResult> {
+  const base = getPublicApiBaseUrl()
+  if (!base) {
+    return { ok: false, status: 0, error: 'API base URL not configured' }
+  }
+
+  const res = await fetch(`${base}/v1/friends/${encodeURIComponent(pairKey)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  })
+
+  if (!res.ok) {
+    return parseFailure(res)
+  }
+
+  const json = (await res.json()) as { removedAt?: unknown }
+  const removedAt = typeof json.removedAt === 'number' ? json.removedAt : Date.now()
+  return { ok: true, removedAt }
 }
 
 export async function sendFriendRequest(

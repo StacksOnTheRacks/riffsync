@@ -18,6 +18,8 @@ import { EMPTY_PARTICIPANT_PRODUCER_SNAPSHOT } from './participantProducerRegist
 import { PeopleRosterRow } from './PeopleRosterRow'
 import { peopleRowSpeakingClass, shouldShowPeopleAvIndicators } from './peoplePresentation'
 import { usePeopleRosterFriends } from './usePeopleRosterFriends'
+import { RoomFriendsPane } from '../friends/RoomFriendsPane'
+import { useRoomFriendsPane } from '../friends/useRoomFriendsPane'
 import type { GiphySearchResult } from '../api/giphySearchApi'
 import {
   RIFFSYNC_CHAT_COMPOSE_STATUS_ID,
@@ -147,6 +149,8 @@ export function RoomPageSidebar({
   castToTvButtonRef,
 }: RoomPageSidebarProps) {
   const peopleFriends = usePeopleRosterFriends(fanToken, activeSidebarTab)
+  const roomFriends = useRoomFriendsPane(activeSidebarTab === 'friends', Boolean(fanToken))
+  const friendsAnyUnread = roomFriends.anyUnread
 
   const chatPlane = (
     <section
@@ -189,6 +193,20 @@ export function RoomPageSidebar({
             >
               People ({viewerCount})
             </button>
+            {fanToken ? (
+              <button
+                type="button"
+                className={`riffsync-room-page__tab${activeSidebarTab === 'friends' ? ' riffsync-room-page__tab--on' : ''}`}
+                aria-pressed={activeSidebarTab === 'friends'}
+                aria-label={friendsAnyUnread ? 'Friends, unread messages' : 'Friends'}
+                onClick={() => setRoomSidebarTab('friends')}
+              >
+                Friends
+                {friendsAnyUnread ? (
+                  <span className="riffsync-room-page__tab-unread-dot" aria-hidden="true" />
+                ) : null}
+              </button>
+            ) : null}
             <button
               type="button"
               className={`riffsync-room-page__tab${activeSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
@@ -348,6 +366,10 @@ export function RoomPageSidebar({
               })}
             </ul>
           </div>
+        ) : null}
+
+        {presentation === 'sidebar' && fanToken ? (
+          <RoomFriendsPane pane={roomFriends} visible={activeSidebarTab === 'friends'} />
         ) : null}
 
         {presentation === 'sidebar' && activeSidebarTab === 'room' ? (

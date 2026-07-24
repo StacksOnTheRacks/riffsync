@@ -1,5 +1,25 @@
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 
+export type DmMessage = {
+  messageId: string
+  senderSub: string
+  kind: 'text'
+  body: string
+  sentAt: number
+}
+
+export type DmHistoryPage = {
+  messages: DmMessage[]
+  nextCursor: string | null
+}
+
+export type DmApiFailure = {
+  ok: false
+  status: number
+  code?: string
+  error?: string
+}
+
 export type DmSendRequest = {
   messageId: string
   kind: 'text'
@@ -15,14 +35,123 @@ export type DmSendResponse = {
   sentAt: number
 }
 
-export type DmSendFailure = {
-  ok: false
-  status: number
-  code?: string
-  error?: string
+export type DmSendResult = { ok: true; message: DmSendResponse } | DmApiFailure
+
+async function parseDmFailure(res: Response): Promise<DmApiFailure> {
+  let code: string | undefined
+  let error: string | undefined
+  try {
+    const json = (await res.json()) as { code?: unknown; error?: unknown }
+    code = typeof json.code === 'string' ? json.code : undefined
+    error = typeof json.error === 'string' ? json.error : undefined
+  } catch {
+    // ignore parse errors
+  }
+  return { ok: false, status: res.status, code, error }
 }
 
-export type DmSendResult = { ok: true; message: DmSendResponse } | DmSendFailure
+export type EnsureDmThreadResult =
+  | { ok: true; pairKey: string; peerSub: string; status: string }
+  | DmApiFailure
+
+export async function ensureDmThread(
+  accessToken: string,
+  peerSub: string,
+  signal?: AbortSignal,
+): Promise<EnsureDmThreadResult> {
+  const base = getPublicApiBaseUrl()
+  if (!base) {
+    return { ok: false, status: 0, error: 'API base URL not configured' }
+  }
+
+  const res = await fetch(`${base}/v1/dm/threads/${encodeURIComponent(peerSub)}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  })
+
+  if (!res.ok) {
+    return parseDmFailure(res)
+  }
+
+  const json = (await res.json()) as { pairKey?: unknown; peerSub?: unknown; status?: unknown }
+  const pairKey = typeof json.pairKey === 'string' ? json.pairKey : ''
+  const resolvedPeerSub = typeof json.peerSub === 'string' ? json.peerSub : peerSub
+  const status = typeof json.status === 'string' ? json.status : 'open'
+  if (!pairKey) {
+    return { ok: false, status: res.status, error: 'Unexpected response from server' }
+  }
+  return { ok: true, pairKey, peerSub: resolvedPeerSub, status }
+}
+
+export type FetchDmMessagesResult = { ok: true; page: DmHistoryPage } | DmApiFailure
+
+export async function fetchDmMessages(
+  accessToken: string,
+  pairKey: string,
+  signal?: AbortSignal,
+): Promise<FetchDmMessagesResult> {
+  const base = getPublicApiBaseUrl()
+  if (!base) {
+    return { ok: false, status: 0, error: 'API base URL not configured' }
+  }
+
+  const res = await fetch(`${base}/v1/dm/threads/${encodeURIComponent(pairKey)}/messages`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal,
+  })
+
+  if (!res.ok) {
+    return parseDmFailure(res)
+  }
+
+  const json = (await res.json()) as { messages?: unknown; nextCursor?: unknown }
+  const messages = Array.isArray(json.messages)
+    ? json.messages.filter(
+        (entry): entry is DmMessage =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          typeof (entry as DmMessage).messageId === 'string' &&
+          typeof (entry as DmMessage).senderSub === 'string' &&
+          (entry as DmMessage).kind === 'text',
+      )
+    : []
+  const nextCursor = typeof json.nextCursor === 'string' ? json.nextCursor : null
+  return { ok: true, page: { messages, nextCursor } }
+}
+
+export type MarkDmReadResult = { ok: true; hasUnread: boolean } | DmApiFailure
+
+export async function markDmRead(
+  accessToken: string,
+  pairKey: string,
+  lastReadSentAt: number,
+  lastReadMessageId: string,
+  signal?: AbortSignal,
+): Promise<MarkDmReadResult> {
+  const base = getPublicApiBaseUrl()
+  if (!base) {
+    return { ok: false, status: 0, error: 'API base URL not configured' }
+  }
+
+  const res = await fetch(`${base}/v1/dm/threads/${encodeURIComponent(pairKey)}/read`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ lastReadSentAt, lastReadMessageId }),
+    signal,
+  })
+
+  if (!res.ok) {
+    return parseDmFailure(res)
+  }
+
+  const json = (await res.json()) as { hasUnread?: unknown }
+  const hasUnread = typeof json.hasUnread === 'boolean' ? json.hasUnread : false
+  return { ok: true, hasUnread }
+}
 
 export async function postDmMessage(
   accessToken: string,
@@ -47,16 +176,7 @@ export async function postDmMessage(
   })
 
   if (!res.ok) {
-    let code: string | undefined
-    let error: string | undefined
-    try {
-      const json = (await res.json()) as { code?: unknown; error?: unknown }
-      code = typeof json.code === 'string' ? json.code : undefined
-      error = typeof json.error === 'string' ? json.error : undefined
-    } catch {
-      // ignore parse errors
-    }
-    return { ok: false, status: res.status, code, error }
+    return parseDmFailure(res)
   }
 
   const message = (await res.json()) as DmSendResponse

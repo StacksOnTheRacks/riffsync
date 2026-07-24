@@ -255,7 +255,9 @@ export function RoomPage() {
   }, [isPublisher, roomMode, setRoom, stopCapture])
 
   const activeSidebarTab =
-    !fanToken && roomSidebarTab === 'profile' ? 'chat' : roomSidebarTab
+    !fanToken && (roomSidebarTab === 'profile' || roomSidebarTab === 'friends')
+      ? 'chat'
+      : roomSidebarTab
   const viewportWide = useViewportWide()
   const expandToggleRef = useRef<HTMLButtonElement>(null)
   const castAvailability = useCastAvailability(Boolean(room) && experimentalFeatures)
