@@ -23,6 +23,15 @@ export type DmMessagePushEnvelope = {
   avatarUrl?: string;
 };
 
+export type DmUnreadPushEnvelope = {
+  type: 'dm_unread';
+  schemaVersion: 1;
+  pairKey: string;
+  hasUnread: boolean;
+  lastReadSentAt: number;
+  lastReadMessageId: string;
+};
+
 export function fanDmWsManagementClient(): ApiGatewayManagementApiClient {
   const endpoint = process.env.FAN_DM_WS_MANAGEMENT_API_ENDPOINT;
   if (!endpoint) {
@@ -164,6 +173,51 @@ export async function pushDmMessageToRecipient(input: {
     body: input.body,
     sentAt: input.sentAt,
     senderProfile,
+  });
+  const payload = encoder.encode(JSON.stringify(envelope));
+  const client = fanDmWsManagementClient();
+  await postToFanConnections(client, input.doc, input.fanConnectionsTable, connectionIds, payload);
+}
+
+export function buildDmUnreadPushEnvelope(input: {
+  pairKey: string;
+  hasUnread: boolean;
+  lastReadSentAt: number;
+  lastReadMessageId: string;
+}): DmUnreadPushEnvelope {
+  return {
+    type: 'dm_unread',
+    schemaVersion: 1,
+    pairKey: input.pairKey,
+    hasUnread: input.hasUnread,
+    lastReadSentAt: input.lastReadSentAt,
+    lastReadMessageId: input.lastReadMessageId,
+  };
+}
+
+export async function pushDmUnreadToRecipient(input: {
+  doc: DynamoDBDocumentClient;
+  fanConnectionsTable: string;
+  recipientFanSub: string;
+  pairKey: string;
+  hasUnread: boolean;
+  lastReadSentAt: number;
+  lastReadMessageId: string;
+}): Promise<void> {
+  const connectionIds = await queryFanConnectionIdsForFanSub(
+    input.doc,
+    input.fanConnectionsTable,
+    input.recipientFanSub,
+  );
+  if (connectionIds.length === 0) {
+    return;
+  }
+
+  const envelope = buildDmUnreadPushEnvelope({
+    pairKey: input.pairKey,
+    hasUnread: input.hasUnread,
+    lastReadSentAt: input.lastReadSentAt,
+    lastReadMessageId: input.lastReadMessageId,
   });
   const payload = encoder.encode(JSON.stringify(envelope));
   const client = fanDmWsManagementClient();

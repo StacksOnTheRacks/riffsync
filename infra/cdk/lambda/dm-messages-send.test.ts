@@ -75,6 +75,7 @@ describe('dm-messages-send handler', () => {
     process.env.FRIENDSHIP_RATE_LIMIT_TABLE_NAME = 'FriendshipRateLimits';
     process.env.FAN_CONNECTIONS_TABLE_NAME = 'FanConnections';
     process.env.FAN_PROFILES_TABLE_NAME = 'FanProfiles';
+    process.env.DM_UNREAD_TABLE_NAME = 'DmUnread';
     process.env.DM_SEND_LIMIT_PER_MINUTE = '20';
   });
 
@@ -202,6 +203,7 @@ describe('dm-messages-send handler', () => {
       .mockResolvedValueOnce({
         Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'open', openedAt: 1, updatedAt: 2 },
       })
+      .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
 
     const res = await handler(
@@ -238,5 +240,11 @@ describe('dm-messages-send handler', () => {
         body: 'hello',
       }),
     );
+
+    const unreadUpdate = mocks.docSend.mock.calls.find(
+      (call) => call[0].kind === 'Update' && call[0].input.TableName === 'DmUnread',
+    );
+    expect(unreadUpdate).toBeTruthy();
+    expect(unreadUpdate![0].input.Key).toEqual({ recipientSub: 'fan-b', pairKey });
   });
 });
