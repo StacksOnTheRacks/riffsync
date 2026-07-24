@@ -47,13 +47,18 @@ describe('rosterFromConnectionItems', () => {
 
     const host = members.find((m) => m.sessionId === 'sess-host');
     expect(host?.isHost).toBe(true);
+    expect(host?.fanSub).toBe('host-sub');
     expect(host?.avatarUrl).toBeUndefined();
 
     const guest = members.find((m) => m.sessionId === 'sess-guest');
     expect(guest?.isHost).toBe(false);
+    expect(guest?.fanSub).toBeUndefined();
     expect(guest?.displayName).toMatch(/^Guest/);
     expect(guest?.active).toBe(false);
     expect(guest?.lastActiveAt).toBeUndefined();
+
+    const alice = members.find((m) => m.sessionId === 'sess-a');
+    expect(alice?.fanSub).toBe('fan-1');
   });
 
   it('uses max lastActiveAt across tabs and precomputes active', () => {
@@ -87,6 +92,26 @@ describe('rosterFromConnectionItems', () => {
       nowSec,
     );
     expect(members[0]?.active).toBe(false);
+  });
+
+  it('includes fanSub on signed-in fan members only (#377)', () => {
+    const { members } = rosterFromConnectionItems(
+      [
+        {
+          sessionId: 'sess-fan',
+          displayName: 'Fan B',
+          fanSub: 'fan-sub-b',
+        },
+        {
+          sessionId: 'sess-guest',
+          displayName: 'Guest',
+        },
+      ],
+      1_700_000_000,
+    );
+
+    expect(members.find((member) => member.sessionId === 'sess-fan')?.fanSub).toBe('fan-sub-b');
+    expect(members.find((member) => member.sessionId === 'sess-guest')?.fanSub).toBeUndefined();
   });
 });
 

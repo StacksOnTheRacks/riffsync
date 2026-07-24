@@ -10,6 +10,8 @@ export type PresenceMember = {
   isHost: boolean
   active?: boolean
   lastActiveAt?: number
+  /** Present for signed-in fan connections only; omitted for anonymous guests. */
+  fanSub?: string
   avatarUrl?: string
 }
 

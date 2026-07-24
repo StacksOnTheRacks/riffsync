@@ -1797,6 +1797,76 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   background: rgb(255 255 255 / 0.035);
 }
 
+.riffsync-room-page__people-row-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.riffsync-room-page__people-row-actions {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.riffsync-room-page__people-row-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.04);
+  color: rgb(255 255 255 / 0.85);
+  cursor: pointer;
+}
+
+.riffsync-room-page__people-row-overflow:hover,
+.riffsync-room-page__people-row-overflow:focus-visible {
+  background: rgb(255 255 255 / 0.1);
+}
+
+.riffsync-room-page__people-row-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 4;
+  min-width: 10rem;
+  padding: 0.35rem 0;
+  border-radius: 8px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  background: rgb(20 24 32 / 0.98);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+.riffsync-room-page__people-row-menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: rgb(255 255 255 / 0.92);
+  text-align: left;
+  cursor: pointer;
+}
+
+.riffsync-room-page__people-row-menu-item:hover:not(:disabled),
+.riffsync-room-page__people-row-menu-item:focus-visible:not(:disabled) {
+  background: rgb(255 255 255 / 0.08);
+}
+
+.riffsync-room-page__people-row-menu-item:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.riffsync-room-page__people-row-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+}
+
 .riffsync-room-page__person-label {
   display: flex;
   align-items: center;

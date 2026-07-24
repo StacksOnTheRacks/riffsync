@@ -63,6 +63,7 @@ export type ChatPresenceMember = {
   isHost: boolean
   active?: boolean
   lastActiveAt?: number
+  fanSub?: string
   avatarUrl?: string
 }
 
@@ -137,6 +138,12 @@ function parseInboundAvatarUrl(raw: unknown): string | undefined {
 function parseInboundLastActiveAt(raw: unknown): number | undefined {
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return undefined
   return Math.floor(raw)
+}
+
+function parseInboundFanSub(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  return trimmed !== '' ? trimmed : undefined
 }
 
 function parseHistoryTextLine(raw: Record<string, unknown>): ChatTextLine | null {
@@ -253,12 +260,14 @@ export function routeInboundChatMessage(
       if (typeof sid !== 'string' || typeof dn !== 'string') continue
       const avatarUrl = parseInboundAvatarUrl(m.avatarUrl)
       const lastActiveAt = parseInboundLastActiveAt(m.lastActiveAt)
+      const fanSub = parseInboundFanSub(m.fanSub)
       members.push({
         sessionId: sid,
         displayName: dn,
         isHost: Boolean(m.isHost),
         ...(m.active === true ? { active: true } : m.active === false ? { active: false } : {}),
         ...(lastActiveAt !== undefined ? { lastActiveAt } : {}),
+        ...(fanSub !== undefined ? { fanSub } : {}),
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
       })
     }
