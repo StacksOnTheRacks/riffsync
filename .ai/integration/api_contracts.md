@@ -153,17 +153,26 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 | **`friendship_not_active`** | **403** | No active **Friendship** between the principals (includes after remove). |
 | **`dm_thread_closed`** | **403** | **DmThread** **`status: closed`** (explicit closed state after unfriend). |
 
-Handlers for DM history/send **must** re-check friendship (and closed thread when the item exists) **immediately before** durable write so an in-flight send loses to a concurrent remove.
+Handlers for DM history/send/read **must** re-check friendship (and closed thread when the item exists) **immediately before** durable write or history query execution so an in-flight send loses to a concurrent remove (#362 shared **`assertDmThreadAccess`** helper).
+
+## Decisions (answered — post-remove DM access enforcement #362)
+
+| Topic | Decision |
+| --- | --- |
+| **Routes gated** | **`PUT` ensure** (deny while closed without active friendship; reopen on re-friend), **`GET` history**, **`POST` send**, **`POST` read**. |
+| **List access** | No separate DM thread list route — **`GET /v1/friends`** drops removed peer; history pagination is the message list surface. |
+| **Retention** | Soft-close thread + retain **DirectMessage** bodies; no unfriend purge. |
+| **Client UX** | **403** codes only; M36 closes/hides invalidated DM panel. |
 
 ### DM thread open and history HTTP (#359)
 
 | Step | Contract |
 | --- | --- |
 | **Ensure / open thread** | **`PUT /v1/dm/threads/{peerSub}`**. Fan JWT required. **`peerSub`** is the friend's Cognito **`sub`**. Server computes canonical **`pairKey = min(callerSub, peerSub)#max(callerSub, peerSub)`**. Requires active **Friendship** row for **`pairKey`**. |
-| **Ensure outcome** | When no **DmThread** item exists, **PutItem** with **`status: open`**, **`openedAt`** / **`updatedAt`** (epoch ms), **`subA`**, **`subB`**. When item exists and **`status: open`**, idempotent **`200`**. When **`status: closed`** or friendship absent, deny (see codes). |
+| **Ensure outcome** | When no **DmThread** item exists, **PutItem** with **`status: open`**, **`openedAt`** / **`updatedAt`** (epoch ms), **`subA`**, **`subB`**. When item exists and **`status: open`**, idempotent **`200`**. When **`status: closed`** and active **Friendship** exists (#362 re-friend), **UpdateItem** to **`open`**, set **`reopenedAt`**, preserve **`closedAt`** cutoff. When friendship absent or closed without reopen path, deny (see codes). |
 | **Ensure success body** | **`200`** **`{ "pairKey", "peerSub", "status", "openedAt" }`**. |
 | **Page history** | **`GET /v1/dm/threads/{pairKey}/messages`**. Fan JWT required; caller must be a member of **`pairKey`**. Query params: **`limit`** (default **50**, max **100**), optional **`before`** opaque cursor for older messages. |
-| **History success body** | **`200`** **`{ "messages": [ { "messageId", "senderSub", "kind", "body", "sentAt" } ], "nextCursor": string \| null }`**. Messages ordered **newest-first** in the array. **`kind`** is **`text`** in M35 v1. |
+| **History success body** | **`200`** **`{ "messages": [ { "messageId", "senderSub", "kind", "body", "sentAt" } ], "nextCursor": string \| null }`**. Messages ordered **newest-first** in the array. **`kind`** is **`text`** in M35 v1. When **DmThread** has prior **`closedAt`** from unfriend (#362), exclude rows with **`sentAt <= closedAt`** from all pages (retained in storage, not returned). |
 | **History cursor** | **`before`** is base64url-encoded JSON **`{"sentAt": number, "messageId": string}`** referencing the oldest message in the prior page; next page returns rows strictly older than that tuple. **`nextCursor`** uses the same encoding for the oldest message in the current page, or **`null`** when exhausted. |
 | **Auth** | **`401 fan_auth_required`** without fan JWT. Guests and staff tokens denied. |
 | **Rate limit** | **60**/min per caller **`fanSub`** combined on **`PUT .../threads/{peerSub}`** and **`GET .../messages`**; **`429 rate_limited`**. |

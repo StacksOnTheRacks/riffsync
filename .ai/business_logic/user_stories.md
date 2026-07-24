@@ -137,7 +137,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - Remove-friend confirmation copy and whether the other party receives an in-app notification — **M36** (API is silent on remove per #358).
 - Empty-state copy for zero friends, pending-only inbox, and zero DM history.
 - Friend discovery / invite entry UX (how the requester selects a recipient fan) once invite/accept lifecycle is fixed.
-- QA matrices for invite → accept/decline → DM → unread clear → remove → re-friend (history stays inaccessible).
+- QA matrices for invite → accept/decline → DM → unread clear → remove → re-friend — **#362** spec testing focus and issue acceptance criteria (post-remove deny + re-friend cutoff).
 
 ## Decisions (answered — M25 Chromecast delivery slices)
 
