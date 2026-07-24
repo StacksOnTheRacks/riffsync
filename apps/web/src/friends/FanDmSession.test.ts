@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { FanDmSession } from './FanDmSession'
+import { FanDmSession, syncSharedFanDmSessionWithAuth } from './FanDmSession'
+
+const getFanAccessToken = vi.fn<() => string | null>()
+
+vi.mock('../auth/fanTokens', () => ({
+  FAN_AUTH_CHANGED_EVENT: 'riffsync:fan-auth-changed',
+  getFanAccessToken: () => getFanAccessToken(),
+}))
 
 class MockWebSocket {
   static instances: MockWebSocket[] = []
@@ -37,6 +44,8 @@ class MockWebSocket {
 describe('FanDmSession', () => {
   beforeEach(() => {
     MockWebSocket.instances = []
+    getFanAccessToken.mockReset()
+    getFanAccessToken.mockReturnValue('fan-jwt-token')
     vi.stubGlobal('WebSocket', MockWebSocket)
     vi.stubEnv('VITE_PUBLIC_FAN_DM_WS_URL', 'wss://fan-dm.test.example/prod')
     vi.stubEnv('VITE_PUBLIC_API_BASE_URL', 'https://api.test.example')
@@ -50,7 +59,7 @@ describe('FanDmSession', () => {
 
   it('connects with accessToken and sessionId query params', async () => {
     const session = new FanDmSession({}, 'tab-1')
-    session.connect('fan-jwt-token')
+    session.connect()
     await Promise.resolve()
     expect(MockWebSocket.instances).toHaveLength(1)
     const url = MockWebSocket.instances[0].url
@@ -65,7 +74,7 @@ describe('FanDmSession', () => {
     const session = new FanDmSession({
       onInboundMessage: (msg) => inbound.push(msg),
     })
-    session.connect('fan-jwt-token')
+    session.connect()
     await Promise.resolve()
     const ws = MockWebSocket.instances[0]
     ws.onmessage?.({
@@ -88,9 +97,30 @@ describe('FanDmSession', () => {
     const session = new FanDmSession({
       onDrawerError: (err) => errors.push(err.code),
     })
-    session.connect('fan-jwt-token')
+    session.connect()
     await Promise.resolve()
     MockWebSocket.instances[0].close()
     expect(errors).toContain('DM_PUSH_UNAVAILABLE')
+  })
+
+  it('does not open WebSocket when fan access token is absent', async () => {
+    getFanAccessToken.mockReturnValue(null)
+    const session = new FanDmSession()
+    session.connect()
+    await Promise.resolve()
+    expect(MockWebSocket.instances).toHaveLength(0)
+    expect(session.getStatus()).toBe('idle')
+  })
+
+  it('syncSharedFanDmSessionWithAuth disconnects without fan token', async () => {
+    getFanAccessToken.mockReturnValue('fan-jwt-token')
+    syncSharedFanDmSessionWithAuth()
+    await Promise.resolve()
+    expect(MockWebSocket.instances).toHaveLength(1)
+
+    getFanAccessToken.mockReturnValue(null)
+    syncSharedFanDmSessionWithAuth()
+    await Promise.resolve()
+    expect(MockWebSocket.instances[0].readyState).toBe(MockWebSocket.CLOSED)
   })
 })

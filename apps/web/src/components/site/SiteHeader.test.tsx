@@ -61,6 +61,7 @@ describe('SiteHeader fan session nav', () => {
     renderHeader('/catalog?era=joel')
 
     expect(container.querySelector('a[href="/account"]')).toBeNull()
+    expect(container.querySelector('.riffsync-friends-nav')).toBeNull()
     expect(container.textContent).toContain('Sign In')
     expect(container.textContent).toContain('Lobby')
     expect(container.querySelector('a[href="/download"]')?.textContent).toBe('Get App')
@@ -84,6 +85,14 @@ describe('SiteHeader fan session nav', () => {
 
     expect(container.querySelector('a[href="/account"]')?.textContent).toBe('Account')
     expect(container.querySelector('.riffsync-site-nav-sign-in')).toBeNull()
+  })
+
+  it('does not render main-site friends affordance when signed out (#365)', () => {
+    useFanSession.mockReturnValue({ fanToken: null })
+    renderHeader('/catalog')
+
+    expect(container.querySelector('.riffsync-friends-nav')).toBeNull()
+    expect(container.querySelector('[aria-label="Friends"]')).toBeNull()
   })
 
   it('hides Get App when the site is running as an installed PWA', () => {

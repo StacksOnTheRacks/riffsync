@@ -1,4 +1,5 @@
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
+import { FAN_AUTH_REQUIRED_CLIENT, requireFanAccessToken } from './requireFanAccessToken'
 
 export type DmMessage = {
   messageId: string
@@ -55,10 +56,15 @@ export type EnsureDmThreadResult =
   | DmApiFailure
 
 export async function ensureDmThread(
-  accessToken: string,
+  _accessToken: string,
   peerSub: string,
   signal?: AbortSignal,
 ): Promise<EnsureDmThreadResult> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
@@ -87,10 +93,15 @@ export async function ensureDmThread(
 export type FetchDmMessagesResult = { ok: true; page: DmHistoryPage } | DmApiFailure
 
 export async function fetchDmMessages(
-  accessToken: string,
+  _accessToken: string,
   pairKey: string,
   signal?: AbortSignal,
 ): Promise<FetchDmMessagesResult> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
@@ -123,12 +134,17 @@ export async function fetchDmMessages(
 export type MarkDmReadResult = { ok: true; hasUnread: boolean } | DmApiFailure
 
 export async function markDmRead(
-  accessToken: string,
+  _accessToken: string,
   pairKey: string,
   lastReadSentAt: number,
   lastReadMessageId: string,
   signal?: AbortSignal,
 ): Promise<MarkDmReadResult> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
@@ -154,11 +170,16 @@ export async function markDmRead(
 }
 
 export async function postDmMessage(
-  accessToken: string,
+  _accessToken: string,
   pairKey: string,
   payload: DmSendRequest,
   signal?: AbortSignal,
 ): Promise<DmSendResult> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
