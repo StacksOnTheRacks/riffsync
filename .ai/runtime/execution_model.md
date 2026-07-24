@@ -505,9 +505,8 @@ M18 hardening enforces the #140 transition tables in live React wiring. Normativ
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### friends-dm-runtime
-- Exact client module name/home for friends list + DM session state on **main site** vs **room shell** (new module vs thin hooks; whether any demux shares routes with **`ChatSession`**).
-- When main-site friends online subscribe / refresh starts relative to fan token availability and refresh (and failure isolation so friends errors do not block catalog browse).
-- Room shell: when Friends tab mounts presence/DM listeners relative to **`ChatSession`** **`connected`**; reconnect isolation; whether friends/DM diagnostics appear in or stay out of **`RoomRealtimeSdk.getDiagnostics()`**.
+- **Main-site bootstrap (#363):** On first open of the signed-in friends dropdown, start **`FanDmSession`** (Fan DM WebSocket) and fetch **`GET /v1/friends`** + **`GET /v1/friends/requests`**. Re-fetch on dropdown reopen and on inbound **`dm_message`** / **`dm_unread`** push. Failures surface inline on the dropdown only — **must not** block catalog routes or mint **`sessionId`**.
+- Room shell: when Friends tab mounts presence/DM listeners relative to **`ChatSession`** **`connected`**; reconnect isolation; whether friends/DM diagnostics appear in or stay out of **`RoomRealtimeSdk.getDiagnostics()`** — **#364**.
 - If account-closure DM purge ships: Scheduler rule group, Lambda entrypoint naming, and batch sizing (not retention length itself).
 
 ### existing-realtime-harness

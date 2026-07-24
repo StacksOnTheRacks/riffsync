@@ -212,9 +212,19 @@ Friends/DM flows require an authenticated **fan** session. Anonymous guests and 
 #### Main-site friends entry
 
 1. **Signed-out:** Person-icon friends control is **absent** from the main header. User may still use **Sign In** / **Account** as today.
-2. **Signed-in:** Person icon is visible. Activating it opens the friends dropdown (Catalog-style disclosure: keyboard open, Escape returns focus to trigger — **`accessibility.md`** / **`input_handling.md`**).
-3. **From a friend row:** Activating the friend’s name (or primary open-DM control) opens the DM panel for that peer with history sync on open.
-4. **Remove friend:** User initiates remove from the friends UX. After successful mutual teardown, that peer disappears from the accepted list and any open DM with them becomes closed/hidden (compose and history gone for **both** parties). Confirm-step presence and copy are tier-TW.
+2. **Signed-in:** Person icon is visible in the header info strip. Activating it opens the friends dropdown (Catalog-style disclosure: keyboard open, Escape returns focus to trigger — **`accessibility.md`** / **`input_handling.md`**).
+3. **From a friend row:** Activating the friend’s name (or primary open-DM control) opens the DM overlay panel for that peer with history sync on open (`PUT` ensure then `GET` history).
+4. **Remove friend:** User activates **Remove friend** on an accepted row → confirm dialog → on success mutual teardown and closed DM if open.
+5. **Outbound invite:** **Not** from this dropdown — use **People** roster context menu in a watch party (#377).
+
+#### Add friend from People roster (#377)
+
+1. **Who may invite:** Signed-in fan with fan JWT in the room session.
+2. **Eligible targets:** Another **People** roster row whose member includes **`fanSub`** (signed-in fan). **Not** self. **Not** anonymous guest rows (no **`fanSub`**).
+3. **Pointer path:** **Right-click** the eligible row → context menu primary action **Add friend** → `POST /v1/friends/requests` with **`recipientSub`** = peer **`fanSub`**.
+4. **Keyboard path:** Each eligible row exposes a **More actions** overflow control (44×44 min target) opening the same menu as right-click — required because right-click alone is not keyboard-accessible.
+5. **Menu states:** **Add friend** when no edge and no pending; **Request pending** (disabled) or **Cancel request** when outbound pending exists; **Friends** (disabled) when accepted edge exists; **Accept** / **Decline** remain on main-site / Friends-pane pending sections for inbound requests.
+6. **Errors:** Inline toast or menu-adjacent status for **`already_friends`**, **`friend_request_inbound_exists`**, **`rate_limited`** — map HTTP **`code`** without exposing raw **`sub`** values.
 
 #### Invite / accept lifecycle (UI)
 
@@ -344,12 +354,9 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Normative nav, hub, subtitle, and mobile accordion rules are in **Catalog browse navigation** and **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
 
 ### friends-and-direct-messaging
-- **Tab order:** Exact sidebar tab order when **Friends** is present; focus restore when opening/closing nested DM vs Friends list.
-- **Badge aggregation:** Whether unread updates also aggregate on the person-icon trigger / Friends tab, and clear timing relative to panel open vs first painted message.
-- **Remove-friend confirm:** Whether remove is immediate on activate or requires a confirm dialog; dialog title, body, and button labels when confirmation is used.
-- **GIF-in-DM v1:** Whether first DM ship includes GIF/emoji/reactions parity or text-only compose (pairs with **`presentation.md`**).
-- Invite entry placement (search vs shareable handle vs other) micro-interaction once product invite affordance is chosen in implementation.
-- Expanded View: optional compact DM entry vs always requiring exit to sidebar Friends.
+- **Tab order:** Exact sidebar tab order when **Friends** is present; focus restore when opening/closing nested DM vs Friends list — **#364**.
+- **Badge clear timing:** Unread dot clears after **`POST .../read`** when viewer has **viewed** latest messages in open DM panel (not on dropdown open alone).
+- Expanded View: optional compact DM entry vs always requiring exit to sidebar Friends — **#364** / Cast boundary.
 
 ## Primary code pointers (optional)
 

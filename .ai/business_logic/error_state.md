@@ -200,9 +200,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open implementation decisions remain for M25 Cast error/status verification. See **Local Cast status taxonomy** and **Cast status verification (#279)** above.
 
 ### friends-and-direct-messaging
-- Exact user-facing copy templates and stable **`code`** values for not-friends, pending-only, declined, thread-closed-after-remove, and invite rate limit (HTTP **`code`** fields from **`api_contracts.md`**).
-- Whether remove-friend success uses a transient status, toast, or silent list update for the remover and the removed party.
-- Offline vs unknown presentation when friends-list online signal cannot be derived.
+- **Resolved #363:** Main-site empty/load/closed copy in **`presentation.md`** → **Decisions (M36 — main-site friends dropdown — #363)**. Friends list load failure → **Could not load friends. Try again.**; DM history load → **Could not load messages. Try again.**; remove success → silent list update (no toast). **`rate_limited`** → existing cap toast pattern. People roster invite errors — **#377**.
+- Offline vs unknown when friends **`online`** cannot be derived → show **offline** (not **unknown** label) per **`error_state.md`** posture table.
 - **Resolved #360:** DM send/sync drawer codes **`DM_SEND_DROPPED`**, **`DM_PUSH_UNAVAILABLE`** (see typed error catalog above).
 
 ## Primary code pointers (optional)

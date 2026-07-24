@@ -19,6 +19,7 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 - **Presence active rehydration:** qualifying inbound routes (**`typing_start`**, **`chat`**, **`chat_gif`**, **`react`**, **`ping`** inside the active window) update **`lastActiveAt`** on the sender's **RoomPresence** row **before** **`presence`** fan-out so late joiners and **`presence_request`** see accurate **`active`** badges after reconnect.
 - **Typing fan-out:** **`typing_start`** broadcasts a room-wide **`typing`** envelope (who is composing); **`typing_stop`** clears that sender's typing flag. Multiple concurrent typers are allowed. Typing state is **not** stored in Dynamo — reconnect clears local typing UI until a new **`typing_start`** arrives.
 - **Join/leave fan-out:** on **RoomPresence** row create/delete for connections with **`fanSub`**, emit ephemeral **`chat_system`** (**`join`** \| **`leave`**) to room members. Guest connections (no **`fanSub`**) produce **no** join/leave line.
+- **`presence` roster wire (#377):** Each member in the **`presence`** broadcast may include optional **`fanSub`** (Cognito **`sub`**) when the connection is a signed-in fan. **Omit** **`fanSub`** for anonymous guest connections. Clients use **`fanSub`** only for friendship invite from **People** roster — not for display. **Do not** expose guest **`sessionId`** as a substitute for **`fanSub`** in invite flows.
 - **Room layout and AV control:** **`roomMode`** and **`avDisabled`** are **durable on the room item** via host **`PATCH`**, then **`room-patch` Lambda** **`PostToConnection`** to all connections in **`roomId`** (#103). **No inbound WebSocket routes** for these fields (contrast **`share_state`**, which is ephemeral fan-out over WS). Late joiners read authoritative values from room snapshot/join; realtime events cover connected clients.
 - **Viewer-local Cast:** Cast start, active, stop, unavailable, failed-start, receiver-disconnected, receiver-playback-blocked, stop-failed, and cleaned-up state is **not** room fan-out traffic. It is not a room WebSocket route, not a **`share_state`** variant, not a durable event, and not replayed to late joiners. For #273, sender-to-receiver presentation snapshots and chat-overlay updates travel only over the local Google Cast sender/receiver channel and are not RiffSync room messaging. For #304, receiver render-confirmation acknowledgements such as **`receiver_rendered`** also stay on the local Google Cast channel and never become room WebSocket fan-out, room activity, late-join replay, presence, chat, or SFU messages. For #277 / #278, local Cast lifecycle must not enqueue, broadcast, or synthesize any room message that could change another participant's playback, controls, drawer status, chat state, presence, SFU permissions, or layout.
 - **`share_state: stopped` side effects:** ephemeral fan-out only. **Guests detach `host_screen` consumers**; **must not** trigger full SFU session teardown or participant A/V consumer removal. Host unpublishes **`host_screen`** locally. See **`api_contracts.md`** (Realtime hardening).
@@ -74,6 +75,14 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | Server coalesce | Drop duplicate **`typing_start`** from same **`sessionId`** within **1s** before fan-out. |
 | Join/leave copy | **`{displayName} joined`** / **`{displayName} left`** — muted system-line styling in chat log. |
 | Reconnect join | **No** **`join`** line when same **`fanSub`** reconnects within **30s** of prior disconnect. |
+
+## Decisions (answered — People roster invite #377)
+
+| Topic | Decision |
+| --- | --- |
+| **`fanSub` on `presence` wire?** | Include optional **`fanSub`** on signed-in fan members only; omit for guests. |
+| Invite transport | **`POST /v1/friends/requests`** with **`recipientSub`** from roster row **`fanSub`**. |
+| Discovery UX | **People** roster context menu + keyboard **More actions** overflow — no Friend ID paste field. |
 
 ## Open implementation decisions
 
