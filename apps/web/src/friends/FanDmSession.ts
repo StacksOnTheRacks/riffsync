@@ -1,7 +1,8 @@
 import { getPublicFanDmWsUrl } from '../config/fanDmWsUrl'
-import { FAN_AUTH_CHANGED_EVENT, getFanAccessToken } from '../auth/fanTokens'
+import { FAN_AUTH_CHANGED_EVENT } from '../auth/fanTokens'
 import { dmPushUnavailableError, dmSendDroppedError, type DmDrawerError } from './dmDrawerCodes'
 import { postDmMessage, type DmSendRequest, type DmSendResponse } from './dmApi'
+import { requireFanAccessToken } from './requireFanAccessToken'
 
 const PING_MS = 25_000
 const SEND_RETRY_ATTEMPTS = 3
@@ -134,7 +135,13 @@ export class FanDmSession {
     }
   }
 
-  connect(accessToken: string): void {
+  connect(): void {
+    const accessToken = requireFanAccessToken()
+    if (!accessToken) {
+      this.disconnect()
+      return
+    }
+
     const wsBase = getPublicFanDmWsUrl()
     if (!wsBase) {
       this.setStatus('error')
@@ -188,7 +195,12 @@ export class FanDmSession {
     this.setStatus('idle')
   }
 
-  async sendMessage(accessToken: string, pairKey: string, payload: DmSendRequest): Promise<DmSendResponse | null> {
+  async sendMessage(pairKey: string, payload: DmSendRequest): Promise<DmSendResponse | null> {
+    const accessToken = requireFanAccessToken()
+    if (!accessToken) {
+      return null
+    }
+
     if (!this.isPushAvailable()) {
       this.emitDrawerError(dmPushUnavailableError())
     }
@@ -243,7 +255,7 @@ export function getSharedFanDmSession(handlers?: FanDmSessionHandlers): FanDmSes
 }
 
 export function syncSharedFanDmSessionWithAuth(): void {
-  const token = getFanAccessToken()
+  const token = requireFanAccessToken()
   const session = getSharedFanDmSession()
   if (!token) {
     session.disconnect()
@@ -252,7 +264,7 @@ export function syncSharedFanDmSessionWithAuth(): void {
   if (session.getStatus() === 'open' || session.getStatus() === 'connecting') {
     return
   }
-  session.connect(token)
+  session.connect()
 }
 
 export function installFanDmSessionAuthListener(): () => void {

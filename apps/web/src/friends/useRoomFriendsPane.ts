@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cognitoSub } from '../auth/jwtDecode'
-import { getFanAccessToken } from '../auth/fanTokens'
 import type { DmDrawerError } from './dmDrawerCodes'
 import { ensureDmThread, fetchDmMessages, markDmRead, type DmMessage } from './dmApi'
 import { getSharedFanDmSession, syncSharedFanDmSessionWithAuth, type InboundDmMessage } from './FanDmSession'
@@ -13,6 +12,7 @@ import {
   type FriendEntry,
   type FriendRosterSnapshot,
 } from './friendsApi'
+import { requireFanAccessToken } from './requireFanAccessToken'
 
 export type OpenDmPeer = {
   fanSub: string
@@ -100,7 +100,7 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
     openPeerRef.current = openPeer
   }, [openPeer])
 
-  const fanToken = getFanAccessToken()
+  const fanToken = requireFanAccessToken()
   const myFanSub = fanToken ? cognitoSub(fanToken) : undefined
 
   const refreshRoster = useCallback(async () => {
@@ -302,7 +302,7 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
         ? crypto.randomUUID()
         : `dm-${Date.now()}`
     const session = getSharedFanDmSession()
-    const sent = await session.sendMessage(fanToken, openPeer.pairKey, {
+    const sent = await session.sendMessage(openPeer.pairKey, {
       messageId,
       kind: 'text',
       body,

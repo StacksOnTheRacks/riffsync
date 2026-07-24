@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cancelFriendRequest, fetchFriendRosterSnapshot, sendFriendRequest } from './friendsApi'
 
+const getFanAccessToken = vi.fn<() => string | null>()
+
+vi.mock('../auth/fanTokens', () => ({
+  getFanAccessToken: () => getFanAccessToken(),
+}))
+
 describe('friendsApi', () => {
   beforeEach(() => {
+    getFanAccessToken.mockReturnValue('token')
     vi.stubEnv('VITE_PUBLIC_API_BASE_URL', 'https://api.test.example')
   })
 

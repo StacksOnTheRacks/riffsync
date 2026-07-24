@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { postDmMessage } from './dmApi'
 
+const getFanAccessToken = vi.fn<() => string | null>()
+
+vi.mock('../auth/fanTokens', () => ({
+  getFanAccessToken: () => getFanAccessToken(),
+}))
+
 describe('postDmMessage', () => {
   beforeEach(() => {
+    getFanAccessToken.mockReturnValue('token')
     vi.stubEnv('VITE_PUBLIC_API_BASE_URL', 'https://api.test.example')
   })
 

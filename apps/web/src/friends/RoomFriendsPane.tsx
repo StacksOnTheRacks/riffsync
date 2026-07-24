@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { cognitoSub } from '../auth/jwtDecode'
-import { getFanAccessToken } from '../auth/fanTokens'
 import type { FriendEntry } from './friendsApi'
+import { requireFanAccessToken } from './requireFanAccessToken'
 import type { RoomFriendsPaneState } from './useRoomFriendsPane'
 
 type RoomFriendsPaneProps = {
@@ -15,7 +15,7 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
   const backButtonRef = useRef<HTMLButtonElement>(null)
   const openedFromRowRef = useRef<HTMLButtonElement | null>(null)
   const removeFromButtonRef = useRef<HTMLButtonElement | null>(null)
-  const fanToken = getFanAccessToken()
+  const fanToken = requireFanAccessToken()
   const myFanSub = fanToken ? cognitoSub(fanToken) : undefined
 
   const dmSurfaceKey = pane.openPeer ? `dm:${pane.openPeer.pairKey}` : 'list'

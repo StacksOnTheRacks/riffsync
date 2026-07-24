@@ -1,4 +1,5 @@
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
+import { FAN_AUTH_REQUIRED_CLIENT, requireFanAccessToken } from './requireFanAccessToken'
 
 export type FriendRequestEntry = {
   requestId: string
@@ -66,9 +67,14 @@ export function mapFriendRequestError(code?: string, fallback?: string): string 
 }
 
 export async function fetchFriendRosterSnapshot(
-  accessToken: string,
+  _accessToken: string,
   signal?: AbortSignal,
 ): Promise<FriendRosterSnapshot | null> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return null
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) return null
 
@@ -129,10 +135,15 @@ export type AcceptFriendRequestResult =
   | FriendApiFailure
 
 export async function acceptFriendRequest(
-  accessToken: string,
+  _accessToken: string,
   requestId: string,
   signal?: AbortSignal,
 ): Promise<AcceptFriendRequestResult> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
@@ -158,10 +169,15 @@ export async function acceptFriendRequest(
 }
 
 export async function declineFriendRequest(
-  accessToken: string,
+  _accessToken: string,
   requestId: string,
   signal?: AbortSignal,
 ): Promise<{ ok: true } | FriendApiFailure> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
@@ -182,10 +198,15 @@ export async function declineFriendRequest(
 export type RemoveFriendResult = { ok: true; removedAt: number } | FriendApiFailure
 
 export async function removeFriend(
-  accessToken: string,
+  _accessToken: string,
   pairKey: string,
   signal?: AbortSignal,
 ): Promise<RemoveFriendResult> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
@@ -207,10 +228,15 @@ export async function removeFriend(
 }
 
 export async function sendFriendRequest(
-  accessToken: string,
+  _accessToken: string,
   recipientSub: string,
   signal?: AbortSignal,
 ): Promise<SendFriendRequestResult> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
@@ -243,10 +269,15 @@ export async function sendFriendRequest(
 }
 
 export async function cancelFriendRequest(
-  accessToken: string,
+  _accessToken: string,
   requestId: string,
   signal?: AbortSignal,
 ): Promise<CancelFriendRequestResult> {
+  const accessToken = requireFanAccessToken()
+  if (!accessToken) {
+    return FAN_AUTH_REQUIRED_CLIENT
+  }
+
   const base = getPublicApiBaseUrl()
   if (!base) {
     return { ok: false, status: 0, error: 'API base URL not configured' }
