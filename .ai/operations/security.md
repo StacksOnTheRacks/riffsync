@@ -93,9 +93,8 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 ## Open implementation decisions
 
 ### friends-and-direct-messaging
-- Exact **rate-limit bands** for remove-friend, DM send, unread mark-read, and friends-online query or push — **#358**, **M35**, **#357**.
+- Exact **rate-limit bands** for DM send, unread mark-read, and friends-online query or push — **M35**, **#357** (remove-friend **30**/min decided #358).
 - WAF / API Gateway throttle key placement vs Lambda in-memory counters for DM HTTP (and any WS) routes.
-- Soft-delete / hide flag vs hard-delete purge job for mutual unfriend thread closure (privacy obligation is closed/hidden for both; mechanism is TW with data) — **#358**.
 - Account-closure cascade timing for durable DM rows (batch purge schedule, Dynamo TTL on tombstones, or synchronous delete) once account deletion flows are wired.
 - Whether any sampled DEBUG redaction helpers are shared between RoomChat and DM log paths (implementation detail; INFO remains body-free).
 

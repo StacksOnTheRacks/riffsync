@@ -372,13 +372,21 @@ Friends online is room-presence-derived and aggregate across rooms. It is not a 
 | **List ordering?** | Case-insensitive **`displayName`**, then lexicographic **`pairKey`**. |
 | **Presence access path?** | Sparse **RoomPresence** GSI on **`fanSub`** + **`roomId#presenceKey`**; per-peer query **`Limit: 1`** for online boolean. |
 
+## Decisions (answered — mutual remove-friend #358)
+
+| Question | Decision |
+| --- | --- |
+| **Remove route?** | **`DELETE /v1/friends/{pairKey}`** — either party; hard-delete **Friendship**. |
+| **DmThread on remove?** | Soft-close **`status: closed`**, **`closedAt`** when thread exists; **DirectMessage** bodies retained, access denied. |
+| **Re-friend history?** | Prior **DmThread** history stays inaccessible (default). |
+| **Notification?** | Silent API (#358); M36 presentation. |
+
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### friends-and-direct-messaging
-- Explicit DM delete semantics and account-closure cascade relative to inaccessible-after-unfriend history (soft-hide vs hard delete; whether storage purge jobs are required) — **#358 / M35**.
-- Whether re-friend ever restores prior **DmThread** history (default remains inaccessible).
 - Whether **DirectMessage** supports the same message kinds as room chat (text, emoji, Giphy GIF, reactions) or a reduced v1 set — **M35**.
+- Account-closure cascade and explicit user delete of DM history relative to retained-after-unfriend bodies — future ops / M35 slice (unfriend retain decided #358).
 
 - Domain services colocated with Lambda packages when implemented.

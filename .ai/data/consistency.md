@@ -83,12 +83,18 @@
 | **Decline / cancel write shape?** | Single **DeleteItem** on **`requestId`**; conditional on **`status: pending`** and caller role (recipient vs requester). |
 | **Concurrent accept on reciprocal pendings?** | First successful accept wins; transaction clears **both** pendings and creates one **Friendship**. Second accept returns **404** after pendings cleared. |
 
+## Decisions (answered — mutual remove-friend #358)
+
+| Question | Decision |
+| --- | --- |
+| **Remove write shape?** | **TransactWrite** when **DmThreads** table exists: **DeleteItem** **Friendship** + **UpdateItem** **DmThread** **`status: closed`**, **`closedAt`**. Retry-safe: second remove → **404 `friendship_not_found`**. |
+| **Remove vs DM send race?** | DM send/history handlers re-check friendship and closed thread **before** durable write; remove completing first denies with **403** (`friendship_not_active` / `dm_thread_closed`). |
+
 ## Open implementation decisions
 
 - Whether **`lastActiveAt`** updates use unconditional **`UpdateItem`** or conditional max-timestamp write to reduce clock-skew regressions.
 - Cross-tab **`fanSub`** badge consistency when one tab disconnects while another remains **active** — roster shows multiple **RoomPresence** rows per fan today; **active** is per-row unless product merges (tier TW).
 - Accept-friendship write shape: single **TransactWrite** (delete/update request + put edge [+ ensure thread]) vs ordered multi-step with idempotency keys — **#356**: **TransactWrite** for accept; decline/cancel single delete.
-- Remove-friend write shape: edge delete + thread access close (and optional message tombstone/purge) atomicity and retry semantics.
 - Unread watermark concurrency when both devices view the same thread (conditional update vs blind LWW).
 - Online derivation freshness: strongly consistent **RoomPresence** query vs eventual; stale-online window after disconnect before TTL/row delete.
 

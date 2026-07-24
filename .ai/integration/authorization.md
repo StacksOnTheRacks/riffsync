@@ -118,8 +118,8 @@ When status is **400**, **403**, **404**, or **409**, body includes stable **`co
 ## Open implementation decisions
 
 ### friends-and-dm-authz-codes
-- Exact HTTP / WS deny **`code`** strings for not-friends, thread-closed-after-remove, and DM rate-limited paths (**M35** / **#358**).
-- Whether closed-thread state is an explicit durable flag vs inferred solely from missing friendship edge (data domain may own persistence; authz only requires a deniable check on every DM list/send/history call).
+- DM rate-limited deny **`code`** on send/history routes — **M35**.
+- Closed-thread checks use explicit **`status: closed`** on **DmThread** when present (#358 sets on remove) **and** missing **Friendship** edge; both must deny read/send for either party.
 
 ## SFU join token claims (`SfuJoinClaims`)
 

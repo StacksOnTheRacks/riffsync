@@ -91,7 +91,7 @@ After durable **`avDisabled`** write on room document, room **`PATCH`** Lambda f
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### friends-and-direct-messaging
-- Stable structured **`code`** names for not-friends, thread-closed-after-remove, and rate-limited DM paths — **M35** / **#358**.
+- Stable structured **`code`** names for rate-limited DM send/history paths — **M35** (`friendship_not_active`, `dm_thread_closed` defined #358 / **`api_contracts.md`**).
 - Whether DM send denials after remove use the same envelope family as room **`CHAT_SEND_DROPPED`** analogues or a friends/DM-specific code set — **M35**.
 - Retry/backoff guidance copy for DM sync failure vs friend-list load failure.
 

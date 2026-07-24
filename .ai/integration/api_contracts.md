@@ -86,7 +86,7 @@ Friends and 1:1 DMs are a **fan social plane** beside watch-party room chat. The
 | **Accept** | **`POST /v1/friends/requests/{requestId}/accept`**. **Recipient only**. Creates **Friendship** **`pairKey`** item; **hard-deletes** all pending requests for that unordered pair. **`200`** with **`pairKey`**, **`fanSubA`**, **`fanSubB`**, **`createdAt`**. |
 | **Decline** | **`POST /v1/friends/requests/{requestId}/decline`**. **Recipient only**. Hard-deletes request. **`204`**. |
 | **Cancel** | **`DELETE /v1/friends/requests/{requestId}`**. **Requester only**. Hard-deletes pending request. **`204`**. |
-| **Remove** | **`DELETE /v1/friends/{pairKey}`** or peer-scoped variant — **#358**. |
+| **Remove** | **`DELETE /v1/friends/{pairKey}`** — **#358**. Either party; hard-delete **Friendship**; soft-close **DmThread** when present. |
 | **List accepted friends** | **`GET /v1/friends`** — **#357**. Returns **`{ "friends": [ ... ] }`** for caller's accepted edges only. |
 
 Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** authorize friendship mutations.
@@ -125,6 +125,36 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 | **Auth** | **`401 fan_auth_required`** without valid fan JWT. Guests and staff tokens denied. |
 | **Rate limit** | **60**/min per caller **`fanSub`**; **`429 rate_limited`**. |
 
+### Remove-friend HTTP (#358)
+
+| Step | Contract |
+| --- | --- |
+| **Remove** | **`DELETE /v1/friends/{pairKey}`**. **`pairKey`** is canonical **`min(subA,subB)#max(subA,subB)`** (same as **Friendship** PK). Caller **`sub`** must be one of the two encoded subs. |
+| **Outcome** | **Hard-delete** the **Friendship** item. **Immediately mutual** — no one-sided edge. When a **DmThread** row exists for the pair, set **`status: closed`** and **`closedAt`** (epoch ms) in the **same TransactWrite**. **Do not** delete **DirectMessage** bodies on unfriend; M35 routes deny read/send for both parties. |
+| **Success** | **`200`** body **`{ "pairKey", "removedAt" }`** where **`removedAt`** is epoch ms. |
+| **Idempotency** | Second **`DELETE`** after edge gone → **404 `friendship_not_found`**. |
+| **Auth** | Fan JWT required; guests and staff tokens denied (**401 `fan_auth_required`**). |
+| **Rate limit** | **30**/min per caller **`fanSub`**; **`429 rate_limited`**. |
+| **Notification** | **Silent** at API layer — no push/email to the other party (#358). M36 owns in-app copy if any. |
+
+### Remove-friend HTTP deny codes (#358)
+
+| **`code`** | HTTP | When |
+| --- | --- | --- |
+| **`fan_auth_required`** | **401** | Missing/invalid fan JWT. |
+| **`friendship_not_member`** | **403** | Caller **`sub`** is not a member of **`pairKey`**. |
+| **`friendship_not_found`** | **404** | No **Friendship** row for **`pairKey`** (includes repeat remove). |
+| **`rate_limited`** | **429** | Throttle exceeded. |
+
+### Post-remove DM deny codes (M35 routes; defined for race coordination)
+
+| **`code`** | HTTP | When |
+| --- | --- | --- |
+| **`friendship_not_active`** | **403** | No active **Friendship** between the principals (includes after remove). |
+| **`dm_thread_closed`** | **403** | **DmThread** **`status: closed`** (explicit closed state after unfriend). |
+
+Handlers for DM history/send **must** re-check friendship (and closed thread when the item exists) **immediately before** durable write so an in-flight send loses to a concurrent remove.
+
 ### DM plane vs room `ChatSession`
 
 | Plane | Owner / scope | Contract |
@@ -156,6 +186,7 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 | **Giphy search** | **30** search requests per **minute** per **`sub`** (HTTP; tune in IaC). |
 | **Friend-request send** | **10** **`POST /v1/friends/requests`** per **minute** per **`fanSub`** (HTTP; API Gateway + Lambda guard). |
 | **Friend-request accept / decline / cancel** | **30** combined actions per **minute** per **`fanSub`**. |
+| **Remove friend** | **30** **`DELETE /v1/friends/{pairKey}`** per **minute** per **`fanSub`**. |
 | **Friends list read** | **60** **`GET /v1/friends`** per **minute** per **`fanSub`**. |
 | **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
 | **WebSocket** | Subject to **API Gateway** account/service quotas; design for **≤50 concurrent connections per room** under normal use (matches participant cap). |
@@ -441,8 +472,7 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 ### friends-and-direct-messaging (paths, envelopes, codes)
 
 - DM thread open, history page, send, unread clear HTTP paths and envelopes — **M35**.
-- Remove-friend **`DELETE`** path shape — **#358**.
-- Stable business **`code`** strings for not-friends, thread-closed-after-remove, DM send when plane down — **M35** / **#358**.
+- Client drop / unavailable codes for DM send when the chosen realtime plane is down (DM analogue of **`CHAT_SEND_DROPPED`**) — **M35**.
 - DM realtime topology: new WebSocket application routes, fan-scoped connection (not **`roomId`**-keyed), HTTP sync-only with optional push, or hybrid; exact outbound/inbound **`type`** and **`schemaVersion`** discriminators. Prefer documenting any shared transport with room WS **explicitly** rather than silently reusing **`ChatSession`**.
 - Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape — **M35**.
 - Client drop / unavailable codes for DM send when the chosen realtime plane is down (DM analogue of **`CHAT_SEND_DROPPED`**).
