@@ -91,12 +91,67 @@ Tabbed popover on chat compose (**`ChatComposeMediaPicker`**) — **Emojis** and
 - **People tab presence:** Each roster row shows **online** (connected) by default. Rows also show an **active** badge when server **`active`** is true (derived from **`lastActiveAt`** within the **2-minute** window). **Host** row follows the same badge rules. **Active badge visual:** muted green dot plus **Active** text chip (same visual weight as **Host** badge); **`aria-label`** includes active state. Badges are **visual only** on **People** — not duplicated as stage chrome for mic-only participants except **speaking** (below).
 - **People tab producer state (M23):** Each roster row shows **camera** and **microphone** affordances derived from live SFU producer lifecycle per **`sessionId`**: cam **on** when video producer live; mic **on** when audio producer live; mic **muted** when audio producer **`paused`**; mic **off** when no audio producer. Updates within one React commit of **`newProducer`** / **`producerClosed`**. Not persisted server-side.
 
+## Friends and direct messaging
+
+Friends and 1:1 DMs are a **signed-in fan** social layer beside public room chat. They do **not** replace the room **People** roster. Guests and signed-out visitors get **no** friends manage or DM send chrome.
+
+### Auth gate and main-site chrome
+
+| Concern | Contract |
+| --- | --- |
+| **Signed-out** | Main-site friends affordance is **hidden** (not disabled stub). Existing **Sign In** / **Account** primary-nav behavior remains; the person icon is **not** a silent Account replacement. |
+| **Signed-in (non-room)** | Main site header shows the design-template **person icon** friends entry (`gen-account-holder` / `#gen-user-btn` / `fa-user` red circular treatment under `docs/riffsync-design-template/Main File/red-html`). Activating it opens a **friends dropdown**. |
+| **Compact room header** | Watch-party compact header does **not** carry the person-icon friends control. Room friends capabilities live in the right-column **Friends** surface only. |
+
+### Friends list surfaces (main dropdown + room Friends)
+
+Both surfaces present the same capabilities for the authenticated fan:
+
+- **Accepted friends** rows: display name (and avatar when available from **FanProfiles**), **online** indicator, unread activity affordance, open-DM action, remove-friend action.
+- **Pending friendship requests** are visible in the lifecycle UI: inbound requests expose **accept** and **decline**; outbound pending is visible as pending (not yet a friend row with DM). Durable friendship chrome appears only after accept.
+- **Empty friends:** honest empty copy (never a silent blank). Distinct from “no pending requests” when that section is shown.
+- **Loading / error:** skeleton or inline recoverable status; no infinite retry storms (same posture as catalog rate/cap toasts).
+
+### Friends online (distinct from People active)
+
+| Signal | Surface | Meaning |
+| --- | --- | --- |
+| Friends-list **online** | Friend rows (main dropdown + room Friends) | Friend currently holds **RoomPresence** in **any** RiffSync room. Not platform-wide browsing presence, not last-seen, not same-room-only. |
+| People **online** | Room **People** roster | Connected to **this** room (unchanged). |
+| People **active** | Room **People** roster | **`lastActiveAt`** within the **2-minute** window (unchanged **Active** chip). |
+
+**Anti-pattern:** Do **not** reuse the People **Active** chip label, copy, or accessible name on friend rows. Friends online must use distinct naming so assistive tech and sighted users do not confuse room engagement with “in a room somewhere.”
+
+### Unread presentation
+
+- Friends list surfaces unread DM activity so new messages are visible without opening every thread.
+- **Viewing** the updated messages in that friend’s DM panel **clears** unread for those messages (server-authoritative outcome; badge follows).
+- Per-friend vs aggregate badge on the person-icon trigger and/or Friends tab label is presentation tier-TW (see **Open implementation decisions**).
+
+### Direct message panel
+
+- **Visual / interaction language:** Reuse room-chat patterns where contracts allow: bounded message log scroll region, stick-to-bottom, jump-to-latest when reading history, compose row placement. Do **not** invent a separate chat aesthetic.
+- **Durability (empty states):** DM history is **account-lifetime durable** until explicit delete or account closure. Opening a thread after reload **must not** present the room-chat ephemeral empty posture (“reload cleared transcript”) as the happy path. An empty DM thread means **no messages yet** (or history inaccessible after remove), not “ephemeral scrollback was discarded.”
+- **Eligibility:** Compose and history are available only while an **active friendship** exists with that peer.
+- **After remove-friend:** For both parties, the prior 1:1 thread is **closed/hidden**: no compose, no history access. Prefer navigating away from the open DM panel (or replacing it with closed/hidden copy) rather than leaving a read-only transcript. Re-friending may create a new edge; default UX does **not** restore prior history unless a later product decision says otherwise.
+- **Guests:** No DM compose or history chrome.
+
+### Watch-party Friends column
+
+- **`riffsync-room-page__chat-column`** gains an additive **Friends** panel/tab alongside **Chat**, **People**, **Room**, and **Profile**. Exact tab order and whether DM opens as nested panel vs in-column replace are tier-TW.
+- Public room **Chat** and private **DM** remain available in the same party session without leaving the room.
+- **People** roster semantics and chrome remain unchanged; Friends must not merge into or replace People.
+
+### Expanded View / Cast
+
+- Expanded overlay and Cast receiver remain without a full sidebar tab strip. Friends list/manage and DM open stay **sender-side normal-room** (or main-site) surfaces: exit expanded or use the non-overlay path. Exact compact DM affordance outside the tab strip is tier-TW.
+
 ## Watch party participant AV (`/room/:roomId`)
 
 ### Shell boundaries
 
 - **`riffsync-room-page__stage`** holds shared movie playback, participant video surfaces (Theater camera row or Video Chat grid), host tab-capture chrome, and **video-relay** drawer status.
-- **`riffsync-room-page__chat-column`** holds sidebar tabs (**Chat**, **People**, **Room**, **Profile**), participant AV toggles, message log, compose, and **chat** drawer status.
+- **`riffsync-room-page__chat-column`** holds sidebar tabs (**Chat**, **People**, **Room**, **Profile**, and additive **Friends** for signed-in fans), participant AV toggles, message log / DM panel content, compose, and **chat** drawer status.
 - **`/room/:roomId`** renders as a full-viewport room shell with no site header or footer. Users leave the party through the room **Leave Party** action to return to other RiffSync pages.
 - **Theater room mode** (host layout policy) is distinct from **theater fullscreen** (wrapper **`requestFullscreen`**) and from **expanded view** (in-page stage layout). UI copy must not conflate the three.
 - **`RoomPage`** is a **thin shell**; realtime drawers are owned by **`ChatSession`**, **`SfuMediaSession`**, and **`TheaterPlayback`** (**`runtime/execution_model.md`**). Presentation contracts describe what users see regardless of module wiring.
@@ -178,7 +233,7 @@ Sub-issues **#210–#212** implement wiring and tests; parent **#151** tracks M1
 
 - Two controls (**Camera**, **Microphone**) sit **above chat compose** in the sidebar when the viewer has a **fan JWT** (signed-in fan or host using participant A/V).
 - **Not rendered** for **anonymous guests** — no toggle chrome and no sign-in overlay at this placement; guests remain subscribe-only for participant AV and use chat compose's existing **Sign In to Chat** overlay only for chat send.
-- When rendered, toggles stay **visible on every sidebar tab** (**Chat**, **People**, **Room**, **Profile**) — session-level AV controls, not tab-scoped.
+- When rendered, toggles stay **visible on every sidebar tab** (**Chat**, **People**, **Room**, **Profile**, and **Friends** when that tab is present) — session-level AV controls, not tab-scoped.
 - Each control pairs an icon with a visible text label and reflects explicit on/off state for the local publisher.
 - When the host has disabled room AV, toggles **remain visible but disabled** with explanation copy: **"The host turned room A/V off."** (associated via **`aria-describedby`**).
 
@@ -459,6 +514,32 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### catalog-sub-pages
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Normative hub, nav, subtitle, search/sort, and shell rules are in **Catalog hub and subcategory presentation** and **Decisions (M32 — catalog subcategory browse IA — #340)** below.
+
+### friends-and-direct-messaging
+- **Tab order / label:** Exact **Friends** tab order among **Chat** / **People** / **Room** / **Profile** / **Friends**, and whether DM opens as a nested panel vs replacing the Friends list in-column.
+- **Badge aggregation:** Per-friend unread badge vs aggregate count/dot on the person-icon trigger and/or Friends tab label; exact badge chrome (count vs dot).
+- **Remove-friend confirm dialog copy:** Whether remove requires an explicit confirm step, and button/title/body microcopy when it does (**`interaction_flow.md`** owns the flow shape once confirmation presence is chosen).
+- **GIF / rich compose in DM v1:** Whether DM compose ships text-only first or includes emoji picker, Giphy GIF, and/or reactions parity with room chat in the first slice.
+- Person-icon placement relative to Account / Sign In / mobile toggler; red circular treatment token/class names from the design template.
+- Friends dropdown shell: max height, empty-friends / pending-empty copy strings, loading/error copy, mobile vs desktop open behavior.
+- Friend row micro-layout: avatar thumbnail reuse, online indicator glyph/color (must remain distinct from People **Active** chip), remove-friend control affordance (icon vs menu).
+- Closed-thread / post-remove copy variants once confirm microcopy lands.
+- Friendship-creation invite UI microcopy (search/username field labels, pending-row labels) beyond accept/decline presence.
+- Expanded View / Cast: whether any compact DM affordance exists outside the tab strip.
+
+## Decisions (answered — friends and direct messaging)
+
+| Topic | Decision |
+| --- | --- |
+| **Auth gate** | Friends entry and DM actions require authenticated fan session; main-site friends affordance **hidden** when signed out. |
+| **Main-site entry** | Person icon in main header opens friends dropdown; friend name opens DM panel; remove-friend available from friends UX. |
+| **Room surface** | Compact header has no person icon; additive **Friends** in right column; does **not** replace **People**. |
+| **Creation UI** | Invite/accept: pending requests visible; recipient can accept or decline; durable friend row only after accept. |
+| **Friends online** | Friend currently in **any** RiffSync room (RoomPresence-derived). Distinct naming from People **Active**. |
+| **DM durability UX** | Account-lifetime history; empty state is “no messages yet” / closed, not room-chat ephemeral wipe. |
+| **Unread** | Visible on friends list; clears when those messages are viewed. |
+| **Remove-friend UX** | Immediately mutual; both parties lose compose and history (closed/hidden). |
+| **DM≈room chat** | Reuse room-chat log/compose/scroll language; no separate aesthetic. |
 
 ## Decisions (M32 — catalog subcategory browse IA — #340)
 

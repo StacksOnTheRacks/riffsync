@@ -145,9 +145,25 @@ When mediasoup signaling cannot be reached, the SPA surfaces an **honest configu
 | Local vs prod copy? | **Branch on signaling hostname** — local disposable hosts get compose/bootstrap remediation; prod hosts get deploy checklist remediation. |
 | Optional health probe? | **`GET /healthz`** derived from WS base (http/https swap) may classify local config failure before second WS attempt. |
 
+## Friends / DM configuration
+
+Friends and 1:1 DMs introduce **no new secret class** and **no new hosted environment tier**. They consume existing fan Cognito public build-time ids, fan JWT authorizer binding, and public SPA **API / WebSocket** bases already described above. Friends online is derived from the existing **RoomPresence** store; it does not require SFU env, Cast receiver id, staff Cognito, or a separate presence fabric config surface.
+
+| Concern | Contract |
+| --- | --- |
+| **Secrets** | No TMDB/Facebook-style secret for friends/DM. Fan JWT remains the browser credential; server uses existing Cognito authorizer and Dynamo IAM. |
+| **Public SPA** | Reuse **`VITE_PUBLIC_API_BASE_URL`** / **`VITE_PUBLIC_WS_URL`** (and fan Cognito **`VITE_COGNITO_*`**) unless a later wire decision adds a dedicated public WS base — names then land under Open implementation decisions. |
+| **Process knobs** | Optional feature gates or Scheduler purge settings are non-secret parameters; not required for MVP contract completeness. |
+| **Isolation** | Missing friends/DM feature config must not degrade room bootstrap, chat, SFU, Cast, or catalog browse. |
+
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### friends-dm-configuration
+- Exact env / feature-gate names (if any) for friends/DM exposure on SPA or Lambda.
+- Whether DM realtime reuses **`VITE_PUBLIC_WS_URL`** or needs an additional public WS base name once integration locks topology.
+- Scheduler/Lambda env names for optional account-closure DM purge (batch size, rule group) when that job ships.
 
 ### chromecast-configuration
 - No open decisions remain for sender availability configuration. The public app id env var is **`VITE_CAST_RECEIVER_APP_ID`**; the current pre-release exposure gate is the existing room experimental feature opt-in from **`detectExperimentalRoomFeatures()`**; missing prod configuration or disabled experimental opt-in keeps Cast hidden or locally unavailable and is a release-readiness blocker before announcing Cast-ready behavior, not a room bootstrap failure; local physical Cast testing requires reachable TLS rather than ordinary **`localhost`**.

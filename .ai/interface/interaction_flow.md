@@ -205,10 +205,49 @@ The #305 refinement turns the broad authority invariant into executable lifecycl
 4. **State preservation:** Preserve chat scrollback, compose draft, selected sidebar tab, room membership, presence, participant A/V toggle state, and current room shell state. Do not enter expanded view automatically after stop.
 5. **Sibling boundary:** Receiver disconnect, Cast SDK-ended active sessions outside explicit successful stop, stop failure, blocked Cast, and retryable failure copy are handled by #278. #276 may leave hooks for those states but does not define their UX.
 
+### Friends and direct messaging
+
+Friends/DM flows require an authenticated **fan** session. Anonymous guests and signed-out visitors never enter these paths. Domain rules (**FriendshipRequest**, **Friendship**, **DmThread**, unread clear-on-view, mutual remove) live in **`business_logic/domain_model.md`**; this section owns user-visible sequence only.
+
+#### Main-site friends entry
+
+1. **Signed-out:** Person-icon friends control is **absent** from the main header. User may still use **Sign In** / **Account** as today.
+2. **Signed-in:** Person icon is visible. Activating it opens the friends dropdown (Catalog-style disclosure: keyboard open, Escape returns focus to trigger — **`accessibility.md`** / **`input_handling.md`**).
+3. **From a friend row:** Activating the friend’s name (or primary open-DM control) opens the DM panel for that peer with history sync on open.
+4. **Remove friend:** User initiates remove from the friends UX. After successful mutual teardown, that peer disappears from the accepted list and any open DM with them becomes closed/hidden (compose and history gone for **both** parties). Confirm-step presence and copy are tier-TW.
+
+#### Invite / accept lifecycle (UI)
+
+1. **Send invite:** Signed-in fan sends a friendship request to another fan (exact invite affordance placement/microcopy tier-TW). Until accept, the pair is **pending**, not an accepted friend with DM.
+2. **Inbound pending:** Recipient sees pending requests and may **accept** or **decline**.
+3. **Accept:** Durable friendship forms; both parties see each other as accepted friends and may open/send on the 1:1 DM.
+4. **Decline:** Pending clears; no friendship edge; no DM eligibility.
+5. **Outbound pending:** Sender sees the request as pending (not yet a DM-capable friend row).
+
+#### Watch-party Friends pane
+
+1. Compact room header has **no** person-icon friends control.
+2. Signed-in fan opens the right-column **Friends** surface (additive tab/panel beside **Chat** / **People** / **Room** / **Profile**). Same list, online, unread, remove, pending accept/decline, and DM open/compose behavior as the main-site flow.
+3. Public room **Chat** and private **DM** remain usable in one party session without navigating away from **`/room/:roomId`**.
+4. **People** roster flows are unchanged; Friends does not replace or merge into People.
+5. Guests: no Friends manage / DM send chrome (Friends surface omitted or non-interactive empty — no guest invite/DM path).
+
+#### DM view and unread
+
+1. Opening a friend’s DM loads durable history (sync-on-open) and shows compose while friendship is active.
+2. Incoming messages update unread on the friends list until the user **views** those messages in the DM panel; viewing clears unread for them.
+3. Stick-to-bottom / jump-to-latest behavior follows room-chat presentation patterns (**`presentation.md`**).
+4. DM plane health failures must not tear down a healthy room **ChatSession** / SFU (drawer-independent posture); honest inline status near DM compose when send/history fails (exact copy tier-TW / **`error_state.md`** when codes land).
+
+#### Expanded View / Cast
+
+1. Expanded overlay and Cast receiver omit the full sidebar tab strip. Friends manage and DM open remain available from normal room view (exit expanded) or main site — same boundary as People / Room / Profile today.
+2. Cast receiver must not expose friends manage or authenticated DM compose.
+
 ### Presence, typing, and People badges
 
 1. **Roster on join:** Client sends **`presence_request`** after room WebSocket connect; server returns **`presence`** roster (with **`lastActiveAt`** / **`active`**) and requester-only **`chat_history`** (capped durable messages — **excludes** ephemeral join/leave system lines).
-2. **Online vs active:** **Online** = row present on roster. **Active** = **`lastActiveAt`** within **2 minutes** (union of typing start, chat send, GIF post, reaction toggle, qualifying ping). **People** tab shows both badges per row.
+2. **Online vs active:** **Online** = row present on roster. **Active** = **`lastActiveAt`** within **2 minutes** (union of typing start, chat send, GIF post, reaction toggle, qualifying ping). **People** tab shows both badges per row. **Friends-list online** (any-room RoomPresence) is a separate signal documented under **Friends and direct messaging** / **`presentation.md`** — do not treat People **active** as friends online.
 3. **Qualifying actions update `lastActiveAt`:** Server persists epoch seconds on **RoomPresence** on each qualifying inbound route; rebroadcasts **`presence`** or patches roster entry so late joiners and refresh see accurate **active** state.
 4. **Typing flow (signed-in fan):** On compose input, client sends **`typing_start`** (throttled client-side; server may **`TYPING_RATE_LIMITED`** drop excess — silent, **`error_state.md`**). Remotes render ellipsis in chat. **Typing start** marks sender **active**. Clear on send, blur/stop, disconnect, or TTL.
 5. **Join/leave system lines (signed-in fans only):** On connect/disconnect of a connection with **`fanSub`**, server fans ephemeral **`chat_system`** (or equivalent) line to room WebSocket — e.g. **"DisplayName joined"** / **"DisplayName left"**. **Not** written to **RoomChat**; absent from **`chat_history`** replay. **Anonymous guests:** no line.
@@ -230,7 +269,7 @@ The #305 refinement turns the broad authority invariant into executable lifecycl
 | Admin UI delivery shape? | **Gated `/admin/*` routes** in the existing **`apps/web` SPA** (one build, one origin); not a separate admin SPA deploy target. |
 | Fan + staff sessions in one browser? | **Coexist independently**; staff sign-out clears staff tokens only. |
 | Discoverability of `/admin/login`? | **Unlisted** — bookmark/direct URL only; no public SPA links from fan surfaces. |
-| Participant AV toggle visibility across sidebar tabs? | **Always visible** above compose on **Chat**, **People**, **Room**, **Profile** when fan JWT present; **hidden** for anonymous guests. |
+| Participant AV toggle visibility across sidebar tabs? | **Always visible** above compose on **Chat**, **People**, **Room**, **Profile**, and **Friends** (when present) when fan JWT present; **hidden** for anonymous guests. |
 | Local self-preview in row/grid? | **Yes** — **You** tile when local camera on. |
 | Non-host room mode indicator? | **Layout only** — no read-only mode badge in MVP. |
 | Narrow viewport participant video? | **Horizontal scroll row** below movie/grid primary region. |
@@ -303,6 +342,14 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### catalog-sub-pages
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Normative nav, hub, subtitle, and mobile accordion rules are in **Catalog browse navigation** and **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
+
+### friends-and-direct-messaging
+- **Tab order:** Exact sidebar tab order when **Friends** is present; focus restore when opening/closing nested DM vs Friends list.
+- **Badge aggregation:** Whether unread updates also aggregate on the person-icon trigger / Friends tab, and clear timing relative to panel open vs first painted message.
+- **Remove-friend confirm:** Whether remove is immediate on activate or requires a confirm dialog; dialog title, body, and button labels when confirmation is used.
+- **GIF-in-DM v1:** Whether first DM ship includes GIF/emoji/reactions parity or text-only compose (pairs with **`presentation.md`**).
+- Invite entry placement (search vs shareable handle vs other) micro-interaction once product invite affordance is chosen in implementation.
+- Expanded View: optional compact DM entry vs always requiring exit to sidebar Friends.
 
 ## Primary code pointers (optional)
 

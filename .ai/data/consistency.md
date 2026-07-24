@@ -56,10 +56,33 @@
 | **Active** vs **online** consistency? | **Online** follows open **RoomPresence** row; **active** follows **`lastActiveAt`** within **120s** — may briefly disagree during fan-out lag (casual ordering). |
 | Typing durability? | **None** — typing fan-out has no strong consistency with **RoomPresence**; reconnect clears until new events. |
 
+## Friends and direct messaging
+
+| Property | Level |
+| --- | --- |
+| **Friendship edge** | Durable in Dynamo before clients treat the pair as friends. Accept creates the edge (and retires the pending request) as one product outcome; exact transactional bundling is tier-TW. |
+| **FriendshipRequest** | Durable pending state; accept/decline/cancel are authoritative server writes. Duplicate open requests for the same pair are rejected or coalesced (policy tier-TW). |
+| **Remove-friend** | Mutual teardown is immediate for both parties' friendship view. DM compose/history access closes for **both** in the same outcome (hide/close). Soft vs hard delete of message bodies does not change the access rule. |
+| **DM delivery / history** | **Casual / last-write-wins** ordering acceptable for MVP (room-chat precedent). History is account-lifetime durable; reconnect and open-thread sync may replay from Dynamo (unlike drawer-only room chat client buffer language). |
+| **DmUnread** | Server-authoritative per recipient; clear-on-view is a durable write. Concurrent clears coalesce to the newest watermark (LWW acceptable). |
+| **Friends online** | **Eventually consistent** with **RoomPresence** connect/disconnect and TTL cleanup. Brief lag or false online/offline around disconnect is acceptable; not a strongly consistent presence ledger. |
+
+## Decisions (answered — friends and direct messaging)
+
+| Question | Decision |
+| --- | --- |
+| DM consistency posture? | **Casual / LWW** for delivery and unread clear — MVP-acceptable. |
+| Remove-friend visibility? | Both parties lose friendship and DM access together; no one-sided lingering read/compose. |
+| Friends online vs RoomPresence? | Derived signal; may lag roster reality; no durable last-seen clock to reconcile. |
+
 ## Open implementation decisions
 
 - Whether **`lastActiveAt`** updates use unconditional **`UpdateItem`** or conditional max-timestamp write to reduce clock-skew regressions.
 - Cross-tab **`fanSub`** badge consistency when one tab disconnects while another remains **active** — roster shows multiple **RoomPresence** rows per fan today; **active** is per-row unless product merges (tier TW).
+- Accept-friendship write shape: single **TransactWrite** (delete/update request + put edge [+ ensure thread]) vs ordered multi-step with idempotency keys.
+- Remove-friend write shape: edge delete + thread access close (and optional message tombstone/purge) atomicity and retry semantics.
+- Unread watermark concurrency when both devices view the same thread (conditional update vs blind LWW).
+- Online derivation freshness: strongly consistent **RoomPresence** query vs eventual; stale-online window after disconnect before TTL/row delete.
 
 ## Primary code pointers (optional)
 

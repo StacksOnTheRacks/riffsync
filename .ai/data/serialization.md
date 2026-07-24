@@ -38,10 +38,15 @@ HMAC JWT payload today: **`env`**, **`roomId`**, **`sessionId`**, **`role`** (**
 | **`avDisabled`** validation? | Boolean only; invalid type → **`400`**. |
 | Shared TypeScript types (#109)? | Extend **`apps/web/src/api/roomsApi.ts`** **`RoomSnapshot`**, **`RoomPatchResult`**, and **`patchRoom()`** patch parameter inline with Lambda response shapes; no generated OpenAPI in MVP. |
 
+## Friends and DM (wire posture)
+
+Friends list, pending requests, DM history, and unread badges use **JSON** over the existing fan-gated HTTP (and optional WebSocket push) channels. Attribute and JSON field names follow camelCase precedent (**`fanSub`**, **`displayName`**, **`avatarUrl`**, **`messageId`**). Exact route envelopes and realtime **`type`** strings belong to **`integration/api_contracts.md`**; this domain only requires that serialized friend rows can carry online derivation and unread signals without implying durable last-seen fields.
+
 ## Open implementation decisions
 
 - WebSocket **`type`** string values and payload shapes for **`roomMode`** / **`avDisabled`** fan-out — **`integration/api_contracts.md`** (#103).
 - SFU **`listProducerSummaries`** JSON field names for participant identity — **#102** / layout runtime (#104/#105).
+- Friends/DM HTTP and WS envelope field names (request id, thread id, unread watermark, online boolean) — settle with integration; keep camelCase and avoid inventing last-seen timestamps on the wire for friends online.
 
 ## Primary code pointers (optional)
 

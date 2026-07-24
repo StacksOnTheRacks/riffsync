@@ -54,11 +54,26 @@ Cast status codes must not appear in chat drawer status, video-relay status, roo
 
 Issue #279 verifies the full local status taxonomy above across availability, start, active, stop, failure, disconnect, blocked playback, cleanup completion, room leave, navigation, and reload paths. Coverage must assert correct user-facing copy surface, stale status removal, retryability where contracted, and absence of Cast codes from room drawer health, room alerts, chat messages, WebSocket fan-out, and other participants' UI.
 
+## Friends and direct messaging
+
+| State | UX |
+| --- | --- |
+| **Signed out / guest on friends entry** | Main-site person-icon friends affordance **hidden**. Room Friends chrome absent or non-interactive for guests. No silent upgrade to DM send. |
+| **Friendship request pending** | Requester and recipient see pending state; DM open/send remains unavailable until accept creates an active **Friendship**. |
+| **Friendship request declined** | Request ends; no durable edge; honest decline/ended copy for the requester where shown; no DM eligibility. |
+| **DM denied — not friends** | Structured deny when opening or sending without an active **Friendship**; compose stays closed. |
+| **Friend removed (mutual)** | Both parties lose friendship immediately. Existing DM thread closed/hidden for both: no compose, no history. Friends list updates without requiring the other party to act. |
+| **Re-friend after remove** | New edge may form via invite/accept; prior DM history remains inaccessible by default (empty or closed thread UX, not restored scrollback). |
+| **Unread DMs** | Friends list shows unread activity; viewing those messages clears unread for them. Failure to clear is recoverable (badge may persist until next successful view). |
+| **Friends online unavailable** | If room-presence aggregation cannot be resolved, show offline/unknown rather than inventing last-seen; do not block friends list or DM history load. |
+| **Friends/DM load or send failure** | Inline recoverable error on the friends/DM surface only. Healthy room chat and SFU drawers continue. |
+| **Rate limited friend invite or DM send** | Recoverable wait/retry copy; local compose may disable send briefly. |
+
 ## Auth — fan
 
 | State | UX |
 | --- | --- |
-| **Facebook / Cognito down (fan pool)** | Degrade to **anonymous** for non-host paths where policy allows; **Sign in to host** unavailable until fan IdP recovers. **Staff admin paths unaffected** by fan IdP recovery logic (separate pool). |
+| **Facebook / Cognito down (fan pool)** | Degrade to **anonymous** for non-host paths where policy allows; **Sign in to host** unavailable until fan IdP recovers. **Staff admin paths unaffected** by fan IdP recovery logic (separate pool). Friends/DM manage and send unavailable until fan IdP recovers. |
 
 ## Auth — staff (operator)
 
@@ -181,6 +196,11 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### chromecast-local-errors
 - No open implementation decisions remain for M25 Cast error/status verification. See **Local Cast status taxonomy** and **Cast status verification (#279)** above.
+
+### friends-and-direct-messaging
+- Exact user-facing copy templates and stable **`code`** values for not-friends, pending-only, declined, thread-closed-after-remove, invite rate limit, and DM send/sync failure.
+- Whether remove-friend success uses a transient status, toast, or silent list update for the remover and the removed party.
+- Offline vs unknown presentation when friends-list online signal cannot be derived.
 
 ## Primary code pointers (optional)
 

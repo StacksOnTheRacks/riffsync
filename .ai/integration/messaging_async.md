@@ -14,7 +14,8 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 ## Realtime fan-out (WebSocket)
 
 - Not "async messaging" in the Kafka sense: **Lambda** completes **`PostToConnection`** after **Dynamo** write on **chat / durability-required paths** as implemented. **Mesh WebRTC signaling relay is removed** — SFU signaling is direct to **`RiffSyncTurn`** EC2.
-- **Bounded chat retention:** **`chat`**, **`chat_gif`**, and active **`react`** rows write to **RoomChat** before fan-out. **`presence_request`** also posts requester-only **`chat_history`** (capped messages + aggregated reactions) while broadcasting **`presence`**. **Typing** (**`typing_start`** / **`typing_stop`**) and join/leave **`chat_system`** lines fan out **without** **RoomChat** writes — ephemeral control-plane only.
+- **Bounded chat retention (room plane):** **`chat`**, **`chat_gif`**, and active **`react`** rows write to **RoomChat** before fan-out. **`presence_request`** also posts requester-only **`chat_history`** (capped messages + aggregated reactions) while broadcasting **`presence`**. **Typing** (**`typing_start`** / **`typing_stop`**) and join/leave **`chat_system`** lines fan out **without** **RoomChat** writes — ephemeral control-plane only.
+- **1:1 DM (social plane):** Durable DM messages use the same **write-then-fan-out** class (persist, then push to connected peer(s)). Clients also **sync history on open**. Retention is **account-lifetime** (distinct from TTL-bounded **RoomChat**; data domain owns store shape). DM traffic is **not** stored in **RoomChat** and is **not** room-scoped fan-out by **`roomId`**. **`ChatSession`** remains the room chat/presence/control module; DM realtime must not silently share that **`roomId`** channel without an explicit shared-topology note (**`api_contracts.md`**).
 - **Presence active rehydration:** qualifying inbound routes (**`typing_start`**, **`chat`**, **`chat_gif`**, **`react`**, **`ping`** inside the active window) update **`lastActiveAt`** on the sender's **RoomPresence** row **before** **`presence`** fan-out so late joiners and **`presence_request`** see accurate **`active`** badges after reconnect.
 - **Typing fan-out:** **`typing_start`** broadcasts a room-wide **`typing`** envelope (who is composing); **`typing_stop`** clears that sender's typing flag. Multiple concurrent typers are allowed. Typing state is **not** stored in Dynamo — reconnect clears local typing UI until a new **`typing_start`** arrives.
 - **Join/leave fan-out:** on **RoomPresence** row create/delete for connections with **`fanSub`**, emit ephemeral **`chat_system`** (**`join`** \| **`leave`**) to room members. Guest connections (no **`fanSub`**) produce **no** join/leave line.
@@ -42,6 +43,11 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 | Chat outbound retry before **`CHAT_SEND_DROPPED`**? | **No retry queue** — first failed send while chat plane unavailable emits **`CHAT_SEND_DROPPED`** (**#140** / **`api_contracts.md`**). |
 | Cast fan-out? | **No.** Cast is local client state and never posted to room members. #277 verifies this across start, active, stop, failure, disconnect, and cleanup paths. |
 | Cast fan-out verification for #279? | Lifecycle and cleanup tests must assert no room message, durable event, late-join replay, **`share_state`** variant, presence update, drawer status update, or SFU permission message is produced by local Cast paths. |
+| DM delivery class? | **History sync on open** + **realtime push while connected**; serverless **write-then-fan-out** (persist then fan-out). No new SQS / process fabric as baseline. |
+| DM vs RoomChat messaging? | **Separate** logical plane and store; DMs are not **RoomChat** rows and not room-wide **`roomId`** broadcasts. |
+| DM vs **`ChatSession`**? | Room **`ChatSession`** unchanged; DM uses a distinct social/DM plane (exact WS vs HTTP topology open). |
+| Friends online signal? | Derived from existing **RoomPresence** (open presence in **any** room) — query/derive across rooms; not a new browsing-presence bus and not SFU. |
+| SQS for DM fan-out? | **Not** baseline — same direct Lambda **`PostToConnection`** (or equivalent push) class as room chat unless later cost forces a queue. |
 
 ## Decisions (answered — presence and AV maturity)
 
@@ -66,6 +72,13 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 ## Open implementation decisions
 
 - Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
+
+### friends-and-dm-delivery-topology
+- Exact DM realtime transport: new WebSocket application routes, fan-scoped connection map (not **`roomId`**-keyed), HTTP sync with optional push, or hybrid sharing infrastructure with room WS **only if** documented explicitly.
+- Outbound/inbound DM envelope **`type`** / **`schemaVersion`** discriminators and history-page cursor shapes.
+- Whether unread-clear acknowledgment is HTTP-only or also pushed to the viewer’s other sessions.
+- DM send failure client **`code`** when push plane unavailable (analogue of **`CHAT_SEND_DROPPED`**); retry budget remains **no outbound retry queue** unless a later decision changes room-chat precedent.
+- Cross-room **RoomPresence** query pattern for friends online (GSI vs fan-out index vs scan-by-sub) — physical access pattern with data/IaC; messaging only requires derive-from-presence semantics.
 
 ## Kill-switch side-effect ordering (#102 / #103 split)
 

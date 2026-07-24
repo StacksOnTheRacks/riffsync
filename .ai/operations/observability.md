@@ -40,6 +40,20 @@ Watch-party reliability spans **orthogonal drawers**. Telemetry and structured l
 | **`RiffSync/Realtime`** | **`chat`**, **`chat_gif`**, **`react`**, **`typing_start`**, **`typing_stop`**, **`presence_request`**, **`ping`** | EMF via Lambda **stdout**; dimensions **`Environment`**, **`Route`**, **`Outcome`** only. Chat drawer only — **not** SFU signaling. **`presence_request`** and **`ping`** include **`Outcome`** for roster rehydration and **active** **`lastActiveAt`** write success — no per-member cardinality. |
 | **`RiffSync/Api`** | **`GiphySearch`**, **`FanAvatarUpload`** | Same dimension set; no raw chat text or upload bytes in **INFO** logs (**`security.md`**). |
 
+## Friends and direct messaging
+
+Friends list, friend-request lifecycle, and 1:1 DMs are a **separate product surface** from the room **chat** drawer. Telemetry must not collapse DM/friends health into **`drawer: chat`** or room **`RiffSync/Realtime`** route vocabulary.
+
+| Concern | Contract |
+| --- | --- |
+| **Namespace / routes** | Aggregate product metrics under the existing **`RiffSync/Api`** (and, if a realtime plane is chosen, a dedicated low-cardinality route set). Exact metric names, namespaces, and **`Route`** / **`Signal`** strings are TW. |
+| **Dimensions** | **`Environment`**, low-cardinality **`Route`** / **`Outcome`** (or **`Signal`**) only. **No** **`fanSub`**, peer id, thread id, or friendship-request id dimensions. |
+| **Log hygiene** | Structured JSON may record route outcome and denial **`code`** / **`reason`**. Do **not** log raw DM bodies, RoomChat bodies, GIF URLs, or identity-rich friend graphs at **INFO** (**`security.md`**). |
+| **Drawer vocabulary** | Do **not** emit friends/DM lifecycle as **`drawer: chat`**, **`signaling`**, **`connectivity`**, or **`produce_consume`**. Those labels remain room WebSocket / SFU planes. Optional client diagnostic events for DM panel connect/send-drop (if any) use a distinct product label and the same forbidden-identity rules as **`clientDrawerLog`**. |
+| **Friends online** | Online is room-derived (**RoomPresence**). Emit only aggregate success/throttle counters for friends-online resolution if needed. Do **not** metricize last-seen or per-friend presence cardinality. |
+| **Abuse signals** | Throttle denials for friend-request and DM send are first-class aggregate counters (names TW), same OSS best-effort alerting posture as chat/API today. |
+| **Alerting** | Optional maintainer SNS email on sustained friends/DM 5xx or throttle spikes. **No** new on-call SLA. |
+
 ## Presence and typing metrics (control plane)
 
 Low-cardinality product signals for **active** engagement and typing — same OSS posture as chat routes.
@@ -105,9 +119,10 @@ Participant AV increases silent degradation risk on the **singleton** mediasoup 
 
 ## Anti-patterns
 
-- High-cardinality dimensions (**`roomId`**, **`sessionId`**, **`userId`**, **`giphyId`**, **`sub`**) on **PutMetricData** or EMF dimensions.
-- Logging message **`text`**, GIF rendition URLs, or multipart avatar bytes at **INFO** in production.
-- Relying on **admin HTTP** as the only reporting path for core KPIs.
+- High-cardinality dimensions (**`roomId`**, **`sessionId`**, **`userId`**, **`giphyId`**, **`sub`**, DM thread id, peer id) on **PutMetricData** or EMF dimensions.
+- Logging message **`text`** (RoomChat or DM), GIF rendition URLs, or multipart avatar bytes at **INFO** in production.
+- Collapsing friends/DM route health into room **`drawer: chat`** / **`RiffSync/Realtime`** chat routes.
+- Relying on **admin HTTP** as the only reporting path for core KPIs (and never using admin HTTP to read DM bodies for "support metrics").
 - Per-room or per-session SFU telemetry that would explode CloudWatch cost at party scale.
 
 ## `RiffSync/Media` metrics (#106)
@@ -269,6 +284,12 @@ Session modules (**`ChatSession`**, **`SfuMediaSession`**, **`TheaterPlayback`**
 
 - **Health probe scrape Lambda** — Periodic **`/healthz`** scrape emitting **`HealthProbeSuccess`** / gauge metrics — deferred past M21 (cost and IAM guardrails).
 - **Optional aggregate client counters** — **`IceGatheringFailed`**, **`ProducerLifecycleEvent`**, **`ChatSendDropped`** — design only in runbook until a server-side aggregation path exists (no browser **`PutMetricData`**).
+
+### friends-and-direct-messaging
+- Concrete **CloudWatch / EMF metric names**, namespaces, and dimension sets for friends/DM HTTP (and any realtime) routes. Mirror **`RiffSync/Api`** / **`RiffSync/Realtime`** patterns; keep identity and thread ids out of dimensions.
+- Alarm / budget thresholds for DM send volume and friend-request / DM throttle denials (best-effort maintainer alerts; no new on-call SLA).
+- Client diagnostic event names for DM panel connect/send-drop (if any), redaction rules, and forbidden keys (`sub`, peer ids, thread ids) in production console logs.
+- Whether friends-online resolution emits a dedicated aggregate counter or rides existing presence rehydration metrics without new cardinality.
 
 ### chromecast-local-observability
 - No open decisions remain for #304 receiver render confirmation timeout evidence. Tests and optional dev-only console output may record privacy-safe local Cast controller events such as **`receiver_render_confirmed`**, **`receiver_render_timeout`**, and **`receiver_render_invalid`** without receiver device names, receiver identifiers, room ids, session ids, fan subs, Cast provider error codes, or CloudWatch emission. Receiver loss after active Cast, blocked playback, and stop failure remain with later lifecycle issues.

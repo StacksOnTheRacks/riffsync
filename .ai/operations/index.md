@@ -6,6 +6,8 @@ Participant camera/microphone in watch-party rooms extends the existing **`RiffS
 
 Public site discoverability (**`robots.txt`**, **`sitemap.xml`**, build-time prerender, canonical hostname alignment) extends the existing **`apps/web`** → **`RiffSyncStatic-prod`** static build/publish pipeline; **no** new deployment tier, edge compute surface, or hosted staging footprint. Catalog subcategory routes (**`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-material`**, **`/catalog/movie-night`**) and the **`/download`** app install instructions page join the same indexable sitemap/prerender set as hub **`/catalog`** (**ten** static routes total); see **`build_packaging.md`**.
 
+Friends and 1:1 DMs ship on the same **prod-only** footprint with **no** new environment tier. Security distinguishes **RoomChat** (bounded TTL, do not log bodies) from **DM** (account-lifetime private, do not log bodies, no staff DM read path); observability keeps friends/DM metrics off the room chat drawer vocabulary. See **`security.md`** and **`observability.md`**.
+
 - Child contracts: **`build_packaging.md`**, **`deployment_environments.md`**, **`observability.md`**, **`security.md`**.
 
 ## Scope
