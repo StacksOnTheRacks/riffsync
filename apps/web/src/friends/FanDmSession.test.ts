@@ -7,6 +7,7 @@ class MockWebSocket {
   static OPEN = 1
   static CLOSED = 3
 
+  url: string
   readyState = MockWebSocket.CONNECTING
   onopen: (() => void) | null = null
   onmessage: ((event: { data: string }) => void) | null = null
@@ -14,7 +15,8 @@ class MockWebSocket {
   onclose: (() => void) | null = null
   sent: string[] = []
 
-  constructor(readonly url: string) {
+  constructor(url: string) {
+    this.url = url
     MockWebSocket.instances.push(this)
     queueMicrotask(() => {
       this.readyState = MockWebSocket.OPEN
