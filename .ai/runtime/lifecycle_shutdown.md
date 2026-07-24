@@ -117,7 +117,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### friends-dm-lifecycle
 - Whether friends online updates on the main site use push, poll/snapshot refresh, or hybrid after a peer’s room `$disconnect` (integration wire; runtime requires eventual consistency with **RoomPresence** truth, not a new presence process).
-- Client cleanup order when leaving a room while a DM panel is open in the room Friends pane (preserve compose draft locally or discard — UX TW; must not close SFU/chat).
+- **Leave room with open nested DM (#364):** Preserve in-progress compose text in **`FanDmSession`** in-memory state for the browser session. **`RoomPage`** teardown / **Leave Party** must **not** close SFU or **`ChatSession`** because Friends/DM is active. Draft is **not** written to **`localStorage`**; full page reload clears unsent compose.
 - Account-closure DM purge Scheduler/Lambda naming and batch continuation tokens when that job is scheduled.
 
 ### chromecast-lifecycle-shutdown

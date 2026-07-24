@@ -126,10 +126,16 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Focus after hub/dropdown navigation is browser default (see **Public catalog browse** above). Search/sort keyboard reachability on subcategory routes is settled in **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
 
 ### friends-and-direct-messaging
-- No open decisions remain for #363 main-site friends dropdown keyboard baseline (Catalog disclosure + DM overlay Escape). People roster context menu keyboard path is specified in **People roster invite (#377)** above. Room Friends tab focus — **#364**.
-- Tab order among Chat / People / Room / Profile / Friends; focus target when opening a nested DM panel vs in-column replace.
-- Remove-friend confirm dialog focus order and initial focus target (when confirmation is used).
-- Whether GIF/emoji picker keyboard paths ship in DM compose v1 (pairs with presentation GIF-in-DM open decision).
+- No open decisions remain for #363 main-site friends dropdown keyboard baseline (Catalog disclosure + DM overlay Escape). People roster context menu keyboard path is specified in **People roster invite (#377)** above.
+
+#### Room Friends pane keyboard (#364)
+
+- **Friends tab** is a standard sidebar tab button in the tab strip; **Enter** / **Space** activate like **Chat** / **People**.
+- **Friends list:** Rows and pending actions are keyboard-reachable in document order. **Open DM** on a friend row opens the nested thread view.
+- **Nested DM thread:** **Back to friends** is the first focusable control in the thread header; activating it returns to the list and restores focus to the friend row that opened the thread.
+- **DM compose:** Same keyboard posture as room chat compose (Enter to send when enabled; no emoji/GIF picker in DM v1).
+- **Remove-friend confirm:** Initial focus on **Cancel**; **Tab** cycles **Cancel** → **Remove friend** (destructive); **Escape** dismisses without remove (same pattern as other room confirm dialogs).
+- **Expanded overlay:** No Friends keyboard path in expanded mode — exit expanded first.
 
 ## Primary code pointers (optional)
 

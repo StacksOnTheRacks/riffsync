@@ -506,7 +506,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 
 ### friends-dm-runtime
 - **Main-site bootstrap (#363):** On first open of the signed-in friends dropdown, start **`FanDmSession`** (Fan DM WebSocket) and fetch **`GET /v1/friends`** + **`GET /v1/friends/requests`**. Re-fetch on dropdown reopen and on inbound **`dm_message`** / **`dm_unread`** push. Failures surface inline on the dropdown only — **must not** block catalog routes or mint **`sessionId`**.
-- Room shell: when Friends tab mounts presence/DM listeners relative to **`ChatSession`** **`connected`**; reconnect isolation; whether friends/DM diagnostics appear in or stay out of **`RoomRealtimeSdk.getDiagnostics()`** — **#364**.
+- **Room Friends bootstrap (#364):** On **first activation** of the **Friends** sidebar tab, start or attach the same **`FanDmSession`** (reuse an already-open session from main site when present). Fetch friends + pending lists; re-fetch on tab re-select and push events. Failures surface inline on the Friends panel only — **must not** block **`ChatSession`**, SFU, or room tab navigation. Bootstrap is **independent** of **`ChatSession`** **`connected`** state.
+- **Diagnostics (#364):** Friends/DM connection health stays **outside** **`RoomRealtimeSdk.getDiagnostics()`** — use **`FanDmSession`**-local state for friends/DM drawer copy only.
 - If account-closure DM purge ships: Scheduler rule group, Lambda entrypoint naming, and batch sizing (not retention length itself).
 
 ### existing-realtime-harness
