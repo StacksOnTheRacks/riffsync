@@ -112,7 +112,7 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 | **Not** | Platform-wide browsing presence, last-seen timestamp product, same-room-only, or People **active** engagement. Room **People** **online** vs **active** semantics inside a room are **unchanged**. |
 | **Derivation** | For each peer **`fanSub`**, query sparse **RoomPresence** GSI (**PK `fanSub`**, **SK `roomId#presenceKey`**) with **`Limit: 1`**. Any item ⇒ **`online: true`**. OR across rooms and tabs. |
 | **Disconnect** | Rows delete on **`$disconnect`**; TTL **`expiresAt`** is orphan cleanup. GSI reads are eventually consistent. |
-| **Wire (GET /v1/friends entry)** | **`fanSub`**, **`pairKey`**, **`displayName`**, optional **`avatarUrl`**, **`online`** (boolean), **`createdAt`** (epoch ms). No **`active`**, **`lastActiveAt`**, or **`roomId`**. |
+| **Wire (GET /v1/friends entry)** | **`fanSub`**, **`pairKey`**, **`displayName`**, optional **`avatarUrl`**, **`online`** (boolean), **`hasUnread`** (boolean — #361), **`createdAt`** (epoch ms). No **`active`**, **`lastActiveAt`**, or **`roomId`**. |
 | **Display** | **`displayName`** / **`avatarUrl`** from **FanProfiles**; **`displayName`** fallback **`"Friend"`** when profile missing or empty. |
 | **Sort** | Case-insensitive **`displayName`**, then lexicographic **`pairKey`**. |
 | **Main site** | Viewer does **not** need to join a room to load the list. No SFU signal. |
@@ -121,7 +121,7 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 
 | Step | Contract |
 | --- | --- |
-| **List** | **`GET /v1/friends`**. Fan JWT required. **`200`** body **`{ "friends": [ { "fanSub", "pairKey", "displayName", "avatarUrl"?, "online", "createdAt" } ] }`**. Pending requests excluded. |
+| **List** | **`GET /v1/friends`**. Fan JWT required. **`200`** body **`{ "friends": [ { "fanSub", "pairKey", "displayName", "avatarUrl"?, "online", "hasUnread", "createdAt" } ], "anyUnread": boolean }`**. Pending requests excluded. **`anyUnread`** is **`true`** when any friend entry has **`hasUnread: true`** (#361). |
 | **Auth** | **`401 fan_auth_required`** without valid fan JWT. Guests and staff tokens denied. |
 | **Rate limit** | **60**/min per caller **`fanSub`**; **`429 rate_limited`**. |
 
@@ -199,6 +199,24 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 | **`dm_thread_not_found`** | **404** | No **DmThread** row — client should **`PUT`** ensure first (#359). |
 | **`rate_limited`** | **429** | Send throttle exceeded (**20/min** per **`fanSub`**). |
 
+### DM mark read (#361)
+
+| Route | Auth | Contract |
+| --- | --- | --- |
+| **`POST /v1/dm/threads/{pairKey}/read`** | Fan JWT | Advance recipient read cursor for **`pairKey`**. Caller must be a member of **`pairKey`**. Body **`{ "lastReadSentAt": number, "lastReadMessageId": string }`** references the newest **DirectMessage** the viewer has **viewed** (not merely loaded off-screen). Server applies **monotonic max** — ignores stale cursors from concurrent tabs. **`200`** **`{ "pairKey", "lastReadSentAt", "lastReadMessageId", "hasUnread" }`**. Requires active **Friendship** and open **DmThread**. Throttle counts toward **60/min** combined DM read bucket with ensure + history (#359). |
+
+### DM mark read deny codes (#361)
+
+| **`code`** | HTTP | When |
+| --- | --- | --- |
+| **`fan_auth_required`** | **401** | Missing/invalid fan JWT. |
+| **`invalid_read_cursor`** | **400** | Missing/invalid **`lastReadSentAt`** or **`lastReadMessageId`**. |
+| **`dm_not_member`** | **403** | Caller **`sub`** not in path **`pairKey`**. |
+| **`friendship_not_active`** | **403** | No active **Friendship** (includes after remove). |
+| **`dm_thread_closed`** | **403** | **DmThread** **`status: closed`**. |
+| **`dm_thread_not_found`** | **404** | No **DmThread** row. |
+| **`rate_limited`** | **429** | Throttle exceeded. |
+
 ### Fan DM WebSocket (push plane #360)
 
 | Item | Contract |
@@ -206,7 +224,7 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 | **API** | **Separate** API Gateway WebSocket from room **ChatSession** WS. Same deployment **class** (Lambda + **`PostToConnection`**), **distinct** API id, handlers, and **`FanConnections`** store. |
 | **`$connect`** | Fan JWT required (**query `accessToken`** or **`Authorization`**). Writes **`FanConnections`** row: PK **`connectionId`**, **`fanSub`**, **`connectedAt`**, optional browser **`sessionId`**. **No** **`roomId`**. |
 | **Routes** | **`$connect`**, **`$disconnect`**, **`ping`** only. **No** inbound DM send route — send is HTTP **`POST`**. |
-| **Outbound push** | **`type: dm_message`**, **`schemaVersion: 1`**, fields per **`messaging_async.md`**. Delivered only to connections whose stored **`fanSub`** equals the **recipient** (the non-sender participant). **Never** room-wide **`roomId`** broadcast. |
+| **Outbound push** | **`type: dm_message`**, **`schemaVersion: 1`**, fields per **`messaging_async.md`**. Delivered only to connections whose stored **`fanSub`** equals the **recipient** (the non-sender participant). **Never** room-wide **`roomId`** broadcast. After **`POST .../read`**, **best-effort** **`type: dm_unread`**, **`schemaVersion: 1`**, to the **same recipient's** other **FanConnections** (#361). |
 | **Failure** | **`PostToConnection`** errors: log + metric; **no** retry queue. Persisted message available via history **GET**. |
 
 ### DM plane vs room `ChatSession`
@@ -218,7 +236,7 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 
 **Delivery class:** durable DM write via **`POST /v1/dm/threads/{pairKey}/messages`**, then fan-out to peer **`fanSub`** **`FanConnections`** over the **Fan DM WebSocket** API (**`type: dm_message`**, **`schemaVersion: 1`**). Clients also **sync history on open** via **`GET /v1/dm/threads/{pairKey}/messages`** (#359). **Does not** use room **`Connections`** or **`roomId`** broadcast (#360).
 
-**Unread:** server-authoritative per recipient; clears when the viewer **views** those messages. Badge aggregation (per-friend vs aggregate) wire shape is open (**#361**).
+**Unread:** server-authoritative per recipient; **`hasUnread`** per friend on **`GET /v1/friends`**; clears via **`POST /v1/dm/threads/{pairKey}/read`** when the viewer **views** messages (#361). Badge chrome (dot vs count, header aggregate) is **M36** presentation.
 
 **Surfaces:** main-site person-icon friends flow and watch-party Friends pane share the same fan-gated APIs.
 
@@ -242,7 +260,7 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 | **Friend-request accept / decline / cancel** | **30** combined actions per **minute** per **`fanSub`**. |
 | **Remove friend** | **30** **`DELETE /v1/friends/{pairKey}`** per **minute** per **`fanSub`**. |
 | **Friends list read** | **60** **`GET /v1/friends`** per **minute** per **`fanSub`**. |
-| **DM thread ensure + history read** | **60** combined **`PUT /v1/dm/threads/{peerSub}`** + **`GET .../messages`** per **minute** per **`fanSub`** (#359). |
+| **DM thread ensure + history read + mark read** | **60** combined **`PUT /v1/dm/threads/{peerSub}`** + **`GET .../messages`** + **`POST .../read`** per **minute** per **`fanSub`** (#359 / #361). |
 | **DM send** | **20** **`POST /v1/dm/threads/{pairKey}/messages`** per **minute** per **`fanSub`** (#360). |
 | **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
 | **WebSocket** | Subject to **API Gateway** account/service quotas; design for **≤50 concurrent connections per room** under normal use (matches participant cap). |
@@ -529,8 +547,18 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 
 ### friends-and-direct-messaging (paths, envelopes, codes)
 
-- Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape — **#361**.
-- IaC / env names for DM unread table or co-located unread items — **#361** ( **`DM_THREADS_TABLE_NAME`** / **`DIRECT_MESSAGES_TABLE_NAME`** decided #359; **`FAN_CONNECTIONS_TABLE_NAME`** / Fan DM WS API decided #360).
+- IaC / env names for DM unread table — **`DM_UNREAD_TABLE_NAME`** (#361). (**`DM_THREADS_TABLE_NAME`** / **`DIRECT_MESSAGES_TABLE_NAME`** decided #359; **`FAN_CONNECTIONS_TABLE_NAME`** / Fan DM WS API decided #360.)
+
+## Decisions (answered — DM unread watermark #361)
+
+| Topic | Decision |
+| --- | --- |
+| **Mark read route** | **`POST /v1/dm/threads/{pairKey}/read`** with **`{ lastReadSentAt, lastReadMessageId }`**. Monotonic max cursor. |
+| **Clear trigger** | **View-based** — history **GET** does not auto-clear. Client sends read POST when user views messages. |
+| **Friends list wire** | Per-friend **`hasUnread`** + response **`anyUnread`**. No numeric count in #361. |
+| **Inbound unread set** | Send handler sets recipient **`hasUnread: true`** after persist (#360 integration). |
+| **Cross-session push** | **`dm_unread`** envelope to recipient's other **FanConnections** after read write (best-effort). |
+| **Deny code** | **`invalid_read_cursor`** (**400**) for malformed read body. |
 
 ## Decisions (answered — M22 presence routes)
 
