@@ -148,6 +148,8 @@ export type PresenceBroadcastMember = {
   active: boolean;
   /** Epoch seconds — max across tabs sharing `sessionId`; omitted when never engaged. */
   lastActiveAt?: number;
+  /** Cognito sub for signed-in fan connections only; omitted for anonymous guests. */
+  fanSub?: string;
   /** Server-trusted FanProfiles HTTPS URL; omitted when the fan has no avatar. */
   avatarUrl?: string;
 };
@@ -280,6 +282,9 @@ export function rosterFromConnectionItems(
     const member: PresenceBroadcastMember = { sessionId, displayName, isHost, active };
     if (lastActiveAt !== undefined) {
       member.lastActiveAt = lastActiveAt;
+    }
+    if (fanSub) {
+      member.fanSub = fanSub;
     }
     return member;
   });

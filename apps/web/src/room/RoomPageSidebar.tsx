@@ -15,8 +15,9 @@ import { formatChatSystemText } from './chatSystemLine'
 import { resolveMemberAvatarUrl } from './roomPageTypes'
 import type { ParticipantProducerSnapshot } from './participantProducerRegistry'
 import { EMPTY_PARTICIPANT_PRODUCER_SNAPSHOT } from './participantProducerRegistry'
-import { PeopleRowAvIndicators } from './PeopleRowAvIndicators'
+import { PeopleRosterRow } from './PeopleRosterRow'
 import { peopleRowSpeakingClass, shouldShowPeopleAvIndicators } from './peoplePresentation'
+import { usePeopleRosterFriends } from './usePeopleRosterFriends'
 import type { GiphySearchResult } from '../api/giphySearchApi'
 import {
   RIFFSYNC_CHAT_COMPOSE_STATUS_ID,
@@ -145,6 +146,8 @@ export function RoomPageSidebar({
   onCastToTvClick,
   castToTvButtonRef,
 }: RoomPageSidebarProps) {
+  const peopleFriends = usePeopleRosterFriends(fanToken, activeSidebarTab)
+
   const chatPlane = (
     <section
       className={`riffsync-room-page__chat${presentation === 'overlay' ? ' riffsync-room-page__chat--overlay' : ''}`}
@@ -322,42 +325,25 @@ export function RoomPageSidebar({
                   sessionId,
                   fanToken,
                 )
+                const rowClassName = `riffsync-room-page__people-row${p.isHost ? ' riffsync-room-page__people-row--host' : ''}${peopleRowSpeakingClass(speaking)}`
                 return (
-                  <li
+                  <PeopleRosterRow
                     key={p.sessionId}
-                    className={`riffsync-room-page__people-row${p.isHost ? ' riffsync-room-page__people-row--host' : ''}${peopleRowSpeakingClass(speaking)}`}
-                  >
-                    <span className="riffsync-room-page__person-label">
-                      <FanAvatarThumb displayName={p.displayName} avatarUrl={peopleAvatarUrl} />
-                      <span className="riffsync-room-page__person-name">
-                        {p.isHost ? (
-                          <>
-                            <strong>{p.displayName}</strong>
-                            <span className="riffsync-room-page__host-badge" aria-label="Host">
-                              Host
-                            </span>
-                          </>
-                        ) : (
-                          p.displayName
-                        )}
-                        {p.sessionId === sessionId ? <span className="riffsync-muted"> · you</span> : null}
-                        {p.active ? (
-                          <span className="riffsync-room-page__active-badge" aria-label="Active">
-                            <span className="riffsync-room-page__active-dot" aria-hidden="true" />
-                            Active
-                          </span>
-                        ) : null}
-                        {speaking ? (
-                          <span className="riffsync-room-page__speaking-badge" aria-hidden="true">
-                            Speaking
-                          </span>
-                        ) : null}
-                      </span>
-                      {showAvIndicators ? (
-                        <PeopleRowAvIndicators snapshot={producerSnapshot} speaking={speaking} />
-                      ) : null}
-                    </span>
-                  </li>
+                    member={p}
+                    sessionId={sessionId}
+                    peopleAvatarUrl={peopleAvatarUrl}
+                    producerSnapshot={producerSnapshot}
+                    speaking={speaking}
+                    showAvIndicators={showAvIndicators}
+                    rowClassName={rowClassName}
+                    myFanSub={peopleFriends.myFanSub}
+                    snapshot={peopleFriends.snapshot}
+                    statusMessage={
+                      p.fanSub ? (peopleFriends.statusByFanSub[p.fanSub] ?? null) : null
+                    }
+                    onInvitePeer={peopleFriends.invitePeer}
+                    onCancelPeerRequest={peopleFriends.cancelPeerRequest}
+                  />
                 )
               })}
             </ul>
