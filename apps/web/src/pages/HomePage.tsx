@@ -26,7 +26,7 @@ function HomePageDocumentHeading() {
  * when **`VITE_PUBLIC_API_BASE_URL`** is set.
  * In **`vite dev`** without that var, all load from **`data/catalog/episodes.json`** (filtered client-side).
  * Rows use only episodes that include a **YouTube** id (same filter as **`/catalog`**).
- * **Most Popular** ranks playable episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order); **`other`** catalog rows are excluded.
+ * **Most Popular** ranks playable **`mst3k`** episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order).
  * Era strips take the first **10** per Joel / Mike / Jonah tag from that playable set.
  */
 export function HomePage() {

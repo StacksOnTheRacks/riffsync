@@ -105,8 +105,8 @@ export function compareByTmdbPopularity(a: CatalogEpisode, b: CatalogEpisode): n
   return a.experimentNumber - b.experimentNumber
 }
 
-/** Categories omitted from the home page Most Popular row. */
-export const HOME_MOST_POPULAR_EXCLUDED_CATEGORIES: readonly CatalogCategory[] = ['other']
+/** Catalog categories included in the home page Most Popular row. */
+export const HOME_MOST_POPULAR_INCLUDED_CATEGORIES: readonly CatalogCategory[] = ['mst3k']
 
 /** Playable episodes ranked by **`tmdbPopularity`** (reconcile), with optional offset for a second row. */
 export function topEpisodesByTmdbPopularity(
@@ -117,12 +117,12 @@ export function topEpisodesByTmdbPopularity(
   return [...entries].sort(compareByTmdbPopularity).slice(offset, offset + limit)
 }
 
-/** Most Popular home row: ranked popularity, excluding configured categories (e.g. `other`). */
+/** Most Popular home row: ranked popularity for MST3K catalog items only. */
 export function topEpisodesForHomeMostPopular(
   entries: CatalogEpisode[],
   limit: number,
 ): CatalogEpisode[] {
-  const excluded = new Set(HOME_MOST_POPULAR_EXCLUDED_CATEGORIES)
-  const eligible = entries.filter((entry) => !excluded.has(entry.catalog))
+  const included = new Set(HOME_MOST_POPULAR_INCLUDED_CATEGORIES)
+  const eligible = entries.filter((entry) => included.has(entry.catalog))
   return topEpisodesByTmdbPopularity(eligible, limit)
 }
