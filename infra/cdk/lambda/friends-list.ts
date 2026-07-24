@@ -1,6 +1,6 @@
 import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { batchAvatarUrlsByFanSub, batchDisplayNamesByFanSub } from './fan-profile-shared';
 import {
   deny,
@@ -12,6 +12,7 @@ import {
   type FriendshipMemberItem,
 } from './friends-shared';
 import { isFanOnlineInAnyRoom } from './room-presence-shared';
+import { parseDmUnreadItem } from './dm-shared';
 
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -23,6 +24,7 @@ export type FriendListEntryWire = {
   displayName: string;
   avatarUrl?: string;
   online: boolean;
+  hasUnread: boolean;
   createdAt: number;
 };
 
@@ -33,19 +35,21 @@ function tables():
       fanProfiles: string;
       roomPresence: string;
       rateLimits: string;
+      dmUnread: string;
     }
   | { ok: false; response: APIGatewayProxyResultV2 } {
   const friendships = process.env.FRIENDSHIPS_TABLE_NAME?.trim();
   const fanProfiles = process.env.FAN_PROFILES_TABLE_NAME?.trim();
   const roomPresence = process.env.ROOM_PRESENCE_TABLE_NAME?.trim();
   const rateLimits = process.env.FRIENDSHIP_RATE_LIMIT_TABLE_NAME?.trim();
-  if (!friendships || !fanProfiles || !roomPresence || !rateLimits) {
+  const dmUnread = process.env.DM_UNREAD_TABLE_NAME?.trim();
+  if (!friendships || !fanProfiles || !roomPresence || !rateLimits || !dmUnread) {
     return {
       ok: false,
       response: jsonResponse(500, { error: 'Server misconfigured' }),
     };
   }
-  return { ok: true, friendships, fanProfiles, roomPresence, rateLimits };
+  return { ok: true, friendships, fanProfiles, roomPresence, rateLimits, dmUnread };
 }
 
 function listLimit(): number {
@@ -84,7 +88,7 @@ export function sortFriendListEntries(entries: FriendListEntryWire[]): FriendLis
 
 export async function buildFriendListEntries(
   callerFanSub: string,
-  t: { friendships: string; fanProfiles: string; roomPresence: string },
+  t: { friendships: string; fanProfiles: string; roomPresence: string; dmUnread: string },
 ): Promise<FriendListEntryWire[]> {
   const edges = await queryFriendshipsByFanSub(t.friendships, callerFanSub);
   if (edges.length === 0) {
@@ -92,9 +96,10 @@ export async function buildFriendListEntries(
   }
 
   const peerSubs = edges.map((e) => e.peerSub);
-  const [displayNames, avatarUrls] = await Promise.all([
+  const [displayNames, avatarUrls, unreadByPairKey] = await Promise.all([
     batchDisplayNamesByFanSub(doc, t.fanProfiles, peerSubs),
     batchAvatarUrlsByFanSub(doc, t.fanProfiles, peerSubs),
+    batchHasUnreadByPairKey(doc, t.dmUnread, callerFanSub, edges.map((e) => e.pairKey)),
   ]);
 
   const onlineByPeer = new Map<string, boolean>();
@@ -113,6 +118,7 @@ export async function buildFriendListEntries(
       pairKey: edge.pairKey,
       displayName,
       online: onlineByPeer.get(edge.peerSub) ?? false,
+      hasUnread: unreadByPairKey.get(edge.pairKey) ?? false,
       createdAt: edge.createdAt,
     };
     if (avatarUrl) {
@@ -122,6 +128,40 @@ export async function buildFriendListEntries(
   });
 
   return sortFriendListEntries(entries);
+}
+
+async function batchHasUnreadByPairKey(
+  docClient: DynamoDBDocumentClient,
+  tableName: string,
+  recipientSub: string,
+  pairKeys: string[],
+): Promise<Map<string, boolean>> {
+  const result = new Map<string, boolean>();
+  if (pairKeys.length === 0) {
+    return result;
+  }
+
+  const chunkSize = 100;
+  for (let i = 0; i < pairKeys.length; i += chunkSize) {
+    const chunk = pairKeys.slice(i, i + chunkSize);
+    const out = await docClient.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [tableName]: {
+            Keys: chunk.map((pairKey) => ({ recipientSub, pairKey })),
+          },
+        },
+      }),
+    );
+    for (const raw of out.Responses?.[tableName] ?? []) {
+      const parsed = parseDmUnreadItem(raw as Record<string, unknown>);
+      if (parsed) {
+        result.set(parsed.pairKey, parsed.hasUnread);
+      }
+    }
+  }
+
+  return result;
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
@@ -143,5 +183,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   const friends = await buildFriendListEntries(auth.fanSub, t);
-  return jsonResponse(200, { friends });
+  const anyUnread = friends.some((friend) => friend.hasUnread);
+  return jsonResponse(200, { friends, anyUnread });
 };

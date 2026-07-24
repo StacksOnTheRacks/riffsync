@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  compareReadCursors,
   decodeHistoryCursor,
   directMessageSortKey,
   encodeHistoryCursor,
+  isDirectMessageUnread,
   isPairMember,
+  isReadCursorNewer,
   parseHistoryLimit,
 } from './dm-shared';
 import { friendshipPairKey } from './friends-shared';
@@ -35,5 +38,26 @@ describe('dm-shared helpers', () => {
     expect(parseHistoryLimit(undefined)).toBe(50);
     expect(parseHistoryLimit('10')).toBe(10);
     expect(parseHistoryLimit('500')).toBe(100);
+  });
+
+  it('compares read cursors with sentAt then messageId tie-break', () => {
+    expect(compareReadCursors({ lastReadSentAt: 1, lastReadMessageId: 'a' }, { lastReadSentAt: 2, lastReadMessageId: 'a' })).toBeLessThan(0);
+    expect(isReadCursorNewer({ lastReadSentAt: 2, lastReadMessageId: 'a' }, { lastReadSentAt: 1, lastReadMessageId: 'z' })).toBe(true);
+    expect(isReadCursorNewer({ lastReadSentAt: 1, lastReadMessageId: 'b' }, { lastReadSentAt: 1, lastReadMessageId: 'a' })).toBe(true);
+  });
+
+  it('detects unread messages against cursor', () => {
+    const message = {
+      pairKey: 'a#b',
+      sk: 'm#1#id',
+      messageId: 'msg-b',
+      senderSub: 'fan-b',
+      kind: 'text' as const,
+      body: 'hi',
+      sentAt: 100,
+    };
+    expect(isDirectMessageUnread(message, { lastReadSentAt: 99, lastReadMessageId: 'msg-a' })).toBe(true);
+    expect(isDirectMessageUnread(message, { lastReadSentAt: 100, lastReadMessageId: 'msg-a' })).toBe(true);
+    expect(isDirectMessageUnread(message, { lastReadSentAt: 100, lastReadMessageId: 'msg-b' })).toBe(false);
   });
 });

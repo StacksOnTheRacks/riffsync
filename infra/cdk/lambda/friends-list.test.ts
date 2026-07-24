@@ -76,6 +76,7 @@ describe('friends-list handler', () => {
     process.env.FAN_PROFILES_TABLE_NAME = 'FanProfiles';
     process.env.ROOM_PRESENCE_TABLE_NAME = 'RoomPresence';
     process.env.FRIENDSHIP_RATE_LIMIT_TABLE_NAME = 'FriendshipRateLimits';
+    process.env.DM_UNREAD_TABLE_NAME = 'DmUnread';
     process.env.FRIEND_LIST_LIMIT_PER_MINUTE = '60';
   });
 
@@ -102,7 +103,7 @@ describe('friends-list handler', () => {
       {} as never,
     );
     expect((res as { statusCode: number }).statusCode).toBe(200);
-    expect(JSON.parse((res as { body: string }).body)).toEqual({ friends: [] });
+    expect(JSON.parse((res as { body: string }).body)).toEqual({ friends: [], anyUnread: false });
   });
 
   it('returns friends with online true/false, profile fields, and sort order', async () => {
@@ -130,19 +131,40 @@ describe('friends-list handler', () => {
       }
       if (cmd.kind === 'BatchGet') {
         const input = cmd.input as {
-          RequestItems?: { FanProfiles?: { Keys?: { sub: string }[] } };
+          RequestItems?: Record<string, { Keys?: { sub?: string; recipientSub?: string; pairKey?: string }[] }>;
         };
-        const keys = input.RequestItems?.FanProfiles?.Keys ?? [];
-        const items = keys.map((k) => {
-          if (k.sub === 'fan-b') {
-            return { sub: 'fan-b', displayName: 'Beta Fan', avatarUrl: 'https://cdn.example/b.png' };
-          }
-          if (k.sub === 'fan-z') {
-            return { sub: 'fan-z', displayName: 'alpha peer' };
-          }
-          return { sub: k.sub };
-        });
-        return { Responses: { FanProfiles: items } };
+        const fanProfileKeys = input.RequestItems?.FanProfiles?.Keys ?? [];
+        if (fanProfileKeys.length > 0) {
+          const keys = fanProfileKeys;
+          const items = keys.map((k) => {
+            if (k.sub === 'fan-b') {
+              return { sub: 'fan-b', displayName: 'Beta Fan', avatarUrl: 'https://cdn.example/b.png' };
+            }
+            if (k.sub === 'fan-z') {
+              return { sub: 'fan-z', displayName: 'alpha peer' };
+            }
+            return { sub: k.sub };
+          });
+          return { Responses: { FanProfiles: items } };
+        }
+        const dmUnreadKeys = input.RequestItems?.DmUnread?.Keys ?? [];
+        if (dmUnreadKeys.length > 0) {
+          return {
+            Responses: {
+              DmUnread: [
+                {
+                  recipientSub: 'fan-a',
+                  pairKey: friendshipPairKey('fan-a', 'fan-b'),
+                  lastReadSentAt: 0,
+                  lastReadMessageId: '',
+                  hasUnread: true,
+                  updatedAt: 1,
+                },
+              ],
+            },
+          };
+        }
+        throw new Error('unexpected BatchGet');
       }
       throw new Error(`unexpected ${cmd.kind}`);
     });
@@ -154,12 +176,14 @@ describe('friends-list handler', () => {
     );
     expect((res as { statusCode: number }).statusCode).toBe(200);
     const body = JSON.parse((res as { body: string }).body);
+    expect(body.anyUnread).toBe(true);
     expect(body.friends).toEqual([
       {
         fanSub: 'fan-z',
         pairKey: friendshipPairKey('fan-a', 'fan-z'),
         displayName: 'alpha peer',
         online: false,
+        hasUnread: false,
         createdAt: 100,
       },
       {
@@ -168,6 +192,7 @@ describe('friends-list handler', () => {
         displayName: 'Beta Fan',
         avatarUrl: 'https://cdn.example/b.png',
         online: true,
+        hasUnread: true,
         createdAt: 200,
       },
     ]);
@@ -235,6 +260,7 @@ describe('sortFriendListEntries', () => {
         pairKey: 'a#z',
         displayName: 'Beta',
         online: false,
+        hasUnread: false,
         createdAt: 1,
       },
       {
@@ -242,6 +268,7 @@ describe('sortFriendListEntries', () => {
         pairKey: 'a#b',
         displayName: 'alpha',
         online: false,
+        hasUnread: false,
         createdAt: 2,
       },
       {
@@ -249,6 +276,7 @@ describe('sortFriendListEntries', () => {
         pairKey: 'a#c',
         displayName: 'Alpha',
         online: false,
+        hasUnread: false,
         createdAt: 3,
       },
     ]);
@@ -276,7 +304,7 @@ describe('buildFriendListEntries', () => {
         }
       }
       if (cmd.kind === 'BatchGet') {
-        return { Responses: { FanProfiles: [] } };
+        return { Responses: { FanProfiles: [], DmUnread: [] } };
       }
       throw new Error(`unexpected ${cmd.kind}`);
     });
@@ -285,6 +313,7 @@ describe('buildFriendListEntries', () => {
       friendships: 'Friendships',
       fanProfiles: 'FanProfiles',
       roomPresence: 'RoomPresence',
+      dmUnread: 'DmUnread',
     });
     expect(entries).toHaveLength(1);
     expect(entries[0]?.online).toBe(true);

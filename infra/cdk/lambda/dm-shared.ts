@@ -1,6 +1,6 @@
 import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import {
   friendshipPairKey,
   jsonResponse,
@@ -24,6 +24,7 @@ export type DmDenyCode =
   | 'dm_thread_closed'
   | 'dm_thread_not_found'
   | 'invalid_dm_body'
+  | 'invalid_read_cursor'
   | 'rate_limited';
 
 export type DmThreadItem = {
@@ -58,6 +59,25 @@ export type DirectMessageWire = {
 export type DmHistoryCursor = {
   sentAt: number;
   messageId: string;
+};
+
+export type DmReadCursor = {
+  lastReadSentAt: number;
+  lastReadMessageId: string;
+};
+
+export type DmUnreadItem = {
+  recipientSub: string;
+  pairKey: string;
+  lastReadSentAt: number;
+  lastReadMessageId: string;
+  hasUnread: boolean;
+  updatedAt: number;
+};
+
+export const DM_UNREAD_DEFAULT_CURSOR: DmReadCursor = {
+  lastReadSentAt: 0,
+  lastReadMessageId: '',
 };
 
 export function dmDeny(statusCode: number, code: DmDenyCode, error: string): APIGatewayProxyResultV2 {
@@ -267,6 +287,123 @@ export async function getDmThread(
     }),
   );
   return parseDmThreadItem(out.Item as Record<string, unknown> | undefined);
+}
+
+export function compareReadCursors(a: DmReadCursor, b: DmReadCursor): number {
+  if (a.lastReadSentAt !== b.lastReadSentAt) {
+    return a.lastReadSentAt < b.lastReadSentAt ? -1 : 1;
+  }
+  if (a.lastReadMessageId === b.lastReadMessageId) {
+    return 0;
+  }
+  return a.lastReadMessageId < b.lastReadMessageId ? -1 : 1;
+}
+
+export function isReadCursorNewer(proposed: DmReadCursor, current: DmReadCursor): boolean {
+  return compareReadCursors(proposed, current) > 0;
+}
+
+export function isDirectMessageUnread(message: DirectMessageItem, cursor: DmReadCursor): boolean {
+  if (message.sentAt > cursor.lastReadSentAt) {
+    return true;
+  }
+  if (message.sentAt < cursor.lastReadSentAt) {
+    return false;
+  }
+  return message.messageId > cursor.lastReadMessageId;
+}
+
+export function parseDmUnreadItem(raw: Record<string, unknown> | undefined): DmUnreadItem | null {
+  if (!raw) return null;
+  const recipientSub = typeof raw.recipientSub === 'string' ? raw.recipientSub : '';
+  const pairKey = typeof raw.pairKey === 'string' ? raw.pairKey : '';
+  const lastReadSentAt =
+    typeof raw.lastReadSentAt === 'number' && Number.isFinite(raw.lastReadSentAt) ? raw.lastReadSentAt : NaN;
+  const lastReadMessageId = typeof raw.lastReadMessageId === 'string' ? raw.lastReadMessageId : '';
+  const hasUnread = raw.hasUnread === true;
+  const updatedAt = typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : NaN;
+  if (!recipientSub || !pairKey || !Number.isFinite(lastReadSentAt) || !Number.isFinite(updatedAt)) {
+    return null;
+  }
+  return {
+    recipientSub,
+    pairKey,
+    lastReadSentAt,
+    lastReadMessageId,
+    hasUnread,
+    updatedAt,
+  };
+}
+
+export function dmUnreadCursorFromItem(item: DmUnreadItem | null | undefined): DmReadCursor {
+  if (!item) {
+    return { ...DM_UNREAD_DEFAULT_CURSOR };
+  }
+  return {
+    lastReadSentAt: item.lastReadSentAt,
+    lastReadMessageId: item.lastReadMessageId,
+  };
+}
+
+export function parseDmReadBody(raw: string | undefined):
+  | { ok: true; lastReadSentAt: number; lastReadMessageId: string }
+  | { ok: false; code: 'invalid_read_cursor' } {
+  if (!raw || raw.trim() === '') {
+    return { ok: false, code: 'invalid_read_cursor' };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, code: 'invalid_read_cursor' };
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return { ok: false, code: 'invalid_read_cursor' };
+  }
+  const record = parsed as Record<string, unknown>;
+  const lastReadSentAt =
+    typeof record.lastReadSentAt === 'number' && Number.isFinite(record.lastReadSentAt)
+      ? record.lastReadSentAt
+      : NaN;
+  const lastReadMessageId =
+    typeof record.lastReadMessageId === 'string' ? record.lastReadMessageId.trim() : '';
+  if (!Number.isFinite(lastReadSentAt) || !lastReadMessageId) {
+    return { ok: false, code: 'invalid_read_cursor' };
+  }
+  return { ok: true, lastReadSentAt, lastReadMessageId };
+}
+
+export async function getLatestDirectMessage(
+  doc: DynamoDBDocumentClient,
+  tableName: string,
+  pairKey: string,
+): Promise<DirectMessageItem | null> {
+  const out = await doc.send(
+    new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: 'pairKey = :pairKey',
+      ExpressionAttributeValues: { ':pairKey': pairKey },
+      ScanIndexForward: false,
+      Limit: 1,
+    }),
+  );
+  const raw = out.Items?.[0] as Record<string, unknown> | undefined;
+  return parseDirectMessageItem(raw);
+}
+
+export async function getDmUnread(
+  doc: DynamoDBDocumentClient,
+  tableName: string,
+  recipientSub: string,
+  pairKey: string,
+): Promise<DmUnreadItem | null> {
+  const out = await doc.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: { recipientSub, pairKey },
+    }),
+  );
+  return parseDmUnreadItem(out.Item as Record<string, unknown> | undefined);
 }
 
 export function parseHistoryLimit(raw: string | undefined): number {

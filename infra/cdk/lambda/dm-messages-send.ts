@@ -1,6 +1,6 @@
 import type { APIGatewayProxyHandlerV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import {
   directMessageSortKey,
   dmDeny,
@@ -27,6 +27,7 @@ function tables():
       rateLimits: string;
       fanConnections: string;
       fanProfiles: string;
+      dmUnread: string;
     }
   | { ok: false; response: APIGatewayProxyResultV2 } {
   const dmThreads = process.env.DM_THREADS_TABLE_NAME?.trim();
@@ -35,13 +36,23 @@ function tables():
   const rateLimits = process.env.FRIENDSHIP_RATE_LIMIT_TABLE_NAME?.trim();
   const fanConnections = process.env.FAN_CONNECTIONS_TABLE_NAME?.trim();
   const fanProfiles = process.env.FAN_PROFILES_TABLE_NAME?.trim();
-  if (!dmThreads || !directMessages || !friendships || !rateLimits || !fanConnections || !fanProfiles) {
+  const dmUnread = process.env.DM_UNREAD_TABLE_NAME?.trim();
+  if (!dmThreads || !directMessages || !friendships || !rateLimits || !fanConnections || !fanProfiles || !dmUnread) {
     return {
       ok: false,
       response: jsonResponse(500, { error: 'Server misconfigured' }),
     };
   }
-  return { ok: true, dmThreads, directMessages, friendships, rateLimits, fanConnections, fanProfiles };
+  return {
+    ok: true,
+    dmThreads,
+    directMessages,
+    friendships,
+    rateLimits,
+    fanConnections,
+    fanProfiles,
+    dmUnread,
+  };
 }
 
 function sendLimit(): number {
@@ -110,6 +121,21 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         kind: parsedBody.kind,
         body: parsedBody.body,
         sentAt,
+      },
+    }),
+  );
+
+  await doc.send(
+    new UpdateCommand({
+      TableName: t.dmUnread,
+      Key: { recipientSub: recipientFanSub, pairKey },
+      UpdateExpression:
+        'SET hasUnread = :true, updatedAt = :now, lastReadSentAt = if_not_exists(lastReadSentAt, :zero), lastReadMessageId = if_not_exists(lastReadMessageId, :empty)',
+      ExpressionAttributeValues: {
+        ':true': true,
+        ':now': sentAt,
+        ':zero': 0,
+        ':empty': '',
       },
     }),
   );
