@@ -1775,6 +1775,226 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   color: var(--primary-color);
 }
 
+.riffsync-room-page__tab-unread-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 0.25rem;
+  border-radius: 50%;
+  background: var(--primary-color);
+  vertical-align: middle;
+}
+
+.riffsync-room-page__tab-panel--friends {
+  overflow: hidden;
+  position: relative;
+}
+
+.riffsync-room-friends-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.riffsync-room-friends-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.riffsync-room-friends-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.035);
+}
+
+.riffsync-room-friends-row + .riffsync-room-friends-row {
+  margin-top: 0.35rem;
+}
+
+.riffsync-room-friends-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.riffsync-room-friends-row-open {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: inherit;
+  font-weight: 600;
+}
+
+.riffsync-room-friends-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.riffsync-room-friends-row-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.riffsync-room-friends-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+}
+
+.riffsync-room-friends-online-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #3ddc84;
+}
+
+.riffsync-room-friends-unread-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.riffsync-room-friends-empty {
+  padding: 0.75rem 0.65rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.riffsync-room-friends-load-err {
+  padding: 0.75rem 0.65rem;
+}
+
+.riffsync-room-friends-section-title {
+  margin: 0;
+  padding: 0.5rem 0.65rem 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.riffsync-room-friends-dm-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  flex-shrink: 0;
+}
+
+.riffsync-room-friends-dm-back {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.riffsync-room-friends-dm-peer {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.riffsync-room-friends-dm-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.riffsync-room-friends-dm-jump {
+  align-self: center;
+  margin: 0.25rem 0;
+}
+
+.riffsync-room-friends-dm-compose {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  flex-shrink: 0;
+}
+
+.riffsync-room-friends-dm-compose input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.riffsync-room-friends-dm-err {
+  padding: 0 0.65rem 0.5rem;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #f87171;
+}
+
+.riffsync-room-friends-closed {
+  padding: 0.75rem 0.65rem;
+  margin: 0;
+}
+
+.riffsync-room-friends-remove-dialog {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.55);
+  z-index: 2;
+}
+
+.riffsync-room-friends-remove-dialog-panel {
+  background: rgb(22 27 34);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 8px;
+  padding: 1rem;
+  max-width: 18rem;
+  margin: 0.65rem;
+}
+
+.riffsync-room-friends-remove-dialog-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.riffsync-room-friends-remove-dialog-panel p {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.riffsync-room-friends-remove-dialog-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.riffsync-room-friends-remove-confirm {
+  background: #b62324;
+  border-color: #b62324;
+}
+
 .riffsync-room-page__people-list {
   list-style: none;
   flex: 1 1 auto;

@@ -22,6 +22,7 @@ vi.mock('./usePeopleRosterFriends', () => ({
       friends: [],
       inbound: [],
       outbound: [],
+      anyUnread: false,
     },
     myFanSub: 'fan-a',
     loading: false,

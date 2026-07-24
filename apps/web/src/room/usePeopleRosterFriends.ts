@@ -76,6 +76,7 @@ export function usePeopleRosterFriends(fanToken: string | null, activeSidebarTab
                   createdAt: result.createdAt,
                 },
               ],
+              anyUnread: false,
             }
           }
           const withoutDup = current.outbound.filter((entry) => entry.recipientSub !== peerFanSub)

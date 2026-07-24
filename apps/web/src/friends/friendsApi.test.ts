@@ -62,6 +62,7 @@ describe('friendsApi', () => {
             ok: true,
             json: async () => ({
               friends: [{ fanSub: 'fan-b', pairKey: 'a#b', displayName: 'B', online: true, hasUnread: false, createdAt: 1 }],
+              anyUnread: false,
             }),
           }
         }

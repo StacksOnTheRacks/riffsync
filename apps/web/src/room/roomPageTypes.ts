@@ -17,7 +17,7 @@ export type PresenceMember = {
 
 export type { RemoteTypingEntry }
 
-export type RoomSidebarTab = 'chat' | 'people' | 'room' | 'profile'
+export type RoomSidebarTab = 'chat' | 'people' | 'friends' | 'room' | 'profile'
 
 export function resolveMemberAvatarUrl(
   memberSessionId: string,
