@@ -53,7 +53,7 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | **Page DM history** | Query **DirectMessage** rows for a thread in chronological (or newest-first) order; account-lifetime retention (no TTL window). |
 | **DM unread** | Read/update per-recipient watermark for a thread; clear on view so friends-list badges stay server-authoritative. |
 | **Friends online (derived)** | For each friend **`fanSub`**, treat as online if any **RoomPresence** row exists for that **`fanSub`** in any room. Query sparse **RoomPresence** GSI **`fanSub`** + **`roomId#presenceKey`** with **`Limit: 1`** per peer (#357). Not a durable friends-presence table; not last-seen. |
-| **Remove-friend** | Mutual edge delete (or terminal status) for both directions; close/hide **DmThread** access for both participants in the same outcome. Soft vs hard delete of message bodies — open implementation decision. |
+| **Remove-friend** | **TransactWrite** (preferred when **DmThreads** table wired): **DeleteItem** **Friendship** by **`pairKey`** + **UpdateItem** **DmThread** **`status: closed`**, **`closedAt`**. Until **DmThreads** exists, friendship-only **DeleteItem** is sufficient; M35 denies DM routes on missing friendship. **DirectMessage** bodies are **not** deleted on unfriend. |
 
 ## Decisions (answered)
 
@@ -96,6 +96,14 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | **GSI projection / TTL?** | Project keys needed for existence check; base-table **`expiresAt`** TTL unchanged. |
 | **Friends-list Lambda grants?** | Read **Friendships** (GSI **`fanSub`**), batch **FanProfiles**, query **RoomPresence** GSI per peer (or bounded parallel queries). |
 
+## Decisions (answered — mutual remove-friend #358)
+
+| Question | Decision |
+| --- | --- |
+| **Remove write shape?** | **TransactWrite** when **DmThreads** table exists: delete **Friendship** + update **DmThread** closed fields. Friendship-only delete until M35 creates threads. |
+| **Message body delete on unfriend?** | **No** — retain **DirectMessage** rows; access closed via authz. |
+| **Remove-friend Lambda env** | Receives **`FRIENDSHIPS_TABLE_NAME`**; **`DM_THREADS_TABLE_NAME`** when M35 table ships (optional until then). |
+
 ## Open implementation decisions
 
 - **RoomPresence** vs **Connections** disconnect path: confirm both rows are removed atomically on **`$disconnect`** at party scale.
@@ -105,8 +113,7 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 - IaC env wiring already passes **`ROOM_PRESENCE_TABLE_NAME`** to WS and SFU-token Lambdas — document any additional consumers (e.g. layout fan-out Lambda).
 - Exact Dynamo table resource split for **DmThread**, **DirectMessage**, **DmUnread** (friendship tables decided #356).
 - Partition key / sort key / GSI attribute shapes and names for thread-by-peer, message paging, unread aggregation.
-- Soft-delete / tombstone attributes vs hard-delete for friendships, threads, and DM bodies on remove-friend and account closure; cascade order and idempotency.
-- Env/IaC table name wiring for DM Lambdas ( **`FRIENDSHIP_*`** decided #356; parallel to **`ROOM_PRESENCE_TABLE_NAME`** / **`ROOM_CHAT_TABLE_NAME`** patterns).
+- Env/IaC table name wiring for DM Lambdas ( **`FRIENDSHIP_*`** decided #356; **`DM_THREADS_TABLE_NAME`** when M35 lands).
 
 ## Primary code pointers (optional)
 

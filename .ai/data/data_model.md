@@ -112,8 +112,9 @@ Logical **1:1** conversation for an unordered fan pair. Distinct from room-scope
 | --- | --- |
 | **Cardinality** | One logical thread per unordered fan pair once messaging is allowed. No group DMs. |
 | **Participants** | Two Cognito fan **`sub`s**. |
-| **Access while friends** | Both parties may compose and read history while an active **Friendship** exists. |
-| **After remove-friend** | Thread is **closed/hidden for both**: both lose compose and history access immediately. Re-friending may create a new edge; whether prior history is restored later is a product decision outside this contract (default: history remains inaccessible after mutual unfriend). |
+| **Status** | **`open`** while an active **Friendship** exists and the thread is in use. **`closed`** after mutual remove-friend (#358) with **`closedAt`** (epoch ms). |
+| **Access while friends** | Both parties may compose and read history while an active **Friendship** exists and thread is **`open`**. |
+| **After remove-friend** | Thread is **closed/hidden for both**: both lose compose and history access immediately. Handler sets durable **`status: closed`** and **`closedAt`** (epoch ms) on the **DmThread** item (#358). **DirectMessage** rows **remain in storage**; access is denied via authz (M35). Re-friending creates a **new** **Friendship** edge via invite/accept; prior thread history stays **inaccessible** (default product). |
 | **Retention class** | Account-lifetime durable until explicit delete or account closure — **not** RoomChat TTL. |
 
 ## DirectMessage (DM body)
@@ -228,6 +229,19 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 | **Friend row labels?** | **FanProfiles** **`displayName`** / **`avatarUrl`**; fallback name **`"Friend"`** when profile missing or empty. |
 | **List sort?** | **`displayName`** case-insensitive, then **`pairKey`**. |
 
+## Decisions (answered — mutual remove-friend #358)
+
+| Question | Decision |
+| --- | --- |
+| **Remove HTTP route?** | **`DELETE /v1/friends/{pairKey}`** — caller must be a member of the encoded pair. |
+| **Friendship on remove?** | **Hard-delete** row — immediately mutual. |
+| **DmThread on remove?** | **Soft-close** — **`status: closed`**, **`closedAt`** (epoch ms) when item exists; same **TransactWrite** as friendship delete when table wired. |
+| **DirectMessage on remove?** | **Retain** bodies; no unfriend purge (#358). Access denied via authz (M35). |
+| **Re-friend history restore?** | **Default inaccessible** — new edge does not restore prior thread history. |
+| **Other-party notification?** | **Silent** at API; M36 owns presentation. |
+| **Remove rate limit?** | **30**/min per **`fanSub`**. |
+| **Concurrent remove vs DM send?** | DM handlers re-check before write; remove wins → **403** `friendship_not_active` / **`dm_thread_closed`**. |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
@@ -236,8 +250,6 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 - Partition/sort keys and GSI shapes for: open-thread-by-peer, page DM history newest-first, unread badge aggregation.
 - Canonical **`pairKey`** reuse for **DmThread** partition (same encoding as **Friendship**).
 - **DirectMessage** row identity and ordering keys (e.g. thread partition + `m#<ts>#<messageId>` analogue) — no RoomChat-style TTL attribute on bodies.
-- Soft-delete / tombstone vs hard-delete of **DirectMessage** rows (and thread metadata) when remove-friend hides history for both, and on account closure / explicit delete.
-- Whether remove-friend deletes message bodies immediately, retains tombstoned rows inaccessible to both, or schedules deferred purge.
 - Unread watermark representation: per-thread cursor / last-read message id vs denormalized unread count on friendship or thread summary; clear-on-view write shape.
 
 ## Primary code pointers (optional)
