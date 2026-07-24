@@ -191,12 +191,14 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly friendshipsTable: dynamodb.Table;
   public readonly dmThreadsTable: dynamodb.Table;
   public readonly directMessagesTable: dynamodb.Table;
+  public readonly fanConnectionsTable: dynamodb.Table;
   public readonly fanAvatarsBucket: s3.Bucket;
   public readonly fanAvatarsDistribution: cloudfront.Distribution;
   /** HTTPS origin for avatar object keys (no trailing slash). */
   public readonly fanAvatarsPublicBaseUrl: string;
   public readonly httpApi: apigwv2.HttpApi;
   public readonly webSocketApi: apigwv2.WebSocketApi;
+  public readonly fanDmWebSocketApi: apigwv2.WebSocketApi;
   /** WebSocket stage name (same as prod environment label). */
   public readonly webSocketStageName: string;
   /** Launch-critical Lambdas wired to the operations dashboard. */
@@ -334,6 +336,19 @@ export class ApiCatalogStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+    });
+
+    this.fanConnectionsTable = new dynamodb.Table(this, 'FanConnectionsTable', {
+      partitionKey: { name: 'connectionId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      timeToLiveAttribute: 'expiresAt',
+    });
+    this.fanConnectionsTable.addGlobalSecondaryIndex({
+      indexName: 'FanSubIndex',
+      partitionKey: { name: 'fanSub', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'connectionId', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
 
     this.fanAvatarsBucket = new s3.Bucket(this, 'FanAvatarsBucket', {
@@ -1041,6 +1056,32 @@ export class ApiCatalogStack extends cdk.Stack {
     this.friendshipsTable.grantReadData(dmMessagesListFn);
     friendshipRateLimitTable.grantReadWriteData(dmMessagesListFn);
 
+    const dmMessagesSendFn = new lambdaNodejs.NodejsFunction(this, 'DmMessagesSendFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/dm-messages-send.ts'),
+      handler: 'handler',
+      environment: {
+        DM_THREADS_TABLE_NAME: this.dmThreadsTable.tableName,
+        DIRECT_MESSAGES_TABLE_NAME: this.directMessagesTable.tableName,
+        FRIENDSHIPS_TABLE_NAME: this.friendshipsTable.tableName,
+        FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
+        FAN_CONNECTIONS_TABLE_NAME: this.fanConnectionsTable.tableName,
+        FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
+        DM_SEND_LIMIT_PER_MINUTE: '20',
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.dmThreadsTable.grantReadData(dmMessagesSendFn);
+    this.directMessagesTable.grantWriteData(dmMessagesSendFn);
+    this.friendshipsTable.grantReadData(dmMessagesSendFn);
+    this.fanConnectionsTable.grantReadWriteData(dmMessagesSendFn);
+    this.fanProfilesTable.grantReadData(dmMessagesSendFn);
+    friendshipRateLimitTable.grantReadWriteData(dmMessagesSendFn);
+
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
@@ -1163,6 +1204,80 @@ export class ApiCatalogStack extends cdk.Stack {
     }
     this.webSocketApi.addRoute('$default', { integration: wsRouteInt });
 
+    this.fanDmWebSocketApi = new apigwv2.WebSocketApi(this, 'FanDmWebSocketApi', {
+      apiName: `riffsync-${environment}-fan-dm-ws`,
+      description:
+        'Fan DM push WebSocket (separate from room ChatSession) — $connect/$disconnect/ping only; send via HTTP POST',
+      routeSelectionExpression: '$request.body.action',
+    });
+
+    const fanDmWsStage = new apigwv2.WebSocketStage(this, 'FanDmWebSocketStage', {
+      webSocketApi: this.fanDmWebSocketApi,
+      stageName: environment,
+      autoDeploy: true,
+    });
+
+    const fanDmWsMgmtEndpoint = `https://${this.fanDmWebSocketApi.apiId}.execute-api.${this.region}.amazonaws.com/${fanDmWsStage.stageName}`;
+
+    const fanDmWsSharedEnv = {
+      FAN_CONNECTIONS_TABLE_NAME: this.fanConnectionsTable.tableName,
+      COGNITO_USER_POOL_ID: fanUserPool.userPoolId,
+      COGNITO_CLIENT_ID: fanUserPoolClient.userPoolClientId,
+      RIFFSYNC_ENVIRONMENT: environment,
+      NODE_OPTIONS: '--enable-source-maps',
+    };
+
+    const fanDmWsConnectFn = new lambdaNodejs.NodejsFunction(this, 'FanDmWsConnectFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/fan-dm-ws-connect.ts'),
+      handler: 'handler',
+      environment: fanDmWsSharedEnv,
+    });
+    const fanDmWsDisconnectFn = new lambdaNodejs.NodejsFunction(this, 'FanDmWsDisconnectFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/fan-dm-ws-disconnect.ts'),
+      handler: 'handler',
+      environment: fanDmWsSharedEnv,
+    });
+    const fanDmWsPingFn = new lambdaNodejs.NodejsFunction(this, 'FanDmWsPingFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/fan-dm-ws-ping.ts'),
+      handler: 'handler',
+      environment: fanDmWsSharedEnv,
+    });
+
+    this.fanConnectionsTable.grantReadWriteData(fanDmWsConnectFn);
+    this.fanConnectionsTable.grantReadWriteData(fanDmWsDisconnectFn);
+
+    dmMessagesSendFn.addEnvironment('FAN_DM_WS_MANAGEMENT_API_ENDPOINT', fanDmWsMgmtEndpoint);
+    this.fanDmWebSocketApi.grantManageConnections(dmMessagesSendFn);
+
+    fanDmWsPingFn.addPermission('FanDmWsPingFnAllowExecuteApiWebSocket', {
+      principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+      action: 'lambda:InvokeFunction',
+      sourceArn: `arn:aws:execute-api:${this.region}:${this.account}:${this.fanDmWebSocketApi.apiId}/*`,
+    });
+
+    const fanDmWsConnectInt = new integrations.WebSocketLambdaIntegration('FanDmWsConnectInt', fanDmWsConnectFn);
+    const fanDmWsDisconnectInt = new integrations.WebSocketLambdaIntegration(
+      'FanDmWsDisconnectInt',
+      fanDmWsDisconnectFn,
+    );
+    const fanDmWsPingInt = new integrations.WebSocketLambdaIntegration('FanDmWsPingInt', fanDmWsPingFn);
+
+    this.fanDmWebSocketApi.addRoute('$connect', { integration: fanDmWsConnectInt });
+    this.fanDmWebSocketApi.addRoute('$disconnect', { integration: fanDmWsDisconnectInt });
+    this.fanDmWebSocketApi.addRoute('ping', { integration: fanDmWsPingInt });
+
     this.httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
       apiName: `riffsync-${environment}-http`,
       description: `RiffSync public HTTP API (${environment})`,
@@ -1226,6 +1341,7 @@ export class ApiCatalogStack extends cdk.Stack {
     const friendsRemoveIntegration = new integrations.HttpLambdaIntegration('FriendsRemoveInt', friendsRemoveFn);
     const dmThreadEnsureIntegration = new integrations.HttpLambdaIntegration('DmThreadEnsureInt', dmThreadEnsureFn);
     const dmMessagesListIntegration = new integrations.HttpLambdaIntegration('DmMessagesListInt', dmMessagesListFn);
+    const dmMessagesSendIntegration = new integrations.HttpLambdaIntegration('DmMessagesSendInt', dmMessagesSendFn);
     const adminSessionGetIntegration = new integrations.HttpLambdaIntegration(
       'AdminSessionGetInt',
       adminSessionGetFn,
@@ -1404,6 +1520,13 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     this.httpApi.addRoutes({
+      path: '/v1/dm/threads/{pairKey}/messages',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: dmMessagesSendIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
       path: '/v1/admin/session',
       methods: [apigwv2.HttpMethod.GET],
       integration: adminSessionGetIntegration,
@@ -1525,6 +1648,12 @@ export class ApiCatalogStack extends cdk.Stack {
       description: 'DynamoDB DirectMessages — PK `pairKey`, SK `m#<sentAtMs>#<messageId>`.',
     });
 
+    new cdk.CfnOutput(this, 'FanConnectionsTableName', {
+      value: this.fanConnectionsTable.tableName,
+      description:
+        'DynamoDB FanConnections — PK `connectionId`; GSI FanSubIndex for Fan DM WebSocket PostToConnection fan-out.',
+    });
+
     new cdk.CfnOutput(this, 'FriendshipRateLimitTableName', {
       value: friendshipRateLimitTable.tableName,
       description: 'DynamoDB friendship invite/action rate limits — PK `pk`, SK `sk`, TTL `expiresAt`.',
@@ -1555,7 +1684,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends`, `/v1/friends/{pairKey}` (DELETE), `/v1/friends/requests`, `/v1/dm/threads/{peerSub}` (PUT), `/v1/dm/threads/{pairKey}/messages` (GET), `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends`, `/v1/friends/{pairKey}` (DELETE), `/v1/friends/requests`, `/v1/dm/threads/{peerSub}` (PUT), `/v1/dm/threads/{pairKey}/messages` (GET/POST), `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {
@@ -1569,6 +1698,16 @@ export class ApiCatalogStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'WebSocketApiId', {
       value: this.webSocketApi.apiId,
+    });
+
+    new cdk.CfnOutput(this, 'FanDmWebSocketUrl', {
+      value: fanDmWsStage.url,
+      description:
+        'Fan DM push WebSocket `wss://` URL (separate from room ChatSession WebSocketUrl). JWT on $connect only.',
+    });
+
+    new cdk.CfnOutput(this, 'FanDmWebSocketApiId', {
+      value: this.fanDmWebSocketApi.apiId,
     });
 
     new cdk.CfnOutput(this, 'TmdbApiTokenSecretArn', {

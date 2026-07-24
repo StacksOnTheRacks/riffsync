@@ -10,9 +10,11 @@ import {
 } from './friends-shared';
 
 export const DM_READ_LIMIT_PER_MINUTE = 60;
+export const DM_SEND_LIMIT_PER_MINUTE = 20;
 export const DM_HISTORY_DEFAULT_LIMIT = 50;
 export const DM_HISTORY_MAX_LIMIT = 100;
 export const DM_BODY_MAX_LEN = 2000;
+export const FAN_CONNECTIONS_FAN_SUB_INDEX = 'FanSubIndex';
 
 export type DmDenyCode =
   | 'cannot_dm_self'
@@ -21,6 +23,7 @@ export type DmDenyCode =
   | 'dm_not_member'
   | 'dm_thread_closed'
   | 'dm_thread_not_found'
+  | 'invalid_dm_body'
   | 'rate_limited';
 
 export type DmThreadItem = {
@@ -67,6 +70,14 @@ export function isPairMember(pairKey: string, fanSub: string): boolean {
   const parts = splitPairKey(pairKey);
   if (!parts) return false;
   return fanSub === parts.fanSubA || fanSub === parts.fanSubB;
+}
+
+export function peerSubForCaller(pairKey: string, fanSub: string): string | null {
+  const parts = splitPairKey(pairKey);
+  if (!parts) return null;
+  if (fanSub === parts.fanSubA) return parts.fanSubB;
+  if (fanSub === parts.fanSubB) return parts.fanSubA;
+  return null;
 }
 
 export function directMessageSortKey(sentAt: number, messageId: string): string {
@@ -145,22 +156,24 @@ export function dmReadRateLimitKey(fanSub: string, bucketMs: number): { pk: stri
   return { pk: `dm-read#${fanSub}`, sk: String(bucketMs) };
 }
 
-export async function enforceDmReadRateLimit(
+export function dmSendRateLimitKey(fanSub: string, bucketMs: number): { pk: string; sk: string } {
+  return { pk: `dm-send#${fanSub}`, sk: String(bucketMs) };
+}
+
+async function enforceDmRateLimit(
   doc: DynamoDBDocumentClient,
   tableName: string,
-  fanSub: string,
+  key: { pk: string; sk: string },
   limit: number,
-  nowMs: number = Date.now(),
+  nowMs: number,
 ): Promise<boolean> {
-  const bucketMs = minuteBucketEpochMs(nowMs);
-  const { pk, sk } = dmReadRateLimitKey(fanSub, bucketMs);
   const expiresAt = Math.floor(nowMs / 1000) + 120;
 
   try {
     await doc.send(
       new UpdateCommand({
         TableName: tableName,
-        Key: { pk, sk },
+        Key: key,
         UpdateExpression: 'ADD requestCount :one SET expiresAt = :expiresAt',
         ConditionExpression: 'attribute_not_exists(requestCount) OR requestCount < :limit',
         ExpressionAttributeValues: {
@@ -178,6 +191,53 @@ export async function enforceDmReadRateLimit(
     }
     throw e;
   }
+}
+
+export async function enforceDmReadRateLimit(
+  doc: DynamoDBDocumentClient,
+  tableName: string,
+  fanSub: string,
+  limit: number,
+  nowMs: number = Date.now(),
+): Promise<boolean> {
+  const bucketMs = minuteBucketEpochMs(nowMs);
+  return enforceDmRateLimit(doc, tableName, dmReadRateLimitKey(fanSub, bucketMs), limit, nowMs);
+}
+
+export async function enforceDmSendRateLimit(
+  doc: DynamoDBDocumentClient,
+  tableName: string,
+  fanSub: string,
+  limit: number,
+  nowMs: number = Date.now(),
+): Promise<boolean> {
+  const bucketMs = minuteBucketEpochMs(nowMs);
+  return enforceDmRateLimit(doc, tableName, dmSendRateLimitKey(fanSub, bucketMs), limit, nowMs);
+}
+
+export function parseDmSendBody(raw: string | undefined):
+  | { ok: true; messageId: string; kind: 'text'; body: string }
+  | { ok: false; code: 'invalid_dm_body' } {
+  if (!raw || raw.trim() === '') {
+    return { ok: false, code: 'invalid_dm_body' };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, code: 'invalid_dm_body' };
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return { ok: false, code: 'invalid_dm_body' };
+  }
+  const record = parsed as Record<string, unknown>;
+  const messageId = typeof record.messageId === 'string' ? record.messageId.trim() : '';
+  const kind = record.kind === 'text' ? 'text' : null;
+  const body = typeof record.body === 'string' ? record.body.trim() : '';
+  if (!messageId || !kind || !body || body.length > DM_BODY_MAX_LEN) {
+    return { ok: false, code: 'invalid_dm_body' };
+  }
+  return { ok: true, messageId, kind, body };
 }
 
 export async function friendshipActiveForCaller(

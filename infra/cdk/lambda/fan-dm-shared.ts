@@ -1,0 +1,171 @@
+import { ApiGatewayManagementApiClient, PostToConnectionCommand } from '@aws-sdk/client-apigatewaymanagementapi';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import { TextEncoder } from 'node:util';
+import {
+  avatarUrlFromStoredProfile,
+  displayNameFromStoredProfile,
+} from './fan-profile-shared';
+import { FAN_CONNECTIONS_FAN_SUB_INDEX } from './dm-shared';
+
+const encoder = new TextEncoder();
+
+export type DmMessagePushEnvelope = {
+  type: 'dm_message';
+  schemaVersion: 1;
+  pairKey: string;
+  messageId: string;
+  senderSub: string;
+  kind: 'text';
+  body: string;
+  sentAt: number;
+  displayName?: string;
+  avatarUrl?: string;
+};
+
+export function fanDmWsManagementClient(): ApiGatewayManagementApiClient {
+  const endpoint = process.env.FAN_DM_WS_MANAGEMENT_API_ENDPOINT;
+  if (!endpoint) {
+    throw new Error('Missing FAN_DM_WS_MANAGEMENT_API_ENDPOINT');
+  }
+  return new ApiGatewayManagementApiClient({ endpoint });
+}
+
+export async function queryFanConnectionIdsForFanSub(
+  doc: DynamoDBDocumentClient,
+  tableName: string,
+  fanSub: string,
+): Promise<string[]> {
+  const out = await doc.send(
+    new QueryCommand({
+      TableName: tableName,
+      IndexName: FAN_CONNECTIONS_FAN_SUB_INDEX,
+      KeyConditionExpression: 'fanSub = :fanSub',
+      ExpressionAttributeValues: { ':fanSub': fanSub },
+    }),
+  );
+  const ids: string[] = [];
+  for (const item of out.Items ?? []) {
+    const connectionId = item.connectionId;
+    if (typeof connectionId === 'string' && connectionId.length > 0) {
+      ids.push(connectionId);
+    }
+  }
+  return ids;
+}
+
+function isPostToConnectionGone(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { name?: unknown }).name === 'GoneException';
+}
+
+export async function postToFanConnections(
+  client: ApiGatewayManagementApiClient,
+  doc: DynamoDBDocumentClient,
+  connectionsTable: string,
+  connectionIds: readonly string[],
+  payload: Uint8Array,
+): Promise<void> {
+  for (const connectionId of connectionIds) {
+    try {
+      await client.send(
+        new PostToConnectionCommand({
+          ConnectionId: connectionId,
+          Data: payload,
+        }),
+      );
+    } catch (err: unknown) {
+      if (isPostToConnectionGone(err)) {
+        await doc
+          .send(
+            new DeleteCommand({
+              TableName: connectionsTable,
+              Key: { connectionId },
+            }),
+          )
+          .catch(() => undefined);
+      } else {
+        console.warn(
+          JSON.stringify({
+            riffsyncDiag: 'fan_dm_post_to_connection_failed',
+            connectionIdTail: connectionId.slice(-12),
+            errorName: err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : 'unknown',
+          }),
+        );
+      }
+    }
+  }
+}
+
+export function buildDmMessagePushEnvelope(input: {
+  pairKey: string;
+  messageId: string;
+  senderSub: string;
+  body: string;
+  sentAt: number;
+  senderProfile?: Record<string, unknown>;
+}): DmMessagePushEnvelope {
+  const displayName = displayNameFromStoredProfile(input.senderProfile);
+  const avatarUrl = avatarUrlFromStoredProfile(input.senderProfile);
+  return {
+    type: 'dm_message',
+    schemaVersion: 1,
+    pairKey: input.pairKey,
+    messageId: input.messageId,
+    senderSub: input.senderSub,
+    kind: 'text',
+    body: input.body,
+    sentAt: input.sentAt,
+    ...(displayName ? { displayName } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
+  };
+}
+
+export async function loadFanProfile(
+  doc: DynamoDBDocumentClient,
+  tableName: string,
+  fanSub: string,
+): Promise<Record<string, unknown> | undefined> {
+  const out = await doc.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: { sub: fanSub },
+    }),
+  );
+  return out.Item as Record<string, unknown> | undefined;
+}
+
+export async function pushDmMessageToRecipient(input: {
+  doc: DynamoDBDocumentClient;
+  fanConnectionsTable: string;
+  fanProfilesTable: string;
+  recipientFanSub: string;
+  senderSub: string;
+  pairKey: string;
+  messageId: string;
+  body: string;
+  sentAt: number;
+}): Promise<void> {
+  const connectionIds = await queryFanConnectionIdsForFanSub(
+    input.doc,
+    input.fanConnectionsTable,
+    input.recipientFanSub,
+  );
+  if (connectionIds.length === 0) {
+    return;
+  }
+
+  const senderProfile = await loadFanProfile(input.doc, input.fanProfilesTable, input.senderSub).catch(
+    () => undefined,
+  );
+  const envelope = buildDmMessagePushEnvelope({
+    pairKey: input.pairKey,
+    messageId: input.messageId,
+    senderSub: input.senderSub,
+    body: input.body,
+    sentAt: input.sentAt,
+    senderProfile,
+  });
+  const payload = encoder.encode(JSON.stringify(envelope));
+  const client = fanDmWsManagementClient();
+  await postToFanConnections(client, input.doc, input.fanConnectionsTable, connectionIds, payload);
+}
