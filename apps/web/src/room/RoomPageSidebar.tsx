@@ -198,11 +198,12 @@ export function RoomPageSidebar({
                 type="button"
                 className={`riffsync-room-page__tab${activeSidebarTab === 'friends' ? ' riffsync-room-page__tab--on' : ''}`}
                 aria-pressed={activeSidebarTab === 'friends'}
+                aria-label={friendsAnyUnread ? 'Friends, unread messages' : 'Friends'}
                 onClick={() => setRoomSidebarTab('friends')}
               >
                 Friends
                 {friendsAnyUnread ? (
-                  <span className="riffsync-room-page__tab-unread-dot" aria-label="Unread direct messages" />
+                  <span className="riffsync-room-page__tab-unread-dot" aria-hidden="true" />
                 ) : null}
               </button>
             ) : null}

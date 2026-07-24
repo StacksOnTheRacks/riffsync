@@ -232,4 +232,36 @@ describe('RoomFriendsPane (#364)', () => {
 
     expect(container.textContent).toContain('Could not load friends. Try again.')
   })
+
+  it('focuses Cancel and dismisses remove dialog on Escape', () => {
+    const cancelRemove = vi.fn()
+    act(() => {
+      root.render(
+        <RoomFriendsPane
+          pane={buildPaneState({
+            removeTarget: {
+              fanSub: 'fan-b',
+              pairKey: 'a#b',
+              displayName: 'Buddy',
+              online: false,
+              hasUnread: false,
+              createdAt: 1,
+            },
+            cancelRemove,
+          })}
+          visible
+        />,
+      )
+    })
+
+    const cancelButton = Array.from(container.querySelectorAll('button')).find((node) =>
+      node.textContent?.includes('Cancel'),
+    )
+    expect(document.activeElement).toBe(cancelButton)
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    expect(cancelRemove).toHaveBeenCalled()
+  })
 })

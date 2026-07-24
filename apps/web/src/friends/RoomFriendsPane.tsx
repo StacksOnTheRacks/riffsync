@@ -14,6 +14,7 @@ type RoomFriendsPaneProps = {
 export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
   const backButtonRef = useRef<HTMLButtonElement>(null)
   const openedFromRowRef = useRef<HTMLButtonElement | null>(null)
+  const removeFromButtonRef = useRef<HTMLButtonElement | null>(null)
   const fanToken = getFanAccessToken()
   const myFanSub = fanToken ? cognitoSub(fanToken) : undefined
 
@@ -197,7 +198,10 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
                     openedFromRowRef.current = rowRef
                     pane.openDm(friend)
                   }}
-                  onRemove={() => pane.confirmRemove(friend)}
+                  onRemove={(rowRef) => {
+                    removeFromButtonRef.current = rowRef
+                    pane.confirmRemove(friend)
+                  }}
                 />
               ))}
             </ul>
@@ -211,7 +215,11 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
       {pane.removeTarget ? (
         <RemoveFriendDialog
           displayName={pane.removeTarget.displayName}
-          onCancel={pane.cancelRemove}
+          onCancel={() => {
+            pane.cancelRemove()
+            removeFromButtonRef.current?.focus()
+            removeFromButtonRef.current = null
+          }}
           onConfirm={() => void pane.executeRemove()}
         />
       ) : null}
@@ -226,9 +234,10 @@ function FriendRow({
 }: {
   friend: FriendEntry
   onOpenDm: (rowRef: HTMLButtonElement) => void
-  onRemove: () => void
+  onRemove: (rowRef: HTMLButtonElement) => void
 }) {
   const openButtonRef = useRef<HTMLButtonElement>(null)
+  const removeButtonRef = useRef<HTMLButtonElement>(null)
 
   return (
     <li className="riffsync-room-friends-row">
@@ -255,10 +264,13 @@ function FriendRow({
         ) : null}
       </div>
       <button
+        ref={removeButtonRef}
         type="button"
         className="riffsync-room-friends-remove gen-button"
         aria-label={`Remove ${friend.displayName}`}
-        onClick={onRemove}
+        onClick={() => {
+          if (removeButtonRef.current) onRemove(removeButtonRef.current)
+        }}
       >
         Remove
       </button>
@@ -275,8 +287,24 @@ function RemoveFriendDialog({
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const cancelButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    cancelButtonRef.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onCancel])
+
   return (
-    <div className="riffsync-room-friends-remove-dialog" role="dialog" aria-labelledby="remove-friend-title">
+    <div
+      className="riffsync-room-friends-remove-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="remove-friend-title"
+    >
       <div className="riffsync-room-friends-remove-dialog-panel">
         <h2 id="remove-friend-title">Remove friend?</h2>
         <p>
@@ -284,7 +312,7 @@ function RemoveFriendDialog({
           become friends again.
         </p>
         <div className="riffsync-room-friends-remove-dialog-actions">
-          <button type="button" className="gen-button" onClick={onCancel}>
+          <button ref={cancelButtonRef} type="button" className="gen-button" onClick={onCancel}>
             Cancel
           </button>
           <button type="button" className="gen-button riffsync-room-friends-remove-confirm" onClick={onConfirm}>

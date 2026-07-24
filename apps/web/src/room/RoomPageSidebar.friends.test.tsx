@@ -14,36 +14,38 @@ const mockRoomFriendsPane = vi.fn((props: { visible: boolean }) => {
   return null
 })
 
-vi.mock('../friends/useRoomFriendsPane', () => ({
-  useRoomFriendsPane: () => ({
-    loading: false,
-    loadError: false,
-    snapshot: {
-      friends: [{ fanSub: 'fan-b', pairKey: 'a#b', displayName: 'Buddy', online: true, hasUnread: true, createdAt: 1 }],
-      inbound: [{ requestId: 'req-1', requesterSub: 'fan-c', recipientSub: 'fan-a', createdAt: 2 }],
-      outbound: [],
-      anyUnread: true,
-    },
-    openPeer: null,
-    dmMessages: [],
-    dmClosed: false,
-    dmLoading: false,
-    dmDraft: '',
-    dmComposeError: null,
-    removeTarget: null,
+const mockUseRoomFriendsPane = vi.fn(() => ({
+  loading: false,
+  loadError: false,
+  snapshot: {
+    friends: [{ fanSub: 'fan-b', pairKey: 'a#b', displayName: 'Buddy', online: true, hasUnread: true, createdAt: 1 }],
+    inbound: [{ requestId: 'req-1', requesterSub: 'fan-c', recipientSub: 'fan-a', createdAt: 2 }],
+    outbound: [],
     anyUnread: true,
-    setDmDraft: vi.fn(),
-    refreshRoster: vi.fn(),
-    acceptRequest: vi.fn(),
-    declineRequest: vi.fn(),
-    cancelRequest: vi.fn(),
-    openDm: vi.fn(),
-    closeDm: vi.fn(),
-    confirmRemove: vi.fn(),
-    cancelRemove: vi.fn(),
-    executeRemove: vi.fn(),
-    sendDm: vi.fn(),
-  }),
+  },
+  openPeer: null,
+  dmMessages: [],
+  dmClosed: false,
+  dmLoading: false,
+  dmDraft: '',
+  dmComposeError: null,
+  removeTarget: null,
+  anyUnread: true,
+  setDmDraft: vi.fn(),
+  refreshRoster: vi.fn(),
+  acceptRequest: vi.fn(),
+  declineRequest: vi.fn(),
+  cancelRequest: vi.fn(),
+  openDm: vi.fn(),
+  closeDm: vi.fn(),
+  confirmRemove: vi.fn(),
+  cancelRemove: vi.fn(),
+  executeRemove: vi.fn(),
+  sendDm: vi.fn(),
+}))
+
+vi.mock('../friends/useRoomFriendsPane', () => ({
+  useRoomFriendsPane: () => mockUseRoomFriendsPane(),
 }))
 
 vi.mock('../friends/RoomFriendsPane', () => ({
@@ -162,6 +164,7 @@ describe('RoomPageSidebar friends tab (#364)', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mockRoomFriendsPane.mockClear()
+    mockUseRoomFriendsPane.mockClear()
   })
 
   afterEach(() => {
@@ -209,6 +212,47 @@ describe('RoomPageSidebar friends tab (#364)', () => {
       node.textContent?.includes('Friends'),
     )
     expect(friendsTab?.querySelector('.riffsync-room-page__tab-unread-dot')).not.toBeNull()
+    expect(friendsTab?.getAttribute('aria-label')).toBe('Friends, unread messages')
+  })
+
+  it('uses plain Friends accessible name when no unread activity', () => {
+    mockUseRoomFriendsPane.mockReturnValueOnce({
+      loading: false,
+      loadError: false,
+      snapshot: {
+        friends: [],
+        inbound: [],
+        outbound: [],
+        anyUnread: false,
+      },
+      openPeer: null,
+      dmMessages: [],
+      dmClosed: false,
+      dmLoading: false,
+      dmDraft: '',
+      dmComposeError: null,
+      removeTarget: null,
+      anyUnread: false,
+      setDmDraft: vi.fn(),
+      refreshRoster: vi.fn(),
+      acceptRequest: vi.fn(),
+      declineRequest: vi.fn(),
+      cancelRequest: vi.fn(),
+      openDm: vi.fn(),
+      closeDm: vi.fn(),
+      confirmRemove: vi.fn(),
+      cancelRemove: vi.fn(),
+      executeRemove: vi.fn(),
+      sendDm: vi.fn(),
+    })
+
+    renderSidebar()
+
+    const friendsTab = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).find((node) =>
+      node.textContent?.includes('Friends'),
+    )
+    expect(friendsTab?.getAttribute('aria-label')).toBe('Friends')
+    expect(friendsTab?.querySelector('.riffsync-room-page__tab-unread-dot')).toBeNull()
   })
 
   it('mounts RoomFriendsPane when Friends tab is active', () => {
