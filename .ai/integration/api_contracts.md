@@ -87,6 +87,7 @@ Friends and 1:1 DMs are a **fan social plane** beside watch-party room chat. The
 | **Decline** | **`POST /v1/friends/requests/{requestId}/decline`**. **Recipient only**. Hard-deletes request. **`204`**. |
 | **Cancel** | **`DELETE /v1/friends/requests/{requestId}`**. **Requester only**. Hard-deletes pending request. **`204`**. |
 | **Remove** | **`DELETE /v1/friends/{pairKey}`** or peer-scoped variant — **#358**. |
+| **List accepted friends** | **`GET /v1/friends`** — **#357**. Returns **`{ "friends": [ ... ] }`** for caller's accepted edges only. |
 
 Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** authorize friendship mutations.
 
@@ -107,10 +108,22 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 
 | Topic | Contract |
 | --- | --- |
-| **Meaning** | A friend row is **online** when that friend’s fan **`sub`** has an **open RoomPresence** row in **any** RiffSync room. |
-| **Not** | Platform-wide browsing presence, last-seen timestamp product, or same-room-only. Room **People** **online** vs **active** semantics inside a room are **unchanged**. |
-| **Derivation** | Server **queries / derives** across room presence (existing **RoomPresence** class). No SFU media-plane signal. Main-site friends list does **not** require the viewer to join a room. |
-| **Wire keys** | Exact online boolean / presence payload field names are open (see **Open implementation decisions**). |
+| **Meaning** | A friend row is **online** when that friend's fan **`sub`** has an **open RoomPresence** row in **any** RiffSync room. |
+| **Not** | Platform-wide browsing presence, last-seen timestamp product, same-room-only, or People **active** engagement. Room **People** **online** vs **active** semantics inside a room are **unchanged**. |
+| **Derivation** | For each peer **`fanSub`**, query sparse **RoomPresence** GSI (**PK `fanSub`**, **SK `roomId#presenceKey`**) with **`Limit: 1`**. Any item ⇒ **`online: true`**. OR across rooms and tabs. |
+| **Disconnect** | Rows delete on **`$disconnect`**; TTL **`expiresAt`** is orphan cleanup. GSI reads are eventually consistent. |
+| **Wire (GET /v1/friends entry)** | **`fanSub`**, **`pairKey`**, **`displayName`**, optional **`avatarUrl`**, **`online`** (boolean), **`createdAt`** (epoch ms). No **`active`**, **`lastActiveAt`**, or **`roomId`**. |
+| **Display** | **`displayName`** / **`avatarUrl`** from **FanProfiles**; **`displayName`** fallback **`"Friend"`** when profile missing or empty. |
+| **Sort** | Case-insensitive **`displayName`**, then lexicographic **`pairKey`**. |
+| **Main site** | Viewer does **not** need to join a room to load the list. No SFU signal. |
+
+### Friends-list HTTP (#357)
+
+| Step | Contract |
+| --- | --- |
+| **List** | **`GET /v1/friends`**. Fan JWT required. **`200`** body **`{ "friends": [ { "fanSub", "pairKey", "displayName", "avatarUrl"?, "online", "createdAt" } ] }`**. Pending requests excluded. |
+| **Auth** | **`401 fan_auth_required`** without valid fan JWT. Guests and staff tokens denied. |
+| **Rate limit** | **60**/min per caller **`fanSub`**; **`429 rate_limited`**. |
 
 ### DM plane vs room `ChatSession`
 
@@ -143,6 +156,7 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 | **Giphy search** | **30** search requests per **minute** per **`sub`** (HTTP; tune in IaC). |
 | **Friend-request send** | **10** **`POST /v1/friends/requests`** per **minute** per **`fanSub`** (HTTP; API Gateway + Lambda guard). |
 | **Friend-request accept / decline / cancel** | **30** combined actions per **minute** per **`fanSub`**. |
+| **Friends list read** | **60** **`GET /v1/friends`** per **minute** per **`fanSub`**. |
 | **Participant A/V publishers** | **8** concurrent signed-in AV publishers per room (hard ceiling; tune in IaC / SFU env). **403** or visible client error when cap hit — no auto-degrade in MVP. |
 | **WebSocket** | Subject to **API Gateway** account/service quotas; design for **≤50 concurrent connections per room** under normal use (matches participant cap). |
 
@@ -190,6 +204,17 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 | Invite idempotency? | Same-direction pending → **200** with existing request. |
 | Pair conflict? | Opposite pending → **409 `friend_request_inbound_exists`**. |
 | Request terminal storage? | **Hard-delete** on accept, decline, cancel. |
+
+## Decisions (answered — friends list and online #357)
+
+| Question | Decision |
+| --- | --- |
+| **Friends list route?** | **`GET /v1/friends`** on fan JWT authorizer. |
+| **Response shape?** | **`friends`** array; each entry includes **`fanSub`**, **`pairKey`**, **`displayName`**, optional **`avatarUrl`**, **`online`**, **`createdAt`**. |
+| **Online field?** | Boolean **`online`** only — derived from **RoomPresence** **`fanSub`** GSI; no **`roomId`** or **`active`**. |
+| **Profile fallback?** | **`displayName: "Friend"`** when **FanProfiles** missing or empty. |
+| **List ordering?** | **`displayName`** (case-insensitive), then **`pairKey`**. |
+| **Read rate limit?** | **60/min** per **`fanSub`**. |
 
 ## Decisions (answered — #101 HTTP room AV)
 
@@ -419,7 +444,6 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 - Remove-friend **`DELETE`** path shape — **#358**.
 - Stable business **`code`** strings for not-friends, thread-closed-after-remove, DM send when plane down — **M35** / **#358**.
 - DM realtime topology: new WebSocket application routes, fan-scoped connection (not **`roomId`**-keyed), HTTP sync-only with optional push, or hybrid; exact outbound/inbound **`type`** and **`schemaVersion`** discriminators. Prefer documenting any shared transport with room WS **explicitly** rather than silently reusing **`ChatSession`**.
-- Friends-list online payload keys (boolean field name, whether to include room id of presence, reuse of **`fanSub`** / **`displayName`** / **`avatarUrl`** shapes) — **#357**.
 - Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape — **M35**.
 - Client drop / unavailable codes for DM send when the chosen realtime plane is down (DM analogue of **`CHAT_SEND_DROPPED`**).
 - Rate-limit numeric thresholds for DM send (friend-request bands decided above).

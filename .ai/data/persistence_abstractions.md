@@ -52,7 +52,7 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | **Open 1:1 DM thread** | Resolve **DmThread** for unordered fan pair (create-on-first-send or ensure-on-open — tier-TW); require active **Friendship**. |
 | **Page DM history** | Query **DirectMessage** rows for a thread in chronological (or newest-first) order; account-lifetime retention (no TTL window). |
 | **DM unread** | Read/update per-recipient watermark for a thread; clear on view so friends-list badges stay server-authoritative. |
-| **Friends online (derived)** | For each friend **`fanSub`**, treat as online if any **RoomPresence** row exists for that **`fanSub`** in any room. Not a durable friends-presence table; not last-seen. Access path may need a **RoomPresence** GSI on **`fanSub`** (tier-TW). |
+| **Friends online (derived)** | For each friend **`fanSub`**, treat as online if any **RoomPresence** row exists for that **`fanSub`** in any room. Query sparse **RoomPresence** GSI **`fanSub`** + **`roomId#presenceKey`** with **`Limit: 1`** per peer (#357). Not a durable friends-presence table; not last-seen. |
 | **Remove-friend** | Mutual edge delete (or terminal status) for both directions; close/hide **DmThread** access for both participants in the same outcome. Soft vs hard delete of message bodies — open implementation decision. |
 
 ## Decisions (answered)
@@ -86,7 +86,15 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | **Physical tables** | Dedicated **`FriendshipRequests`** and **`Friendships`** Dynamo tables (env-suffixed names in IaC). |
 | **FriendshipRequests keys** | PK **`requestId`**; GSI **`recipientSub`** + **`createdAt`**; GSI **`requesterSub`** + **`createdAt`**; sparse GSI **`pairKey`** for pending uniqueness. |
 | **Friendships keys** | PK **`pairKey`**; GSI **`fanSub`** + SK **`pairKey`**. |
-| **Env vars** | Lambdas receive **`FRIENDSHIP_REQUESTS_TABLE_NAME`**, **`FRIENDSHIPS_TABLE_NAME`**. |
+| **Env vars** | Lambdas receive **`FRIENDSHIP_REQUESTS_TABLE_NAME`**, **`FRIENDSHIPS_TABLE_NAME`**. Friends-list handler also receives **`FAN_PROFILES_TABLE_NAME`**, **`ROOM_PRESENCE_TABLE_NAME`**. |
+
+## Decisions (answered — friends list and online #357)
+
+| Question | Decision |
+| --- | --- |
+| **RoomPresence GSI for online?** | **Yes** — sparse GSI PK **`fanSub`**, SK **`roomId#presenceKey`** on existing **RoomPresence** table. |
+| **GSI projection / TTL?** | Project keys needed for existence check; base-table **`expiresAt`** TTL unchanged. |
+| **Friends-list Lambda grants?** | Read **Friendships** (GSI **`fanSub`**), batch **FanProfiles**, query **RoomPresence** GSI per peer (or bounded parallel queries). |
 
 ## Open implementation decisions
 
@@ -97,7 +105,6 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 - IaC env wiring already passes **`ROOM_PRESENCE_TABLE_NAME`** to WS and SFU-token Lambdas — document any additional consumers (e.g. layout fan-out Lambda).
 - Exact Dynamo table resource split for **DmThread**, **DirectMessage**, **DmUnread** (friendship tables decided #356).
 - Partition key / sort key / GSI attribute shapes and names for thread-by-peer, message paging, unread aggregation.
-- Whether **RoomPresence** gains a **`fanSub`** GSI (or equivalent) for any-room online checks; projection and TTL interaction with existing **`expiresAt`**.
 - Soft-delete / tombstone attributes vs hard-delete for friendships, threads, and DM bodies on remove-friend and account closure; cascade order and idempotency.
 - Env/IaC table name wiring for DM Lambdas ( **`FRIENDSHIP_*`** decided #356; parallel to **`ROOM_PRESENCE_TABLE_NAME`** / **`ROOM_CHAT_TABLE_NAME`** patterns).
 

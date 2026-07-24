@@ -46,6 +46,7 @@ Ephemeral **per-connection** rows in **RoomPresence** Dynamo (distinct from **Co
 | **`displayName`** | Optional roster label at connect time. |
 | **`lastActiveAt`** | Epoch seconds — durable last qualifying control-plane engagement for this presence row. Updated on **`typing_start`**, **`chat`** / **`chat_gif`**, **`react`**, and **`ping`** when the signal falls inside the active window. Used to rehydrate **`active`** on **`presence_request`** and roster fan-out after reconnect. |
 | **`connectedAt`**, **`lastSeenAt`**, **`expiresAt`** | Housekeeping; **TTL** on **`expiresAt`** (~90m) for stale row cleanup. |
+| **GSI `fanSub` + `roomId#presenceKey`** | Sparse index for friends-list **online** derivation (#357): query by peer **`fanSub`** with **`Limit: 1`** to detect any-room presence. Only rows with non-empty **`fanSub`** project into the GSI. TTL on base table unchanged. |
 
 **Active derivation (not a stored field):** **`active`** is **true** when **`now - lastActiveAt < 120`** seconds (2-minute idle window). Qualifying signals that refresh **`lastActiveAt`** are the **union** of **`typing_start`**, outbound **`chat`** / **`chat_gif`**, **`react`**, and **`ping`** while the participant remains connected. **Online** without a recent qualifying signal yields **`active: false`**. Server **may** precompute **`active`** at broadcast time; clients **may** derive from **`lastActiveAt`** — see **`integration/api_contracts.md`**.
 
@@ -217,6 +218,16 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 | **FriendshipRequests access** | PK **`requestId`**; GSI **`recipientSub`** (inbound pending), GSI **`requesterSub`** (outbound pending), sparse GSI **`pairKey`** (pending uniqueness). |
 | **Friendships access** | PK **`pairKey`**; GSI **`fanSub`** + SK **`pairKey`** for list-my-friends (#357). |
 
+## Decisions (answered — friends list and online #357)
+
+| Question | Decision |
+| --- | --- |
+| **Cross-query for friends online?** | **RoomPresence** sparse GSI on **`fanSub`** (PK) + **`roomId#presenceKey`** (SK). Per peer: query with **`Limit: 1`**; any hit ⇒ **`online: true`**. No denormalized friends-presence table. |
+| **Multi-tab / multi-room?** | OR semantics — multiple rows sharing **`fanSub`** still yield **`online: true`** while any row exists. |
+| **Stored online on Friendship?** | **No** — derived at read time only. |
+| **Friend row labels?** | **FanProfiles** **`displayName`** / **`avatarUrl`**; fallback name **`"Friend"`** when profile missing or empty. |
+| **List sort?** | **`displayName`** case-insensitive, then **`pairKey`**. |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
@@ -228,7 +239,6 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 - Soft-delete / tombstone vs hard-delete of **DirectMessage** rows (and thread metadata) when remove-friend hides history for both, and on account closure / explicit delete.
 - Whether remove-friend deletes message bodies immediately, retains tombstoned rows inaccessible to both, or schedules deferred purge.
 - Unread watermark representation: per-thread cursor / last-read message id vs denormalized unread count on friendship or thread summary; clear-on-view write shape.
-- Cross-query for friends online: scan/query **RoomPresence** by **`fanSub`** (requires GSI if not present) vs denormalized ephemeral presence map (still not durable last-seen).
 
 ## Primary code pointers (optional)
 

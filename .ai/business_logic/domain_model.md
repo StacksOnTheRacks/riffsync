@@ -360,15 +360,25 @@ Friends online is room-presence-derived and aggregate across rooms. It is not a 
 | **Accept-after-remove / after decline?** | Allowed via a **new** invite/accept cycle. Prior DM history stays inaccessible (#358 default). |
 | **Instant mutual-add without accept?** | **Out of scope** — reciprocal pendings still require **accept** on an inbound request. |
 
+## Decisions (answered — friends list and online #357)
+
+| Question | Decision |
+| --- | --- |
+| **Friends-list API?** | **`GET /v1/friends`** — accepted **Friendship** edges only; fan JWT required. Pending requests stay on **`GET /v1/friends/requests`**. |
+| **Online aggregation?** | **`online: true`** when peer **`fanSub`** has **≥1** live **RoomPresence** row in **any** room (OR across tabs and rooms). No durable online flag on **Friendship**. |
+| **Disconnect / stale rows?** | Row **hard-deleted** on **`$disconnect`**; TTL **`expiresAt`** is orphan cleanup. GSI reads eventually consistent; brief post-disconnect **`online: true`** acceptable for MVP. |
+| **Friends online vs People active?** | Friends list exposes **`online`** boolean only — **not** **`active`**, **`lastActiveAt`**, or **`roomId`**. People roster semantics unchanged. |
+| **Display labels?** | **`displayName`** and optional **`avatarUrl`** from **FanProfiles** keyed by peer **`fanSub`**. Fallback **`displayName`**: **`"Friend"`** when profile row missing or name empty. |
+| **List ordering?** | Case-insensitive **`displayName`**, then lexicographic **`pairKey`**. |
+| **Presence access path?** | Sparse **RoomPresence** GSI on **`fanSub`** + **`roomId#presenceKey`**; per-peer query **`Limit: 1`** for online boolean. |
+
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### friends-and-direct-messaging
-- Cross-room aggregation rules for friends-list **online** from **RoomPresence** (multi-tab / multi-room fan, stale presence after disconnect, field names for the derived signal) — **#357**.
 - Explicit DM delete semantics and account-closure cascade relative to inaccessible-after-unfriend history (soft-hide vs hard delete; whether storage purge jobs are required) — **#358 / M35**.
 - Whether re-friend ever restores prior **DmThread** history (default remains inaccessible).
 - Whether **DirectMessage** supports the same message kinds as room chat (text, emoji, Giphy GIF, reactions) or a reduced v1 set — **M35**.
-- Friend row display label / avatar resolution source and ordering when profile data is missing — **#357**.
 
 - Domain services colocated with Lambda packages when implemented.
