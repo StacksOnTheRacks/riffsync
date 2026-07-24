@@ -92,6 +92,7 @@ describe('ws-connect handler', () => {
     expect(presencePut?.hostSub).toBe('host-sub-1');
     expect(presencePut?.lastActiveAt).toEqual(expect.any(Number));
     expect(presencePut?.fanSub).toBe('host-sub-1');
+    expect(presencePut?.fanSubRoomSk).toBe('room-1#sess-host#conn-1');
   });
 
   it('does not maintain lobby cleanup for guest connections', async () => {

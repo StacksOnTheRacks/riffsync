@@ -259,6 +259,12 @@ export class ApiCatalogStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       timeToLiveAttribute: 'expiresAt',
     });
+    this.roomPresenceTable.addGlobalSecondaryIndex({
+      indexName: 'FanSubPresenceIndex',
+      partitionKey: { name: 'fanSub', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fanSubRoomSk', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.KEYS_ONLY,
+    });
 
     this.roomChatTable = new dynamodb.Table(this, 'RoomChatTable', {
       partitionKey: { name: 'roomId', type: dynamodb.AttributeType.STRING },
@@ -934,6 +940,28 @@ export class ApiCatalogStack extends cdk.Stack {
     this.friendshipsTable.grantReadWriteData(friendsRequestsFn);
     friendshipRateLimitTable.grantReadWriteData(friendsRequestsFn);
 
+    const friendsListFn = new lambdaNodejs.NodejsFunction(this, 'FriendsListFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/friends-list.ts'),
+      handler: 'handler',
+      environment: {
+        FRIENDSHIPS_TABLE_NAME: this.friendshipsTable.tableName,
+        FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
+        ROOM_PRESENCE_TABLE_NAME: this.roomPresenceTable.tableName,
+        FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
+        FRIEND_LIST_LIMIT_PER_MINUTE: '60',
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.friendshipsTable.grantReadData(friendsListFn);
+    this.fanProfilesTable.grantReadData(friendsListFn);
+    this.roomPresenceTable.grantReadData(friendsListFn);
+    friendshipRateLimitTable.grantReadWriteData(friendsListFn);
+
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
@@ -1115,6 +1143,7 @@ export class ApiCatalogStack extends cdk.Stack {
       'FriendsRequestsInt',
       friendsRequestsFn,
     );
+    const friendsListIntegration = new integrations.HttpLambdaIntegration('FriendsListInt', friendsListFn);
     const adminSessionGetIntegration = new integrations.HttpLambdaIntegration(
       'AdminSessionGetInt',
       adminSessionGetFn,
@@ -1237,6 +1266,13 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     this.httpApi.addRoutes({
+      path: '/v1/friends',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: friendsListIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
       path: '/v1/friends/requests',
       methods: [apigwv2.HttpMethod.POST, apigwv2.HttpMethod.GET],
       integration: friendsRequestsIntegration,
@@ -1350,7 +1386,8 @@ export class ApiCatalogStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'RoomPresenceTableName', {
       value: this.roomPresenceTable.tableName,
-      description: 'DynamoDB room presence table - partition key `roomId`, sort key `presenceKey`.',
+      description:
+        'DynamoDB room presence table - PK `roomId`, SK `presenceKey`; sparse GSI FanSubPresenceIndex (`fanSub`, `fanSubRoomSk`).',
     });
 
     new cdk.CfnOutput(this, 'RoomChatTableName', {
@@ -1405,7 +1442,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends/requests`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends`, `/v1/friends/requests`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {
