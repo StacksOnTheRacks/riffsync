@@ -189,6 +189,8 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly fanProfilesTable: dynamodb.Table;
   public readonly friendshipRequestsTable: dynamodb.Table;
   public readonly friendshipsTable: dynamodb.Table;
+  public readonly dmThreadsTable: dynamodb.Table;
+  public readonly directMessagesTable: dynamodb.Table;
   public readonly fanAvatarsBucket: s3.Bucket;
   public readonly fanAvatarsDistribution: cloudfront.Distribution;
   /** HTTPS origin for avatar object keys (no trailing slash). */
@@ -317,6 +319,21 @@ export class ApiCatalogStack extends cdk.Stack {
       partitionKey: { name: 'fanSub', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'pairKey', type: dynamodb.AttributeType.STRING },
       projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.dmThreadsTable = new dynamodb.Table(this, 'DmThreadsTable', {
+      partitionKey: { name: 'pairKey', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+    });
+
+    this.directMessagesTable = new dynamodb.Table(this, 'DirectMessagesTable', {
+      partitionKey: { name: 'pairKey', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
 
     this.fanAvatarsBucket = new s3.Bucket(this, 'FanAvatarsBucket', {
@@ -972,13 +989,57 @@ export class ApiCatalogStack extends cdk.Stack {
       environment: {
         FRIENDSHIPS_TABLE_NAME: this.friendshipsTable.tableName,
         FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
+        DM_THREADS_TABLE_NAME: this.dmThreadsTable.tableName,
         FRIEND_ACTION_LIMIT_PER_MINUTE: '30',
         RIFFSYNC_ENVIRONMENT: environment,
         NODE_OPTIONS: '--enable-source-maps',
       },
     });
     this.friendshipsTable.grantReadWriteData(friendsRemoveFn);
+    this.dmThreadsTable.grantReadWriteData(friendsRemoveFn);
     friendshipRateLimitTable.grantReadWriteData(friendsRemoveFn);
+
+    const dmThreadEnsureFn = new lambdaNodejs.NodejsFunction(this, 'DmThreadEnsureFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/dm-thread-ensure.ts'),
+      handler: 'handler',
+      environment: {
+        DM_THREADS_TABLE_NAME: this.dmThreadsTable.tableName,
+        FRIENDSHIPS_TABLE_NAME: this.friendshipsTable.tableName,
+        FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
+        DM_READ_LIMIT_PER_MINUTE: '60',
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.dmThreadsTable.grantReadWriteData(dmThreadEnsureFn);
+    this.friendshipsTable.grantReadData(dmThreadEnsureFn);
+    friendshipRateLimitTable.grantReadWriteData(dmThreadEnsureFn);
+
+    const dmMessagesListFn = new lambdaNodejs.NodejsFunction(this, 'DmMessagesListFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/dm-messages-list.ts'),
+      handler: 'handler',
+      environment: {
+        DM_THREADS_TABLE_NAME: this.dmThreadsTable.tableName,
+        DIRECT_MESSAGES_TABLE_NAME: this.directMessagesTable.tableName,
+        FRIENDSHIPS_TABLE_NAME: this.friendshipsTable.tableName,
+        FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
+        DM_READ_LIMIT_PER_MINUTE: '60',
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.dmThreadsTable.grantReadData(dmMessagesListFn);
+    this.directMessagesTable.grantReadData(dmMessagesListFn);
+    this.friendshipsTable.grantReadData(dmMessagesListFn);
+    friendshipRateLimitTable.grantReadWriteData(dmMessagesListFn);
 
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
@@ -1163,6 +1224,8 @@ export class ApiCatalogStack extends cdk.Stack {
     );
     const friendsListIntegration = new integrations.HttpLambdaIntegration('FriendsListInt', friendsListFn);
     const friendsRemoveIntegration = new integrations.HttpLambdaIntegration('FriendsRemoveInt', friendsRemoveFn);
+    const dmThreadEnsureIntegration = new integrations.HttpLambdaIntegration('DmThreadEnsureInt', dmThreadEnsureFn);
+    const dmMessagesListIntegration = new integrations.HttpLambdaIntegration('DmMessagesListInt', dmMessagesListFn);
     const adminSessionGetIntegration = new integrations.HttpLambdaIntegration(
       'AdminSessionGetInt',
       adminSessionGetFn,
@@ -1327,6 +1390,20 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     this.httpApi.addRoutes({
+      path: '/v1/dm/threads/{peerSub}',
+      methods: [apigwv2.HttpMethod.PUT],
+      integration: dmThreadEnsureIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/dm/threads/{pairKey}/messages',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: dmMessagesListIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
       path: '/v1/admin/session',
       methods: [apigwv2.HttpMethod.GET],
       integration: adminSessionGetIntegration,
@@ -1438,6 +1515,16 @@ export class ApiCatalogStack extends cdk.Stack {
       description: 'DynamoDB Friendships — PK `pairKey`, SK `fanSub`; GSI FanSubIndex.',
     });
 
+    new cdk.CfnOutput(this, 'DmThreadsTableName', {
+      value: this.dmThreadsTable.tableName,
+      description: 'DynamoDB DmThreads — PK `pairKey`; thread metadata for 1:1 DM pairs.',
+    });
+
+    new cdk.CfnOutput(this, 'DirectMessagesTableName', {
+      value: this.directMessagesTable.tableName,
+      description: 'DynamoDB DirectMessages — PK `pairKey`, SK `m#<sentAtMs>#<messageId>`.',
+    });
+
     new cdk.CfnOutput(this, 'FriendshipRateLimitTableName', {
       value: friendshipRateLimitTable.tableName,
       description: 'DynamoDB friendship invite/action rate limits — PK `pk`, SK `sk`, TTL `expiresAt`.',
@@ -1468,7 +1555,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends`, `/v1/friends/{pairKey}` (DELETE), `/v1/friends/requests`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends`, `/v1/friends/{pairKey}` (DELETE), `/v1/friends/requests`, `/v1/dm/threads/{peerSub}` (PUT), `/v1/dm/threads/{pairKey}/messages` (GET), `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {
