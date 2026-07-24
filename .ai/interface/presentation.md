@@ -541,6 +541,18 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 | **Fan DM bootstrap** | Start or attach **`FanDmSession`** on first **Friends** tab activation; reuse open session from main site when present. |
 | **Module reuse** | Share **`apps/web/src/friends/`** components and API clients with main-site #363. |
 
+## Decisions (M36 — signed-out and guest auth gates — #365)
+
+| Topic | Decision |
+| --- | --- |
+| **Signed-out main site** | Person-icon friends affordance **absent** (not disabled, not replaced by **Sign In**). **Account** primary-nav link unchanged. |
+| **Guest in room** | **Friends** sidebar tab **omitted** (not a disabled stub). No DM compose or friends manage chrome anywhere in room shell. Room **Sign In to Chat** remains chat-scoped only — it does **not** unlock friends/DM. |
+| **Staff-only session** | Staff JWT does **not** show friends/DM chrome and does **not** authorize **`/v1/friends/*`** or **`/v1/dm/*`**. Operator must also hold a **fan** session to use friends/DM. |
+| **Client/server agreement** | Client must not render optimistic friends/DM compose for guests or signed-out users. **`FanDmSession`** and friends HTTP clients must not open without fan access token. Server denies **`sessionId`-only** and staff tokens with **401 `fan_auth_required`**. |
+| **SEO / discoverability** | No indexable friends/DM routes or sitemap entries. Overlays mount on existing pages only; **`/room/:id`** stays **`noindex`**. |
+| **Shared guard module** | **`apps/web/src/friends/`** exposes a single **`requireFanAccessToken()`** (or equivalent) used by dropdown, room pane, **`dmApi`**, and **`FanDmSession`** bootstrap — #363/#364 consume it; #365 owns regression tests. |
+| **Verification timing** | Auth-gate QA matrix runs in the **same release train** as #363 and #364 so guests never ship with half-enabled chrome. |
+
 ## Decisions (M36 — main-site friends dropdown — #363)
 
 | Topic | Decision |
