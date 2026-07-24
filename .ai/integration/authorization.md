@@ -115,11 +115,16 @@ When status is **400**, **403**, **404**, or **409**, body includes stable **`co
 | **`friend_request_inbound_exists`** | **409** | Opposite-direction pending exists; accept/decline inbound instead. |
 | **`rate_limited`** | **429** | Per-**`fanSub`** throttle exceeded. |
 
-## Open implementation decisions
+## Decisions (answered — post-remove DM access enforcement #362)
 
-### friends-and-dm-authz-codes
-- DM send rate-limited deny **`code`** — **#360**.
-- Closed-thread checks use explicit **`status: closed`** on **DmThread** when present (#358 sets on remove) **and** missing **Friendship** edge; both must deny read/send for either party (#359 history routes enforce on read).
+| Check | Contract |
+| --- | --- |
+| **Shared helper** | **`assertDmThreadAccess`** (name illustrative) in **`infra/cdk/lambda/`** — membership in path **`pairKey`**, **Friendships** **GetItem**, **DmThreads** **GetItem** **`status`**. Used by ensure, history, send, and mark-read Lambdas. |
+| **Pre-write re-check** | Send and mark-read call helper **immediately before** **PutItem** / cursor update so concurrent **#358** remove wins (**403**). |
+| **Post-remove deny** | **Both** parties lose ensure (until re-friend reopen), history, send, and read. **`friendship_not_active`** when edge missing; **`dm_thread_closed`** when row **`closed`**. |
+| **Physical retention** | **DirectMessage** bodies **not** deleted on unfriend; access closed in handlers only (**soft-hide** product rule). |
+| **Re-friend reopen** | Active **Friendship** + **`closed`** thread → **`PUT` ensure** sets **`open`**, **`reopenedAt`**, keeps **`closedAt`** cutoff; history excludes **`sentAt <= closedAt`**. |
+| **Staff / guests** | Unchanged — **401** at authorizer for non-fan tokens. |
 
 ## Decisions (answered — DM thread open and history #359)
 

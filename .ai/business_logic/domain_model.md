@@ -112,7 +112,7 @@ Signed-in fans maintain friendships and exchange private 1:1 messages as a socia
 | **Accept** | Durable **Friendship** edge exists between the two **`sub`s**. DM open/send becomes eligible. |
 | **Decline** | Request ends without a **Friendship**. No DM eligibility from that request alone. |
 | **Remove friend** | Immediately mutual: edge gone for both. Existing **DmThread** closed/hidden for both (no compose, no history access). |
-| **Re-friend** | New invite/accept may create a new **Friendship**. Prior DM history stays inaccessible by default. |
+| **Re-friend** | New invite/accept creates a new **Friendship** edge. **`PUT` ensure** reopens a **`closed`** **DmThread** for new messages. Prior DM history stays inaccessible in API responses (**`sentAt <= closedAt`** excluded) by default. |
 
 ### Friends online vs room People presence
 

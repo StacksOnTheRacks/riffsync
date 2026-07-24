@@ -110,7 +110,7 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | Question | Decision |
 | --- | --- |
 | **Physical tables** | Dedicated **`DmThreads`** and **`DirectMessages`** Dynamo tables (env-suffixed names in IaC). Dedicated **`DmUnread`** table (#361). |
-| **DmThreads keys** | PK **`pairKey`** (`min(subA)#max(subB)`). Attributes: **`subA`**, **`subB`**, **`status`**, **`openedAt`**, optional **`closedAt`**, **`updatedAt`**. |
+| **DmThreads keys** | PK **`pairKey`** (`min(subA)#max(subB)`). Attributes: **`subA`**, **`subB`**, **`status`**, **`openedAt`**, optional **`closedAt`**, optional **`reopenedAt`** (#362 re-friend), **`updatedAt`**. |
 | **DirectMessages keys** | PK **`pairKey`**, SK **`m#<sentAtMs>#<messageId>`** (13-digit zero-padded ms). Query newest-first for history page. |
 | **Open thread pattern** | **ensure-on-open** via **`PUT /v1/dm/threads/{peerSub}`** after **Friendship** check; **PutItem** when missing. |
 | **History page pattern** | **`Query`** on **`DirectMessages`** by **`pairKey`**, **`ScanIndexForward: false`**, **`Limit`**, **`ExclusiveStartKey`** from **`before`** cursor. |

@@ -118,8 +118,9 @@ Logical **1:1** conversation for an unordered fan pair. Distinct from room-scope
 | **Partition key** | **`pairKey = min(subA, subB) + '#' + max(subA, subB)`** — same canonical encoding as **Friendship** (#356). |
 | **Participants** | Two Cognito fan **`sub`s** stored as **`subA`** / **`subB`** (min/max order). |
 | **Status** | **`open`** while an active **Friendship** exists and the thread is in use. **`closed`** after mutual remove-friend (#358) with **`closedAt`** (epoch ms). |
+| **Reopen** | After re-friend (new **Friendship** via invite/accept), **`PUT` ensure** (#362) may transition **`closed` → `open`**, set **`reopenedAt`** (epoch ms), and **retain** prior **`closedAt`** as the history cutoff. |
 | **Access while friends** | Both parties may compose and read history while an active **Friendship** exists and thread is **`open`**. |
-| **After remove-friend** | Thread is **closed/hidden for both**: both lose compose and history access immediately. Handler sets durable **`status: closed`** and **`closedAt`** (epoch ms) on the **DmThread** item (#358). **DirectMessage** rows **remain in storage**; access is denied via authz (M35). Re-friending creates a **new** **Friendship** edge via invite/accept; prior thread history stays **inaccessible** (default product). |
+| **After remove-friend** | Thread is **closed/hidden for both**: both lose compose and history access immediately. Handler sets durable **`status: closed`** and **`closedAt`** (epoch ms) on the **DmThread** item (#358). **DirectMessage** rows **remain in storage**; access is denied via authz (#362). Re-friending reopens the thread for new messages; API history excludes rows with **`sentAt <= closedAt`** (prior history **inaccessible** by default). |
 | **Retention class** | Account-lifetime durable until explicit delete or account closure — **not** RoomChat TTL. |
 
 ## DirectMessage (DM body)
@@ -249,6 +250,16 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 | **Other-party notification?** | **Silent** at API; M36 owns presentation. |
 | **Remove rate limit?** | **30**/min per **`fanSub`**. |
 | **Concurrent remove vs DM send?** | DM handlers re-check before write; remove wins → **403** `friendship_not_active` / **`dm_thread_closed`**. |
+
+## Decisions (answered — post-remove DM access enforcement #362)
+
+| Question | Decision |
+| --- | --- |
+| **Unfriend message bodies?** | **Retain** in **DirectMessages** — **soft-hide** access via authz, not hard-delete. |
+| **Unfriend purge job?** | **None** in MVP; account-closure cascade is future ops. |
+| **Re-friend history cutoff?** | Preserve **`closedAt`** on **DmThread**; **`GET .../messages`** filters **`sentAt > closedAt`** after reopen. |
+| **Re-friend ensure?** | **`closed` + active Friendship** → reopen (**`status: open`**, **`reopenedAt`**). |
+| **Enforcement surface?** | Shared authz helper on ensure, history, send, mark-read (#362). |
 
 ## Decisions (answered — DM unread watermark #361)
 
