@@ -66,12 +66,14 @@ Keyboard, pointer, and permission input contract for room and catalog surfaces.
 
 ### Friends dropdown and DM (signed-in fans)
 
-- **Main-site person icon:** keyboard-reachable when rendered (authenticated only). **Enter** / **Space** opens or toggles the friends dropdown; **Escape** closes and returns focus to the trigger (Catalog disclosure archetype). Friend rows, pending accept/decline, remove-friend, and open-DM controls inside the dropdown are keyboard-activatable native buttons/links in logical order.
+- **Main-site person icon:** keyboard-reachable when rendered (authenticated only). **Enter** / **Space** opens or toggles the friends dropdown; **Escape** closes and returns focus to the trigger (Catalog disclosure archetype). Friend rows, pending accept/decline, remove-friend, and open-DM controls inside the dropdown are keyboard-activatable native buttons/links in logical order. **No focus trap** inside dropdown; pointer-outside closes.
 - **Signed-out:** person-icon friends control omitted from tab order entirely.
+- **DM overlay panel:** **Escape** closes panel and returns focus to person-icon trigger. Compose labeled; Send via button (match room compose Enter behavior).
+- **People roster invite (#377):** **More actions** overflow per eligible row is keyboard-reachable; **Menu** / **Shift+F10** on focused row opens the same menu as right-click.
 - **Room Friends pane:** Friends list, pending accept/decline, remove-friend, and open-DM controls are keyboard-reachable when the Friends surface is active. DM message log scroll region, jump-to-latest (when shown), and DM compose follow the same keyboard posture as room chat compose.
-- **Remove-friend confirm (if present):** dialog actions are keyboard-operable; focus moves into the dialog on open and returns to a sensible friends-list control on dismiss/confirm (exact copy and whether confirm is required are tier-TW).
+- **Remove-friend confirm:** required modal; focus moves into dialog on open; **Cancel** returns focus to triggering control.
 - **Guests:** no friends/DM controls in tab order.
-- **Touch targets:** minimum **44×44** CSS px on person-icon trigger, accept/decline, remove-friend, and primary DM open controls.
+- **Touch targets:** minimum **44×44** CSS px on person-icon trigger, accept/decline, remove-friend, open-DM, and People overflow controls.
 
 ### iOS software keyboard (text focus, #240)
 
@@ -124,7 +126,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Focus after hub/dropdown navigation is browser default (see **Public catalog browse** above). Search/sort keyboard reachability on subcategory routes is settled in **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
 
 ### friends-and-direct-messaging
-- Exact focus trap vs focus-return behavior for the main-site friends dropdown on desktop vs mobile (beyond Escape-to-trigger baseline).
+- No open decisions remain for #363 main-site friends dropdown keyboard baseline (Catalog disclosure + DM overlay Escape). People roster context menu keyboard path is specified in **People roster invite (#377)** above. Room Friends tab focus — **#364**.
 - Tab order among Chat / People / Room / Profile / Friends; focus target when opening a nested DM panel vs in-column replace.
 - Remove-friend confirm dialog focus order and initial focus target (when confirmation is used).
 - Whether GIF/emoji picker keyboard paths ship in DM compose v1 (pairs with presentation GIF-in-DM open decision).

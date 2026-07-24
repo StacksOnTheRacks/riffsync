@@ -100,17 +100,19 @@ Friends and 1:1 DMs are a **signed-in fan** social layer beside public room chat
 | Concern | Contract |
 | --- | --- |
 | **Signed-out** | Main-site friends affordance is **hidden** (not disabled stub). Existing **Sign In** / **Account** primary-nav behavior remains; the person icon is **not** a silent Account replacement. |
-| **Signed-in (non-room)** | Main site header shows the design-template **person icon** friends entry (`gen-account-holder` / `#gen-user-btn` / `fa-user` red circular treatment under `docs/riffsync-design-template/Main File/red-html`). Activating it opens a **friends dropdown**. |
+| **Signed-in (non-room)** | Main site header shows the design-template **person icon** friends entry (`gen-account-holder` / `#gen-user-btn` / `fa-user` red circular treatment under `docs/riffsync-design-template/Main File/red-html`) in the header info strip (`gen-header-info-box`), **sibling** to the navbar toggler — **not** inside **`gen-main-menu`**. Activating it opens a **friends dropdown**. The **Account** nav link remains in the primary menu. |
 | **Compact room header** | Watch-party compact header does **not** carry the person-icon friends control. Room friends capabilities live in the right-column **Friends** surface only. |
+| **Outbound invite send** | **Not** on the main-site dropdown. Signed-in fans send friendship requests from the watch-party **People** roster context menu (see **`interaction_flow.md`** → *Add friend from People roster*). |
 
 ### Friends list surfaces (main dropdown + room Friends)
 
 Both surfaces present the same capabilities for the authenticated fan:
 
-- **Accepted friends** rows: display name (and avatar when available from **FanProfiles**), **online** indicator, unread activity affordance, open-DM action, remove-friend action.
+- **Accepted friends** rows: display name (and avatar when available from **FanProfiles**), **online** indicator (**Online in a watch party** label or equivalent accessible name plus muted green dot — never People **Active** chip wording), unread dot when **`hasUnread`**, primary control opens DM, **Remove friend** icon button opens confirm dialog.
 - **Pending friendship requests** are visible in the lifecycle UI: inbound requests expose **accept** and **decline**; outbound pending is visible as pending (not yet a friend row with DM). Durable friendship chrome appears only after accept.
-- **Empty friends:** honest empty copy (never a silent blank). Distinct from “no pending requests” when that section is shown.
-- **Loading / error:** skeleton or inline recoverable status; no infinite retry storms (same posture as catalog rate/cap toasts).
+- **Empty friends:** honest empty copy (never a silent blank). Distinct from “no pending requests” when that section is shown. Normative strings: zero accepted and no pending → **No friends yet.**; pending-only → **No friends yet.** with pending section visible.
+- **Loading / error:** skeleton or inline recoverable status; no infinite retry storms (same posture as catalog rate/cap toasts). Load failure → **Could not load friends. Try again.** with retry control.
+- **Dropdown shell:** **`max-height: min(70vh, 24rem)`** internal scroll; width **`min(100vw - 1rem, 22rem)`**; anchored under person icon on desktop; same panel on mobile with person icon in header strip (not inside hamburger menu).
 
 ### Friends online (distinct from People active)
 
@@ -126,14 +128,17 @@ Both surfaces present the same capabilities for the authenticated fan:
 
 - Friends list surfaces unread DM activity so new messages are visible without opening every thread.
 - **Viewing** the updated messages in that friend’s DM panel **clears** unread via **`POST /v1/dm/threads/{pairKey}/read`** when the user **views** those messages (server-authoritative cursor; badge follows). History **GET** alone does not clear.
-- Per-friend vs aggregate badge on the person-icon trigger and/or Friends tab label is **M36** presentation (#361 supplies **`hasUnread`** / **`anyUnread`** data only).
+- **Boolean dots only** (no numeric counts): per-friend dot on row when **`hasUnread`**; aggregate dot on person-icon trigger when **`anyUnread`** (#361). Room **Friends** tab label aggregate dot follows the same rule (**#364**).
 
 ### Direct message panel
 
 - **Visual / interaction language:** Reuse room-chat patterns where contracts allow: bounded message log scroll region, stick-to-bottom, jump-to-latest when reading history, compose row placement. Do **not** invent a separate chat aesthetic.
-- **Durability (empty states):** DM history is **account-lifetime durable** until explicit delete or account closure. Opening a thread after reload **must not** present the room-chat ephemeral empty posture (“reload cleared transcript”) as the happy path. An empty DM thread means **no messages yet** (or history inaccessible after remove), not “ephemeral scrollback was discarded.”
+- **Durability (empty states):** DM history is **account-lifetime durable** until explicit delete or account closure. Opening a thread after reload **must not** present the room-chat ephemeral empty posture (“reload cleared transcript”) as the happy path. An empty DM thread means **no messages yet** (normative copy: **No messages yet. Say hello.**) or history inaccessible after remove, not “ephemeral scrollback was discarded.”
+- **Panel placement:** DM opens as a **viewport-anchored overlay** (right-side panel on desktop; full-width sheet on narrow viewports), not inline inside the dropdown list.
+- **Compose v1:** **Text-only** compose (**`kind: text`**, max **2000** chars); no emoji/GIF/reaction picker in DM v1 (room chat pickers stay room-scoped).
 - **Eligibility:** Compose and history are available only while an **active friendship** exists with that peer.
-- **After remove-friend:** For both parties, the prior 1:1 thread is **closed/hidden**: no compose, no history access. Prefer navigating away from the open DM panel (or replacing it with closed/hidden copy) rather than leaving a read-only transcript. Re-friending may create a new edge; default UX does **not** restore prior history unless a later product decision says otherwise.
+- **After remove-friend:** For both parties, the prior 1:1 thread is **closed/hidden**: no compose, no history access. Close the DM panel or replace content with **This conversation is closed.** (no compose). Re-friending may create a new edge; default UX does **not** restore prior history unless a later product decision says otherwise.
+- **Remove-friend confirm:** Each accepted friend row exposes **Remove friend**; activating opens confirm dialog — title **Remove friend?**, body **This removes {displayName} for both of you. You will not be able to message each other unless you become friends again.**, actions **Cancel** / **Remove friend** (destructive).
 - **Guests:** No DM compose or history chrome.
 
 ### Watch-party Friends column
@@ -516,16 +521,24 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Normative hub, nav, subtitle, search/sort, and shell rules are in **Catalog hub and subcategory presentation** and **Decisions (M32 — catalog subcategory browse IA — #340)** below.
 
 ### friends-and-direct-messaging
-- **Tab order / label:** Exact **Friends** tab order among **Chat** / **People** / **Room** / **Profile** / **Friends**, and whether DM opens as a nested panel vs replacing the Friends list in-column.
-- **Badge aggregation:** Per-friend unread badge vs aggregate count/dot on the person-icon trigger and/or Friends tab label; exact badge chrome (count vs dot).
-- **Remove-friend confirm dialog copy:** Whether remove requires an explicit confirm step, and button/title/body microcopy when it does (**`interaction_flow.md`** owns the flow shape once confirmation presence is chosen).
-- **GIF / rich compose in DM v1:** Whether DM compose ships text-only first or includes emoji picker, Giphy GIF, and/or reactions parity with room chat in the first slice.
-- Person-icon placement relative to Account / Sign In / mobile toggler; red circular treatment token/class names from the design template.
-- Friends dropdown shell: max height, empty-friends / pending-empty copy strings, loading/error copy, mobile vs desktop open behavior.
-- Friend row micro-layout: avatar thumbnail reuse, online indicator glyph/color (must remain distinct from People **Active** chip), remove-friend control affordance (icon vs menu).
-- Closed-thread / post-remove copy variants once confirm microcopy lands.
-- Friendship-creation invite UI microcopy (search/username field labels, pending-row labels) beyond accept/decline presence.
-- Expanded View / Cast: whether any compact DM affordance exists outside the tab strip.
+- **Tab order / label:** Exact **Friends** tab order among **Chat** / **People** / **Room** / **Profile** / **Friends**, and whether DM opens as a nested panel vs replacing the Friends list in-column — **#364** (room Friends pane), not #363.
+- **People roster invite UX:** Context menu labels, pending/already-friends menu states, and **`fanSub`** on **`presence`** wire — **#377** sub-issue (see **`interaction_flow.md`**).
+- Expanded View / Cast: whether any compact DM affordance exists outside the tab strip — **#364** / Cast slices; main-site #363 does not add compact DM outside dropdown.
+
+## Decisions (M36 — main-site friends dropdown — #363)
+
+| Topic | Decision |
+| --- | --- |
+| **Invite send** | **Not** on main-site dropdown. Outbound invites from watch-party **People** roster context menu (#377). |
+| **Person-icon placement** | **`gen-account-holder`** in header info strip; **Account** nav link unchanged. |
+| **Signed-out** | Person-icon control **absent** (not disabled). |
+| **Dropdown shell** | **`max-height: min(70vh, 24rem)`**, width **`min(100vw - 1rem, 22rem)`**, internal scroll; Catalog-style disclosure keyboard (**`input_handling.md`**). |
+| **Empty copy** | No friends → **No friends yet.**; empty DM → **No messages yet. Say hello.**; closed after remove → **This conversation is closed.** |
+| **Unread chrome** | Boolean **dots** only: per-friend row + aggregate on person-icon when **`anyUnread`**. |
+| **Remove friend** | Confirm dialog before **`DELETE /v1/friends/{pairKey}`** (copy in **Direct message panel** above). |
+| **DM panel** | Viewport overlay; room-chat log/compose/scroll language; text-only v1 compose. |
+| **Friends online label** | **Online in a watch party** (distinct from People **Active**). |
+| **Fan DM bootstrap** | Open **Fan DM WebSocket** when signed-in fan first opens main-site friends dropdown; failure isolated from catalog/room (**`execution_model.md`**). |
 
 ## Decisions (answered — friends and direct messaging)
 
