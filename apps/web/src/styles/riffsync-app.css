@@ -627,6 +627,114 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   }
 }
 
+/* Main-site friends person icon (#363) — template gen-account-holder / #gen-user-btn */
+.riffsync-header-info-box.gen-header-info-box {
+  display: flex;
+  align-items: center;
+  margin-left: 0.75rem;
+  flex-shrink: 0;
+}
+
+.riffsync-friends-nav.gen-account-holder {
+  position: relative;
+  margin-right: 0.75rem;
+  line-height: normal;
+}
+
+.riffsync-friends-nav__trigger {
+  appearance: none;
+  border: none;
+  height: 45px;
+  width: 45px;
+  min-height: 44px;
+  min-width: 44px;
+  line-height: 45px;
+  text-align: center;
+  background: var(--primary-color);
+  color: var(--white-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 90px;
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+}
+
+.riffsync-friends-nav__trigger:hover,
+.riffsync-friends-nav__trigger:focus-visible {
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.riffsync-friends-nav__unread-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--white-color);
+  box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+.riffsync-friends-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  width: min(100vw - 1rem, 22rem);
+  max-height: min(70vh, 24rem);
+  overflow: hidden;
+  display: flex !important;
+  flex-direction: column;
+  z-index: 1100;
+  background: var(--dark-color);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+.riffsync-friends-dropdown__body {
+  max-height: min(70vh, 24rem);
+  overflow-y: auto;
+}
+
+.riffsync-friends-dropdown .riffsync-room-friends-list {
+  overflow: visible;
+}
+
+.riffsync-friends-dm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(0 0 0 / 0.45);
+}
+
+.riffsync-friends-dm-overlay__panel {
+  width: min(100vw, 24rem);
+  height: 100%;
+  max-height: 100dvh;
+  background: rgb(22 27 34);
+  border-left: 1px solid rgb(255 255 255 / 0.12);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+@media (max-width: 575px) {
+  .riffsync-friends-dm-overlay__panel {
+    width: 100vw;
+  }
+}
+
+.riffsync-friends-remove-dialog--site {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+}
+
 @media (max-width: 991px) {
   header#gen-header .gen-bottom-header .navbar .navbar-collapse.show {
     display: block;
