@@ -49,8 +49,8 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | **SFU producer registry** | In-memory per **`env:roomId`**; migrate from **`producersByKind`** (one slot per **`kind`**) to **multi-producer** registry keyed by producer id with participant identity metadata. |
 | **List my friends** | Query durable **Friendship** edges for the caller's **`fanSub`**; resolve display/avatar via **FanProfiles**. |
 | **Pending friendship requests** | Query open **FriendshipRequest** rows by recipient and/or requester **`sub`**. |
-| **Open 1:1 DM thread** | Resolve **DmThread** for unordered fan pair (create-on-first-send or ensure-on-open — tier-TW); require active **Friendship**. |
-| **Page DM history** | Query **DirectMessage** rows for a thread in chronological (or newest-first) order; account-lifetime retention (no TTL window). |
+| **Open 1:1 DM thread** | Resolve **DmThread** for unordered fan pair via **ensure-on-open** (**`PUT /v1/dm/threads/{peerSub}`** — #359); require active **Friendship**. |
+| **Page DM history** | **Query** **DirectMessages** by **`pairKey`**, **`ScanIndexForward: false`**, paginated with **`before`** cursor (#359). Account-lifetime retention (no TTL window). |
 | **DM unread** | Read/update per-recipient watermark for a thread; clear on view so friends-list badges stay server-authoritative. |
 | **Friends online (derived)** | For each friend **`fanSub`**, treat as online if any **RoomPresence** row exists for that **`fanSub`** in any room. Query sparse **RoomPresence** GSI **`fanSub`** + **`roomId#presenceKey`** with **`Limit: 1`** per peer (#357). Not a durable friends-presence table; not last-seen. |
 | **Remove-friend** | **TransactWrite** (preferred when **DmThreads** table wired): **DeleteItem** **Friendship** by **`pairKey`** + **UpdateItem** **DmThread** **`status: closed`**, **`closedAt`**. Until **DmThreads** exists, friendship-only **DeleteItem** is sufficient; M35 denies DM routes on missing friendship. **DirectMessage** bodies are **not** deleted on unfriend. |
@@ -104,6 +104,17 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | **Message body delete on unfriend?** | **No** — retain **DirectMessage** rows; access closed via authz. |
 | **Remove-friend Lambda env** | Receives **`FRIENDSHIPS_TABLE_NAME`**; **`DM_THREADS_TABLE_NAME`** when M35 table ships (optional until then). |
 
+## Decisions (answered — DM thread open and history #359)
+
+| Question | Decision |
+| --- | --- |
+| **Physical tables** | Dedicated **`DmThreads`** and **`DirectMessages`** Dynamo tables (env-suffixed names in IaC). **DmUnread** table or co-located items deferred to **#361**. |
+| **DmThreads keys** | PK **`pairKey`** (`min(subA)#max(subB)`). Attributes: **`subA`**, **`subB`**, **`status`**, **`openedAt`**, optional **`closedAt`**, **`updatedAt`**. |
+| **DirectMessages keys** | PK **`pairKey`**, SK **`m#<sentAtMs>#<messageId>`** (13-digit zero-padded ms). Query newest-first for history page. |
+| **Open thread pattern** | **ensure-on-open** via **`PUT /v1/dm/threads/{peerSub}`** after **Friendship** check; **PutItem** when missing. |
+| **History page pattern** | **`Query`** on **`DirectMessages`** by **`pairKey`**, **`ScanIndexForward: false`**, **`Limit`**, **`ExclusiveStartKey`** from **`before`** cursor. |
+| **DM Lambda env** | **`DM_THREADS_TABLE_NAME`**, **`DIRECT_MESSAGES_TABLE_NAME`**, **`FRIENDSHIPS_TABLE_NAME`**. Remove-friend handler also receives **`DM_THREADS_TABLE_NAME`**. |
+
 ## Open implementation decisions
 
 - **RoomPresence** vs **Connections** disconnect path: confirm both rows are removed atomically on **`$disconnect`** at party scale.
@@ -111,9 +122,7 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 - SFU multi-producer registry structure (map key, **`tearDownSession`** per-session vs room-wide wipe) and idle room close when only consumers remain.
 - Kill-switch enforcement storage touchpoints: read **`avDisabled`** on **`POST /v1/webrtc/sfu-token`**, SFU **`produce`**, and whether Lambda triggers SFU admin tear-down vs client-only close.
 - IaC env wiring already passes **`ROOM_PRESENCE_TABLE_NAME`** to WS and SFU-token Lambdas — document any additional consumers (e.g. layout fan-out Lambda).
-- Exact Dynamo table resource split for **DmThread**, **DirectMessage**, **DmUnread** (friendship tables decided #356).
-- Partition key / sort key / GSI attribute shapes and names for thread-by-peer, message paging, unread aggregation.
-- Env/IaC table name wiring for DM Lambdas ( **`FRIENDSHIP_*`** decided #356; **`DM_THREADS_TABLE_NAME`** when M35 lands).
+- **DmUnread** partition/GSI shapes and env wiring — **#361**.
 
 ## Primary code pointers (optional)
 

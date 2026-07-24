@@ -118,8 +118,16 @@ When status is **400**, **403**, **404**, or **409**, body includes stable **`co
 ## Open implementation decisions
 
 ### friends-and-dm-authz-codes
-- DM rate-limited deny **`code`** on send/history routes — **M35**.
-- Closed-thread checks use explicit **`status: closed`** on **DmThread** when present (#358 sets on remove) **and** missing **Friendship** edge; both must deny read/send for either party.
+- DM send rate-limited deny **`code`** — **#360**.
+- Closed-thread checks use explicit **`status: closed`** on **DmThread** when present (#358 sets on remove) **and** missing **Friendship** edge; both must deny read/send for either party (#359 history routes enforce on read).
+
+## Decisions (answered — DM thread open and history #359)
+
+| Check | Contract |
+| --- | --- |
+| **Thread ensure** | Active **Friendship** required; deny **`cannot_dm_self`**, **`friendship_not_active`**, **`dm_thread_closed`**. |
+| **History read** | Caller must be **`pairKey`** member; active friendship + open thread (or **`404 dm_thread_not_found`** when no thread row yet). |
+| **Post-remove** | **`friendship_not_active`** and/or **`dm_thread_closed`** even though **DirectMessage** rows remain in storage. |
 
 ## SFU join token claims (`SfuJoinClaims`)
 

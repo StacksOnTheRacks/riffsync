@@ -111,7 +111,8 @@ Logical **1:1** conversation for an unordered fan pair. Distinct from room-scope
 | Concept | Contract |
 | --- | --- |
 | **Cardinality** | One logical thread per unordered fan pair once messaging is allowed. No group DMs. |
-| **Participants** | Two Cognito fan **`sub`s**. |
+| **Partition key** | **`pairKey = min(subA, subB) + '#' + max(subA, subB)`** — same canonical encoding as **Friendship** (#356). |
+| **Participants** | Two Cognito fan **`sub`s** stored as **`subA`** / **`subB`** (min/max order). |
 | **Status** | **`open`** while an active **Friendship** exists and the thread is in use. **`closed`** after mutual remove-friend (#358) with **`closedAt`** (epoch ms). |
 | **Access while friends** | Both parties may compose and read history while an active **Friendship** exists and thread is **`open`**. |
 | **After remove-friend** | Thread is **closed/hidden for both**: both lose compose and history access immediately. Handler sets durable **`status: closed`** and **`closedAt`** (epoch ms) on the **DmThread** item (#358). **DirectMessage** rows **remain in storage**; access is denied via authz (M35). Re-friending creates a **new** **Friendship** edge via invite/accept; prior thread history stays **inaccessible** (default product). |
@@ -123,10 +124,10 @@ Individual message in a **DmThread**.
 
 | Concept | Contract |
 | --- | --- |
-| **Identity** | Stable **`messageId`** within the thread (or globally unique — tier-TW). |
+| **Identity** | Stable client-generated **`messageId`** (UUID) within the thread. |
 | **Sender** | Cognito fan **`sub`** of the author (must be a thread participant with active friendship at send time). |
-| **Body / kind** | Text (and other kinds if product extends) — wire and kind parity with room chat are integration/interface concerns; storage holds the private history. |
-| **Ordering** | Server timestamp (and optional sequence) for chronological history — exact key shape tier-TW. |
+| **Body / kind** | M35 v1: **`kind: text`** only — **`body`** is trimmed non-empty string, max **2000** characters (room **`chat`** precedent); unicode emoji allowed inline in **`body`**. **`gif`** and reaction kinds are **out of scope** for M35 v1 (#359/#360). |
+| **Ordering** | **`sentAt`** epoch ms on write; Dynamo SK **`m#<sentAtMs>#<messageId>`** (13-digit zero-padded ms in SK). History pages query **newest-first** (**`ScanIndexForward: false`**). |
 | **Retention** | Account-lifetime in Dynamo until explicit delete / account closure. **No TTL** on DM body rows for the RoomChat-style bounded window. |
 | **Storage** | Distinct logical store from **RoomChat** (not room-partitioned message rows). |
 
@@ -242,15 +243,24 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 | **Remove rate limit?** | **30**/min per **`fanSub`**. |
 | **Concurrent remove vs DM send?** | DM handlers re-check before write; remove wins → **403** `friendship_not_active` / **`dm_thread_closed`**. |
 
+## Decisions (answered — DM thread open and history #359)
+
+| Question | Decision |
+| --- | --- |
+| **Physical tables?** | Dedicated **`DmThreads`** and **`DirectMessages`** Dynamo tables (env-suffixed in IaC) — not co-located on **FanProfiles**. |
+| **DmThreads keys?** | PK **`pairKey`** only (no GSI required for v1 open-by-peer — server computes **`pairKey`** from caller **`sub`** + **`peerSub`**). |
+| **DirectMessages keys?** | PK **`pairKey`**, SK **`m#<sentAtMs>#<messageId>`** (13-digit zero-padded **`sentAtMs`**). **No** **`expiresAt`** TTL. |
+| **Thread ensure timing?** | **ensure-on-open** — **`PUT /v1/dm/threads/{peerSub}`** creates metadata when active **Friendship** exists; idempotent when already **`open`**. |
+| **History page order?** | **Newest-first** on initial sync; **`before`** cursor for older pages (**#359** API). |
+| **DirectMessage v1 kinds?** | **`text` only**; GIF/reactions deferred post-M35. |
+| **Account-closure / explicit delete purge?** | **Out of scope** for #359 — future ops/EventBridge slice; unfriend retain-on-storage decided #358. |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
 - Future scaling (out of scope for catalog subcategory browse IA): if the full catalog bundle grows large enough that client-side fetch + `filterCatalogEntries({ catalogs })` becomes a performance concern, consider a server-side **`catalog`** / **`catalogs`** query parameter on **`GET /v1/catalog`**. Current access pattern remains full-bundle fetch with client Set-membership filter; hub mixed grid uses no catalog constraint (`catalogs: []`).
-- Friends/DM physical Dynamo table split for **DmThread**, **DirectMessage**, unread watermark items (friendship tables decided above).
-- Partition/sort keys and GSI shapes for: open-thread-by-peer, page DM history newest-first, unread badge aggregation.
-- Canonical **`pairKey`** reuse for **DmThread** partition (same encoding as **Friendship**).
-- **DirectMessage** row identity and ordering keys (e.g. thread partition + `m#<ts>#<messageId>` analogue) — no RoomChat-style TTL attribute on bodies.
-- Unread watermark representation: per-thread cursor / last-read message id vs denormalized unread count on friendship or thread summary; clear-on-view write shape.
+- Unread watermark representation: per-thread cursor / last-read message id vs denormalized unread count on friendship or thread summary; clear-on-view write shape — **#361**.
+- Account-closure cascade and explicit per-message user delete jobs relative to retained-after-unfriend bodies — future ops slice (not #359).
 
 ## Primary code pointers (optional)
 

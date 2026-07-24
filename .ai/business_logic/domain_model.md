@@ -386,7 +386,7 @@ Friends online is room-presence-derived and aggregate across rooms. It is not a 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### friends-and-direct-messaging
-- Whether **DirectMessage** supports the same message kinds as room chat (text, emoji, Giphy GIF, reactions) or a reduced v1 set — **M35**.
-- Account-closure cascade and explicit user delete of DM history relative to retained-after-unfriend bodies — future ops / M35 slice (unfriend retain decided #358).
+- **DirectMessage v1 kinds (#359):** **`text` only** — unicode emoji inline in **`body`**, max **2000** chars (room **`chat`** precedent). **Giphy GIF** and **reactions** deferred to post-M35 follow-on.
+- Account-closure cascade and explicit user delete of DM history relative to retained-after-unfriend bodies — future ops slice (**out of scope #359**; unfriend retain decided #358).
 
 - Domain services colocated with Lambda packages when implemented.
