@@ -962,6 +962,24 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomPresenceTable.grantReadData(friendsListFn);
     friendshipRateLimitTable.grantReadWriteData(friendsListFn);
 
+    const friendsRemoveFn = new lambdaNodejs.NodejsFunction(this, 'FriendsRemoveFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/friends-remove.ts'),
+      handler: 'handler',
+      environment: {
+        FRIENDSHIPS_TABLE_NAME: this.friendshipsTable.tableName,
+        FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
+        FRIEND_ACTION_LIMIT_PER_MINUTE: '30',
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.friendshipsTable.grantReadWriteData(friendsRemoveFn);
+    friendshipRateLimitTable.grantReadWriteData(friendsRemoveFn);
+
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
@@ -1144,6 +1162,7 @@ export class ApiCatalogStack extends cdk.Stack {
       friendsRequestsFn,
     );
     const friendsListIntegration = new integrations.HttpLambdaIntegration('FriendsListInt', friendsListFn);
+    const friendsRemoveIntegration = new integrations.HttpLambdaIntegration('FriendsRemoveInt', friendsRemoveFn);
     const adminSessionGetIntegration = new integrations.HttpLambdaIntegration(
       'AdminSessionGetInt',
       adminSessionGetFn,
@@ -1269,6 +1288,13 @@ export class ApiCatalogStack extends cdk.Stack {
       path: '/v1/friends',
       methods: [apigwv2.HttpMethod.GET],
       integration: friendsListIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/friends/{pairKey}',
+      methods: [apigwv2.HttpMethod.DELETE],
+      integration: friendsRemoveIntegration,
       authorizer: fanJwtAuthorizer,
     });
 
@@ -1442,7 +1468,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends`, `/v1/friends/requests`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends`, `/v1/friends/{pairKey}` (DELETE), `/v1/friends/requests`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {

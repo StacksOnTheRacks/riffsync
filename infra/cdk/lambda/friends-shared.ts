@@ -18,6 +18,8 @@ export type FriendshipDenyCode =
   | 'friend_request_not_recipient'
   | 'friend_request_not_requester'
   | 'friend_request_not_found'
+  | 'friendship_not_found'
+  | 'friendship_not_member'
   | 'already_friends'
   | 'friend_request_inbound_exists'
   | 'rate_limited'
