@@ -126,6 +126,12 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 ### friends-and-direct-messaging
 - No open decisions remain for #363 main-site friends a11y baseline (see **Friends and direct messaging** above). People roster context menu accessible names — **#377**.
 
+#### Room Friends pane (#364)
+
+- **Friends tab** `aria-selected` follows existing sidebar tab pattern. When **`anyUnread`**, tab exposes an accessible name that includes unread activity (e.g. **Friends, unread messages**) without exposing numeric counts.
+- Friend-row **online** uses **Online in a watch party** accessible naming — never People **Active** chip wording.
+- Nested DM thread header: **Back to friends** has an explicit accessible name; message log region mirrors room chat log labeling.
+
 ## Primary code pointers (optional)
 
 - **`apps/web/src/pages/RoomPage.tsx`** — thin shell; room a11y baseline; AV surfaces extend existing chat and stage patterns.

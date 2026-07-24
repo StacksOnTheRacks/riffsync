@@ -133,10 +133,8 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - Specify story-level proof that failed, unsupported, ended, blocked, stopped, reloaded, and cleaned-up Cast states preserve normal room participation and do not affect other participants.
 
 ### friends-and-direct-messaging
-- Unread badge chrome: per-friend only vs header/pane aggregate vs both; clear-on-open-thread vs clear-on-visible-messages; multi-tab race rules — **M35 / M36**.
-- Remove-friend confirmation copy and whether the other party receives an in-app notification — **M36** (API is silent on remove per #358).
-- Empty-state copy for zero friends, pending-only inbox, and zero DM history.
-- Friend discovery / invite entry UX (how the requester selects a recipient fan) once invite/accept lifecycle is fixed.
+- Friend discovery / invite entry UX (how the requester selects a recipient fan) — **#377** (People roster context menu).
+- Multi-tab race presentation polish beyond server monotonic read cursor + **`dm_unread`** push — post-M36 follow-on.
 - QA matrices for invite → accept/decline → DM → unread clear → remove → re-friend — **#362** spec testing focus and issue acceptance criteria (post-remove deny + re-friend cutoff).
 
 ## Decisions (answered — M25 Chromecast delivery slices)

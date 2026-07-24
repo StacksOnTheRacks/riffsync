@@ -143,13 +143,16 @@ Both surfaces present the same capabilities for the authenticated fan:
 
 ### Watch-party Friends column
 
-- **`riffsync-room-page__chat-column`** gains an additive **Friends** panel/tab alongside **Chat**, **People**, **Room**, and **Profile**. Exact tab order and whether DM opens as nested panel vs in-column replace are tier-TW.
-- Public room **Chat** and private **DM** remain available in the same party session without leaving the room.
+- **`riffsync-room-page__chat-column`** gains an additive **Friends** panel/tab alongside **Chat**, **People**, **Room**, and **Profile**. Normative tab order: **Chat → People → Friends → Room → Profile** (#364). The **Friends** tab renders **only** when the viewer holds a fan JWT; anonymous guests do **not** see the tab (not a disabled stub).
+- Public room **Chat** and private **DM** remain available in the same party session without leaving the room. Switching sidebar tabs does **not** tear down **`FanDmSession`**; returning to **Friends** restores the list view or the open nested DM thread.
 - **People** roster semantics and chrome remain unchanged; Friends must not merge into or replace People.
+- **Friends tab label:** Boolean aggregate unread **dot** on the **Friends** tab when **`anyUnread`** (#361), same rule as the main-site person-icon trigger.
+- **In-column DM (#364):** Opening a friend's DM from the room Friends list replaces the list with a **nested thread view** inside **`riffsync-room-page__tab-panel--friends`**: header row with **Back to friends** control + peer display name, bounded message log, stick-to-bottom / jump-to-latest, text-only compose. This is **not** a viewport overlay (main-site dropdown uses overlay because the trigger is a compact header control).
+- **Copy parity:** Same normative strings as main-site (#363): **No friends yet.**; load failure **Could not load friends. Try again.**; DM empty **No messages yet. Say hello.**; closed **This conversation is closed.**
 
 ### Expanded View / Cast
 
-- Expanded overlay and Cast receiver remain without a full sidebar tab strip. Friends list/manage and DM open stay **sender-side normal-room** (or main-site) surfaces: exit expanded or use the non-overlay path. Exact compact DM affordance outside the tab strip is tier-TW.
+- Expanded overlay and Cast receiver remain **without** a full sidebar tab strip. Friends list/manage and DM open stay **sender-side normal-room** (or main-site) surfaces: **exit expanded** to the normal room sidebar **Friends** tab. **No** compact DM affordance or Friends entry is added to the expanded overlay or Cast receiver chrome (#364).
 
 ## Watch party participant AV (`/room/:roomId`)
 
@@ -521,9 +524,22 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Normative hub, nav, subtitle, search/sort, and shell rules are in **Catalog hub and subcategory presentation** and **Decisions (M32 — catalog subcategory browse IA — #340)** below.
 
 ### friends-and-direct-messaging
-- **Tab order / label:** Exact **Friends** tab order among **Chat** / **People** / **Room** / **Profile** / **Friends**, and whether DM opens as a nested panel vs replacing the Friends list in-column — **#364** (room Friends pane), not #363.
 - **People roster invite UX:** Context menu labels, pending/already-friends menu states, and **`fanSub`** on **`presence`** wire — **#377** sub-issue (see **`interaction_flow.md`**).
-- Expanded View / Cast: whether any compact DM affordance exists outside the tab strip — **#364** / Cast slices; main-site #363 does not add compact DM outside dropdown.
+
+## Decisions (M36 — watch-party Friends pane — #364)
+
+| Topic | Decision |
+| --- | --- |
+| **Tab order** | **Chat → People → Friends → Room → Profile**; **Friends** tab signed-in fans only. |
+| **Tab visibility** | Omit **Friends** tab for anonymous guests (no manage/send stub). |
+| **DM placement** | In-column nested stack inside Friends tab panel; **Back to friends** returns to list. |
+| **Main-site parity** | Same list, pending, online (**Online in a watch party**), unread dots, remove confirm, DM compose, and normative copy as #363. |
+| **Unread on tab** | Aggregate boolean dot on **Friends** tab label when **`anyUnread`**. |
+| **AV toggles** | Participant camera/mic toggles remain visible above compose on **Friends** tab when fan JWT present. |
+| **Compact header** | No person-icon friends control on room compact header. |
+| **Expanded / Cast** | No Friends tab strip or compact DM in expanded overlay or Cast receiver; exit expanded to use sidebar **Friends**. |
+| **Fan DM bootstrap** | Start or attach **`FanDmSession`** on first **Friends** tab activation; reuse open session from main site when present. |
+| **Module reuse** | Share **`apps/web/src/friends/`** components and API clients with main-site #363. |
 
 ## Decisions (M36 — main-site friends dropdown — #363)
 

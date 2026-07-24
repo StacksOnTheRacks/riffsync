@@ -234,13 +234,15 @@ Friends/DM flows require an authenticated **fan** session. Anonymous guests and 
 4. **Decline:** Pending clears; no friendship edge; no DM eligibility.
 5. **Outbound pending:** Sender sees the request as pending (not yet a DM-capable friend row).
 
-#### Watch-party Friends pane
+#### Watch-party Friends pane (#364)
 
 1. Compact room header has **no** person-icon friends control.
-2. Signed-in fan opens the right-column **Friends** surface (additive tab/panel beside **Chat** / **People** / **Room** / **Profile**). Same list, online, unread, remove, pending accept/decline, and DM open/compose behavior as the main-site flow.
-3. Public room **Chat** and private **DM** remain usable in one party session without navigating away from **`/room/:roomId`**.
-4. **People** roster flows are unchanged; Friends does not replace or merge into People.
-5. Guests: no Friends manage / DM send chrome (Friends surface omitted or non-interactive empty — no guest invite/DM path).
+2. Signed-in fan selects the **Friends** sidebar tab (order **Chat → People → Friends → Room → Profile**). Same list, online, unread, remove, pending accept/decline, and DM open/compose behavior as the main-site flow (#363).
+3. **First Friends tab open:** start or attach **`FanDmSession`** and fetch **`GET /v1/friends`** + **`GET /v1/friends/requests`**. Re-fetch on tab re-select and on inbound **`dm_message`** / **`dm_unread`** push. Failures surface inline on the Friends panel only — must not block **`ChatSession`**, SFU, or room navigation.
+4. **Open DM:** friend row opens the **nested in-column thread view** inside the Friends tab (not a viewport overlay). **Back to friends** returns to the list; focus moves to **Back to friends** on open and returns to the triggering friend row on back.
+5. Public room **Chat** and private **DM** remain usable in one party session without navigating away from **`/room/:roomId`**. Switching to **Chat** / **People** / **Room** / **Profile** leaves **`FanDmSession`** running; unread and inbound pushes still update Friends state.
+6. **People** roster flows are unchanged; Friends does not replace or merge into People. Outbound invites remain on People context menu (#377), not in Friends tab.
+7. Guests: **Friends** tab is **omitted** (no manage/send stub).
 
 #### DM view and unread
 
@@ -354,9 +356,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - No open decisions remain for M32 catalog subcategory browse IA (#340). Normative nav, hub, subtitle, and mobile accordion rules are in **Catalog browse navigation** and **`presentation.md`** → **Decisions (M32 — catalog subcategory browse IA — #340)**.
 
 ### friends-and-direct-messaging
-- **Tab order:** Exact sidebar tab order when **Friends** is present; focus restore when opening/closing nested DM vs Friends list — **#364**.
 - **Badge clear timing:** Unread dot clears after **`POST .../read`** when viewer has **viewed** latest messages in open DM panel (not on dropdown open alone).
-- Expanded View: optional compact DM entry vs always requiring exit to sidebar Friends — **#364** / Cast boundary.
 
 ## Primary code pointers (optional)
 
