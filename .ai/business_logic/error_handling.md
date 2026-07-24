@@ -36,7 +36,7 @@ Friends/DM mutations and reads are fan JWT-gated HTTP (and optional realtime pus
 | **Business deny** | No active **Friendship**, pending-only peer, self-invite, or closed **DmThread** after remove → structured reject; compose/history stay unavailable. |
 | **Conflict** | Duplicate pending invite, accept of already-resolved request, or concurrent mutual invites → structured conflict/idempotent outcome (exact codes TW). |
 | **Rate limit / abuse** | Friend-request or DM send throttle → **429** (or equivalent) with recoverable copy; no staff DM-body moderation path. |
-| **Delivery / sync** | History sync or realtime push failure is recoverable on the friends/DM surface only; room chat drawer codes stay independent. |
+| **Delivery / sync** | History sync or HTTP send failure is recoverable on the friends/DM surface only; room chat drawer codes stay independent. Fan DM WS disconnect surfaces **`DM_PUSH_UNAVAILABLE`** (realtime paused); HTTP send/history remain available. HTTP send failure after retry budget surfaces **`DM_SEND_DROPPED`**. |
 
 ## WebSocket
 

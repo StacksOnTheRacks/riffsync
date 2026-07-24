@@ -18,6 +18,7 @@ Storage responsibilities; physical layout is IaC (**`architecture.server.md`**).
 | **FriendshipRequests** *(logical)* | Durable pending invite rows (**`requestId`**, **`requesterSub`**, **`recipientSub`**, **`status: pending`**, **`pairKey`**, **`createdAt`**) before a friendship edge. **Hard-deleted** on accept, decline, or cancel. |
 | **Friendships** *(logical)* | Durable mutual edges keyed **`pairKey`** until remove-friend / account lifecycle. GSI on **`fanSub`** for list-my-friends. |
 | **DmThreads** / **DirectMessages** *(logical)* | Account-lifetime 1:1 DM thread metadata and message bodies — **distinct** from **RoomChat**. **No** RoomChat-style TTL on DM bodies. |
+| **FanConnections** *(logical)* | Ephemeral **Fan DM WebSocket** **`connectionId` → fanSub** mapping for **`PostToConnection`** to a fan's open DM push connections — **distinct** from room **`Connections`** (**`roomId`**-scoped). |
 | **DmUnread** *(logical)* | Per-recipient unread watermarks / cursors for DM threads (may co-locate with thread or friendship items — tier-TW). |
 | **Events** *(optional)* | Append-only audit per admin docs—add when needed. |
 
@@ -114,6 +115,16 @@ Exact CloudFormation resource names are **IaC**; logical keys/GSIs follow **acce
 | **Open thread pattern** | **ensure-on-open** via **`PUT /v1/dm/threads/{peerSub}`** after **Friendship** check; **PutItem** when missing. |
 | **History page pattern** | **`Query`** on **`DirectMessages`** by **`pairKey`**, **`ScanIndexForward: false`**, **`Limit`**, **`ExclusiveStartKey`** from **`before`** cursor. |
 | **DM Lambda env** | **`DM_THREADS_TABLE_NAME`**, **`DIRECT_MESSAGES_TABLE_NAME`**, **`FRIENDSHIPS_TABLE_NAME`**. Remove-friend handler also receives **`DM_THREADS_TABLE_NAME`**. |
+
+## Decisions (answered — DM realtime send/receive #360)
+
+| Question | Decision |
+| --- | --- |
+| **FanConnections table** | Dedicated Dynamo table (env-suffixed). PK **`connectionId`**. Attributes: **`fanSub`**, **`connectedAt`**, optional **`sessionId`**. Sparse GSI PK **`fanSub`**, SK **`connectionId`**. |
+| **Write path** | Fan DM WS **`$connect`** **PutItem**; **`$disconnect`** **DeleteItem**. |
+| **Fan-out query** | On send, **Query** GSI by recipient **`fanSub`**; **`PostToConnection`** each **`connectionId`**. |
+| **Send Lambda env** | **`DM_THREADS_TABLE_NAME`**, **`DIRECT_MESSAGES_TABLE_NAME`**, **`FRIENDSHIPS_TABLE_NAME`**, **`FAN_CONNECTIONS_TABLE_NAME`**, **`FAN_PROFILES_TABLE_NAME`** (profile enrichment), Fan DM WS **`execute-api:ManageConnections`** grant. |
+| **Not room Connections** | DM push **must not** query room **`Connections`** by **`roomId`**. |
 
 ## Open implementation decisions
 
