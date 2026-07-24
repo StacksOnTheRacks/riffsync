@@ -6,6 +6,7 @@ import { ensureDmThread, fetchDmMessages, markDmRead, type DmMessage } from './d
 import { getSharedFanDmSession, syncSharedFanDmSessionWithAuth, type InboundDmMessage } from './FanDmSession'
 import {
   acceptFriendRequest,
+  cancelFriendRequest,
   declineFriendRequest,
   fetchFriendRosterSnapshot,
   removeFriend,
@@ -36,6 +37,7 @@ export type RoomFriendsPaneState = {
   refreshRoster: () => void
   acceptRequest: (requestId: string) => void
   declineRequest: (requestId: string) => void
+  cancelRequest: (requestId: string) => void
   openDm: (friend: FriendEntry) => void
   closeDm: () => void
   confirmRemove: (friend: FriendEntry) => void
@@ -238,6 +240,21 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
     [fanToken],
   )
 
+  const cancelRequest = useCallback(
+    async (requestId: string) => {
+      if (!fanToken) return
+      const result = await cancelFriendRequest(fanToken, requestId)
+      if (result.ok) {
+        setSnapshot((current) =>
+          current
+            ? { ...current, outbound: current.outbound.filter((entry) => entry.requestId !== requestId) }
+            : current,
+        )
+      }
+    },
+    [fanToken],
+  )
+
   const openDm = useCallback(
     (friend: FriendEntry) => {
       void loadDmThread(friend)
@@ -324,6 +341,7 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
     refreshRoster,
     acceptRequest,
     declineRequest,
+    cancelRequest,
     openDm,
     closeDm,
     confirmRemove,

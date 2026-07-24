@@ -144,7 +144,8 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
       ) : null}
       {!pane.loading && !pane.loadError ? (
         <>
-          {pane.snapshot && pane.snapshot.inbound.length > 0 ? (
+          {pane.snapshot &&
+          (pane.snapshot.inbound.length > 0 || pane.snapshot.outbound.length > 0) ? (
             <section className="riffsync-room-friends-section" aria-label="Pending friend requests">
               <h3 className="riffsync-room-friends-section-title">Pending requests</h3>
               <ul className="riffsync-room-friends-list">
@@ -165,6 +166,20 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
                         onClick={() => void pane.declineRequest(request.requestId)}
                       >
                         Decline
+                      </button>
+                    </div>
+                  </li>
+                ))}
+                {pane.snapshot.outbound.map((request) => (
+                  <li key={request.requestId} className="riffsync-room-friends-row">
+                    <span className="riffsync-room-friends-row-name">Request pending</span>
+                    <div className="riffsync-room-friends-row-actions">
+                      <button
+                        type="button"
+                        className="gen-button"
+                        onClick={() => void pane.cancelRequest(request.requestId)}
+                      >
+                        Cancel request
                       </button>
                     </div>
                   </li>

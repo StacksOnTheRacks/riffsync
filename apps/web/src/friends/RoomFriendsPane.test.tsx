@@ -46,6 +46,7 @@ function buildPaneState(overrides: Partial<RoomFriendsPaneState> = {}): RoomFrie
     refreshRoster: vi.fn(),
     acceptRequest: vi.fn(),
     declineRequest: vi.fn(),
+    cancelRequest: vi.fn(),
     openDm: vi.fn(),
     closeDm: vi.fn(),
     confirmRemove: vi.fn(),
@@ -94,6 +95,85 @@ describe('RoomFriendsPane (#364)', () => {
     })
 
     expect(container.textContent).toContain('No friends yet.')
+  })
+
+  it('renders outbound pending with cancel and keeps empty friends copy', () => {
+    const cancelRequest = vi.fn()
+    act(() => {
+      root.render(
+        <RoomFriendsPane
+          pane={buildPaneState({
+            snapshot: {
+              friends: [],
+              inbound: [],
+              outbound: [
+                {
+                  requestId: 'req-out-1',
+                  requesterSub: 'fan-a',
+                  recipientSub: 'fan-c',
+                  createdAt: 3,
+                },
+              ],
+              anyUnread: false,
+            },
+            cancelRequest,
+          })}
+          visible
+        />,
+      )
+    })
+
+    expect(container.textContent).toContain('Pending requests')
+    expect(container.textContent).toContain('Request pending')
+    expect(container.textContent).toContain('Cancel request')
+    expect(container.textContent).toContain('No friends yet.')
+
+    const cancelButton = Array.from(container.querySelectorAll('button')).find((node) =>
+      node.textContent?.includes('Cancel request'),
+    )
+    expect(cancelButton).not.toBeUndefined()
+    cancelButton?.click()
+    expect(cancelRequest).toHaveBeenCalledWith('req-out-1')
+  })
+
+  it('renders inbound pending accept and decline actions', () => {
+    const acceptRequest = vi.fn()
+    const declineRequest = vi.fn()
+    act(() => {
+      root.render(
+        <RoomFriendsPane
+          pane={buildPaneState({
+            snapshot: {
+              friends: [],
+              inbound: [
+                {
+                  requestId: 'req-in-1',
+                  requesterSub: 'fan-c',
+                  recipientSub: 'fan-a',
+                  createdAt: 2,
+                },
+              ],
+              outbound: [],
+              anyUnread: false,
+            },
+            acceptRequest,
+            declineRequest,
+          })}
+          visible
+        />,
+      )
+    })
+
+    const acceptButton = Array.from(container.querySelectorAll('button')).find((node) =>
+      node.textContent?.includes('Accept'),
+    )
+    const declineButton = Array.from(container.querySelectorAll('button')).find((node) =>
+      node.textContent?.includes('Decline'),
+    )
+    acceptButton?.click()
+    declineButton?.click()
+    expect(acceptRequest).toHaveBeenCalledWith('req-in-1')
+    expect(declineRequest).toHaveBeenCalledWith('req-in-1')
   })
 
   it('renders nested DM thread with back control and empty copy', () => {

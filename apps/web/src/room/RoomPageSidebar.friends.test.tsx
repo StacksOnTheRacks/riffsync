@@ -36,6 +36,7 @@ vi.mock('../friends/useRoomFriendsPane', () => ({
     refreshRoster: vi.fn(),
     acceptRequest: vi.fn(),
     declineRequest: vi.fn(),
+    cancelRequest: vi.fn(),
     openDm: vi.fn(),
     closeDm: vi.fn(),
     confirmRemove: vi.fn(),
