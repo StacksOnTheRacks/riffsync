@@ -187,6 +187,8 @@ export class ApiCatalogStack extends cdk.Stack {
   public readonly roomPresenceTable: dynamodb.Table;
   public readonly roomChatTable: dynamodb.Table;
   public readonly fanProfilesTable: dynamodb.Table;
+  public readonly friendshipRequestsTable: dynamodb.Table;
+  public readonly friendshipsTable: dynamodb.Table;
   public readonly fanAvatarsBucket: s3.Bucket;
   public readonly fanAvatarsDistribution: cloudfront.Distribution;
   /** HTTPS origin for avatar object keys (no trailing slash). */
@@ -273,6 +275,44 @@ export class ApiCatalogStack extends cdk.Stack {
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
 
+    this.friendshipRequestsTable = new dynamodb.Table(this, 'FriendshipRequestsTable', {
+      partitionKey: { name: 'requestId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+    });
+    this.friendshipRequestsTable.addGlobalSecondaryIndex({
+      indexName: 'RecipientSubIndex',
+      partitionKey: { name: 'recipientSub', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.NUMBER },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+    this.friendshipRequestsTable.addGlobalSecondaryIndex({
+      indexName: 'RequesterSubIndex',
+      partitionKey: { name: 'requesterSub', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.NUMBER },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+    this.friendshipRequestsTable.addGlobalSecondaryIndex({
+      indexName: 'PairKeyIndex',
+      partitionKey: { name: 'pairKey', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    this.friendshipsTable = new dynamodb.Table(this, 'FriendshipsTable', {
+      partitionKey: { name: 'pairKey', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'fanSub', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+    });
+    this.friendshipsTable.addGlobalSecondaryIndex({
+      indexName: 'FanSubIndex',
+      partitionKey: { name: 'fanSub', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'pairKey', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     this.fanAvatarsBucket = new s3.Bucket(this, 'FanAvatarsBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -319,6 +359,14 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     const giphyRateLimitTable = new dynamodb.Table(this, 'GiphyRateLimitTable', {
+      partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      timeToLiveAttribute: 'expiresAt',
+    });
+
+    const friendshipRateLimitTable = new dynamodb.Table(this, 'FriendshipRateLimitTable', {
       partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -865,6 +913,27 @@ export class ApiCatalogStack extends cdk.Stack {
     this.fanAvatarsBucket.grantDelete(fanAvatarPostFn, `${FAN_AVATAR_S3_KEY_PREFIX}*`);
     this.fanProfilesTable.grantReadWriteData(fanAvatarPostFn);
 
+    const friendsRequestsFn = new lambdaNodejs.NodejsFunction(this, 'FriendsRequestsFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/friends-requests.ts'),
+      handler: 'handler',
+      environment: {
+        FRIENDSHIP_REQUESTS_TABLE_NAME: this.friendshipRequestsTable.tableName,
+        FRIENDSHIPS_TABLE_NAME: this.friendshipsTable.tableName,
+        FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
+        FRIEND_INVITE_LIMIT_PER_MINUTE: '10',
+        FRIEND_ACTION_LIMIT_PER_MINUTE: '30',
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    this.friendshipRequestsTable.grantReadWriteData(friendsRequestsFn);
+    this.friendshipsTable.grantReadWriteData(friendsRequestsFn);
+    friendshipRateLimitTable.grantReadWriteData(friendsRequestsFn);
+
     /** WebSocket management URL (HTTPS) for `PostToConnection`. */
     this.webSocketApi = new apigwv2.WebSocketApi(this, 'WebSocketApi', {
       apiName: `riffsync-${environment}-ws`,
@@ -1042,6 +1111,10 @@ export class ApiCatalogStack extends cdk.Stack {
       'GiphySearchInt',
       giphySearchFn,
     );
+    const friendsRequestsIntegration = new integrations.HttpLambdaIntegration(
+      'FriendsRequestsInt',
+      friendsRequestsFn,
+    );
     const adminSessionGetIntegration = new integrations.HttpLambdaIntegration(
       'AdminSessionGetInt',
       adminSessionGetFn,
@@ -1164,6 +1237,34 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     this.httpApi.addRoutes({
+      path: '/v1/friends/requests',
+      methods: [apigwv2.HttpMethod.POST, apigwv2.HttpMethod.GET],
+      integration: friendsRequestsIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/friends/requests/{requestId}/accept',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: friendsRequestsIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/friends/requests/{requestId}/decline',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: friendsRequestsIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/friends/requests/{requestId}',
+      methods: [apigwv2.HttpMethod.DELETE],
+      integration: friendsRequestsIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
       path: '/v1/admin/session',
       methods: [apigwv2.HttpMethod.GET],
       integration: adminSessionGetIntegration,
@@ -1263,6 +1364,22 @@ export class ApiCatalogStack extends cdk.Stack {
       description: 'DynamoDB FanProfiles — partition key `sub` (Cognito subject).',
     });
 
+    new cdk.CfnOutput(this, 'FriendshipRequestsTableName', {
+      value: this.friendshipRequestsTable.tableName,
+      description:
+        'DynamoDB FriendshipRequests — PK `requestId`; GSIs RecipientSubIndex, RequesterSubIndex, PairKeyIndex.',
+    });
+
+    new cdk.CfnOutput(this, 'FriendshipsTableName', {
+      value: this.friendshipsTable.tableName,
+      description: 'DynamoDB Friendships — PK `pairKey`, SK `fanSub`; GSI FanSubIndex.',
+    });
+
+    new cdk.CfnOutput(this, 'FriendshipRateLimitTableName', {
+      value: friendshipRateLimitTable.tableName,
+      description: 'DynamoDB friendship invite/action rate limits — PK `pk`, SK `sk`, TTL `expiresAt`.',
+    });
+
     new cdk.CfnOutput(this, 'FanAvatarsBucketName', {
       value: this.fanAvatarsBucket.bucketName,
       description: `Private S3 bucket for fan avatars (keys under \`${FAN_AVATAR_S3_KEY_PREFIX}{sub}/\`).`,
@@ -1288,7 +1405,7 @@ export class ApiCatalogStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HttpApiUrl', {
       value: this.httpApi.apiEndpoint,
       description:
-        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
+        'HTTP API base URL (HTTPS). Append `/v1/catalog`, `/v1/rooms`, `/v1/lobby`, `/v1/webrtc/ice`, `/v1/fans/me`, `/v1/giphy/search`, `/v1/friends/requests`, `/v1/admin/session`, `/v1/admin/catalog`, `/v1/admin/catalog/episodes/{id}` (GET/POST/PATCH/DELETE), `/v1/admin/email/audience`, `/v1/admin/email/test`, `/v1/admin/email/send`.',
     });
 
     new cdk.CfnOutput(this, 'HttpApiId', {
