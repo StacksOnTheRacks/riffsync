@@ -74,11 +74,20 @@ Scheduled work, durable events, and side effects that are not synchronous reques
 - Whether **`PostToConnection`** failure during **`share_state`** fan-out requires client-side poll of room snapshot for **`broadcastCaptureActive`**.
 
 ### friends-and-dm-delivery-topology
-- Exact DM realtime transport: new WebSocket application routes, fan-scoped connection map (not **`roomId`**-keyed), HTTP sync with optional push, or hybrid sharing infrastructure with room WS **only if** documented explicitly.
-- Outbound/inbound DM envelope **`type`** / **`schemaVersion`** discriminators and history-page cursor shapes.
-- Whether unread-clear acknowledgment is HTTP-only or also pushed to the viewer’s other sessions.
-- DM send failure client **`code`** when push plane unavailable (analogue of **`CHAT_SEND_DROPPED`**); retry budget remains **no outbound retry queue** unless a later decision changes room-chat precedent.
-- Cross-room **RoomPresence** query pattern for friends online (GSI vs fan-out index vs scan-by-sub) — physical access pattern with data/IaC; messaging only requires derive-from-presence semantics.
+- Exact DM realtime transport: new WebSocket application routes, fan-scoped connection map (not **`roomId`**-keyed), HTTP sync with optional push, or hybrid sharing infrastructure with room WS **only if** documented explicitly — **#360**.
+- Outbound/inbound DM envelope **`type`** / **`schemaVersion`** discriminators for realtime push — **#360**.
+- Whether unread-clear acknowledgment is HTTP-only or also pushed to the viewer's other sessions — **#361**.
+- DM send failure client **`code`** when push plane unavailable (analogue of **`CHAT_SEND_DROPPED`**); retry budget remains **no outbound retry queue** unless a later decision changes room-chat precedent — **#360**.
+- Cross-room **RoomPresence** query pattern for friends online (GSI vs fan-out index vs scan-by-sub) — physical access pattern with data/IaC; messaging only requires derive-from-presence semantics (GSI decided #357).
+
+## Decisions (answered — DM history sync #359)
+
+| Topic | Decision |
+| --- | --- |
+| History sync HTTP | **`GET /v1/dm/threads/{pairKey}/messages`** with **`limit`** + optional **`before`** cursor; newest-first pages. |
+| Thread ensure HTTP | **`PUT /v1/dm/threads/{peerSub}`** before first history fetch when thread metadata may not exist. |
+| Cursor encoding | base64url JSON **`{"sentAt", "messageId"}`** for exclusive older pagination. |
+| Not RoomChat | DM history **Query** targets **DirectMessages** table only — never **RoomChat** **`roomId`** partition. |
 
 ## Kill-switch side-effect ordering (#102 / #103 split)
 

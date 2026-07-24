@@ -23,7 +23,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | **`POST /v1/fans/me/avatar`** *(multipart body; presigned PUT deferred)* | **Fan Cognito JWT**. | Upload/replace **one** avatar image; persists **`avatarUrl`** + **`avatarUpdatedAt`** on FanProfiles; object in **S3** served via **public HTTPS** (see **`data_model.md`**). |
 | **`GET /v1/giphy/search`** | **Fan Cognito JWT**. | Server-side **Giphy** search proxy; returns normalized GIF candidates for compose UI; **API key never in browser**. |
 | **Friends lifecycle (invite / accept / decline / list pending / remove)** | **Fan Cognito JWT** only. | Signed-in fans create **pending** friendship requests, **accept** or **decline** inbound requests, **cancel** outbound pending, and list pending inbound/outbound. **Remove** accepted friendship is **#358**. Durable friendship exists only after accept. Paths under **`/v1/friends/*`** (see **Friendship HTTP routes**). Main-site and room Friends surfaces call the **same** fan-gated APIs when UI ships (**M36**). |
-| **DM thread / history / send / unread clear** | **Fan Cognito JWT** only. | 1:1 DM between two fan **`sub`s** with an **active friendship**. History is **account-lifetime durable** (distinct from TTL-bounded **RoomChat**). Delivery: **history sync on open** plus **realtime push while connected** (write-then-fan-out class — **`messaging_async.md`**). After mutual remove-friend, **both** parties lose send and history access on that thread (**`authorization.md`**). Exact paths, envelopes, and error **`code`** strings are open. |
+| **DM thread / history / send / unread clear** | **Fan Cognito JWT** only. | 1:1 DM between two fan **`sub`s** with an **active friendship**. History is **account-lifetime durable** (distinct from TTL-bounded **RoomChat**). **Thread ensure** and **history page** paths decided **#359**; send and unread clear **#360** / **#361**. Delivery: **history sync on open** plus **realtime push while connected** (write-then-fan-out class — **`messaging_async.md`**). After mutual remove-friend, **both** parties lose send and history access on that thread (**`authorization.md`**). |
 | **`/v1/admin/*`** | **Staff-only** Cognito JWT (separate pool or app client). | Full route surface aligned with **`docs/architecture.admin.md`** (summary below). **CloudWatch** remains the primary ops chart layer. **No** staff route grants DM body read or friendship mutation for this product slice. |
 
 **Admin HTTP (normative summary — detail in `docs/architecture.admin.md`):**
@@ -155,6 +155,31 @@ Anonymous guests have **no** friends lifecycle routes. Staff JWT does **not** au
 
 Handlers for DM history/send **must** re-check friendship (and closed thread when the item exists) **immediately before** durable write so an in-flight send loses to a concurrent remove.
 
+### DM thread open and history HTTP (#359)
+
+| Step | Contract |
+| --- | --- |
+| **Ensure / open thread** | **`PUT /v1/dm/threads/{peerSub}`**. Fan JWT required. **`peerSub`** is the friend's Cognito **`sub`**. Server computes canonical **`pairKey = min(callerSub, peerSub)#max(callerSub, peerSub)`**. Requires active **Friendship** row for **`pairKey`**. |
+| **Ensure outcome** | When no **DmThread** item exists, **PutItem** with **`status: open`**, **`openedAt`** / **`updatedAt`** (epoch ms), **`subA`**, **`subB`**. When item exists and **`status: open`**, idempotent **`200`**. When **`status: closed`** or friendship absent, deny (see codes). |
+| **Ensure success body** | **`200`** **`{ "pairKey", "peerSub", "status", "openedAt" }`**. |
+| **Page history** | **`GET /v1/dm/threads/{pairKey}/messages`**. Fan JWT required; caller must be a member of **`pairKey`**. Query params: **`limit`** (default **50**, max **100**), optional **`before`** opaque cursor for older messages. |
+| **History success body** | **`200`** **`{ "messages": [ { "messageId", "senderSub", "kind", "body", "sentAt" } ], "nextCursor": string \| null }`**. Messages ordered **newest-first** in the array. **`kind`** is **`text`** in M35 v1. |
+| **History cursor** | **`before`** is base64url-encoded JSON **`{"sentAt": number, "messageId": string}`** referencing the oldest message in the prior page; next page returns rows strictly older than that tuple. **`nextCursor`** uses the same encoding for the oldest message in the current page, or **`null`** when exhausted. |
+| **Auth** | **`401 fan_auth_required`** without fan JWT. Guests and staff tokens denied. |
+| **Rate limit** | **60**/min per caller **`fanSub`** combined on **`PUT .../threads/{peerSub}`** and **`GET .../messages`**; **`429 rate_limited`**. |
+
+### DM thread open / history deny codes (#359)
+
+| **`code`** | HTTP | When |
+| --- | --- | --- |
+| **`fan_auth_required`** | **401** | Missing/invalid fan JWT. |
+| **`cannot_dm_self`** | **400** | **`peerSub === caller sub`**. |
+| **`dm_not_member`** | **403** | Caller **`sub`** is not a member of path **`pairKey`**. |
+| **`friendship_not_active`** | **403** | No active **Friendship** for the pair (includes after remove). |
+| **`dm_thread_closed`** | **403** | **DmThread** **`status: closed`**. |
+| **`dm_thread_not_found`** | **404** | History requested for **`pairKey`** with no **DmThread** item (empty thread — client should **`PUT`** ensure first). |
+| **`rate_limited`** | **429** | Throttle exceeded. |
+
 ### DM plane vs room `ChatSession`
 
 | Plane | Owner / scope | Contract |
@@ -162,9 +187,9 @@ Handlers for DM history/send **must** re-check friendship (and closed thread whe
 | **Room chat / presence / control** | **`ChatSession`** + room WebSocket keyed by **`roomId`** | Public (party) chat, **RoomPresence**, typing, join/leave, **`share_state`**, room control fan-out. Unchanged by friends/DM. |
 | **1:1 DM** | Distinct **DM plane** (HTTP history + realtime push while connected) | Private account-lifetime history between friend pair. **Must not** be implied by reusing room-chat UX language. Prefer **not** overloading the room **`ChatSession` `roomId` channel** for DM bodies; if a future implementation shares transport machinery, the contract **must** note the shared topology explicitly and keep authz/thread identity separate from **`roomId`**. |
 
-**Delivery class:** durable DM write, then fan-out to connected peers (**write-then-fan-out** analogue of room chat); clients also **sync history on open**. Exact WebSocket vs HTTP long-poll / hybrid topology, route keys, and **`type` / `schemaVersion`** discriminators remain open.
+**Delivery class:** durable DM write, then fan-out to connected peers (**write-then-fan-out** analogue of room chat); clients also **sync history on open** via **`GET /v1/dm/threads/{pairKey}/messages`** (#359). Exact WebSocket vs HTTP long-poll / hybrid topology, route keys, and **`type` / `schemaVersion`** discriminators for realtime push remain open (**#360**).
 
-**Unread:** server-authoritative per recipient; clears when the viewer **views** those messages. Badge aggregation (per-friend vs aggregate) wire shape is open.
+**Unread:** server-authoritative per recipient; clears when the viewer **views** those messages. Badge aggregation (per-friend vs aggregate) wire shape is open (**#361**).
 
 **Surfaces:** main-site person-icon friends flow and watch-party Friends pane share the same fan-gated APIs.
 
@@ -471,13 +496,10 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 
 ### friends-and-direct-messaging (paths, envelopes, codes)
 
-- DM thread open, history page, send, unread clear HTTP paths and envelopes — **M35**.
-- Client drop / unavailable codes for DM send when the chosen realtime plane is down (DM analogue of **`CHAT_SEND_DROPPED`**) — **M35**.
-- DM realtime topology: new WebSocket application routes, fan-scoped connection (not **`roomId`**-keyed), HTTP sync-only with optional push, or hybrid; exact outbound/inbound **`type`** and **`schemaVersion`** discriminators. Prefer documenting any shared transport with room WS **explicitly** rather than silently reusing **`ChatSession`**.
-- Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape — **M35**.
-- Client drop / unavailable codes for DM send when the chosen realtime plane is down (DM analogue of **`CHAT_SEND_DROPPED`**).
+- DM send HTTP path, realtime push topology, and send failure **`code`** — **#360**.
+- Unread wire: per-friend count vs boolean, aggregate badge field(s), clear-on-view acknowledgment body shape — **#361**.
 - Rate-limit numeric thresholds for DM send (friend-request bands decided above).
-- IaC / env names for DM tables, WS APIs, or Lambda grants beyond **`FRIENDSHIP_REQUESTS_TABLE_NAME`** / **`FRIENDSHIPS_TABLE_NAME`**.
+- IaC / env names for DM unread table or co-located unread items — **#361** ( **`DM_THREADS_TABLE_NAME`** / **`DIRECT_MESSAGES_TABLE_NAME`** decided #359).
 
 ## Decisions (answered — M22 presence routes)
 
