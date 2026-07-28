@@ -6,9 +6,22 @@ Outbound and third-party boundaries. Legal posture: **unofficial fan app**; hono
 
 | Use | Mechanism | Contract |
 | --- | --- | --- |
-| **Playback (admin)** | **IFrame / IFrame API** on **room admin** client; `videoId` from catalog / room snapshot. | No download/rehost by RiffSync; embed eligibility may change per video—UI handles failures. |
-| **Guest viewing** | **WebRTC** **`MediaStream`** from host tab-capture and, when enabled, **participant A/V** over **self-hosted mediasoup SFU** on **`RiffSyncTurn`** — **`POST /v1/webrtc/sfu-token`** + **coturn**. | **SFU mandatory in all environments** (dev, CI, production). **Mesh WebRTC removed.** Multi-producer registry (host screen + N participant cameras/mics). Theater audio mixing is **client-side** (server-side mix **deferred**). Honor browser permission and autoplay policies. |
-| **Thumbnails (optional)** | **`https://img.youtube.com/vi/{id}/{hqdefault|maxresdefault|…}.jpg`** | Reconcile job **`HEAD`** fallback chain; persist resolved URL on catalog row (**`docs/architecture.catalog-images.md`**). No YouTube Data API required for thumbs. |
+| **Playback (YouTube-host episodes)** | **IFrame / IFrame API** on **room admin** and solo/party-capture clients when catalog **`playbackHost` is `youtube`**; `videoId` from catalog / room snapshot. | No download/rehost by RiffSync; embed eligibility may change per video—UI handles failures. YouTube **playable / embed checks** at room create apply **only** for YouTube-host rows. |
+| **Thumbnails (optional)** | **`https://img.youtube.com/vi/{id}/{hqdefault|maxresdefault|…}.jpg`** | Reconcile job **`HEAD`** fallback chain when **`youtubeVideoId` present**; persist resolved URL on catalog row (**`docs/architecture.catalog-images.md`**). No YouTube Data API required for thumbs. Custom-only rows without YouTube id skip thumb reconcile. |
+
+## Custom playback (staff-curated HTTPS pages)
+
+| Use | Mechanism | Contract |
+| --- | --- | --- |
+| **Playback (Custom-host episodes)** | **Generic HTTPS iframe** on **`/watch/:catalogEpisodeId`**, party-capture (**`?partyCapture=1`**), and in-room host presentation when catalog **`playbackHost` is `custom`**. | Staff enter **known embeddable** HTTPS movie-page URLs (**HTTPS only**, any domain, no domain allowlist at validation). RiffSync does **not** rehost or transcode. **No YouTube IFrame API sync** for Custom URLs. Iframe embed failure (X-Frame-Options): honest error UI; no product runtime fallback beyond staff policy. |
+| **Guest viewing** | **Unchanged** — guests consume **WebRTC `host_screen`** from host tab-capture of the RiffSync watch/party-capture tab; they do **not** load the Custom URL directly. | Party capture tab URL stays **`{origin}/watch/{catalogEpisodeId}?partyCapture=1`**; inner player is generic iframe for Custom. **`hostSourceOpensOnYoutube`** is false for Custom rows. |
+| **Cast (MVP)** | **Unchanged `host_screen` SFU path** | Custom iframe on TV receiver is **out of scope** for MVP unless a later Cast spec says otherwise. |
+
+## WebRTC media (all playback hosts)
+
+| Use | Mechanism | Contract |
+| --- | --- | --- |
+| **Guest viewing (both hosts)** | **WebRTC** **`MediaStream`** from host tab-capture and, when enabled, **participant A/V** over **self-hosted mediasoup SFU** on **`RiffSyncTurn`** — **`POST /v1/webrtc/sfu-token`** + **coturn**. | **SFU mandatory in all environments** (dev, CI, production). **Mesh WebRTC removed.** Multi-producer registry (host screen + N participant cameras/mics). Theater audio mixing is **client-side** (server-side mix **deferred**). Honor browser permission and autoplay policies. Tab-sharing workflow for watch parties is **unchanged** for Custom host. |
 
 ## Google Cast / Chromecast
 
@@ -146,6 +159,7 @@ The receiver render-confirmation acknowledgement is Google Cast sender/receiver 
 | Mesh dev fallback? | **No** — SFU + TURN in all environments; mesh removed. |
 | Server-side theater audio mix? | **Deferred** — client-side Web Audio remains default (**`api_contracts.md`**). |
 | Chromecast boundary? | **Viewer-local only.** Optional sender/receiver integration; no room API, WebSocket fan-out, `share_state`, or room-authority change. |
+| Custom playback on Cast receiver? | **Out of scope MVP** — receiver uses **`host_screen` SFU consume** when Theater share is active; no Custom iframe on TV in this slice. |
 | External social graph for friends/DM? | **No** — Dynamo-backed inside RiffSync; fan Cognito **`sub`** identity only. |
 | New IdP for friends/DM? | **No** — existing fan Cognito pool + fan JWT authorizer. |
 | Staff access to DM bodies via admin tools? | **No** for this slice — staff pool remains catalog/ops only. |
@@ -174,6 +188,9 @@ The receiver render-confirmation acknowledgement is Google Cast sender/receiver 
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### catalog-playback-host
+- Exact **CSP `frame-src`** directive syntax for arbitrary HTTPS Custom origins (coordinate with **operations/security.md**).
 
 ### friends-dm-aws-surfaces
 - Whether DM realtime adds a **new** API Gateway WebSocket API / stage vs reusing the room WS API with non-room routes (must stay explicit if shared).

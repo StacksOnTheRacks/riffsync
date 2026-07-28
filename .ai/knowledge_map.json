@@ -82,7 +82,8 @@
             ".ai/specs/public-site-seo.spec.md",
             ".ai/specs/catalog-browse-ia.spec.md",
             ".ai/specs/pwa-install.spec.md",
-            ".ai/specs/friends-and-direct-messaging.spec.md"
+            ".ai/specs/friends-and-direct-messaging.spec.md",
+            ".ai/specs/catalog-playback-host.spec.md"
           ]
         }
       ]

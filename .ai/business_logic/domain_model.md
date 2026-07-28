@@ -4,8 +4,8 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 
 ## Core entities
 
-- **Episode (catalog row):** a stable **`id`** and **`experimentNumber`**, MST-flavored **`title`/`catalog`**, YouTube linkage, enrichment from TMDB and optional YouTube thumb URL.
-- **Room:** shared viewing session on **`/room/:id`** with a **mutable current catalog episode** (**`catalogEpisodeId`** / **`videoId`** on the room document — seeded when the **signed-in** host creates the room, then changeable via **in-room picker**); the host (**room admin**) renders **embedded YouTube** for that selection and may **publish** a captured **`MediaStream`** to guests over **WebRTC**; guests consume that stream—**not** parallel iframe timelines kept in sync server-side. The room also carries **host-authoritative layout policy**: **`roomMode`** (**Theater** default | **Video Chat**) and **`avDisabled`** (room-wide participant A/V kill switch), both **durable** on the room document and returned on snapshot/join.
+- **Episode (catalog row):** a stable **`id`** and **`experimentNumber`**, MST-flavored **`title`/`catalog`**, staff-selected **playback host** (**YouTube** | **Custom**), playback URL fields for the active host, optional YouTube enrichment (thumbs/metadata may coexist on Custom rows), and TMDB artwork fields.
+- **Room:** shared viewing session on **`/room/:id`** with a **mutable current catalog episode** (**`catalogEpisodeId`** / **`videoId`** on the room document — seeded when the **signed-in** host creates the room, then changeable via **in-room picker**); the host (**room admin**) renders **in-app playback** for that selection (**YouTube IFrame API** when **`playbackHost` is YouTube**, **generic HTTPS iframe** when **`playbackHost` is Custom**) and may **publish** a captured **`MediaStream`** to guests over **WebRTC**; guests consume that stream—**not** parallel iframe timelines kept in sync server-side. The room also carries **host-authoritative layout policy**: **`roomMode`** (**Theater** default | **Video Chat**) and **`avDisabled`** (room-wide participant A/V kill switch), both **durable** on the room document and returned on snapshot/join.
 - **Local Cast session:** optional per-viewer Chromecast viewing state for Cast-capable senders. It is **session-only** client state, entered only from the normal room view, and never persisted on the room document, replayed on join, or fanned out as room state. A local Cast session launches the custom RiffSync receiver presentation, reusing the expanded-view stage-primary plus chat-overlay composition while the sender remains joined as the same participant. Native media-only Cast or YouTube-only Cast is not the current RiffSync Cast maturity behavior.
 - **Participant A/V (camera / microphone):** optional **signed-in fan** publish of **`getUserMedia`** streams over the same SFU path as host capture; **default off** until the fan explicitly enables each control. **Anonymous guests** may **subscribe** to participant A/V when **`avDisabled`** is false but **must not publish** participant camera or microphone. Participant A/V is **parallel** to host tab-capture movie broadcast—not a replacement for embed/capture lawful playback.
 - **Participant:** **`sessionId`** + display name (**anonymous**) or **`sub`** (**signed-in optional**) with optional **`avatarUrl`** (public HTTPS, one image per **`sub`**).
@@ -28,7 +28,7 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
   | --- | --- |
   | **`/`**, **`/catalog`**, **`/catalog/mst3k`**, **`/catalog/community`**, **`/catalog/riff-material`**, **`/catalog/movie-night`**, **`/download`**, **`/watch/:catalogEpisodeId`**, **`/how-to-host-a-watchparty`**, **`/terms`**, **`/privacy`** | **`/room/:roomId`** (and **`/room/:roomId/experimental/:experimental`**), **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**, **`/privacy/data-removal`**, **`/auth/callback`**, **`/admin/auth/callback`** |
 
-  Ephemeral, authenticated, and receiver-only routes carry no durable identity worth surfacing to crawlers — this mirrors the existing **Identity modes** boundary below, not a new access rule. **`/watch/:catalogEpisodeId`** is indexable only for episodes satisfying the existing lawful-playback YouTube-link filter (**Invariant 1**) — an episode without a live YouTube link has no lawful surface to summarize or link to and is excluded from indexing and the sitemap until a link exists.
+  Ephemeral, authenticated, and receiver-only routes carry no durable identity worth surfacing to crawlers — this mirrors the existing **Identity modes** boundary below, not a new access rule. **`/watch/:catalogEpisodeId`** is indexable only for episodes satisfying the existing lawful-playback discoverability filter (**Invariant 1**) — an episode **without a live YouTube link** (including **Custom-host** rows with no YouTube enrichment) has no indexable surface under today's SEO packaging and is **excluded from indexing and the sitemap** until a YouTube link exists for discoverability purposes. **Custom playback** does not by itself add `/watch/:id` to the sitemap.
 
   **Catalog browse IA:** Hub **`/catalog`** is the mixed (all-titles) catalog browse entry. Subcategory routes own filtered views: **MST3K**, **Community**, **Riff Material**, and **Movie Night**. **`/catalog/mst3k`** is a browse-IA aggregation over the existing host-catalog values **`joel`**, **`mike`**, **`jonah`**, and **`emily`** — not a new Episode field, enum value, or persisted grouping. **Riff Material** is the public label and route slug only; the persisted **`catalog`** value remains **`riff_material`**. Each episode retains a single discrete **`catalog`**, so a title appears in at most one subcategory grid. Per-subcategory visual customization is out of scope for this surface (shared shell only).
 
@@ -78,11 +78,12 @@ Three coexisting modes (see **`integration/authorization.md`**):
 ## Enumerations
 
 - **`playbackExpectation`:** **`premium`** | **`free-ad-supported`** — **advisory**; not verified subscription state.
+- **`playbackHost` (catalog episode):** **`youtube`** | **`custom`** — **per-catalog-episode** staff setting (not a per-room override at create). **`youtube`** rows use YouTube URL / video id and retain YouTube playable checks at room create. **`custom`** rows use a staff-curated **HTTPS** movie-page URL in a generic iframe; **`youtubeVideoId` is not required** for room create when host is **`custom`**.
 - **`roomMode`:** **`theater`** (default on room open) | **`videoChat`** — host-authoritative layout policy; one current value per room; fan-out to all connected participants and late joiners via durable room document + realtime sync. While **`avDisabled`** is false, **Video Chat** remains selectable in the host control bar as a normal A/V room mode, not a **Beta** or **Experimental** mode.
 
 ## Invariants
 
-1. **Lawful playback:** app never hosts MST episode files as a communal CDN; the **admin** uses **official embeds** (or future lawful backends), and guests receive **browser-mediated realtime media** derived from that viewing surface—not a separate licensed file library operated by RiffSync.
+1. **Lawful playback:** app never hosts MST episode files as a communal CDN; the **admin** uses **official embeds** or **staff-curated lawful HTTPS pages** loaded in RiffSync iframes (**YouTube IFrame API** or **generic iframe** for **Custom** host), and guests receive **browser-mediated realtime media** derived from that viewing surface—not a separate licensed file library operated by RiffSync. RiffSync does not rehost or transcode third-party video for Custom host.
 2. **Admin control:** guests cannot assume **publisher** role (host tab-capture **or** participant camera/mic) or change **authoritative** room metadata (except leave room / chat per policy). Only **`JWT.sub === hostSub`** may change **`roomMode`**, **`avDisabled`**, tab-capture, and durable playback metadata. Signed-in non-host fans may publish **participant A/V only**.
 3. **Participant A/V eligibility:** only **signed-in fans** with active room presence may publish participant camera/microphone. Anonymous guests remain **subscribe-only** for participant A/V.
 4. **Room mode vs kill switch:** while **`avDisabled`** is true, the room behaves as **Theater-equivalent movie + text chat** (pre-initiative participant A/V behavior); **Video Chat** selection is **unavailable or inert** until A/V is re-enabled. Server enforces kill switch: deny new participant producer grants, tear down active participant producers, broadcast authoritative disabled state.
@@ -381,9 +382,34 @@ Friends online is room-presence-derived and aggregate across rooms. It is not a 
 | **Re-friend history?** | Prior **DmThread** history stays inaccessible (default). |
 | **Notification?** | Silent API (#358); M36 presentation. |
 
+## Decisions (answered — catalog playback host)
+
+| Question | Decision |
+| --- | --- |
+| Playback host scope? | **Per catalog episode** — staff set **`playbackHost`** on the catalog row; not a per-room override at create. |
+| Custom URL validation? | **HTTPS only**, **any domain**, **no staff domain allowlist** for MVP. Staff enter **known embeddable** URLs (product policy). |
+| Custom room create gate? | **Skip YouTube playable / video-id checks** when **`playbackHost` is `custom`**; still require resolvable catalog row and non-empty validated **`customPlaybackUrl`**. |
+| YouTube room create gate? | **Unchanged in intent** — YouTube playable / video-id validation applies when **`playbackHost` is `youtube`**. |
+| Guest Custom URL load? | **No** — guests watch **host WebRTC tab share**; they do not load the third-party Custom URL directly. |
+| Host presentation (Custom)? | **Generic iframe** on the same RiffSync pages as YouTube solo/party-capture; **tab-sharing workflow unchanged** (host shares **`/watch/:catalogEpisodeId?partyCapture=1`**). |
+| Iframe embed failure (X-Frame-Options)? | **No product runtime fallback** beyond honest error UI; staff policy is embeddable URLs only. |
+| YouTube fields on Custom rows? | **May coexist** — **`customPlaybackUrl` drives playback**; YouTube fields optional for thumbs/metadata and **ignored for playback** when host is Custom. |
+| **`embedAllows` on Custom host?** | Applies **YouTube-path only** — Custom in-app playback is gated by **`playbackHost: custom` + valid HTTPS URL**, not **`embedAllows`**. |
+| Public catalog Custom URL? | **Expose `customPlaybackUrl` on `GET /v1/catalog`** (same visibility class as **`youtubeWatchUrl`**) because public solo watch loads catalog client-side. |
+| Custom-only `/watch/:id` SEO? | **Exclude** from sitemap/index until product expands discoverability beyond YouTube linkage (same posture as no-YouTube rows today). |
+| Cast receiver Custom iframe? | **Out of scope** for MVP — Cast continues **`host_screen` SFU consume** when Theater share is active. |
+| YouTube IFrame API sync for Custom? | **Out of scope** — no server-side timeline sync for generic iframe URLs. |
+
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### catalog-playback-host
+- Exact **room-create / room-patch error codes** when Custom URL missing vs YouTube playable check fails.
+- Whether **playable** helper names (**`episodeAllowsInAppEmbed`**, etc.) split by host or gain a host-aware wrapper.
+- **Room denormalization**: which playback fields copy onto **Rooms** at create/patch (mirror today's **`youtubeVideoId`** pattern).
+- **Catalog card / Start Party** gating rules and UI copy when Custom URL present but YouTube fields null.
+- **SEO meta copy** referencing "lawful YouTube embeds" on static routes when Custom episodes exist (marketing/legal wording refresh scope).
 
 ### friends-and-direct-messaging
 - **DirectMessage v1 kinds (#359):** **`text` only** — unicode emoji inline in **`body`**, max **2000** chars (room **`chat`** precedent). **Giphy GIF** and **reactions** deferred to post-M35 follow-on.
