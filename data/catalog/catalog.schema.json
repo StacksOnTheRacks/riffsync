@@ -33,6 +33,7 @@
         "catalog",
         "tags",
         "labels",
+        "playbackHost",
         "youtubeVideoId",
         "youtubeWatchUrl",
         "tagline",
@@ -152,9 +153,43 @@
         },
         "embedAllows": {
           "type": "boolean",
-          "description": "When false, SPA should not offer in-app YouTube embed; exposed on public catalog when stored."
+          "description": "When false, SPA should not offer in-app YouTube embed; applies to YouTube playback path only. Custom in-app playback is gated by playbackHost and customPlaybackUrl."
+        },
+        "playbackHost": {
+          "type": "string",
+          "enum": ["youtube", "custom"],
+          "description": "Staff-selected playback source for this episode. Defaults to youtube when omitted in legacy seed rows (migration/backfill)."
+        },
+        "customPlaybackUrl": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://",
+              "description": "HTTPS movie-page URL when playbackHost is custom. Required non-null when playbackHost is custom."
+            }
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "playbackHost": { "const": "custom" } },
+            "required": ["playbackHost"]
+          },
+          "then": {
+            "properties": {
+              "customPlaybackUrl": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https://"
+              }
+            },
+            "required": ["customPlaybackUrl"]
+          }
+        }
+      ]
     }
   }
 }

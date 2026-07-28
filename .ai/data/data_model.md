@@ -9,7 +9,9 @@ Curator + enrichment merged for **`GET /v1/catalog`** output.
 | Field group | Fields | Notes |
 | --- | --- | --- |
 | **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`catalog`** | **`title`** never overwritten from TMDB. **`catalog`** enum: **`joel`**, **`mike`**, **`jonah`**, **`emily`**, **`community`**, **`movie_night`**, **`riff_material`**, **`other`**. All public-facing catalog displays omit **`other`** (staff curation bucket). Public subcategory browse IA (`mst3k` / `community` / `riff-ready` / `movie-night`) is route/display grouping over this flat enum (no parent/group field; MST3K is a display-time union of **`joel`** / **`mike`** / **`jonah`** / **`emily`**). Display label for persisted **`riff_material`** may be **Riff Material** without changing the stored value. |
-| **YouTube** | **`youtubeVideoId`**, **`youtubeWatchUrl`** | Nullable when unknown. |
+| **Playback host** | **`playbackHost`**, **`customPlaybackUrl`** | **`playbackHost`**: **`youtube`** \| **`custom`** (required on new/updated rows after schema migration; seed backfill defaults missing values to **`youtube`**). **`customPlaybackUrl`**: HTTPS movie-page URL when host is **`custom`**; validated at admin save (**HTTPS only**, any domain). **`customPlaybackUrl` drives playback** when host is Custom; YouTube linkage fields may remain for thumbs/metadata. |
+| **YouTube** | **`youtubeVideoId`**, **`youtubeWatchUrl`** | Nullable when unknown. **Not required** for persistence or room create when **`playbackHost` is `custom`**. May coexist on Custom rows for optional enrichment. |
+| **Embed policy** | **`embedAllows`** | Optional boolean; applies **YouTube in-app embed path only**. Custom in-app playback does **not** consult **`embedAllows`**. |
 | **TMDB-aligned (nullable keys always on row in seed)** | **`tagline`**, **`posterImageUrl`**, **`backdropImageUrl`**, **`tmdbMovieId`**, **`tmdbArtworkSyncedAt`** | Filled by reconcile; see contracts. |
 | **Dynamo-only (optional on seed)** | **`tmdbOverview`**, **`tmdbPopularity`**, raw **`tmdbPosterPath`**, **`tmdbBackdropPath`** | Per **`docs/architecture.catalog-images.md`**. |
 | **Thumb (optional)** | **`youtubeThumbnailUrl`** | Resolved from **`img.youtube.com`** in reconcile when enabled. |
@@ -21,7 +23,7 @@ Authoritative server state for **room identity**, **catalog selection**, **admin
 | Concept | Contract |
 | --- | --- |
 | **`roomId`** | Stable, shareable (**UUID v4 or equivalent**); never recycled for a different party in confusing ways. |
-| **Catalog / playback intent** | **`catalogEpisodeId`** / **`videoId`** — **current** title for the room (**mutable** by **room admin** via picker; seeded at room create). Optional **`currentTime`**, **`playing`**, **`playbackRate`** if persisted for admin reconnect UX—**room admin** mutates via HTTP or WS per contracts; guests do **not** advance timeline via parallel embed state in MVP. Episode **changes** fan-out so lobby/listing metadata can track **Now watching**. |
+| **Catalog / playback intent** | **`catalogEpisodeId`** / **`videoId`** — **current** title for the room (**mutable** by **room admin** via picker; seeded at room create). Optional denormalized playback fields sufficient for host reconnect without re-fetching catalog (today includes YouTube ids; Custom host may add **`playbackHost`** / **`customPlaybackUrl`** mirrors — exact attribute names tier TW). Optional **`currentTime`**, **`playing`**, **`playbackRate`** if persisted for admin reconnect UX—**room admin** mutates via HTTP or WS per contracts; guests do **not** advance timeline via parallel embed state in MVP. Episode **changes** fan-out so lobby/listing metadata can track **Now watching**. |
 | **`playbackExpectation`** | Enum **`premium` \| free-ad-supported`** — advisory, admin-set. |
 | **`visibility`** | **`public`** \| **`private`** — **`public`** rooms may appear on **`GET /v1/lobby`** while active; **`private`** rooms are link-only (no lobby index). Host **`PATCH`** may toggle after create; **`POST /v1/rooms`** defaults **`public`** from catalog. Direct **`/room/:roomId`** join is unchanged for either value. |
 | **`hostSub`** | Cognito **`sub`** of the user who **`POST /v1/rooms`** — immutable host binding for MVP; only this principal may **publish host tab-capture WebRTC** and mutate authoritative room admin fields. |
@@ -286,11 +288,28 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 | **DirectMessage v1 kinds?** | **`text` only**; GIF/reactions deferred post-M35. |
 | **Account-closure / explicit delete purge?** | **Out of scope** for #359 — future ops/EventBridge slice; unfriend retain-on-storage decided #358. |
 
+## Decisions (answered — catalog playback host)
+
+| Question | Decision |
+| --- | --- |
+| Storage class? | **Unchanged** — catalog episodes remain in **Dynamo Catalog**; Custom URL is durable curator data like YouTube fields. |
+| **`playbackHost` wire values?** | **`youtube`** \| **`custom`** on Dynamo, admin payload, and public catalog JSON. |
+| **`customPlaybackUrl` validation?** | **HTTPS only**, **any domain**, no staff domain allowlist at save (MVP). |
+| YouTube fields on Custom rows? | **May coexist** — optional for thumbs/metadata; ignored for playback when host is Custom. |
+| Public catalog projection? | **`customPlaybackUrl`** exposed on **`GET /v1/catalog`** (same class as **`youtubeWatchUrl`**). |
+| **`embedAllows` on Custom?** | Persisted boolean unchanged; semantics **YouTube-path only**. |
+| Seed schema authority? | **`data/catalog/catalog.schema.json`** — host-conditional required fields (see schema **`if`/`then`**). |
+
 ## Open implementation decisions
 
 - SFU **`listProducerSummaries`** (or successor) payload fields for Theater strip / Video Chat grid (**`sessionId`**, **`fanSub`**, producer class) beyond today's **`{ producerId, kind }`** — **#102** / layout runtime (#104/#105).
 - Future scaling (out of scope for catalog subcategory browse IA): if the full catalog bundle grows large enough that client-side fetch + `filterCatalogEntries({ catalogs })` becomes a performance concern, consider a server-side **`catalog`** / **`catalogs`** query parameter on **`GET /v1/catalog`**. Current access pattern remains full-bundle fetch with client Set-membership filter; hub mixed grid uses no catalog constraint (`catalogs: []`).
 - Account-closure cascade and explicit per-message user delete jobs relative to retained-after-unfriend bodies — future ops slice (not #359).
+
+### catalog-playback-host
+- Admin PATCH partial update rules when switching **`playbackHost`** (nulling vs retaining opposite-host fields).
+- JSON Schema bundle **`version`** bump vs additive migration for existing seed files.
+- Whether **public catalog handler** field allowlist changes beyond **`customPlaybackUrl`** / **`playbackHost`** in **`catalog-shared.ts`**.
 
 ## Primary code pointers (optional)
 

@@ -20,7 +20,7 @@ RiffSync's public catalog and marketing surfaces - home, catalog hub, catalog su
 
 Catalog subcategory routes are first-class indexable entries alongside the `/catalog` hub. `/download` is a durable public app install instructions page and joins the same sitemap/prerender/head-tag pipeline. Browse IA (hub links, filters, labels) is owned by `catalog-browse-ia`; this capability owns discoverability packaging for those paths.
 
-`/watch/:catalogEpisodeId` is indexable only for episodes with a live YouTube link (the existing `episodeHasYoutubeLink` filter) — an episode without a lawful embed carries no surface worth summarizing or linking to and is excluded from indexing and the sitemap until a link exists.
+`/watch/:catalogEpisodeId` is indexable only for episodes with a live YouTube link (the existing `episodeHasYoutubeLink` filter) — an episode without a YouTube link (including **Custom-host** rows with no YouTube enrichment) carries no surface worth summarizing or linking to under today's SEO packaging and is excluded from indexing and the sitemap until a YouTube link exists for discoverability. Custom playback alone does not add `/watch/:id` to the sitemap.
 
 ### Per-route head tags
 

@@ -64,6 +64,15 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | **TURN credentials** | **`GET /v1/webrtc/ice`** REST credentials via **`riffsync/turn-static-auth-secret`**; more publishers increase relay load on the shared TURN instance. |
 | **Transport** | TLS on API Gateway; **`wss://`** SFU signaling via Caddy when **`PROD_SFU_SIGNALING_HOSTNAME`** is set. |
 
+## CSP and third-party framing (SPA)
+
+| Topic | Contract |
+| --- | --- |
+| **Custom playback iframes** | Solo watch, party-capture, and in-room host presentation may embed **arbitrary HTTPS origins** staff curate (**no domain allowlist** at catalog validation). CSP **`frame-src`** (or equivalent) must permit framing those HTTPS Custom origins — prefer an explicit contract note over ad-hoc wildcard edits in deploy scripts. |
+| **YouTube iframes** | Existing YouTube embed allowances unchanged for YouTube-host episodes. |
+| **Cast receiver CSP** | Unchanged for MVP Custom iframe scope — receiver uses **`host_screen` SFU**, not Custom iframe on TV. |
+| **Logging** | Do not log full **Custom playback URLs** at INFO if they carry signed/query tokens; aggregate errors only. |
+
 ## Viewer-local Cast
 
 | Topic | Contract |
@@ -91,6 +100,12 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 | **Metrics** | **`RiffSync/Media/sfu_token_denied`** with **`reason`** dimension. |
 
 ## Open implementation decisions
+
+### catalog-playback-host
+- Exact **CSP directive** edits in CloudFront response headers or meta tag strategy (**`operations/security.md`**, build packaging).
+- Whether generic iframe uses **`sandbox`** attribute and which tokens (**`allow-scripts`**, **`allow-same-origin`**, **`allow-popups`**) for partner players.
+- **`Referrer-Policy`** for Custom iframe navigations.
+- **Admin validation** max URL length and Unicode normalization for **`customPlaybackUrl`**.
 
 ### friends-and-direct-messaging
 - Exact **rate-limit bands** for DM send, unread mark-read, and friends-online query or push — **M35**, **#357** (remove-friend **30**/min decided #358).

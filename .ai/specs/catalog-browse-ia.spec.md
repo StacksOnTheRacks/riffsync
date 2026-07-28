@@ -6,7 +6,7 @@ Fans browse the RiffSync catalog through a hub at `/catalog` plus four dedicated
 
 **Audience:** public fans discovering titles; maintainers extending subcategory pages in later milestones.
 
-**Related capabilities:** `public-site-seo` (indexable route matrix, sitemap/prerender/head tags for these paths); `viewer-local-cast` (unrelated presentation layer).
+**Related capabilities:** `public-site-seo` (indexable route matrix, sitemap/prerender/head tags for these paths); `catalog-playback-host` (Custom-host card actions and in-app watch when `customPlaybackUrl` is set); `viewer-local-cast` (unrelated presentation layer).
 
 **Non-goals:** per-subcategory visual redesign beyond the shared Streamlab-style header + subtitle + title-search/sort + title grid; admin/operator catalog tooling changes; API or persisted `catalog` enum renames; watch-party, lobby, or SEO packaging (M33 owns sitemap/prerender/head tags for subcategory routes).
 

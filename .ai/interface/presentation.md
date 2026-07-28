@@ -8,7 +8,7 @@ UI-level contract for layout states, honest failure surfaces, and **cost-conscio
 | --- | --- |
 | **Catalog loading** | Skeleton or **in-catalog placeholders** for rows; avoid blocking the whole shell on **`GET /v1/catalog`** when possible (progressive render). |
 | **Empty catalog** | Clear **“nothing to show yet”** copy for operators/contributors—never a silent blank. |
-| **Signed-in host / solo room** | **WebSocket** + **JWT** for admin paths; embed errors surface **embed blocked** + **open on YouTube** escape hatch (**`error_state.md`**). |
+| **Signed-in host / solo room** | **WebSocket** + **JWT** for admin paths; embed errors surface **embed blocked** with host-aware escape hatch (**open on YouTube** for YouTube-host, **open custom URL in new tab** for Custom-host — **`error_state.md`**). |
 | **Room / lobby** | **Room-admin** controls only when **`JWT.sub === hostSub`**; anonymous guests see **read-only** player/chat chrome (**picker hidden**, subscribe-only WebRTC). |
 | **Theater fullscreen** | Optional **wrapper fullscreen** ( **`requestFullscreen`** on a container that includes the player, optional Theater camera row, and RiffSync chrome) — **not** YouTube iframe-native fullscreen, which cannot show RiffSync chrome. |
 | **Share** | **Copy `/room/:id` URL**; show advisory **`playbackExpectation`** near share affordance. |
@@ -62,6 +62,33 @@ Meta titles/descriptions/OG for **`/watch/:id`** always use the catalog **`title
 ### Catalog card browse metadata
 
 **`CatalogGridCard`** renders **`episode.tags`** in the card metadata area in the exact order received from the API. Tag strings are displayed as provided (namespace-agnostic; no hard-coded **`Season`**, **`Era`**, or **`Genre`** rendering rules). When **`episode.tags`** is empty, the card shows no fallback playback-advisory copy (**`Ads may appear`**, **`Premium-friendly`**, **`Likely ad-supported`**, or equivalent). Catalog cards do **not** show a visible not-embeddable message; **`embedAllows === false`** continues to gate in-app embed affordances through **`EpisodeTileActions`** / watch routing only.
+
+### Admin catalog playback host
+
+Staff **`/admin/catalog`** form gains a **Playback host** selector per episode: **YouTube** | **Custom**.
+
+| Host | Fields | Contract |
+| --- | --- | --- |
+| **YouTube** | Existing YouTube watch URL / video id fields | Unchanged validation intent; **`embedAllows`** applies to YouTube in-app embed path. |
+| **Custom** | **HTTPS** movie-page URL (**`customPlaybackUrl`**) | Required when host is Custom. YouTube fields **optional** (may remain for thumbs/metadata). Switching host does not require clearing opposite-host fields unless admin validation chooses to null them (tier TW). |
+
+### Solo watch and party capture (`/watch/:catalogEpisodeId`)
+
+| Concern | Contract |
+| --- | --- |
+| **YouTube-host** | Existing **`SoloYouTubePlayer`** / YouTube iframe path when **`playbackHost` is `youtube`** and YouTube embed rules allow in-app playback. |
+| **Custom-host** | Same page shell; **generic HTTPS iframe** replaces YouTube player, pointing at **`customPlaybackUrl`**. |
+| **Party capture** | URL remains **`{origin}/watch/{catalogEpisodeId}?partyCapture=1`**; inner player swaps to generic iframe for Custom. **Tab-sharing workflow unchanged** — host shares this RiffSync tab via browser picker + WebRTC. |
+| **Guests** | Unchanged — watch host screen share; no direct Custom URL chrome. |
+| **Iframe failure** | Honest blocked/error state; no special X-Frame-Options fallback UI beyond staff embeddable-URL policy. |
+
+### Room host presentation
+
+When the room admin's selected catalog episode has **`playbackHost: custom`**, host presentation loads **`customPlaybackUrl`** in an **iframe** in the presentation area (not external-tab-only for Custom). YouTube-host episodes retain existing YouTube embed / capture behavior.
+
+### Catalog card actions
+
+Custom episodes with valid **`customPlaybackUrl`** offer in-app watch / **Start Party** like embeddable YouTube rows. **`embedAllows === false`** gates **YouTube-path** in-app embed only; Custom playback is gated by **`playbackHost` + HTTPS URL**.
 
 ### `/watch/:catalogEpisodeId` heading
 
@@ -509,6 +536,15 @@ The render-confirmation slice gates the sender's active Cast UI after #302 reach
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### catalog-playback-host
+- Admin form control order, labels ("Playback host", field visibility when switching host), validation messages.
+- Component split: dedicated **generic iframe player** vs extending **`SoloYouTubePlayer`**.
+- **`TheaterPlayback` / `RoomPlaybackPanel`** iframe mount for host presentation vs capture tab inner iframe.
+- **`partyCapture` bare layout** CSS for generic iframe aspect ratio.
+- **Catalog card** metadata: whether to show playback host badge on staff admin list vs public cards.
+- **Static SEO table** copy referencing "lawful YouTube embeds" — marketing/legal refresh when Custom episodes ship (Custom-only `/watch/:id` remains excluded from sitemap).
+- **Accessibility**: iframe **`title`** from episode **`title`**; focus order on admin host selector.
 
 ### existing-room-polish
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; current room runtime uses implicit gesture resume per **`execution_model.md`**.

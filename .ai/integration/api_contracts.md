@@ -11,9 +11,9 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 
 | Surface | Auth | Purpose |
 | --- | --- | --- |
-| **`GET /v1/catalog`** | None required (public). | Canonical episode rows: curator fields + TMDB-derived + optional **`youtubeThumbnailUrl`** when implemented. **Caching:** **`Cache-Control`** with deployment-appropriate **max-age**; **`ETag`** weak validator derived from a **catalog generation** counter or **`max(updatedAt)`** in Dynamo so clients can **`If-None-Match`** (reduces egress cost when paired with CloudFront). **SPA subcategory browse** (`/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`) reuses this public full list with **client-side** catalog filtering; it does **not** add **`catalog`** / **`catalogs`** query parameters. Wire **`catalog`** values stay unchanged (**`riff_material`** remains on the wire for Riff Material). |
+| **`GET /v1/catalog`** | None required (public). | Canonical episode rows: curator fields + TMDB-derived + optional **`youtubeThumbnailUrl`** when implemented. Includes **`playbackHost`**, **`youtubeWatchUrl`**, and **`customPlaybackUrl`** (when set) for client solo watch and browse. **Caching:** **`Cache-Control`** with deployment-appropriate **max-age**; **`ETag`** weak validator derived from a **catalog generation** counter or **`max(updatedAt)`** in Dynamo so clients can **`If-None-Match`** (reduces egress cost when paired with CloudFront). **SPA subcategory browse** (`/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`) reuses this public full list with **client-side** catalog filtering; it does **not** add **`catalog`** / **`catalogs`** query parameters. Wire **`catalog`** values stay unchanged (**`riff_material`** remains on the wire for Riff Material). |
 | **`GET /v1/lists`**, **`GET /v1/lists/{slug}`** | None (public) when shipped. | Curated collections; **`slug`** URL-safe. |
-| **`POST /v1/rooms` (create)** | **Fan Cognito JWT** — **`hostSub`** on new room **= JWT `sub`**. **`sessionId`** optional telemetry only—**not** host binding. | Mint **`roomId`**, seed **`catalogEpisodeId`** / visibility / **`playbackExpectation`** per payload. Server sets **`roomMode: theater`** and **`avDisabled: false`** on the Dynamo item; **`201`** echoes both. |
+| **`POST /v1/rooms` (create)** | **Fan Cognito JWT** — **`hostSub`** on new room **= JWT `sub`**. **`sessionId`** optional telemetry only—**not** host binding. | Mint **`roomId`**, seed **`catalogEpisodeId`** / visibility / **`playbackExpectation`** per payload. Apply **YouTube playable / video-id validation only when the seeded catalog episode's `playbackHost` is `youtube`**. When **`playbackHost` is `custom`**, require resolvable catalog row and non-empty validated **`customPlaybackUrl`**; **do not** require **`youtubeVideoId`**. Server sets **`roomMode: theater`** and **`avDisabled: false`** on the Dynamo item; **`201`** echoes both. |
 | **`GET /v1/rooms/{roomId}`** | **`sessionId`** via **`X-Session-Id`** optional; no JWT required for read. | Room snapshot including **`roomMode`**, **`avDisabled`**, **`broadcastCaptureActive`**, and **`version`**. Legacy rows missing AV attributes default **`theater`** / **`false`**. |
 | **`GET /v1/lobby`**, lobby joins | **`sessionId`** via **`X-Session-Id`** (guest); optional JWT if viewer signs in. | Lobby rows for discovery/join validation — **no** **`roomMode`** or **`avDisabled`** on listing payload (#101). |
 | **`PATCH /v1/rooms/{roomId}`** | **Fan JWT**; **`JWT.sub === room.hostSub`**. | **Mutable current episode**, advisory labels, visibility flags—conditional **`version`** writes (**`409`** on stale **`version`**). Same host-only gate for durable **`roomMode`** (**`theater`** \| **`videoChat`**) and **`avDisabled`** (boolean kill switch). Partial body: omit keys to leave fields unchanged; **`roomMode`** / **`avDisabled`** reject **`null`** (**`400`**). **`broadcastCaptureActive`** retains existing boolean or **`null`**-clear semantics. One request may atomically update **`roomMode`**, **`avDisabled`**, and **`broadcastCaptureActive`** (#109). **`200`** echoes **`roomMode`**, **`avDisabled`**, **`broadcastCaptureActive`**, and bumped **`version`**. |
@@ -31,7 +31,7 @@ Normative boundaries for client ↔ RiffSync backend. Repo detail: **`docs/archi
 | Verb / path | Purpose |
 | --- | --- |
 | **`GET /v1/admin/session`** | **Auth-slice probe** (staff JWT): returns operator identity from JWT claims (**`sub`**, **`email`**, **`groups`**). Proves staff authorizer + group check path end-to-end before catalog handlers ship. **403** when JWT is valid but caller lacks required **`cognito:groups`** membership; **401** when authorizer rejects token (wrong pool/audience/expiry). |
-| **`POST`**, **`PATCH`**, **`DELETE /v1/admin/catalog/episodes/:id`** | Catalog CRUD; payload compatible with **`data/catalog/catalog.schema.json`** (+ Dynamo-only fields per **`docs/architecture.catalog-images.md`**). |
+| **`POST`**, **`PATCH`**, **`DELETE /v1/admin/catalog/episodes/:id`** | Catalog CRUD; payload compatible with **`data/catalog/catalog.schema.json`** (+ Dynamo-only fields per **`docs/architecture.catalog-images.md`**). Accepts **`playbackHost`**, **`customPlaybackUrl`**, and existing YouTube fields; host-conditional validation at save. |
 | **`POST /v1/admin/catalog/import`** | Bulk import before promoting catalog (**multipart** or **S3**-referenced payload—see admin doc). |
 | **`POST`**, **`PATCH /v1/admin/lists`** | Create/update curated list meta (**`slug`**, **`title`**, **`visibility`**, **`sortRule`**, optional hero). |
 | **`PUT /v1/admin/lists/{slug}/order`** | Replace membership ordering. |
@@ -545,6 +545,15 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 | Speaking indicator scope? | **Video tiles plus People tab** — speaking affordance on Theater strip and Video Chat grid when video is on; **mic-only** participants show speaking state on **People** roster rows only (no new stage chrome). |
 | SFU decoupling depth? | **Single SFU signaling WebSocket per tab** with **mandatory per-class send transport isolation** — not dual signaling WebSockets. |
 
+## Decisions (answered — catalog playback host)
+
+| Question | Decision |
+| --- | --- |
+| Public **`customPlaybackUrl`?** | **Yes** on **`GET /v1/catalog`** — same visibility class as **`youtubeWatchUrl`**. |
+| Room create YouTube gate? | **YouTube-host episodes only** — Custom-host skips YouTube id/playable gate. |
+| Custom URL probe at save? | **Format validation only** for MVP — no HEAD/probe against third-party URL required. |
+| Guest third-party URL fetch? | **No** parallel guest playback plane — guests consume **host WebRTC** share. |
+
 ## Open implementation details
 
 - Concrete **OpenAPI** / generated types land with first implementation.
@@ -553,6 +562,12 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 ## Open implementation decisions
 
 - **Server-side catalog `catalog` / `catalogs` query params:** **Out of scope** for catalog subcategory SPA browse. If a future initiative moves catalog filtering to the API (for payload size or cache variants), that is a new contract change; do not treat subcategory routes as requiring it now.
+
+### catalog-playback-host
+- Server-side **YouTube playable check** function boundaries (Lambda imports, timeout, error mapping) when host is YouTube only.
+- **Public catalog handler** field allowlist in **`catalog-shared.ts`** for **`playbackHost`** and **`customPlaybackUrl`**.
+- **OpenAPI / typed client** updates for catalog episode and room snapshot playback fields.
+- **`Referrer-Policy` / iframe `sandbox`** attributes on generic iframe element (security review).
 
 ### friends-and-direct-messaging (paths, envelopes, codes)
 

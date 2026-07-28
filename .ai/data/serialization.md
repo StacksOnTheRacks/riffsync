@@ -19,8 +19,8 @@ HMAC JWT payload today: **`env`**, **`roomId`**, **`sessionId`**, **`role`** (**
 
 | Artifact | Role |
 | --- | --- |
-| **`data/catalog/catalog.schema.json`** | **Git bundle** episodes — CI validation target. |
-| **API responses** | **Superset** of seed fields allowed (**Dynamo** columns); breaking removals require **`/v2`** or deprecation window. |
+| **`data/catalog/catalog.schema.json`** | **Git bundle** episodes — CI validation target. Includes **`playbackHost`** (**`youtube`** \| **`custom`**) and host-conditional **`customPlaybackUrl`** (required when host is **`custom`**). |
+| **Public catalog JSON** | Includes **`playbackHost`**, **`youtubeWatchUrl`**, **`customPlaybackUrl`** when set — handler projection matches **`GET /v1/catalog`** contract. |
 
 ## Decisions (answered)
 
