@@ -122,7 +122,7 @@ Public browse surfaces list episodes that are **playable in-app** (host-aware). 
 
 | Concern | Contract |
 | --- | --- |
-| **Shared helper** | **`apps/web/src/catalog/catalogPlayback.ts`**: **`readCatalogPlaybackHost`**, **`episodeIsPlayableInApp`**, **`catalogEntriesPlayableInApp`**. Replaces **`episodeHasYoutubeLink`** / **`catalogEntriesWithYoutubeLink`** on fan browse paths (**#396**). SEO **indexable** filtering stays a separate helper (**#397**). |
+| **Shared helper** | **`apps/web/src/catalog/catalogPlayback.ts`**: **`readCatalogPlaybackHost`**, **`episodeIsPlayableInApp`**, **`catalogEntriesPlayableInApp`**. Replaces **`episodeHasYoutubeLink`** / **`catalogEntriesWithYoutubeLink`** on fan browse paths (**#396**). SEO indexability uses **`apps/web/src/catalog/catalogSeo.ts`**: **`episodeIsIndexableForSeo`**, **`catalogEntriesIndexableForSeo`** (**#397**). |
 | **Custom-host playable** | **`playbackHost === 'custom'`** (read-time default **`youtube`** when missing) **and** trimmed **`customPlaybackUrl`** starts with **`https://`**. **`embedAllows`** does **not** apply. |
 | **YouTube-host playable (browse)** | Non-empty trimmed **`youtubeVideoId`** — same inclusion rule as legacy **`episodeHasYoutubeLink`**. **`embedAllows`** does **not** exclude rows from browse lists. |
 | **YouTube-host in-app embed** | **`embedAllows === false`** continues to gate **solo watch** and external-tab messaging only (**`SoloWatchPage`**); tile actions may remain enabled (unchanged). |
@@ -130,6 +130,18 @@ Public browse surfaces list episodes that are **playable in-app** (host-aware). 
 | **Card chrome** | **`embedAllows === false`** advisory copy on **`CatalogGridCard`** applies to **YouTube-host** rows only. Custom-host rows show **no** embedAllows message. **No** public playback-host badge in MVP (**optional follow-up**). |
 | **Empty browse copy** | When the loaded catalog has rows but none are playable in-app: **`No episodes are available for in-app playback yet.`** When the catalog is empty: **`No episodes in the catalog yet.`** |
 | **Surfaces** | **`CatalogPage`** hub grid, **`HomePage`** carousel/spotlight/era/popularity rows, and future M32 subcategory shells reuse the same helper + **`EpisodeTileActions`**. |
+
+### Public site SEO indexability (`catalogSeo.ts`, issue **#397**)
+
+Build-time sitemap, prerender, and verify scripts filter watch routes with a **host-aware indexable predicate** separate from browse playability.
+
+| Concern | Contract |
+| --- | --- |
+| **Module** | **`apps/web/src/catalog/catalogSeo.ts`** — **`readCatalogPlaybackHost`**, **`episodeIsIndexableForSeo`**, **`catalogEntriesIndexableForSeo`**. |
+| **Custom-host** | Never indexable — excluded from **`sitemap.xml`** and **`dist/watch/{id}/index.html`** even when optional **`youtubeVideoId`** remains for artwork. |
+| **YouTube-host** | Indexable when trimmed **`youtubeVideoId`** is non-empty (same effective set as legacy **`episodeHasYoutubeLink`** for YouTube-host rows). |
+| **Consumers** | **`generateSeoArtifacts.ts`**, **`generate-seo-artifacts.mjs`**, **`prerender-indexable-routes.mjs`**, **`verify-seo-artifacts.mjs`**. |
+| **Out of scope** | Static head-tag table marketing copy refresh when Custom episodes exist (deferred follow-up). |
 
 ### `/watch/:catalogEpisodeId` heading
 
