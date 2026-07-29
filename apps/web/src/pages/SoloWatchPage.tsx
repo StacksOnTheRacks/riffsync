@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { SoloCustomIframePlayer } from '../components/watch/SoloCustomIframePlayer'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { EPISODE_UNAVAILABLE_MESSAGE, formatCatalogUserError } from '../catalog/catalogLoadError'
@@ -152,6 +153,10 @@ export function SoloWatchPage() {
     )
   }
 
+  const playbackHost = episode.playbackHost === 'custom' ? 'custom' : 'youtube'
+  const customPlaybackUrl = episode.customPlaybackUrl?.trim() ?? ''
+  const hasCustomPlaybackUrl =
+    playbackHost === 'custom' && customPlaybackUrl.startsWith('https://')
   const vid = episode.youtubeVideoId
   const canEmbed = episode.embedAllows !== false
   const backdropImageUrl = episode.backdropImageUrl?.trim()
@@ -160,7 +165,8 @@ export function SoloWatchPage() {
       ? `riffsync-solo-watch-page riffsync-solo-watch-page--backdrop${partyCapture ? ' riffsync-solo-watch-page--party-capture' : ''}`
       : `riffsync-solo-watch-page${partyCapture ? ' riffsync-solo-watch-page--party-capture' : ''}`
   const innerChrome = partyCapture ? 'riffsync-solo-watch riffsync-solo-watch--capture' : 'container riffsync-solo-watch'
-  const playbackBlocked = !vid || !canEmbed
+  const youtubePlaybackBlocked = playbackHost === 'youtube' && (!vid || !canEmbed)
+  const customPlaybackBlocked = playbackHost === 'custom' && !hasCustomPlaybackUrl
 
   return (
     <div className={pageRoot}>
@@ -183,7 +189,14 @@ export function SoloWatchPage() {
         />
       ) : null}
       <h1 className="sr-only">{episode.title}</h1>
-      {playbackBlocked ? (
+      {customPlaybackBlocked ? (
+        <div className={innerChrome}>
+          <p role="status">
+            Playback unavailable — no custom playback URL is linked for this catalog entry.
+          </p>
+        </div>
+      ) : null}
+      {youtubePlaybackBlocked ? (
         <div className={innerChrome}>
           {!vid && (
             <p role="status">Playback unavailable — no YouTube video is linked for this catalog entry.</p>
@@ -204,7 +217,12 @@ export function SoloWatchPage() {
           )}
         </div>
       ) : null}
-      {vid && canEmbed ? (
+      {hasCustomPlaybackUrl ? (
+        <div className="riffsync-solo-watch__player-shell">
+          <SoloCustomIframePlayer customPlaybackUrl={customPlaybackUrl} title={episode.title} />
+        </div>
+      ) : null}
+      {playbackHost === 'youtube' && vid && canEmbed ? (
         <div className="riffsync-solo-watch__player-shell">
           <SoloYouTubePlayer videoId={vid} titleHint={episode.title} autoPlay={false} />
         </div>

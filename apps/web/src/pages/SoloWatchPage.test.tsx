@@ -1,0 +1,195 @@
+// @vitest-environment happy-dom
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SoloWatchPage } from './SoloWatchPage'
+import type { CatalogEpisode } from '../catalog/catalogTypes'
+
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+
+const useCatalogEpisodeQuery = vi.fn()
+
+vi.mock('../catalog/catalogQueries', () => ({
+  useCatalogEpisodeQuery: (...args: unknown[]) => useCatalogEpisodeQuery(...args),
+}))
+
+vi.mock('../components/watch/SoloYouTubePlayer', () => ({
+  SoloYouTubePlayer: ({ videoId, titleHint }: { videoId: string; titleHint: string }) => (
+    <div data-testid="solo-youtube-player" data-video-id={videoId} data-title={titleHint} />
+  ),
+}))
+
+function episode(overrides: Partial<CatalogEpisode> = {}): CatalogEpisode {
+  return {
+    id: '032-mitchell',
+    experimentNumber: 32,
+    title: 'Mitchell',
+    catalog: 'mst3k',
+    tags: [],
+    labels: [],
+    youtubeVideoId: 'NXGXtm6gcxk',
+    youtubeWatchUrl: 'https://www.youtube.com/watch?v=NXGXtm6gcxk',
+    tagline: null,
+    posterImageUrl: null,
+    backdropImageUrl: null,
+    tmdbMovieId: null,
+    tmdbArtworkSyncedAt: null,
+    carousel: false,
+    spotlight: false,
+    playbackHost: 'youtube',
+    customPlaybackUrl: null,
+    ...overrides,
+  }
+}
+
+describe('SoloWatchPage', () => {
+  let container: HTMLDivElement
+  let root: Root
+
+  beforeEach(() => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    useCatalogEpisodeQuery.mockReset()
+  })
+
+  afterEach(() => {
+    act(() => root.unmount())
+    container.remove()
+  })
+
+  function renderWatchPage(path = '/watch/032-mitchell') {
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+    })
+  }
+
+  it('renders Custom-host iframe when playbackHost is custom with HTTPS URL', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.test/movie',
+        youtubeVideoId: null,
+      }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    const iframe = container.querySelector('iframe')
+    expect(iframe).not.toBeNull()
+    expect(iframe?.getAttribute('src')).toBe('https://example.test/movie')
+    expect(iframe?.getAttribute('title')).toBe('Mitchell')
+    expect(container.querySelector('[data-testid="solo-youtube-player"]')).toBeNull()
+  })
+
+  it('shows blocked copy when Custom-host row is missing customPlaybackUrl', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: null,
+        embedAllows: false,
+      }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    expect(container.textContent).toContain(
+      'Playback unavailable — no custom playback URL is linked for this catalog entry.',
+    )
+    expect(container.querySelector('[role="status"]')).not.toBeNull()
+    expect(container.querySelector('iframe')).toBeNull()
+  })
+
+  it('does not apply embedAllows gate to Custom-host rows', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.test/movie',
+        embedAllows: false,
+      }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    expect(container.querySelector('iframe')).not.toBeNull()
+    expect(container.textContent).not.toContain('embedAllows')
+  })
+
+  it('keeps YouTube-host playback path unchanged', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({ embedAllows: true }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    const youtubePlayer = container.querySelector('[data-testid="solo-youtube-player"]')
+    expect(youtubePlayer).not.toBeNull()
+    expect(youtubePlayer?.getAttribute('data-video-id')).toBe('NXGXtm6gcxk')
+    expect(container.querySelector('iframe[src^="https://example"]')).toBeNull()
+  })
+
+  it('uses party-capture layout shell for Custom-host rows', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.test/movie',
+      }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage('/watch/032-mitchell?partyCapture=1')
+
+    expect(container.querySelector('.riffsync-solo-watch-page--party-capture')).not.toBeNull()
+    expect(container.querySelector('.riffsync-solo-watch__player-shell')).not.toBeNull()
+    expect(container.querySelector('iframe')).not.toBeNull()
+  })
+
+  it('shows embed-blocked copy when Custom iframe reports error', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.test/movie',
+      }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    const iframe = container.querySelector('iframe')
+    act(() => {
+      iframe?.dispatchEvent(new Event('error'))
+    })
+
+    expect(container.textContent).toContain('This page could not be embedded in RiffSync.')
+    expect(container.querySelector('a[href="https://example.test/movie"]')).not.toBeNull()
+  })
+})
