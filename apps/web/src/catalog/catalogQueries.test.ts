@@ -24,6 +24,8 @@ const episode: CatalogEpisode = {
   tmdbArtworkSyncedAt: null,
   carousel: true,
   spotlight: false,
+  playbackHost: 'youtube',
+  customPlaybackUrl: null,
 }
 
 function listCtx(client: QueryClient): QueryFunctionContext<typeof catalogListCarouselQueryKey> {

@@ -141,6 +141,8 @@ describe('catalog-list handler cache headers', () => {
     const body = JSON.parse(res?.body ?? '');
     expect(body.entries).toHaveLength(1);
     expect(body.entries[0].id).toBe('101-the-crawling-eye');
+    expect(body.entries[0].playbackHost).toBe('youtube');
+    expect(body.entries[0].customPlaybackUrl).toBeNull();
   });
 
   it('uses carousel variant in ETag when carousel query is set', async () => {
@@ -213,5 +215,37 @@ describe('catalog-get handler cache headers', () => {
     const entry = JSON.parse(res?.body ?? '').entry;
     expect(entry.embedAllows).toBe(false);
     expect(entry).not.toHaveProperty('movieSearchTitle');
+  });
+
+  it('includes playback host fields on legacy YouTube rows', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: { id: '_meta', catalogGeneration: 3 } })
+      .mockResolvedValueOnce({ Item: sampleEpisode });
+
+    const res = await getHandler(getEvent('101-the-crawling-eye'), {} as never, () => undefined);
+
+    expect(res?.statusCode).toBe(200);
+    const entry = JSON.parse(res?.body ?? '').entry;
+    expect(entry.playbackHost).toBe('youtube');
+    expect(entry.customPlaybackUrl).toBeNull();
+  });
+
+  it('includes Custom-host fields when stored', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: { id: '_meta', catalogGeneration: 3 } })
+      .mockResolvedValueOnce({
+        Item: {
+          ...sampleEpisode,
+          playbackHost: 'custom',
+          customPlaybackUrl: 'https://example.test/movie',
+        },
+      });
+
+    const res = await getHandler(getEvent('101-the-crawling-eye'), {} as never, () => undefined);
+
+    expect(res?.statusCode).toBe(200);
+    const entry = JSON.parse(res?.body ?? '').entry;
+    expect(entry.playbackHost).toBe('custom');
+    expect(entry.customPlaybackUrl).toBe('https://example.test/movie');
   });
 });

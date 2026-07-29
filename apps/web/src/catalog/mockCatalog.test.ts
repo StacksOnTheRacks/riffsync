@@ -23,6 +23,8 @@ function ep(
     tmdbArtworkSyncedAt: null,
     carousel: false,
     spotlight: false,
+    playbackHost: 'youtube',
+    customPlaybackUrl: null,
     tmdbPopularity,
   }
 }

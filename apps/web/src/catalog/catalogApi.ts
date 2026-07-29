@@ -112,6 +112,11 @@ export function normalizeEpisode(raw: unknown): CatalogEpisode {
         : String(raw.tmdbArtworkSyncedAt),
     carousel: parseBooleanCatalogFlag(raw.carousel),
     spotlight: parseBooleanCatalogFlag(raw.spotlight),
+    playbackHost: raw.playbackHost === 'custom' ? 'custom' : 'youtube',
+    customPlaybackUrl:
+      raw.customPlaybackUrl === null || raw.customPlaybackUrl === undefined
+        ? null
+        : String(raw.customPlaybackUrl),
     embedAllows:
       raw.embedAllows === false ? false : raw.embedAllows === true ? true : undefined,
     playbackExpectation: parsePlaybackExpectation(raw.playbackExpectation),

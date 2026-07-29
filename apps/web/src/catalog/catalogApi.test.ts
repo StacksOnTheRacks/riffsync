@@ -60,6 +60,48 @@ describe('normalizeEpisode', () => {
     })
     expect(episode.tmdbPopularity).toBeUndefined()
   })
+
+  it('defaults missing playbackHost to youtube and null customPlaybackUrl', () => {
+    const episode = normalizeEpisode({
+      id: 'ep-1',
+      experimentNumber: 1,
+      title: 'T',
+      catalog: 'mst3k',
+      tags: ['Era: Joel'],
+      labels: [],
+      youtubeVideoId: null,
+      youtubeWatchUrl: null,
+      tagline: null,
+      posterImageUrl: null,
+      backdropImageUrl: null,
+      tmdbMovieId: null,
+      tmdbArtworkSyncedAt: null,
+    })
+    expect(episode.playbackHost).toBe('youtube')
+    expect(episode.customPlaybackUrl).toBeNull()
+  })
+
+  it('parses Custom-host fields from API rows', () => {
+    const episode = normalizeEpisode({
+      id: 'ep-1',
+      experimentNumber: 1,
+      title: 'T',
+      catalog: 'mst3k',
+      tags: ['Era: Joel'],
+      labels: [],
+      youtubeVideoId: null,
+      youtubeWatchUrl: null,
+      tagline: null,
+      posterImageUrl: null,
+      backdropImageUrl: null,
+      tmdbMovieId: null,
+      tmdbArtworkSyncedAt: null,
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.test/movie',
+    })
+    expect(episode.playbackHost).toBe('custom')
+    expect(episode.customPlaybackUrl).toBe('https://example.test/movie')
+  })
 })
 
 function mockFetchResponse(init: {

@@ -38,6 +38,8 @@ const SCHEMA_FIELDS = [
   'spotlight',
   'movieSearchTitle',
   'embedAllows',
+  'playbackHost',
+  'customPlaybackUrl',
 ] as const;
 
 function resolveRegion(): string {

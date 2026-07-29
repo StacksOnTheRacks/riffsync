@@ -24,6 +24,8 @@ function episode(overrides: Partial<CatalogEpisode> = {}): CatalogEpisode {
     tmdbArtworkSyncedAt: null,
     carousel: false,
     spotlight: false,
+    playbackHost: 'youtube',
+    customPlaybackUrl: null,
     ...overrides,
   }
 }

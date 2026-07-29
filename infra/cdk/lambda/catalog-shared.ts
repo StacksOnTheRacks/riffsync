@@ -23,6 +23,10 @@ export interface CatalogEpisode {
   readonly spotlight: boolean;
   /** When false, SPA should not offer in-app YouTube embed; omitted when not stored on the row. */
   readonly embedAllows?: boolean;
+  /** Playback surface for in-app watch; missing/invalid Dynamo values default to **`youtube`**. */
+  readonly playbackHost: 'youtube' | 'custom';
+  /** HTTPS movie-page URL when **`playbackHost`** is **`custom`**; always present on public JSON. */
+  readonly customPlaybackUrl: string | null;
   readonly tmdbOverview?: string | null;
   readonly tmdbPopularity?: number | null;
   readonly tmdbPosterPath?: string | null;
@@ -79,6 +83,8 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
       ? item.embedAllows
       : undefined;
 
+  const playbackHost = item.playbackHost === 'custom' ? 'custom' : 'youtube';
+
   return {
     id,
     experimentNumber,
@@ -95,6 +101,8 @@ export function projectEpisode(item: Record<string, unknown>): CatalogEpisode {
     tmdbArtworkSyncedAt: optionalString(item.tmdbArtworkSyncedAt),
     carousel: parseBooleanCatalogFlag(item.carousel),
     spotlight: parseBooleanCatalogFlag(item.spotlight),
+    playbackHost,
+    customPlaybackUrl: optionalString(item.customPlaybackUrl),
     ...(embedAllows !== undefined ? { embedAllows } : {}),
     tmdbOverview: optionalStringField(item.tmdbOverview),
     tmdbPopularity: optionalNumberField(item.tmdbPopularity),
