@@ -401,14 +401,15 @@ Friends online is room-presence-derived and aggregate across rooms. It is not a 
 | YouTube IFrame API sync for Custom? | **Out of scope** — no server-side timeline sync for generic iframe URLs. |
 | Room create/patch error codes? | **`catalog_episode_not_found`** (**404**); **`catalog_episode_youtube_id_missing`** / **`catalog_episode_custom_url_missing`** (**400**) — see **`integration/api_contracts.md`**. |
 | Room playback denormalization? | **`playbackHost`**, **`customPlaybackUrl`**, optional **`youtubeVideoId`** on **Rooms** at create and episode-change **`PATCH`**. |
-| Server vs client playable helpers? | Server: **`validateCatalogRowForRoomSeed`** in **`catalog-room-playback-gate.ts`**. Client host-aware **in-app playable** wrapper is **#396** (replaces **`episodeHasYoutubeLink`** for card actions). |
+| Server vs client playable helpers? | Server: **`validateCatalogRowForRoomSeed`** in **`catalog-room-playback-gate.ts`**. Client: **`episodeIsPlayableInApp`** / **`catalogEntriesPlayableInApp`** in **`apps/web/src/catalog/catalogPlayback.ts`** (**#396**) — host-aware browse lists and **`EpisodeTileActions`** gating. SEO **indexable** predicate is separate (**#397**). |
+| Client in-app playable predicate? | **Custom-host:** trimmed **`https://`** **`customPlaybackUrl`**. **YouTube-host:** non-empty trimmed **`youtubeVideoId`** (browse lists; **`embedAllows`** does not exclude). Tile actions disabled when predicate false. **`embedAllows`** gates YouTube solo watch only. |
+| Custom row with null YouTube fields? | Valid Custom-host rows appear in browse and enable tile actions when **`customPlaybackUrl`** satisfies the predicate; missing YouTube metadata does not block cards or **Start Party** when **#392** gate passes. |
 
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### catalog-playback-host
-- **Catalog card / Start Party** gating rules and UI copy when Custom URL present but YouTube fields null (#396).
 - **SEO meta copy** referencing "lawful YouTube embeds" on static routes when Custom episodes exist (marketing/legal wording refresh scope).
 
 ### friends-and-direct-messaging

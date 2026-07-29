@@ -131,6 +131,18 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 | **Guest branch** | Unchanged SFU **`host_screen`** **`<video>`** — no Custom URL chrome. |
 | **TheaterPlayback** | WebRTC audio/video binding only; Custom presentation is React-owned in **`RoomPlaybackPanel`**, not **`setYoutubeMountElement`**. |
 
+### Public catalog browse and card actions (`catalogPlayback.ts`, issue **#396**)
+
+| Concern | Contract |
+| --- | --- |
+| **Module** | **`apps/web/src/catalog/catalogPlayback.ts`** — **`readCatalogPlaybackHost`**, **`episodeIsPlayableInApp`**, **`catalogEntriesPlayableInApp`**. |
+| **Custom playable** | **`playbackHost === 'custom'`** + trimmed **`customPlaybackUrl`** starts with **`https://`**. |
+| **YouTube playable (browse)** | Default/missing host + non-empty trimmed **`youtubeVideoId`** (successor to **`episodeHasYoutubeLink`**). **`embedAllows`** not used for browse inclusion. |
+| **Tile actions** | **`EpisodeTileActions`**: enable **Watch Solo** (`/watch/:id`) and **Start Party** (`POST /v1/rooms` via **`createRoom`**) when playable; **disabled** when not. Requires **#390** client types and **#392** room gate for Custom **Start Party**. |
+| **Surfaces** | **`CatalogPage`** hub grid, **`HomePage`** carousel/spotlight/era/popularity strips; M32 subcategory shells reuse the same helper when routed. |
+| **Card copy** | YouTube-only **`embedAllows`** advisory on **`CatalogGridCard`**; host-aware empty-catalog message per **`presentation.md`**. |
+| **Out of scope** | Public playback-host badge; SEO sitemap indexability (**#397**). |
+
 ### Other client surfaces (indicative)
 
 - **`hostSourceTab.ts`** — capture URL stays on RiffSync watch route for Custom (tests in **#393**).
@@ -165,6 +177,9 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 - **`SoloCustomIframePlayer`** / **`SoloWatchPage.test.tsx`**: Custom-host iframe **`src`** and **`title`**; missing URL blocked copy; YouTube-host regression unchanged (**#393**).
 - **`RoomPlaybackPanel.test.tsx`**: host Custom presentation iframe when **`!captureStream`**; iframe hidden when **`captureStream`** active; guest branch unchanged (**#394**).
 - **`roomSnapshotDiff`**: diff key includes **`playbackHost`** and **`customPlaybackUrl`**; episode retarget triggers engine apply (**#394**).
+- **`catalogPlayback.test.ts`**: Custom HTTPS / missing URL; YouTube id / empty id; legacy missing **`playbackHost`** defaults **`youtube`**; **`catalogEntriesPlayableInApp`** filter.
+- **`EpisodeTileActions.test.tsx`**: playable Custom + YouTube rows enable actions; missing Custom URL disables both; **Start Party** still requires fan JWT (existing auth path).
+- **`CatalogPage`** / **`HomePage`** tests: Custom-host fixture appears in grid/rows; empty copy uses host-aware string.
 
 ### Integration
 
