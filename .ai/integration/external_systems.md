@@ -189,9 +189,6 @@ The receiver render-confirmation acknowledgement is Google Cast sender/receiver 
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
-### catalog-playback-host
-- Exact **CSP `frame-src`** directive syntax for arbitrary HTTPS Custom origins (coordinate with **operations/security.md**).
-
 ### friends-dm-aws-surfaces
 - Whether DM realtime adds a **new** API Gateway WebSocket API / stage vs reusing the room WS API with non-room routes (must stay explicit if shared).
 - New Dynamo table names, GSIs, and Lambda env vars for friendship / DM / unread (coordinate with data domain).

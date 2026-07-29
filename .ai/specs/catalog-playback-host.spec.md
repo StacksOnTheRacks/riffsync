@@ -115,7 +115,7 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 | **Module split** | **`SoloCustomIframePlayer`** (`apps/web/src/components/watch/SoloCustomIframePlayer.tsx`) for Custom-host rows; **`SoloYouTubePlayer`** unchanged for YouTube-host. |
 | **Page shell** | **`SoloWatchPage.tsx`** branches on **`episode.playbackHost`** (default **`youtube`** when missing). Custom gate: trimmed **`https://`** **`customPlaybackUrl`**; **`embedAllows`** does not apply. YouTube gate unchanged. |
 | **Layout CSS** | Reuse **`.riffsync-solo-player`**, **`.riffsync-solo-player__frame`**, **`.riffsync-solo-player__chrome`** — existing party-capture flex rules apply to **`.riffsync-solo-player__frame`**. |
-| **Iframe attrs** | **`src={customPlaybackUrl}`**, **`title={episode.title}`**, **`allow="autoplay; fullscreen; encrypted-media"`**. No **`sandbox`** in **#393** (**#395** CSP). |
+| **Iframe attrs** | **`src={customPlaybackUrl}`**, **`title={episode.title}`**, **`allow="autoplay; fullscreen; encrypted-media"`**. **No **`sandbox`** attribute** (partner players need full script/same-origin behavior; see **`operations/security.md`**). **No** per-iframe **`referrerpolicy`** — inherit CloudFront **`strict-origin-when-cross-origin`**. |
 | **Blocked states** | Missing URL and embed failure copy per **`error_state.md`** and **`presentation.md`** *Decisions (M37 — solo watch Custom iframe — #393)*. |
 | **`hostSourceTab.ts`** | Extend catalog pick with **`playbackHost`**. Custom → always **`{origin}/watch/{id}?partyCapture=1`**; **`hostSourceOpensOnYoutube`** false. |
 
@@ -136,9 +136,17 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 - **`hostSourceTab.ts`** — capture URL stays on RiffSync watch route for Custom (tests in **#393**).
 - **`RoomPlaybackPanel.tsx` / `TheaterPlayback`** — host presentation iframe for Custom (**#394**).
 
-### Operations
+### Operations (CSP — issue **#395**)
 
-- CSP must allow framing **HTTPS Custom origins** consistent with no domain allowlist at validation (**`operations/security.md`**).
+| Concern | Contract |
+| --- | --- |
+| **Module** | **`infra/cdk/lib/static-site-stack.ts`** → **`WebResponseHeadersPolicy`** **`contentSecurityPolicy`** string array. |
+| **`frame-src` / `child-src`** | Append scheme source **`https:`** before existing YouTube hostnames: **`frame-src https: https://www.youtube.com https://www.youtube-nocookie.com`**; **`child-src https: https://www.youtube.com https://www.youtube-nocookie.com`**. Permits any HTTPS Custom origin; blocks **`http:`** framing. |
+| **Meta CSP** | **Out of scope** — CloudFront response headers only. |
+| **Other directives** | Unchanged — do not widen **`script-src`**, **`connect-src`**, or unrelated tokens. |
+| **Tests** | Extend **`static-site-stack.test.ts`** to assert **`frame-src`** and **`child-src`** include **`https:`** and retain YouTube hostnames. |
+| **Smoke** | After deploy, representative staff embeddable Custom URL loads in solo watch and party-capture iframe without CSP console violations. |
+
 - No new AWS services; URLs are Dynamo catalog fields served via existing CloudFront + SPA.
 
 ### Runtime versions
@@ -149,7 +157,7 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 
 ### Unit / contract
 
-- **`catalog.schema.json`**: host-conditional validation (**custom** requires HTTPS **`customPlaybackUrl`**); **`maxLength: 2048`** on URL property; validate committed seed bundle after backfill.
+- **`static-site-stack.test.ts`**: **`frame-src`** and **`child-src`** CSP strings include **`https:`** scheme source and retain **`https://www.youtube.com`** / **`https://www.youtube-nocookie.com`** (**#395**).
 - **`admin-catalog-validation`**: writable allowlist includes **`playbackHost`** / **`customPlaybackUrl`**; POST defaults; Custom HTTPS accept/reject matrix (missing URL, `http://`, over 2048 chars, valid HTTPS); PATCH host switch preserves cross-host fields; NFC normalization persisted.
 - **`validateCatalogEpisodeForm`** / **`AdminCatalogForm.test.tsx`**: Custom URL required when host Custom; rejects `http://` and over-2048 NFC length; accepts valid HTTPS; create POST includes host fields; edit PATCH sends **`playbackHost`** on toggle without clearing YouTube fields in body; host-switch preserves form state; **`embedAllows`** still PATCHable on Custom rows.
 - **`staffAdminCatalogApi`**: types include host fields on **`StaffCatalogEpisode`** / write body.
@@ -175,7 +183,7 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 - Solo watch: Custom-host **`/watch/:id`** shows generic HTTPS iframe; missing URL shows blocked copy; known non-embeddable origin shows escape link (**#393**).
 - Party capture: **`/watch/:id?partyCapture=1`** with Custom host stretches iframe in capture layout; document title and banner unchanged (**#393**).
 - In-room host: Custom-host room shows **`SoloCustomIframePlayer`** in host player shell before capture; after **Share Source Tab**, guests receive WebRTC capture and host sees preview **`<video>`** (**#394**).
-- CSP smoke: Custom origin loads in iframe on staging/prod headers (**#395**).
+- CSP smoke (**#395**): after CloudFront deploy, open Custom-host **`/watch/:id`** and **`?partyCapture=1`** — iframe loads staff embeddable HTTPS origin; browser devtools show no **`frame-src`** CSP violations; YouTube-host watch still frames YouTube.
 
 ## References
 

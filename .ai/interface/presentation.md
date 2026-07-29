@@ -639,7 +639,17 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 | **Embed blocked** | **`This page could not be embedded in RiffSync. Open the movie page in a new tab.`** + **`customPlaybackUrl`** escape link. |
 | **Iframe `title`** | **`episode.title`** (catalog title). |
 | **`hostSourceTab`** | Custom rows always party-capture RiffSync watch URL; **`hostSourceOpensOnYoutube`** false. |
-| **Out of scope** | Room presentation mount (**#394**), Cast receiver Custom iframe, **`sandbox`** / CSP directive syntax (**#395**). |
+| **Out of scope** | Room presentation mount (**#394**), Cast receiver Custom iframe, CSP **`frame-src`** directive syntax (**#395** — resolved in contracts; implementation in **#395**). |
+
+## Decisions (M37 — CSP Custom iframe — #395)
+
+| Topic | Decision |
+| --- | --- |
+| **CSP delivery** | CloudFront **`ResponseHeadersPolicy`** in **`static-site-stack.ts`** only — no HTML meta CSP. |
+| **`frame-src` / `child-src`** | Add **`https:`** scheme source alongside explicit YouTube hostnames. Permits any HTTPS Custom origin; blocks **`http:`** framing. Unrelated directives unchanged. |
+| **`sandbox`** | **Omit** on Custom playback iframe — partner embeds need scripts/same-origin; staff curation is the gate. |
+| **`Referrer-Policy`** | Inherit existing CloudFront global **`strict-origin-when-cross-origin`**; no per-iframe attribute. |
+| **Operator expectation** | Validation: HTTPS any domain, no allowlist at save. CSP: scheme-wide **`https:`**, not per-partner enumeration. |
 
 ## Decisions (M36 — main-site friends dropdown — #363)
 

@@ -68,10 +68,15 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 
 | Topic | Contract |
 | --- | --- |
-| **Custom playback iframes** | Solo watch, party-capture, and in-room host presentation may embed **arbitrary HTTPS origins** staff curate (**no domain allowlist** at catalog validation). CSP **`frame-src`** (or equivalent) must permit framing those HTTPS Custom origins — prefer an explicit contract note over ad-hoc wildcard edits in deploy scripts. |
-| **YouTube iframes** | Existing YouTube embed allowances unchanged for YouTube-host episodes. |
+| **Delivery** | Fan SPA CSP is set **only** on CloudFront **`ResponseHeadersPolicy`** (**`infra/cdk/lib/static-site-stack.ts`** → **`WebResponseHeadersPolicy`**). Do **not** add or duplicate CSP via HTML **`<meta http-equiv="Content-Security-Policy">`** — edge headers are the single source of truth. |
+| **Custom playback iframes** | Solo watch, party-capture, and in-room host presentation may embed **arbitrary HTTPS origins** staff curate (**no domain allowlist** at catalog validation). CSP must permit framing those origins without enumerating partner domains. |
+| **`frame-src` / `child-src`** | Extend both directives with CSP Level 3 scheme source **`https:`** alongside existing explicit YouTube origins. Normative shape: **`frame-src https: https://www.youtube.com https://www.youtube-nocookie.com`** and **`child-src https: https://www.youtube.com https://www.youtube-nocookie.com`**. **`https:`** allows any HTTPS origin to be framed (matches catalog validation); still blocks **`http:`** framing. **Do not** broaden unrelated directives (**`script-src`**, **`connect-src`**, etc.). |
+| **YouTube iframes** | Explicit YouTube hostnames remain in **`frame-src`** / **`child-src`** for clarity and regression tests; behavior unchanged for YouTube-host episodes. |
+| **Custom iframe `sandbox`** | **Omit** the **`sandbox`** attribute on Custom playback iframes (**`SoloCustomIframePlayer`**). Partner movie pages require scripts and often same-origin behavior; sandbox would break typical embeddable players. Staff curation and partner **`X-Frame-Options`** / page CSP remain the control plane. |
+| **`Referrer-Policy`** | Rely on the existing CloudFront global **`strict-origin-when-cross-origin`** response header on fan SPA responses. Custom iframe navigations inherit document policy; **no** per-iframe **`referrerpolicy`** attribute. Cross-origin iframe requests send **origin only**, not full RiffSync watch path or query. |
 | **Cast receiver CSP** | Unchanged for MVP Custom iframe scope — receiver uses **`host_screen` SFU**, not Custom iframe on TV. |
 | **Logging** | Do not log full **Custom playback URLs** at INFO if they carry signed/query tokens; aggregate errors only. |
+| **Operator expectation** | Catalog validation accepts **HTTPS any domain** with no domain allowlist at save; CSP uses scheme-wide **`https:`**, not a partner domain list. Staff policy (**known embeddable pages only**) is operational, not enforced in CSP or server allowlists. |
 
 ## Viewer-local Cast
 
@@ -103,9 +108,6 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 
 ### catalog-playback-host
 - **Admin validation (`customPlaybackUrl`):** Apply **Unicode NFC** normalization before save checks. Reject URLs over **2048 characters** after normalization or with a non-**`https:`** scheme. Validation detail message: **`customPlaybackUrl must be an HTTPS URL (max 2048 characters)`**. Persist the normalized string on the catalog item.
-- Exact **CSP directive** edits in CloudFront response headers or meta tag strategy (**`operations/security.md`**, build packaging).
-- Whether generic iframe uses **`sandbox`** attribute and which tokens (**`allow-scripts`**, **`allow-same-origin`**, **`allow-popups`**) for partner players.
-- **`Referrer-Policy`** for Custom iframe navigations.
 ### friends-and-direct-messaging
 - Exact **rate-limit bands** for DM send, unread mark-read, and friends-online query or push — **M35**, **#357** (remove-friend **30**/min decided #358).
 - WAF / API Gateway throttle key placement vs Lambda in-memory counters for DM HTTP (and any WS) routes.
