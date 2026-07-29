@@ -95,9 +95,11 @@ function buildPatchBody(
   if (next.playbackHost !== baselinePlaybackHost) {
     body.playbackHost = next.playbackHost
   }
-  const baselineCustomUrl = baseline.customPlaybackUrl ?? null
-  if (next.customPlaybackUrl !== baselineCustomUrl) {
-    body.customPlaybackUrl = next.customPlaybackUrl
+  if (values.playbackHost === 'custom') {
+    const baselineCustomUrl = baseline.customPlaybackUrl ?? null
+    if (next.customPlaybackUrl !== baselineCustomUrl) {
+      body.customPlaybackUrl = next.customPlaybackUrl
+    }
   }
   if (next.carousel !== baseline.carousel) body.carousel = next.carousel
   if (next.spotlight !== baseline.spotlight) body.spotlight = next.spotlight

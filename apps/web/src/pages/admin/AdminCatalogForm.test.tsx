@@ -451,6 +451,46 @@ describe('AdminCatalogForm', () => {
     expect(patchBody).not.toHaveProperty('customPlaybackUrl')
   })
 
+  it('edit PATCH sends playbackHost when toggled Custom to YouTube without clearing customPlaybackUrl', async () => {
+    const episode: StaffCatalogEpisode = {
+      ...baseEpisode,
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.test/stored-custom',
+      youtubeWatchUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      youtubeVideoId: 'dQw4w9WgXcQ',
+    }
+    renderForm({
+      mode: 'edit',
+      initialEpisode: episode,
+      initialValues: catalogEpisodeToFormValues(episode),
+      breadcrumbLeaf: 'Edit',
+      pageTitle: 'Edit episode',
+    })
+
+    const hostSelect = container.querySelector('#catalog-form-playback-host') as HTMLSelectElement
+    await act(async () => {
+      setSelectValue(hostSelect, 'youtube')
+    })
+
+    expect(container.querySelector('#catalog-form-custom-playback-url')).toBeNull()
+    expect(container.querySelector('#catalog-form-youtube-url')).not.toBeNull()
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(patchStaffCatalogEpisode).toHaveBeenCalledWith('staff-token', 'ep-1', {
+        playbackHost: 'youtube',
+      })
+    })
+    const patchBody = patchStaffCatalogEpisode.mock.calls[0]?.[2] as Record<string, unknown>
+    expect(patchBody).not.toHaveProperty('customPlaybackUrl')
+    expect(patchBody).not.toHaveProperty('youtubeWatchUrl')
+    expect(patchBody).not.toHaveProperty('youtubeVideoId')
+  })
+
   it('host switch preserves opposite-host URL values in form state', async () => {
     const episode: StaffCatalogEpisode = {
       ...baseEpisode,
