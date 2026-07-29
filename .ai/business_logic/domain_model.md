@@ -399,16 +399,16 @@ Friends online is room-presence-derived and aggregate across rooms. It is not a 
 | Custom-only `/watch/:id` SEO? | **Exclude** from sitemap/index until product expands discoverability beyond YouTube linkage (same posture as no-YouTube rows today). |
 | Cast receiver Custom iframe? | **Out of scope** for MVP — Cast continues **`host_screen` SFU consume** when Theater share is active. |
 | YouTube IFrame API sync for Custom? | **Out of scope** — no server-side timeline sync for generic iframe URLs. |
+| Room create/patch error codes? | **`catalog_episode_not_found`** (**404**); **`catalog_episode_youtube_id_missing`** / **`catalog_episode_custom_url_missing`** (**400**) — see **`integration/api_contracts.md`**. |
+| Room playback denormalization? | **`playbackHost`**, **`customPlaybackUrl`**, optional **`youtubeVideoId`** on **Rooms** at create and episode-change **`PATCH`**. |
+| Server vs client playable helpers? | Server: **`validateCatalogRowForRoomSeed`** in **`catalog-room-playback-gate.ts`**. Client host-aware **in-app playable** wrapper is **#396** (replaces **`episodeHasYoutubeLink`** for card actions). |
 
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### catalog-playback-host
-- Exact **room-create / room-patch error codes** when Custom URL missing vs YouTube playable check fails.
-- Whether **playable** helper names (**`episodeAllowsInAppEmbed`**, etc.) split by host or gain a host-aware wrapper.
-- **Room denormalization**: which playback fields copy onto **Rooms** at create/patch (mirror today's **`youtubeVideoId`** pattern).
-- **Catalog card / Start Party** gating rules and UI copy when Custom URL present but YouTube fields null.
+- **Catalog card / Start Party** gating rules and UI copy when Custom URL present but YouTube fields null (#396).
 - **SEO meta copy** referencing "lawful YouTube embeds" on static routes when Custom episodes exist (marketing/legal wording refresh scope).
 
 ### friends-and-direct-messaging
