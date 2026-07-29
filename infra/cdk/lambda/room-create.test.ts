@@ -50,10 +50,20 @@ function createEvent(body: Record<string, unknown>, sub = 'host-sub-1'): APIGate
   };
 }
 
-const catalogItem = {
-  id: 'ep-1',
-  title: 'Test Episode',
-  youtubeVideoId: 'abc123',
+const validYoutubeId = 'dQw4w9WgXcQ';
+
+const youtubeCatalogItem = {
+  id: 'ep-yt',
+  title: 'YouTube Episode',
+  playbackHost: 'youtube',
+  youtubeVideoId: validYoutubeId,
+};
+
+const customCatalogItem = {
+  id: 'ep-custom',
+  title: 'Custom Episode',
+  playbackHost: 'custom',
+  customPlaybackUrl: 'https://example.com/watch/123',
 };
 
 describe('room-create handler', () => {
@@ -65,12 +75,12 @@ describe('room-create handler', () => {
 
   it('seeds roomMode theater and avDisabled false on create', async () => {
     mocks.docSend
-      .mockResolvedValueOnce({ Item: catalogItem })
+      .mockResolvedValueOnce({ Item: youtubeCatalogItem })
       .mockResolvedValueOnce({});
 
     const res = await handler(
       createEvent({
-        catalogEpisodeId: 'ep-1',
+        catalogEpisodeId: 'ep-yt',
         playbackExpectation: 'free',
         visibility: 'public',
         roomMode: 'videoChat',
@@ -86,5 +96,118 @@ describe('room-create handler', () => {
     const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
     expect(body.roomMode).toBe('theater');
     expect(body.avDisabled).toBe(false);
+  });
+
+  it('creates a YouTube-host room with playback mirrors', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: youtubeCatalogItem })
+      .mockResolvedValueOnce({});
+
+    const res = await handler(
+      createEvent({
+        catalogEpisodeId: 'ep-yt',
+        playbackExpectation: 'free',
+        visibility: 'public',
+      }),
+    );
+
+    expect(res.statusCode).toBe(201);
+    const putCall = mocks.docSend.mock.calls[1]?.[0] as { input: { Item: Record<string, unknown> } };
+    expect(putCall.input.Item).toMatchObject({
+      playbackHost: 'youtube',
+      customPlaybackUrl: null,
+      youtubeVideoId: validYoutubeId,
+    });
+
+    const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
+    expect(body).toMatchObject({
+      playbackHost: 'youtube',
+      customPlaybackUrl: null,
+      youtubeVideoId: validYoutubeId,
+    });
+  });
+
+  it('creates a Custom-host room without requiring youtubeVideoId', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: customCatalogItem })
+      .mockResolvedValueOnce({});
+
+    const res = await handler(
+      createEvent({
+        catalogEpisodeId: 'ep-custom',
+        playbackExpectation: 'free',
+        visibility: 'private',
+      }),
+    );
+
+    expect(res.statusCode).toBe(201);
+    const putCall = mocks.docSend.mock.calls[1]?.[0] as { input: { Item: Record<string, unknown> } };
+    expect(putCall.input.Item).toMatchObject({
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.com/watch/123',
+    });
+    expect(putCall.input.Item).not.toHaveProperty('youtubeVideoId');
+
+    const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
+    expect(body).toMatchObject({
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.com/watch/123',
+    });
+    expect(body).not.toHaveProperty('youtubeVideoId');
+  });
+
+  it('returns 404 catalog_episode_not_found for unknown catalog id', async () => {
+    mocks.docSend.mockResolvedValueOnce({ Item: undefined });
+
+    const res = await handler(
+      createEvent({
+        catalogEpisodeId: 'missing',
+        playbackExpectation: 'free',
+      }),
+    );
+
+    expect(res.statusCode).toBe(404);
+    expect(JSON.parse(res.body ?? '{}')).toMatchObject({
+      code: 'catalog_episode_not_found',
+    });
+    expect(mocks.docSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 400 catalog_episode_youtube_id_missing for YouTube-host without valid id', async () => {
+    mocks.docSend.mockResolvedValueOnce({
+      Item: { id: 'ep-yt', title: 'Bad', playbackHost: 'youtube', youtubeVideoId: 'short' },
+    });
+
+    const res = await handler(
+      createEvent({
+        catalogEpisodeId: 'ep-yt',
+        playbackExpectation: 'free',
+      }),
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body ?? '{}')).toMatchObject({
+      code: 'catalog_episode_youtube_id_missing',
+    });
+    expect(mocks.docSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 400 catalog_episode_custom_url_missing for Custom-host without HTTPS URL', async () => {
+    mocks.docSend.mockResolvedValueOnce({
+      Item: { id: 'ep-custom', title: 'Bad', playbackHost: 'custom' },
+    });
+
+    const res = await handler(
+      createEvent({
+        catalogEpisodeId: 'ep-custom',
+        playbackExpectation: 'free',
+      }),
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body ?? '{}')).toMatchObject({
+      code: 'catalog_episode_custom_url_missing',
+    });
+    expect(mocks.docSend).toHaveBeenCalledTimes(1);
   });
 });

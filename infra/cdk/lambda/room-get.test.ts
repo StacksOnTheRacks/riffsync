@@ -54,11 +54,15 @@ function getEvent(roomId: string): APIGatewayProxyEventV2 {
   };
 }
 
+const validYoutubeId = 'dQw4w9WgXcQ';
+
 const fullRoomRow = {
   roomId: 'room-1',
   hostSub: 'host-sub-1',
   catalogEpisodeId: 'ep-1',
-  youtubeVideoId: 'yt-1',
+  playbackHost: 'youtube',
+  customPlaybackUrl: null,
+  youtubeVideoId: validYoutubeId,
   displayTitle: 'Now Playing',
   playbackExpectation: 'free',
   visibility: 'public',
@@ -69,11 +73,24 @@ const fullRoomRow = {
   broadcastCaptureActive: true,
 };
 
+const customRoomRow = {
+  roomId: 'room-custom',
+  hostSub: 'host-sub-3',
+  catalogEpisodeId: 'ep-custom',
+  playbackHost: 'custom',
+  customPlaybackUrl: 'https://example.com/watch/789',
+  displayTitle: 'Custom Now Playing',
+  playbackExpectation: 'free',
+  visibility: 'public',
+  lastActivityAt: 1_700_000_200_000,
+  version: 2,
+};
+
 const legacyRoomRow = {
   roomId: 'room-legacy',
   hostSub: 'host-sub-2',
   catalogEpisodeId: 'ep-2',
-  youtubeVideoId: 'yt-2',
+  youtubeVideoId: validYoutubeId,
   playbackExpectation: 'premium',
   visibility: 'private',
   lastActivityAt: 1_700_000_100_000,
@@ -110,6 +127,25 @@ describe('room-get handler', () => {
     expect(body.room.roomMode).toBe('videoChat');
     expect(body.room.avDisabled).toBe(true);
     expect(body.room.broadcastCaptureActive).toBe(true);
+    expect(body.room).toMatchObject({
+      playbackHost: 'youtube',
+      customPlaybackUrl: null,
+      youtubeVideoId: validYoutubeId,
+    });
+  });
+
+  it('returns Custom-host playback mirrors on snapshot', async () => {
+    mocks.docSend.mockResolvedValueOnce({ Item: customRoomRow });
+
+    const res = await handler(getEvent('room-custom'));
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body ?? '{}') as { room: Record<string, unknown> };
+    expect(body.room).toMatchObject({
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.com/watch/789',
+    });
+    expect(body.room).not.toHaveProperty('youtubeVideoId');
   });
 
   it('defaults missing AV attributes on legacy rows without error', async () => {
@@ -122,5 +158,10 @@ describe('room-get handler', () => {
     expect(body.room.roomMode).toBe('theater');
     expect(body.room.avDisabled).toBe(false);
     expect(body.room.broadcastCaptureActive).toBe(false);
+    expect(body.room).toMatchObject({
+      playbackHost: 'youtube',
+      customPlaybackUrl: null,
+      youtubeVideoId: validYoutubeId,
+    });
   });
 });

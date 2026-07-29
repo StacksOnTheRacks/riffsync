@@ -2,6 +2,7 @@ import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { batchDisplayNamesByFanSub } from './fan-profile-shared';
+import { readCatalogPlaybackHost } from './catalog-room-playback-gate';
 import { shouldExcludeFromLobby } from './room-lobby-cleanup';
 import { defaultStaleRoomMs, LOBBY_PARTITION } from './room-shared';
 
@@ -81,7 +82,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (_event) => {
       playbackExpectation: r.playbackExpectation,
       lastActivityAt: r.lastActivityAt,
       catalogEpisodeId,
-      youtubeVideoId: r.youtubeVideoId,
+      playbackHost: readCatalogPlaybackHost(r),
+      ...(typeof r.youtubeVideoId === 'string' && r.youtubeVideoId.trim() !== ''
+        ? { youtubeVideoId: r.youtubeVideoId }
+        : {}),
       hostDisplayName,
       ...(trimmedDisplay !== undefined ? { displayTitle: trimmedDisplay } : {}),
       liveConnectionCount: counts[i] ?? 0,
