@@ -120,4 +120,63 @@ describe('validateCatalogEpisodeForm', () => {
     const result = validateCatalogEpisodeForm({ ...validCreate, tmdbMovieId: 'abc' }, 'edit')
     expect(result.fieldErrors.tmdbMovieId).toBeTruthy()
   })
+
+  it('requires customPlaybackUrl when playbackHost is custom', () => {
+    const result = validateCatalogEpisodeForm(
+      { ...validCreate, playbackHost: 'custom', customPlaybackUrl: '' },
+      'create',
+    )
+    expect(result.fieldErrors.customPlaybackUrl).toBe(
+      'customPlaybackUrl must be an HTTPS URL (max 2048 characters)',
+    )
+  })
+
+  it('rejects non-HTTPS customPlaybackUrl', () => {
+    const result = validateCatalogEpisodeForm(
+      { ...validCreate, playbackHost: 'custom', customPlaybackUrl: 'http://example.test/movie' },
+      'create',
+    )
+    expect(result.fieldErrors.customPlaybackUrl).toBe(
+      'customPlaybackUrl must be an HTTPS URL (max 2048 characters)',
+    )
+  })
+
+  it('rejects customPlaybackUrl over max NFC length', () => {
+    const result = validateCatalogEpisodeForm(
+      {
+        ...validCreate,
+        playbackHost: 'custom',
+        customPlaybackUrl: `https://example.test/${'a'.repeat(2048)}`,
+      },
+      'create',
+    )
+    expect(result.fieldErrors.customPlaybackUrl).toBe(
+      'customPlaybackUrl must be an HTTPS URL (max 2048 characters)',
+    )
+  })
+
+  it('accepts valid HTTPS customPlaybackUrl', () => {
+    const result = validateCatalogEpisodeForm(
+      {
+        ...validCreate,
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.test/movie',
+      },
+      'create',
+    )
+    expect(result.fieldErrors).toEqual({})
+  })
+
+  it('maps server validation details for customPlaybackUrl path', () => {
+    expect(
+      mapValidationDetailsToFieldErrors([
+        {
+          instancePath: '/customPlaybackUrl',
+          message: 'customPlaybackUrl must be an HTTPS URL (max 2048 characters)',
+        },
+      ]),
+    ).toEqual({
+      customPlaybackUrl: 'customPlaybackUrl must be an HTTPS URL (max 2048 characters)',
+    })
+  })
 })

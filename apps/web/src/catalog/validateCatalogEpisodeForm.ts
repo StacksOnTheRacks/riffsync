@@ -4,6 +4,8 @@ import { parseYoutubeWatchUrl } from './youtubeUrl'
 const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
 export type CatalogEpisodeFormMode = 'create' | 'edit'
 
+export type CatalogPlaybackHost = 'youtube' | 'custom'
+
 export type CatalogEpisodeFormValues = {
   id: string
   experimentNumber: string
@@ -11,7 +13,9 @@ export type CatalogEpisodeFormValues = {
   catalog: CatalogCategory
   tags: string[]
   labels: string[]
+  playbackHost: CatalogPlaybackHost
   youtubeWatchUrl: string
+  customPlaybackUrl: string
   carousel: boolean
   spotlight: boolean
   movieSearchTitle: string
@@ -20,6 +24,9 @@ export type CatalogEpisodeFormValues = {
 }
 
 const MOVIE_SEARCH_TITLE_MAX_LENGTH = 256
+const CUSTOM_PLAYBACK_URL_MAX_LENGTH = 2048
+const CUSTOM_PLAYBACK_URL_ERROR =
+  'customPlaybackUrl must be an HTTPS URL (max 2048 characters)'
 const TAG_MAX_COUNT = 32
 const TAG_MAX_LENGTH = 64
 const LABEL_MAX_COUNT = 8
@@ -37,7 +44,9 @@ export const EMPTY_CATALOG_EPISODE_FORM_VALUES: CatalogEpisodeFormValues = {
   catalog: 'other',
   tags: [],
   labels: [],
+  playbackHost: 'youtube',
   youtubeWatchUrl: '',
+  customPlaybackUrl: '',
   carousel: false,
   spotlight: false,
   movieSearchTitle: '',
@@ -83,6 +92,24 @@ function validateYoutubeWatchUrl(raw: string): string | undefined {
   if (!trimmed) return undefined
   if (!parseYoutubeWatchUrl(trimmed)) {
     return 'Enter a valid YouTube watch URL or leave empty.'
+  }
+  return undefined
+}
+
+export function normalizeCustomPlaybackUrlField(raw: string): string | null {
+  const normalized = raw.normalize('NFC').trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function validateCustomPlaybackUrl(raw: string): string | undefined {
+  const normalized = raw.normalize('NFC').trim()
+  if (!normalized) return CUSTOM_PLAYBACK_URL_ERROR
+  if (normalized.length > CUSTOM_PLAYBACK_URL_MAX_LENGTH) return CUSTOM_PLAYBACK_URL_ERROR
+  try {
+    const url = new URL(normalized)
+    if (url.protocol !== 'https:') return CUSTOM_PLAYBACK_URL_ERROR
+  } catch {
+    return CUSTOM_PLAYBACK_URL_ERROR
   }
   return undefined
 }
@@ -171,6 +198,11 @@ export function validateCatalogEpisodeForm(
   const watchUrlError = validateYoutubeWatchUrl(values.youtubeWatchUrl)
   if (watchUrlError) fieldErrors.youtubeWatchUrl = watchUrlError
 
+  if (values.playbackHost === 'custom') {
+    const customUrlError = validateCustomPlaybackUrl(values.customPlaybackUrl)
+    if (customUrlError) fieldErrors.customPlaybackUrl = customUrlError
+  }
+
   const tagsError = validateStringList(values.tags, 'Tags', TAG_MAX_COUNT, TAG_MAX_LENGTH)
   if (tagsError) fieldErrors.tags = tagsError
 
@@ -218,6 +250,8 @@ export function catalogEpisodeToFormValues(
     labels?: string[] | null
     youtubeVideoId: string | null
     youtubeWatchUrl: string | null
+    playbackHost?: CatalogPlaybackHost | null
+    customPlaybackUrl?: string | null
     carousel: boolean
     spotlight?: boolean
     movieSearchTitle?: string | null
@@ -232,7 +266,9 @@ export function catalogEpisodeToFormValues(
     catalog: entry.catalog,
     tags: entry.tags ?? [],
     labels: entry.labels ?? [],
+    playbackHost: entry.playbackHost === 'custom' ? 'custom' : 'youtube',
     youtubeWatchUrl: entry.youtubeWatchUrl ?? '',
+    customPlaybackUrl: entry.customPlaybackUrl ?? '',
     carousel: entry.carousel,
     spotlight: entry.spotlight === true,
     movieSearchTitle: entry.movieSearchTitle ?? '',

@@ -29,6 +29,8 @@ export interface StaffCatalogEpisode {
   embedAllows: boolean | null
   tmdbNeedsReview?: boolean | null
   youtubeThumbnailUrl: string | null
+  playbackHost: 'youtube' | 'custom'
+  customPlaybackUrl: string | null
 }
 
 export interface StaffCatalogListResponse {
@@ -53,6 +55,8 @@ export interface StaffCatalogEpisodeWrite {
   movieSearchTitle?: string | null
   tmdbMovieId?: number | null
   embedAllows?: boolean
+  playbackHost?: 'youtube' | 'custom'
+  customPlaybackUrl?: string | null
 }
 
 export class StaffCatalogValidationError extends Error {

@@ -70,6 +70,12 @@ function uncheckCheckbox(checkbox: HTMLInputElement): void {
   }
 }
 
+function setSelectValue(select: HTMLSelectElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set
+  setter?.call(select, value)
+  select.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
 const baseEpisode: StaffCatalogEpisode = {
   id: 'ep-1',
   experimentNumber: 101,
@@ -89,6 +95,8 @@ const baseEpisode: StaffCatalogEpisode = {
   movieSearchTitle: 'Manos',
   embedAllows: true,
   youtubeThumbnailUrl: null,
+  playbackHost: 'youtube',
+  customPlaybackUrl: null,
 }
 
 describe('AdminCatalogForm', () => {
@@ -168,6 +176,8 @@ describe('AdminCatalogForm', () => {
           spotlight: false,
           movieSearchTitle: null,
           embedAllows: true,
+          playbackHost: 'youtube',
+          customPlaybackUrl: null,
         }),
       )
     })
@@ -359,6 +369,203 @@ describe('AdminCatalogForm', () => {
       expect(patchStaffCatalogEpisode).toHaveBeenCalledWith('staff-token', 'ep-1', {
         tmdbMovieId: 603,
       })
+    })
+  })
+
+  it('create Custom-host episode sends playbackHost and customPlaybackUrl in POST body', async () => {
+    renderForm({ mode: 'create' })
+
+    const idInput = container.querySelector('#catalog-form-id') as HTMLInputElement
+    const titleInput = container.querySelector('#catalog-form-title') as HTMLInputElement
+    const experimentInput = container.querySelector('#catalog-form-experiment') as HTMLInputElement
+    const hostSelect = container.querySelector('#catalog-form-playback-host') as HTMLSelectElement
+
+    await act(async () => {
+      setInputValue(idInput, 'custom-ep')
+      setInputValue(experimentInput, '42')
+      setInputValue(titleInput, 'Custom movie')
+      setSelectValue(hostSelect, 'custom')
+    })
+
+    const customUrlInput = container.querySelector(
+      '#catalog-form-custom-playback-url',
+    ) as HTMLInputElement
+    await act(async () => {
+      setInputValue(customUrlInput, 'https://example.test/embed/movie')
+    })
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(createStaffCatalogEpisode).toHaveBeenCalledWith(
+        'staff-token',
+        'custom-ep',
+        expect.objectContaining({
+          playbackHost: 'custom',
+          customPlaybackUrl: 'https://example.test/embed/movie',
+        }),
+      )
+    })
+  })
+
+  it('edit PATCH sends playbackHost when toggled without clearing YouTube fields', async () => {
+    const episode: StaffCatalogEpisode = {
+      ...baseEpisode,
+      playbackHost: 'youtube',
+      youtubeWatchUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      youtubeVideoId: 'dQw4w9WgXcQ',
+      customPlaybackUrl: 'https://example.test/stored-custom',
+    }
+    renderForm({
+      mode: 'edit',
+      initialEpisode: episode,
+      initialValues: catalogEpisodeToFormValues(episode),
+      breadcrumbLeaf: 'Edit',
+      pageTitle: 'Edit episode',
+    })
+
+    const hostSelect = container.querySelector('#catalog-form-playback-host') as HTMLSelectElement
+    await act(async () => {
+      setSelectValue(hostSelect, 'custom')
+    })
+
+    expect(container.querySelector('#catalog-form-youtube-url')).toBeNull()
+    expect(container.querySelector('#catalog-form-custom-playback-url')).not.toBeNull()
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(patchStaffCatalogEpisode).toHaveBeenCalledWith('staff-token', 'ep-1', {
+        playbackHost: 'custom',
+      })
+    })
+    const patchBody = patchStaffCatalogEpisode.mock.calls[0]?.[2] as Record<string, unknown>
+    expect(patchBody).not.toHaveProperty('youtubeWatchUrl')
+    expect(patchBody).not.toHaveProperty('youtubeVideoId')
+    expect(patchBody).not.toHaveProperty('customPlaybackUrl')
+  })
+
+  it('edit PATCH sends playbackHost when toggled Custom to YouTube without clearing customPlaybackUrl', async () => {
+    const episode: StaffCatalogEpisode = {
+      ...baseEpisode,
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.test/stored-custom',
+      youtubeWatchUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      youtubeVideoId: 'dQw4w9WgXcQ',
+    }
+    renderForm({
+      mode: 'edit',
+      initialEpisode: episode,
+      initialValues: catalogEpisodeToFormValues(episode),
+      breadcrumbLeaf: 'Edit',
+      pageTitle: 'Edit episode',
+    })
+
+    const hostSelect = container.querySelector('#catalog-form-playback-host') as HTMLSelectElement
+    await act(async () => {
+      setSelectValue(hostSelect, 'youtube')
+    })
+
+    expect(container.querySelector('#catalog-form-custom-playback-url')).toBeNull()
+    expect(container.querySelector('#catalog-form-youtube-url')).not.toBeNull()
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(patchStaffCatalogEpisode).toHaveBeenCalledWith('staff-token', 'ep-1', {
+        playbackHost: 'youtube',
+      })
+    })
+    const patchBody = patchStaffCatalogEpisode.mock.calls[0]?.[2] as Record<string, unknown>
+    expect(patchBody).not.toHaveProperty('customPlaybackUrl')
+    expect(patchBody).not.toHaveProperty('youtubeWatchUrl')
+    expect(patchBody).not.toHaveProperty('youtubeVideoId')
+  })
+
+  it('host switch preserves opposite-host URL values in form state', async () => {
+    const episode: StaffCatalogEpisode = {
+      ...baseEpisode,
+      playbackHost: 'youtube',
+      youtubeWatchUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      youtubeVideoId: 'dQw4w9WgXcQ',
+      customPlaybackUrl: 'https://example.test/stored-custom',
+    }
+    renderForm({
+      mode: 'edit',
+      initialEpisode: episode,
+      initialValues: catalogEpisodeToFormValues(episode),
+      breadcrumbLeaf: 'Edit',
+      pageTitle: 'Edit episode',
+    })
+
+    const hostSelect = container.querySelector('#catalog-form-playback-host') as HTMLSelectElement
+    await act(async () => {
+      setSelectValue(hostSelect, 'custom')
+    })
+
+    const customUrlInput = container.querySelector(
+      '#catalog-form-custom-playback-url',
+    ) as HTMLInputElement
+    expect(customUrlInput.value).toBe('https://example.test/stored-custom')
+
+    await act(async () => {
+      setSelectValue(hostSelect, 'youtube')
+    })
+
+    const youtubeUrlInput = container.querySelector('#catalog-form-youtube-url') as HTMLInputElement
+    expect(youtubeUrlInput.value).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+  })
+
+  it('maps server validation errors for customPlaybackUrl path', async () => {
+    const { StaffCatalogValidationError } = await import('../../api/staffAdminCatalogApi')
+    createStaffCatalogEpisode.mockRejectedValue(
+      new StaffCatalogValidationError([
+        {
+          instancePath: '/customPlaybackUrl',
+          message: 'customPlaybackUrl must be an HTTPS URL (max 2048 characters)',
+        },
+      ]),
+    )
+
+    renderForm({ mode: 'create' })
+
+    const idInput = container.querySelector('#catalog-form-id') as HTMLInputElement
+    const titleInput = container.querySelector('#catalog-form-title') as HTMLInputElement
+    const experimentInput = container.querySelector('#catalog-form-experiment') as HTMLInputElement
+    const hostSelect = container.querySelector('#catalog-form-playback-host') as HTMLSelectElement
+
+    await act(async () => {
+      setInputValue(idInput, 'new-ep')
+      setInputValue(experimentInput, '1')
+      setInputValue(titleInput, 'Ok title')
+      setSelectValue(hostSelect, 'custom')
+    })
+
+    const customUrlInput = container.querySelector(
+      '#catalog-form-custom-playback-url',
+    ) as HTMLInputElement
+    await act(async () => {
+      setInputValue(customUrlInput, 'https://example.test/movie')
+    })
+
+    const form = container.querySelector('form')!
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain(
+        'customPlaybackUrl must be an HTTPS URL (max 2048 characters)',
+      )
     })
   })
 })
