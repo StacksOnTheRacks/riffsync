@@ -52,7 +52,20 @@ describe('StaticSiteStack', () => {
       ResponseHeadersPolicyConfig: {
         SecurityHeadersConfig: {
           ContentSecurityPolicy: {
-            ContentSecurityPolicy: Match.stringLikeRegexp('frame-src .*https://www\\.youtube\\.com .*https://www\\.youtube-nocookie\\.com'),
+            ContentSecurityPolicy: Match.stringLikeRegexp(
+              'frame-src https: .*https://www\\.youtube\\.com .*https://www\\.youtube-nocookie\\.com',
+            ),
+          },
+        },
+      },
+    });
+    template.hasResourceProperties('AWS::CloudFront::ResponseHeadersPolicy', {
+      ResponseHeadersPolicyConfig: {
+        SecurityHeadersConfig: {
+          ContentSecurityPolicy: {
+            ContentSecurityPolicy: Match.stringLikeRegexp(
+              'child-src https: .*https://www\\.youtube\\.com .*https://www\\.youtube-nocookie\\.com',
+            ),
           },
         },
       },
