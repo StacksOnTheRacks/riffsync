@@ -1,11 +1,15 @@
 import { Link } from 'react-router-dom'
 import { catalogCardImageUrl } from '../../catalog/mockCatalog'
+import { readCatalogPlaybackHost } from '../../catalog/catalogPlayback'
 import { formatCatalogLabel, type CatalogEpisode } from '../../catalog/catalogTypes'
 import { EpisodeTileActions } from './EpisodeTileActions'
 
 export function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
   const img = catalogCardImageUrl(episode)
   const labels = episode.labels.length > 0 ? episode.labels : [formatCatalogLabel(episode.catalog)]
+  const showYoutubeEmbedAdvisory =
+    readCatalogPlaybackHost(episode) === 'youtube' && episode.embedAllows === false
+
   return (
     <article className="riffsync-catalog-card movie type-movie status-publish has-post-thumbnail hentry">
       <div className="gen-carousel-movies-style-3 movie-grid style-3">
@@ -30,8 +34,13 @@ export function CatalogGridCard({ episode }: { episode: CatalogEpisode }) {
                 ))}
               </ul>
             </div>
-            {episode.tags.length > 0 && (
+            {(episode.tags.length > 0 || showYoutubeEmbedAdvisory) && (
               <div className="riffsync-catalog-card__advisory">
+                {showYoutubeEmbedAdvisory ? (
+                  <span className="riffsync-catalog-card__tag riffsync-catalog-card__tag--embed-advisory">
+                    In-app YouTube embed is not available for this episode.
+                  </span>
+                ) : null}
                 {episode.tags.map((tag) => (
                   <span key={tag} className="riffsync-catalog-card__tag">
                     {tag}

@@ -6,10 +6,10 @@ import {
 } from '../catalog/catalogQueries'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
+import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
 import {
   buildHeroSlides,
-  catalogEntriesWithYoutubeLink,
-  firstEpisodesWithYoutubeForTag,
+  firstEpisodesPlayableForTag,
   topEpisodesForHomeMostPopular,
 } from '../catalog/mockCatalog'
 import { HomeHeroBanner } from './home/HomeHeroBanner'
@@ -25,7 +25,7 @@ function HomePageDocumentHeading() {
  * **`GET /v1/catalog?carousel=true`**; spotlight from **`GET /v1/catalog?spotlight=true`**
  * when **`VITE_PUBLIC_API_BASE_URL`** is set.
  * In **`vite dev`** without that var, all load from **`data/catalog/episodes.json`** (filtered client-side).
- * Rows use only episodes that include a **YouTube** id (same filter as **`/catalog`**).
+ * Rows use only episodes playable in-app (same host-aware filter as **`/catalog`**).
  * **Most Popular** ranks playable **`mst3k`** episodes by reconciled **`tmdbPopularity`** (unreconciled rows trail in experiment order).
  * Era strips take the first **10** per Joel / Mike / Jonah tag from that playable set.
  */
@@ -66,9 +66,9 @@ export function HomePage() {
   const entries = data ?? []
   const carouselEntries = carouselQ.data ?? []
   const spotlightEntries = spotlightQ.data ?? []
-  const playableEntries = catalogEntriesWithYoutubeLink(entries)
-  const carouselWithYoutube = catalogEntriesWithYoutubeLink(carouselEntries)
-  const spotlightWithYoutube = catalogEntriesWithYoutubeLink(spotlightEntries)
+  const playableEntries = catalogEntriesPlayableInApp(entries)
+  const carouselPlayable = catalogEntriesPlayableInApp(carouselEntries)
+  const spotlightPlayable = catalogEntriesPlayableInApp(spotlightEntries)
 
   if (entries.length === 0) {
     return (
@@ -83,16 +83,16 @@ export function HomePage() {
     return (
       <div className="riffsync-home">
         <HomePageDocumentHeading />
-        <p className="container">No episodes with a YouTube link are available yet.</p>
+        <p className="container">No episodes are available for in-app playback yet.</p>
       </div>
     )
   }
 
-  const heroSlides = buildHeroSlides(carouselWithYoutube)
+  const heroSlides = buildHeroSlides(carouselPlayable)
 
-  const joelYoutubeRow = firstEpisodesWithYoutubeForTag(playableEntries, 'Era: Joel', 10)
-  const mikeYoutubeRow = firstEpisodesWithYoutubeForTag(playableEntries, 'Era: Mike', 10)
-  const jonahYoutubeRow = firstEpisodesWithYoutubeForTag(playableEntries, 'Era: Jonah', 10)
+  const joelRow = firstEpisodesPlayableForTag(playableEntries, 'Era: Joel', 10)
+  const mikeRow = firstEpisodesPlayableForTag(playableEntries, 'Era: Mike', 10)
+  const jonahRow = firstEpisodesPlayableForTag(playableEntries, 'Era: Jonah', 10)
 
   return (
     <div className="riffsync-home">
@@ -103,26 +103,26 @@ export function HomePage() {
         title="Most Popular"
         episodes={topEpisodesForHomeMostPopular(playableEntries, 12)}
       />
-      <HomeSpotlightBanner episodes={spotlightWithYoutube} />
-      {joelYoutubeRow.length > 0 ? (
+      <HomeSpotlightBanner episodes={spotlightPlayable} />
+      {joelRow.length > 0 ? (
         <HomeMovieRowSection
           sectionId="home-joel-era"
           title="Joel-era experiments"
-          episodes={joelYoutubeRow}
+          episodes={joelRow}
         />
       ) : null}
-      {mikeYoutubeRow.length > 0 ? (
+      {mikeRow.length > 0 ? (
         <HomeMovieRowSection
           sectionId="home-mike-era"
           title="Mike-era experiments"
-          episodes={mikeYoutubeRow}
+          episodes={mikeRow}
         />
       ) : null}
-      {jonahYoutubeRow.length > 0 ? (
+      {jonahRow.length > 0 ? (
         <HomeMovieRowSection
           sectionId="home-jonah-era"
           title="Jonah-era experiments"
-          episodes={jonahYoutubeRow}
+          episodes={jonahRow}
         />
       ) : null}
     </div>

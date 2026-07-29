@@ -160,10 +160,10 @@ describe('HomePage', () => {
     expect(headings[0]?.textContent).toBe('RiffSync')
   })
 
-  it('renders exactly one sr-only H1 when no episodes have a YouTube link', () => {
+  it('renders exactly one sr-only H1 when no episodes are playable in-app', () => {
     mockCatalogQueries({
       list: {
-        data: [episode({ id: 'ep-no-yt', youtubeVideoId: null, youtubeWatchUrl: null })],
+        data: [episode({ id: 'ep-no-playback', youtubeVideoId: null, youtubeWatchUrl: null })],
         isPending: false,
         isError: false,
         error: null,
@@ -175,5 +175,26 @@ describe('HomePage', () => {
     const headings = srOnlyHeadings()
     expect(headings).toHaveLength(1)
     expect(headings[0]?.textContent).toBe('RiffSync')
+    expect(container.textContent).toContain('No episodes are available for in-app playback yet.')
+  })
+
+  it('includes Custom-host playable rows in home carousel and rows', () => {
+    const customEpisode = episode({
+      id: 'ep-custom',
+      title: 'Custom Host Film',
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.com/movie',
+      youtubeVideoId: null,
+      carousel: true,
+      spotlight: true,
+    })
+    mockCatalogQueries({
+      list: { data: [customEpisode], isPending: false, isError: false, error: null, refetch: vi.fn() },
+      carousel: { data: [customEpisode] },
+      spotlight: { data: [customEpisode] },
+    })
+    renderHomePage()
+
+    expect(container.textContent).toContain('Custom Host Film')
   })
 })

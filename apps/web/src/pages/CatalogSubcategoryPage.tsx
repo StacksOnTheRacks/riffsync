@@ -8,7 +8,7 @@ import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagF
 import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
-import { catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
+import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
 import {
   EMPTY_MST3K_TAG_PILLS,
   filterMst3kCatalogEntries,
@@ -31,16 +31,16 @@ export function CatalogSubcategoryPage() {
   useResumePendingPartyRoom(data, navigate)
 
   const allEntries = data ?? EMPTY_CATALOG_ENTRIES
-  const youtubeEntries = useMemo(
-    () => catalogEntriesWithYoutubeLink(allEntries),
+  const playableEntries = useMemo(
+    () => catalogEntriesPlayableInApp(allEntries),
     [allEntries],
   )
   const routeCatalogEntries = useMemo(
     () =>
       subcategory
-        ? filterCatalogEntries(youtubeEntries, { titleQuery: '', catalogs: [subcategory.catalog] })
+        ? filterCatalogEntries(playableEntries, { titleQuery: '', catalogs: [subcategory.catalog] })
         : [],
-    [youtubeEntries, subcategory],
+    [playableEntries, subcategory],
   )
   const filteredEntries = useMemo(
     () =>
@@ -51,9 +51,9 @@ export function CatalogSubcategoryPage() {
               catalogs: [subcategory.catalog],
               selectedTagPills,
             })
-          : filterCatalogEntries(youtubeEntries, { titleQuery, catalogs: [subcategory.catalog] })
+          : filterCatalogEntries(playableEntries, { titleQuery, catalogs: [subcategory.catalog] })
         : [],
-    [routeCatalogEntries, youtubeEntries, titleQuery, subcategory, isMst3kRoute, selectedTagPills],
+    [routeCatalogEntries, playableEntries, titleQuery, subcategory, isMst3kRoute, selectedTagPills],
   )
 
   const filterBarDisabled = isPending && !data
@@ -61,7 +61,7 @@ export function CatalogSubcategoryPage() {
     selectedTagPills.Era.length > 0 || selectedTagPills.Season.length > 0
   const isFilterNoMatch = isMst3kRoute
     ? routeCatalogEntries.length > 0 && filteredEntries.length === 0
-    : youtubeEntries.length > 0 && filteredEntries.length === 0
+    : playableEntries.length > 0 && filteredEntries.length === 0
 
   if (!subcategory) {
     return (
@@ -122,11 +122,11 @@ export function CatalogSubcategoryPage() {
               <CatalogGridCard key={ep.id} episode={ep} />
             ))}
           </div>
-          {youtubeEntries.length === 0 && (
+          {playableEntries.length === 0 && (
             <p>
               {allEntries.length === 0
                 ? 'No episodes in the catalog yet.'
-                : 'No episodes with a YouTube link are listed yet.'}
+                : 'No episodes are available for in-app playback yet.'}
             </p>
           )}
           {isFilterNoMatch && (
