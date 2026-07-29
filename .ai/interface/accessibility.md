@@ -19,6 +19,7 @@ Accessible-by-default contract for presentation and interaction surfaces.
 - **Catalog nav dropdown:** the Catalog disclosure exposes **`aria-haspopup`** / **`aria-expanded`** (or equivalent disclosure semantics); opens via keyboard (**Enter** / **Space**) as well as pointer; **Escape** closes and returns focus to the trigger; the four subcategory links are native focusable links in logical tab order (**MST3K**, **Community**, **Riff Material**, **Movie Night**). Hover-open on desktop is progressive enhancement, not the only path. On narrow viewports, Catalog expands as an **inline accordion** inside **`navbar-collapse`** (same four links; not a nested flyout).
 - **Hub entry links:** the four large horizontal hub links on **`/catalog`** are native links in the page-header subtitle slot with accessible names matching their destination labels (**MST3K**, **Community**, **Riff Material**, **Movie Night**).
 - **`/watch/:catalogEpisodeId`** keeps its existing **`sr-only`** **`<h1>{episode.title}</h1>`** on **`SoloWatchPage`** — unaffected by M30 beyond parallel head-tag work (M29).
+- **Custom playback iframe** on **`SoloWatchPage`** (solo and **`?partyCapture=1`**) sets **`<iframe title={episode.title}>`** using catalog **`title`** only (Invariant 9).
 - **Ephemeral/authenticated/receiver-only routes** (**`/room/:roomId`**, **`/lobby`**, **`/account`**, **`/admin/*`**, **`/cast/receiver`**) are unaffected — they keep the existing app-shell heading/landmark baseline, not a new accessibility commitment.
 
 ## Watch party participant AV
