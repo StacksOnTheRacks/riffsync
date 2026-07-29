@@ -55,6 +55,17 @@ RiffSync catalog episodes can use either **YouTube** or **Custom** as the playba
 
 Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** for host-conditional **`customPlaybackUrl`**.
 
+### Public catalog projection (`catalog-shared.ts`)
+
+| Field | Dynamo → public JSON | Semantics |
+| --- | --- | --- |
+| **`playbackHost`** | Always emitted | Read-time default **`youtube`** when attribute missing or not **`youtube`** \| **`custom`**. No Dynamo backfill job in M37 projection slice — legacy rows behave as YouTube on read until staff PATCH or seed re-import. |
+| **`customPlaybackUrl`** | Always emitted as **`string \| null`** | Same visibility class as **`youtubeWatchUrl`** (not omit-when-null like **`embedAllows`**). Persist normalized HTTPS string from admin save when host is Custom; **`null`** for YouTube-host and legacy rows. |
+
+**Export script:** **`infra/cdk/scripts/export-catalog-dynamodb-to-json.ts`** **`SCHEMA_FIELDS`** includes **`playbackHost`** and **`customPlaybackUrl`** so committed **`episodes.json`** mirrors Dynamo after operator export. Seed and table-copy scripts pass through validated/full items without host-specific logic.
+
+**Admin write persistence:** POST/PATCH handlers persist the validated merged item (**`admin-catalog-validation`**, issue **#389**); projection tests assert Dynamo round-trip through **`GET /v1/catalog`** handlers.
+
 ### Admin save validation (`admin-catalog-validation.ts`)
 
 | Layer | Responsibility |
@@ -95,8 +106,10 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 
 ### Integration
 
-- Room create: YouTube-host rejects missing playable id; Custom-host succeeds with HTTPS URL and no YouTube id.
-- **`GET /v1/catalog`**: projects **`playbackHost`** and **`customPlaybackUrl`**.
+- Room create: YouTube-host rejects missing playable id; Custom-host succeeds with HTTPS URL and no YouTube id — **#392**.
+- **`GET /v1/catalog`** / **`GET /v1/catalog/{id}`**: **`projectEpisode`** includes **`playbackHost`** (default **`youtube`** for legacy Dynamo rows) and **`customPlaybackUrl`** (**`null`** or HTTPS string).
+- Admin POST Custom-host fixture → handler persists item → list/get handlers return projected fields (**`catalog-public-handlers.test.ts`** / **`admin-catalog-write-handlers.test.ts`**).
+- **`apps/web`**: **`normalizeEpisode`** parses host fields; missing **`playbackHost`** defaults to **`youtube`** defensively.
 
 ### Manual / smoke
 

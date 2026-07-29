@@ -564,10 +564,9 @@ Stable JSON field names for PR harness assertions and fan-visible status mapping
 - **Server-side catalog `catalog` / `catalogs` query params:** **Out of scope** for catalog subcategory SPA browse. If a future initiative moves catalog filtering to the API (for payload size or cache variants), that is a new contract change; do not treat subcategory routes as requiring it now.
 
 ### catalog-playback-host
-- Server-side **YouTube playable check** function boundaries (Lambda imports, timeout, error mapping) when host is YouTube only.
-- **Public catalog handler** field allowlist in **`catalog-shared.ts`** for **`playbackHost`** and **`customPlaybackUrl`**.
-- **OpenAPI / typed client** updates for catalog episode and room snapshot playback fields.
-- **`Referrer-Policy` / iframe `sandbox`** attributes on generic iframe element (security review).
+- Server-side **YouTube playable check** function boundaries (Lambda imports, timeout, error mapping) when host is YouTube only — **#392**.
+- **OpenAPI / typed client** updates for catalog episode and room snapshot playback fields — follow-on when generated types land.
+- **`Referrer-Policy` / iframe `sandbox`** attributes on generic iframe element (security review) — **#395** / solo watch issues.
 
 ### friends-and-direct-messaging (paths, envelopes, codes)
 

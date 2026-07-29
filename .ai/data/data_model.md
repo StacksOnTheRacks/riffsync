@@ -309,7 +309,7 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 - Account-closure cascade and explicit per-message user delete jobs relative to retained-after-unfriend bodies — future ops slice (not #359).
 
 ### catalog-playback-host
-- Whether **public catalog handler** field allowlist changes beyond **`customPlaybackUrl`** / **`playbackHost`** in **`catalog-shared.ts`** — **#390** (out of scope for schema/admin-validation issue **#389**).
+- (none — public **`catalog-shared.ts`** allowlist resolved: **`playbackHost`** always projected with read-time default **`youtube`**; **`customPlaybackUrl`** always projected as **`string | null`**; no additional public fields in M37 projection slice.)
 
 ## Primary code pointers (optional)
 
