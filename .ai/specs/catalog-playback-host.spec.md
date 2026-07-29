@@ -108,11 +108,21 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 | **Server errors** | Map **`StaffCatalogValidationError`** **`/playbackHost`** and **`/customPlaybackUrl`** paths via existing **`mapValidationDetailsToFieldErrors`**. |
 | **Out of scope** | **`AdminCatalogListPage`** playback-host column/badge (optional follow-up). |
 
+### Solo watch and party capture (`SoloWatchPage`, issue **#393**)
+
+| Concern | Contract |
+| --- | --- |
+| **Module split** | **`SoloCustomIframePlayer`** (`apps/web/src/components/watch/SoloCustomIframePlayer.tsx`) for Custom-host rows; **`SoloYouTubePlayer`** unchanged for YouTube-host. |
+| **Page shell** | **`SoloWatchPage.tsx`** branches on **`episode.playbackHost`** (default **`youtube`** when missing). Custom gate: trimmed **`https://`** **`customPlaybackUrl`**; **`embedAllows`** does not apply. YouTube gate unchanged. |
+| **Layout CSS** | Reuse **`.riffsync-solo-player`**, **`.riffsync-solo-player__frame`**, **`.riffsync-solo-player__chrome`** — existing party-capture flex rules apply to **`.riffsync-solo-player__frame`**. |
+| **Iframe attrs** | **`src={customPlaybackUrl}`**, **`title={episode.title}`**, **`allow="autoplay; fullscreen; encrypted-media"`**. No **`sandbox`** in **#393** (**#395** CSP). |
+| **Blocked states** | Missing URL and embed failure copy per **`error_state.md`** and **`presentation.md`** *Decisions (M37 — solo watch Custom iframe — #393)*. |
+| **`hostSourceTab.ts`** | Extend catalog pick with **`playbackHost`**. Custom → always **`{origin}/watch/{id}?partyCapture=1`**; **`hostSourceOpensOnYoutube`** false. |
+
 ### Other client surfaces (indicative)
 
-- **`SoloWatchPage.tsx`** — host-aware player shell (YouTube vs generic iframe).
-- **`hostSourceTab.ts`** — capture URL stays on RiffSync watch route for Custom.
-- **`RoomPlaybackPanel.tsx` / `TheaterPlayback`** — host presentation iframe for Custom.
+- **`hostSourceTab.ts`** — capture URL stays on RiffSync watch route for Custom (tests in **#393**).
+- **`RoomPlaybackPanel.tsx` / `TheaterPlayback`** — host presentation iframe for Custom (**#394**).
 
 ### Operations
 
@@ -131,7 +141,8 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 - **`admin-catalog-validation`**: writable allowlist includes **`playbackHost`** / **`customPlaybackUrl`**; POST defaults; Custom HTTPS accept/reject matrix (missing URL, `http://`, over 2048 chars, valid HTTPS); PATCH host switch preserves cross-host fields; NFC normalization persisted.
 - **`validateCatalogEpisodeForm`** / **`AdminCatalogForm.test.tsx`**: Custom URL required when host Custom; rejects `http://` and over-2048 NFC length; accepts valid HTTPS; create POST includes host fields; edit PATCH sends **`playbackHost`** on toggle without clearing YouTube fields in body; host-switch preserves form state; **`embedAllows`** still PATCHable on Custom rows.
 - **`staffAdminCatalogApi`**: types include host fields on **`StaffCatalogEpisode`** / write body.
-- **`hostSourceTab`**: Custom rows resolve party-capture URL on RiffSync watch route.
+- **`hostSourceTab`**: Custom **`playbackHost`** rows resolve party-capture URL on RiffSync watch route; **`hostSourceOpensOnYoutube`** false (**#393**).
+- **`SoloCustomIframePlayer`** / **`SoloWatchPage.test.tsx`**: Custom-host iframe **`src`** and **`title`**; missing URL blocked copy; YouTube-host regression unchanged (**#393**).
 
 ### Integration
 
@@ -147,9 +158,9 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 ### Manual / smoke
 
 - Staff admin UI: create YouTube-host and Custom-host episodes; edit host toggle retains opposite URL in form; reload edit shows persisted host + URLs from **`GET /v1/admin/catalog/episodes/:id`**.
-- Solo watch iframe render for Custom HTTPS URL (separate issue).
-- Party capture tab share with Custom inner iframe.
-- CSP smoke: Custom origin loads in iframe on staging/prod headers.
+- Solo watch: Custom-host **`/watch/:id`** shows generic HTTPS iframe; missing URL shows blocked copy; known non-embeddable origin shows escape link (**#393**).
+- Party capture: **`/watch/:id?partyCapture=1`** with Custom host stretches iframe in capture layout; document title and banner unchanged (**#393**).
+- CSP smoke: Custom origin loads in iframe on staging/prod headers (**#395**).
 
 ## References
 

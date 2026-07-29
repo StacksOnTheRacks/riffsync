@@ -8,6 +8,8 @@ User-visible and system-visible failure modes (catalog + room + embed).
 | --- | --- |
 | **Episode missing enrich** | Show row with **placeholder** art if URLs null; still allow play if **`youtubeVideoId`** present. |
 | **YouTube embed blocked** | Inline error + “open on YouTube” escape hatch (**product choice**, **`architecture.frontend.md`**). |
+| **Custom playback URL missing** | When **`playbackHost` is `custom`** and **`customPlaybackUrl`** is absent or not **`https://`** after trim: **`Playback unavailable — no custom playback URL is linked for this catalog entry.`** (`role="status"`). |
+| **Custom iframe embed blocked** | Inline error + open Custom URL in new tab: **`This page could not be embedded in RiffSync. Open the movie page in a new tab.`** with link to **`customPlaybackUrl`** (`target="_blank"`, `rel="noreferrer"`). No X-Frame-Options-specific UI. |
 
 ## Room
 

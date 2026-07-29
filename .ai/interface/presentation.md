@@ -96,6 +96,9 @@ Staff **`/admin/catalog`** form gains a **Playback host** selector per episode: 
 | **Party capture** | URL remains **`{origin}/watch/{catalogEpisodeId}?partyCapture=1`**; inner player swaps to generic iframe for Custom. **Tab-sharing workflow unchanged** — host shares this RiffSync tab via browser picker + WebRTC. |
 | **Guests** | Unchanged — watch host screen share; no direct Custom URL chrome. |
 | **Iframe failure** | Honest blocked/error state; no special X-Frame-Options fallback UI beyond staff embeddable-URL policy. |
+| **Custom blocked copy** | Missing URL: **`Playback unavailable — no custom playback URL is linked for this catalog entry.`** (`role="status"`). Embed/load failure: **`This page could not be embedded in RiffSync. Open the movie page in a new tab.`** with **`customPlaybackUrl`** link (`target="_blank"`, `rel="noreferrer"`). |
+| **Custom player component** | Dedicated **`SoloCustomIframePlayer`** (`apps/web/src/components/watch/SoloCustomIframePlayer.tsx`) — **not** an extension of **`SoloYouTubePlayer`**. Reuses **`.riffsync-solo-player`**, **`.riffsync-solo-player__frame`**, **`.riffsync-solo-player__chrome`** for layout parity in solo and **`?partyCapture=1`** modes. |
+| **Custom iframe a11y** | **`<iframe title={episode.title}>`** (catalog **`title`** only). |
 
 ### Room host presentation
 
@@ -553,13 +556,10 @@ The render-confirmation slice gates the sender's active Cast UI after #302 reach
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### catalog-playback-host
-- Admin form control order, labels ("Playback host", field visibility when switching host), validation messages.
-- Component split: dedicated **generic iframe player** vs extending **`SoloYouTubePlayer`**.
-- **`TheaterPlayback` / `RoomPlaybackPanel`** iframe mount for host presentation vs capture tab inner iframe.
-- **`partyCapture` bare layout** CSS for generic iframe aspect ratio.
-- **Catalog card** metadata: whether to show playback host badge on staff admin list vs public cards.
-- **Static SEO table** copy referencing "lawful YouTube embeds" — marketing/legal refresh when Custom episodes ship (Custom-only `/watch/:id` remains excluded from sitemap).
-- **Accessibility**: iframe **`title`** from episode **`title`**; focus order on admin host selector.
+- **`TheaterPlayback` / `RoomPlaybackPanel`** iframe mount for host presentation vs capture tab inner iframe (**#394**).
+- **Catalog card** metadata: whether to show playback host badge on staff admin list vs public cards (**optional follow-up**).
+- **Static SEO table** copy referencing "lawful YouTube embeds" — marketing/legal refresh when Custom episodes ship (Custom-only `/watch/:id` remains excluded from sitemap; **#397** / product follow-up).
+- **Admin host selector focus order** — resolved in admin form issue **#391** (*Decisions (M37 — admin catalog form)*).
 
 ### existing-room-polish
 - **Theater audio resume control:** persistent **Enable party audio** chrome when **`THEATER_AUDIO_SUSPENDED`** — deferred; current room runtime uses implicit gesture resume per **`execution_model.md`**.
@@ -603,6 +603,19 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 | **SEO / discoverability** | No indexable friends/DM routes or sitemap entries. Overlays mount on existing pages only; **`/room/:id`** stays **`noindex`**. |
 | **Shared guard module** | **`apps/web/src/friends/`** exposes a single **`requireFanAccessToken()`** (or equivalent) used by dropdown, room pane, **`dmApi`**, and **`FanDmSession`** bootstrap — #363/#364 consume it; #365 owns regression tests. |
 | **Verification timing** | Auth-gate QA matrix runs in the **same release train** as #363 and #364 so guests never ship with half-enabled chrome. |
+
+## Decisions (M37 — solo watch Custom iframe — #393)
+
+| Topic | Decision |
+| --- | --- |
+| **Component split** | **`SoloCustomIframePlayer`** dedicated module; **`SoloYouTubePlayer`** unchanged for YouTube-host rows. |
+| **Layout shell** | Reuse **`.riffsync-solo-player*`** classes; party-capture flex/stretch rules already target **`.riffsync-solo-player__frame`** — no new aspect-ratio CSS required for Custom. |
+| **Playback gate** | **`playbackHost === 'custom'`** + trimmed **`https://`** **`customPlaybackUrl`**; **`embedAllows`** ignored for Custom. YouTube-host gate unchanged (**`youtubeVideoId`** + **`embedAllows !== false`**). |
+| **Missing Custom URL** | **`Playback unavailable — no custom playback URL is linked for this catalog entry.`** |
+| **Embed blocked** | **`This page could not be embedded in RiffSync. Open the movie page in a new tab.`** + **`customPlaybackUrl`** escape link. |
+| **Iframe `title`** | **`episode.title`** (catalog title). |
+| **`hostSourceTab`** | Custom rows always party-capture RiffSync watch URL; **`hostSourceOpensOnYoutube`** false. |
+| **Out of scope** | Room presentation mount (**#394**), Cast receiver Custom iframe, **`sandbox`** / CSP directive syntax (**#395**). |
 
 ## Decisions (M36 — main-site friends dropdown — #363)
 
