@@ -125,6 +125,50 @@ describe('CatalogPage', () => {
     expect(container.querySelector('.riffsync-catalog-filter-bar__era')).toBeNull()
   })
 
+  it('includes Custom-host playable rows in the hub grid', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: [
+        ...catalogFixtures,
+        episode({
+          id: 'ep-custom',
+          title: 'Custom Host Film',
+          playbackHost: 'custom',
+          customPlaybackUrl: 'https://example.com/movie',
+          youtubeVideoId: null,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+    renderCatalogPage()
+
+    const cards = container.querySelectorAll('.riffsync-catalog-card')
+    expect(cards).toHaveLength(3)
+    expect(container.textContent).toContain('Custom Host Film')
+  })
+
+  it('shows host-aware empty copy when no episodes are playable in-app', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: [
+        episode({
+          id: 'ep-unplayable',
+          playbackHost: 'custom',
+          customPlaybackUrl: null,
+          youtubeVideoId: null,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+    renderCatalogPage()
+
+    expect(container.textContent).toContain('No episodes are available for in-app playback yet.')
+  })
+
   it('keeps the mixed grid unfiltered by catalog on the hub', () => {
     renderCatalogPage()
 

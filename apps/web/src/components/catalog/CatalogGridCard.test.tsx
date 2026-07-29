@@ -88,7 +88,7 @@ describe('CatalogGridCard', () => {
     expect(container.textContent).toContain('Another: Shape')
   })
 
-  it('renders no advisory slot when tags are empty', () => {
+  it('renders no advisory slot when tags are empty and embed is allowed', () => {
     renderCard(episode({ tags: [], playbackExpectation: 'ad_supported' }))
 
     expect(container.querySelector('.riffsync-catalog-card__advisory')).toBeNull()
@@ -97,7 +97,7 @@ describe('CatalogGridCard', () => {
     expect(container.textContent).not.toContain('Likely ad-supported')
   })
 
-  it('does not render playback advisory or not-embeddable copy', () => {
+  it('shows YouTube embed advisory for YouTube-host rows when embedAllows is false', () => {
     renderCard(
       episode({
         tags: ['Era: Mike'],
@@ -106,22 +106,24 @@ describe('CatalogGridCard', () => {
       }),
     )
 
-    expect(container.textContent).not.toContain('Ads may appear')
-    expect(container.textContent).not.toContain('Premium-friendly')
-    expect(container.textContent).not.toContain('Likely ad-supported')
-    expect(container.textContent).not.toContain('Not embeddable')
+    expect(container.textContent).toContain('In-app YouTube embed is not available for this episode.')
+    expect(container.textContent).toContain('Era: Mike')
   })
 
-  it('still gates in-app embed actions when embedAllows is false', () => {
+  it('does not show embed advisory on Custom-host rows when embedAllows is false', () => {
+    renderCard(
+      episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.com/movie',
+        embedAllows: false,
+      }),
+    )
+
+    expect(container.textContent).not.toContain('In-app YouTube embed is not available')
+  })
+
+  it('keeps Watch Solo enabled via internal link when embedAllows is false on YouTube-host rows', () => {
     renderCard(episode({ embedAllows: false }))
-
-    const watchSolo = container.querySelector('button.gen-button--ghost') as HTMLButtonElement | null
-    expect(watchSolo).not.toBeNull()
-    expect(container.querySelector('a.gen-button--ghost[href="/watch/032-mitchell"]')).toBeNull()
-  })
-
-  it('keeps the internal watch link for embeddable episodes', () => {
-    renderCard(episode({ embedAllows: true }))
 
     const watchSolo = container.querySelector('a.gen-button--ghost') as HTMLAnchorElement | null
     expect(watchSolo?.getAttribute('href')).toBe('/watch/032-mitchell')

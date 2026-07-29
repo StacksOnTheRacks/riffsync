@@ -1,14 +1,10 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { CatalogEpisode } from '../../catalog/catalogTypes'
+import { episodeIsPlayableInApp } from '../../catalog/catalogPlayback'
 import { catalogToRoomPlayback, createRoom } from '../../api/roomsApi'
 import { getFanAccessToken } from '../../auth/fanTokens'
 import { startFanHostedUiSignIn } from '../../auth/fanHostedUiPkce'
 import { PENDING_PARTY_EPISODE_KEY } from '../../catalog/pendingPartyStorage'
-import {
-  episodeAllowsInAppEmbed,
-  openCatalogYoutubeWatch,
-  resolveCatalogYoutubeWatchUrl,
-} from '../../catalog/catalogYoutubePlayback'
 
 export function EpisodeTileActions({
   episode,
@@ -22,10 +18,10 @@ export function EpisodeTileActions({
   const location = useLocation()
   const token = getFanAccessToken()
   const returnPath = `${location.pathname}${location.search}` || '/'
-  const directYoutubeWatchUrl = episodeAllowsInAppEmbed(episode) ? null : resolveCatalogYoutubeWatchUrl(episode)
+  const playable = episodeIsPlayableInApp(episode)
 
   const startParty = async () => {
-    if (!token) return
+    if (!token || !playable) return
     try {
       const room = await createRoom(token, {
         catalogEpisodeId: episode.id,
@@ -39,6 +35,7 @@ export function EpisodeTileActions({
   }
 
   const signInThenStartParty = () => {
+    if (!playable) return
     sessionStorage.setItem(PENDING_PARTY_EPISODE_KEY, episode.id)
     void startFanHostedUiSignIn(returnPath)
   }
@@ -51,20 +48,21 @@ export function EpisodeTileActions({
           : 'riffsync-episode-tile-actions'
       }
     >
-      {directYoutubeWatchUrl ? (
-        <button
-          type="button"
-          className="gen-button gen-button--ghost"
-          onClick={() => openCatalogYoutubeWatch(directYoutubeWatchUrl)}
-        >
-          Watch Solo
-        </button>
-      ) : (
+      {playable ? (
         <Link to={`/watch/${episode.id}`} className="gen-button gen-button--ghost">
           Watch Solo
         </Link>
+      ) : (
+        <button type="button" className="gen-button gen-button--ghost" disabled>
+          Watch Solo
+        </button>
       )}
-      <button type="button" className="gen-button" onClick={token ? () => void startParty() : signInThenStartParty}>
+      <button
+        type="button"
+        className="gen-button"
+        disabled={!playable}
+        onClick={playable ? (token ? () => void startParty() : signInThenStartParty) : undefined}
+      >
         Start Party
       </button>
     </div>

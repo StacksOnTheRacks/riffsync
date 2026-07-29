@@ -1,29 +1,40 @@
 import type { CatalogCategory, CatalogEpisode } from './catalogTypes'
+import { episodeIsPlayableInApp } from './catalogPlayback'
 
-const ERA_YOUTUBE_ROW_CAP = 10
+const ERA_PLAYABLE_ROW_CAP = 10
 
-/** True when the episode has a non-empty YouTube video id (in-app watch + thumbnails). */
+/** @deprecated SEO scripts (#397) still import this; fan browse uses catalogPlayback helpers. */
 export function episodeHasYoutubeLink(ep: CatalogEpisode): boolean {
   return ep.youtubeVideoId != null && ep.youtubeVideoId.trim() !== ''
 }
 
+/** @deprecated SEO scripts (#397) still import this; fan browse uses catalogEntriesPlayableInApp. */
 export function catalogEntriesWithYoutubeLink(entries: CatalogEpisode[]): CatalogEpisode[] {
   return entries.filter(episodeHasYoutubeLink)
 }
 
 /**
- * Episodes for a metadata tag that have a playable YouTube id, in experiment order.
+ * Episodes for a metadata tag that are playable in-app, in experiment order.
  * Uses the full **`GET /v1/catalog`** list (already loaded on the home page).
  */
+export function firstEpisodesPlayableForTag(
+  entries: CatalogEpisode[],
+  tag: string,
+  limit: number = ERA_PLAYABLE_ROW_CAP,
+): CatalogEpisode[] {
+  return entries
+    .filter((e) => e.tags.includes(tag) && episodeIsPlayableInApp(e))
+    .sort((a, b) => a.experimentNumber - b.experimentNumber)
+    .slice(0, limit)
+}
+
+/** @deprecated Use firstEpisodesPlayableForTag on fan browse paths. */
 export function firstEpisodesWithYoutubeForTag(
   entries: CatalogEpisode[],
   tag: string,
-  limit: number = ERA_YOUTUBE_ROW_CAP,
+  limit: number = ERA_PLAYABLE_ROW_CAP,
 ): CatalogEpisode[] {
-  return entries
-    .filter((e) => e.tags.includes(tag) && episodeHasYoutubeLink(e))
-    .sort((a, b) => a.experimentNumber - b.experimentNumber)
-    .slice(0, limit)
+  return firstEpisodesPlayableForTag(entries, tag, limit)
 }
 
 /** YouTube poster fallback when `posterImageUrl` / `backdropImageUrl` are null (dev/catalog seed). */

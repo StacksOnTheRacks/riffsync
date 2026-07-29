@@ -66,29 +66,52 @@ describe('EpisodeTileActions', () => {
     })
   }
 
-  it('opens YouTube directly for non-embeddable episodes with a watch URL', () => {
+  it('links Watch Solo to /watch/:id for playable YouTube rows even when embedAllows is false', () => {
     renderActions(episode({ embedAllows: false }))
-
-    const watchSolo = container.querySelector('button.gen-button--ghost') as HTMLButtonElement | null
-    expect(watchSolo).not.toBeNull()
-
-    act(() => {
-      watchSolo?.click()
-    })
-
-    expect(window.open).toHaveBeenCalledWith(
-      'https://www.youtube.com/watch?v=NXGXtm6gcxk',
-      '_blank',
-      'noopener,noreferrer',
-    )
-    expect(container.querySelector('a[href="/watch/032-mitchell"]')).toBeNull()
-  })
-
-  it('keeps the internal watch link for embeddable episodes', () => {
-    renderActions(episode({ embedAllows: true }))
 
     const watchSolo = container.querySelector('a.gen-button--ghost') as HTMLAnchorElement | null
     expect(watchSolo?.getAttribute('href')).toBe('/watch/032-mitchell')
     expect(container.querySelector('button.gen-button--ghost')).toBeNull()
+    expect(window.open).not.toHaveBeenCalled()
+  })
+
+  it('enables both actions for Custom-host rows with HTTPS customPlaybackUrl', () => {
+    renderActions(
+      episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.com/movie',
+        youtubeVideoId: null,
+      }),
+    )
+
+    const watchSolo = container.querySelector('a.gen-button--ghost') as HTMLAnchorElement | null
+    expect(watchSolo?.getAttribute('href')).toBe('/watch/032-mitchell')
+    const startParty = container.querySelector('button.gen-button:not(.gen-button--ghost)') as HTMLButtonElement
+    expect(startParty.disabled).toBe(false)
+  })
+
+  it('disables both actions when Custom-host row has no valid customPlaybackUrl', () => {
+    renderActions(
+      episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: null,
+        youtubeVideoId: 'NXGXtm6gcxk',
+      }),
+    )
+
+    const watchSolo = container.querySelector('button.gen-button--ghost') as HTMLButtonElement
+    const startParty = container.querySelector('button.gen-button:not(.gen-button--ghost)') as HTMLButtonElement
+    expect(watchSolo.disabled).toBe(true)
+    expect(startParty.disabled).toBe(true)
+    expect(container.querySelector('a.gen-button--ghost')).toBeNull()
+  })
+
+  it('disables both actions when YouTube-host row has no video id', () => {
+    renderActions(episode({ youtubeVideoId: null, youtubeWatchUrl: null }))
+
+    const watchSolo = container.querySelector('button.gen-button--ghost') as HTMLButtonElement
+    const startParty = container.querySelector('button.gen-button:not(.gen-button--ghost)') as HTMLButtonElement
+    expect(watchSolo.disabled).toBe(true)
+    expect(startParty.disabled).toBe(true)
   })
 })

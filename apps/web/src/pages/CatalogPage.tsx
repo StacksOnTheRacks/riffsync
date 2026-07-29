@@ -7,7 +7,7 @@ import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogHubEntryLinks } from '../components/catalog/CatalogHubEntryLinks'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
-import { catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
+import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
 import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 
@@ -21,17 +21,17 @@ export function CatalogPage() {
   useResumePendingPartyRoom(data, navigate)
 
   const allEntries = data ?? EMPTY_CATALOG_ENTRIES
-  const youtubeEntries = useMemo(
-    () => catalogEntriesWithYoutubeLink(allEntries),
+  const playableEntries = useMemo(
+    () => catalogEntriesPlayableInApp(allEntries),
     [allEntries],
   )
   const filteredEntries = useMemo(
-    () => filterCatalogEntries(youtubeEntries, { titleQuery, catalogs: [] }),
-    [youtubeEntries, titleQuery],
+    () => filterCatalogEntries(playableEntries, { titleQuery, catalogs: [] }),
+    [playableEntries, titleQuery],
   )
 
   const filterBarDisabled = isPending && !data
-  const isFilterNoMatch = youtubeEntries.length > 0 && filteredEntries.length === 0
+  const isFilterNoMatch = playableEntries.length > 0 && filteredEntries.length === 0
 
   if (isPending && !data) {
     return (
@@ -72,11 +72,11 @@ export function CatalogPage() {
               <CatalogGridCard key={ep.id} episode={ep} />
             ))}
           </div>
-          {youtubeEntries.length === 0 && (
+          {playableEntries.length === 0 && (
             <p>
               {allEntries.length === 0
                 ? 'No episodes in the catalog yet.'
-                : 'No episodes with a YouTube link are listed yet.'}
+                : 'No episodes are available for in-app playback yet.'}
             </p>
           )}
           {isFilterNoMatch && (
