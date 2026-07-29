@@ -15,6 +15,8 @@ export const ADMIN_WRITABLE_KEYS = [
   'movieSearchTitle',
   'tmdbMovieId',
   'embedAllows',
+  'playbackHost',
+  'customPlaybackUrl',
 ] as const;
 
 export type AdminWritableKey = (typeof ADMIN_WRITABLE_KEYS)[number];
@@ -33,6 +35,10 @@ export const READ_ONLY_WRITE_KEYS = [
 ] as const;
 
 const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+const CUSTOM_PLAYBACK_URL_MAX_LENGTH = 2048;
+const CUSTOM_PLAYBACK_URL_ERROR =
+  'customPlaybackUrl must be an HTTPS URL (max 2048 characters)';
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
@@ -118,7 +124,49 @@ function parseWritableBody(body: Record<string, unknown>): Record<string, unknow
   return out;
 }
 
+function validateCustomPlaybackUrlString(url: string): ValidationDetail | null {
+  const normalized = url.normalize('NFC');
+  if (!normalized.startsWith('https://') || normalized.length > CUSTOM_PLAYBACK_URL_MAX_LENGTH) {
+    return { instancePath: '/customPlaybackUrl', message: CUSTOM_PLAYBACK_URL_ERROR };
+  }
+  return null;
+}
+
+function normalizeCustomPlaybackUrlOnItem(item: Record<string, unknown>): CatalogValidationResult | null {
+  if (!Object.prototype.hasOwnProperty.call(item, 'customPlaybackUrl')) {
+    return null;
+  }
+  const raw = item.customPlaybackUrl;
+  if (raw === null) {
+    return null;
+  }
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const normalized = raw.normalize('NFC');
+  const urlError = validateCustomPlaybackUrlString(normalized);
+  if (urlError) {
+    return { ok: false, error: 'Validation failed', details: [urlError] };
+  }
+  item.customPlaybackUrl = normalized;
+  return null;
+}
+
+function defaultPlaybackHost(item: Record<string, unknown>): void {
+  if (!Object.prototype.hasOwnProperty.call(item, 'playbackHost')) {
+    item.playbackHost = 'youtube';
+  }
+}
+
+function preparePlaybackFields(item: Record<string, unknown>): CatalogValidationResult | null {
+  defaultPlaybackHost(item);
+  return normalizeCustomPlaybackUrlOnItem(item);
+}
+
 function validateMergedEpisode(item: Record<string, unknown>): CatalogValidationResult | null {
+  const prepareError = preparePlaybackFields(item);
+  if (prepareError) return prepareError;
+
   if (!validateEpisodeSchema(item)) {
     return {
       ok: false,
@@ -200,6 +248,12 @@ export function validateCatalogEpisodePost(
   const movieSearchTitle = Object.prototype.hasOwnProperty.call(writable, 'movieSearchTitle')
     ? writable.movieSearchTitle
     : null;
+  const playbackHost = Object.prototype.hasOwnProperty.call(writable, 'playbackHost')
+    ? writable.playbackHost
+    : 'youtube';
+  const customPlaybackUrl = Object.prototype.hasOwnProperty.call(writable, 'customPlaybackUrl')
+    ? writable.customPlaybackUrl
+    : null;
 
   const item: Record<string, unknown> = {
     id: pathId,
@@ -214,6 +268,8 @@ export function validateCatalogEpisodePost(
     spotlight,
     embedAllows,
     movieSearchTitle,
+    playbackHost,
+    customPlaybackUrl,
     tagline: null,
     posterImageUrl: null,
     backdropImageUrl: null,
@@ -262,6 +318,8 @@ export function validateCatalogEpisodePatch(
   ) {
     clearTmdbEnrichmentForReconcile(merged);
   }
+  const prepareError = preparePlaybackFields(merged);
+  if (prepareError) return prepareError;
   const schemaError = validateMergedEpisode(pickSchemaEpisodeFields(merged));
   if (schemaError) return schemaError;
 
