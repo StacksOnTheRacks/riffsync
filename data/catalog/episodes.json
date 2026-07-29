@@ -20,7 +20,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "005-labyrinth",
@@ -39,7 +41,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "006-night-of-the-comet",
@@ -58,7 +62,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "008-ghoulies",
@@ -77,7 +83,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "009-futureworld",
@@ -96,7 +104,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "011-monty-python-and-the-holy-grail",
@@ -115,7 +125,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "012-godzilla-and-mechagodzilla",
@@ -134,7 +146,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "013-westworld",
@@ -153,7 +167,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "015-wargames",
@@ -172,7 +188,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "018-explorers",
@@ -191,7 +209,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "019-robot-monster",
@@ -210,7 +230,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "020-alien-factor",
@@ -229,7 +251,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "021-galaxy-of-terror",
@@ -248,7 +272,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "024-the-way-of-the-dragon",
@@ -267,7 +293,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "025-without-a-paddle",
@@ -286,7 +314,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "026-over-the-top",
@@ -305,7 +335,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "027-war-of-the-worlds",
@@ -324,7 +356,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "028-the-starving-games",
@@ -343,7 +377,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "029-star-trek-vii-generations",
@@ -362,7 +398,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "030-star-trek-viii-first-contact",
@@ -381,7 +419,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "031-cherry-2000",
@@ -400,7 +440,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "032-mitchell",
@@ -419,7 +461,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "033-the-great-outdoors",
@@ -438,7 +482,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "034-stargate",
@@ -457,7 +503,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "035-bruce-almighty",
@@ -476,7 +524,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "036-the-touch-of-satan",
@@ -495,7 +545,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "037-the-pumaman",
@@ -514,7 +566,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "038-final-fantasy-the-spirits-within",
@@ -533,7 +587,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "039-starcrash",
@@ -552,7 +608,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "040-the-blob",
@@ -571,7 +629,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "041-the-fifth-element",
@@ -590,7 +650,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "042-annie",
@@ -609,7 +671,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "043-killer-klowns-from-outer-space",
@@ -628,7 +692,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "044-invasion-of-the-neptune-men",
@@ -647,7 +713,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "045-galaxy-of-terror",
@@ -666,7 +734,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "046-the-da-vinci-code",
@@ -685,7 +755,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "047-the-mothman-prophecies",
@@ -704,7 +776,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "048-uhf",
@@ -723,7 +797,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "101-the-crawling-eye",
@@ -742,7 +818,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/zOk75ZjFvjKZ7xCIVPIrdRfvXgR.jpg",
       "tmdbMovieId": 43143,
       "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
-      "carousel": false
+      "carousel": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "102-the-robot-vs-the-aztec-mummy",
@@ -761,7 +839,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/fNeaL33dEMm9f2p3I7ClwBDKZjK.jpg",
       "tmdbMovieId": 31243,
       "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z",
-      "carousel": false
+      "carousel": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "103-the-mad-monster",
@@ -780,7 +860,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/3PqF057dHrqqzcJIBG7z9eFBcaA.jpg",
       "tmdbMovieId": 110980,
       "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
-      "carousel": false
+      "carousel": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "104-women-of-the-prehistoric-planet",
@@ -798,7 +880,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/teURW8JLrjCFFcBCzIr9IviFL2O.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/hpb4ztqfttz7sGRyfsR5z5X2xWo.jpg",
       "tmdbMovieId": 42727,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "105-the-corpse-vanishes",
@@ -816,7 +900,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/ur7omgilzhWeHKW9Spd3ueHFbC1.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/3Xzvf4YaxdsPcTBBigabgzSEmFo.jpg",
       "tmdbMovieId": 26922,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "106-the-crawling-hand",
@@ -834,7 +920,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/dc6HgjkuQ7kgAw0GRBuMXTxnIFi.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/tg2Vttp0DEeOfe5YimL9TBpuNIy.jpg",
       "tmdbMovieId": 51260,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "107-robot-monster",
@@ -852,7 +940,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "108-the-slime-people",
@@ -870,7 +960,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/dQxxekz2IygIn9x7ODxdc9DiZ20.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/3KEEO1DkKi0aMW6wjAaey216Gjp.jpg",
       "tmdbMovieId": 63087,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "109-project-moonbase",
@@ -888,7 +980,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/djG5ljYkjESdyeueMNfdu0VHsL0.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/h5lp0a9ABTLSm96mKokG7VIXznN.jpg",
       "tmdbMovieId": 26270,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "110-robot-holocaust",
@@ -906,7 +1000,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/9DiMdtWFAcykVd4c8WCpN8PcJdo.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/j0LNLUeQqGTN3Goz5uMCe9CtMIV.jpg",
       "tmdbMovieId": 84760,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "111-moon-zero-two",
@@ -924,7 +1020,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/1IIIKlNZXj9vVBrQXZeWttzFoNm.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/gBcz5u6LxdBtGoG55RHmmzBLRRc.jpg",
       "tmdbMovieId": 26121,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "112-untamed-youth",
@@ -942,7 +1040,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/lve0y5GxFY5X73mZglymsNbAlO2.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/xIUwiZiSmhqWL8fXgoGUTSfltRa.jpg",
       "tmdbMovieId": 98079,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "113-the-black-scorpion",
@@ -960,7 +1060,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/z6gEzeLl3NWuESexRiUpk4rtLPH.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/2yNSr4yuAagKwX7q7gq4TxPZHV4.jpg",
       "tmdbMovieId": 44591,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "201-rocketship-x-m",
@@ -978,7 +1080,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/kEODdwwJBEROPYpFUPWHSAm1ZTJ.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/a2jTsapIuYQ18Kjwp1sxjIpCCZE.jpg",
       "tmdbMovieId": 37744,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "202-the-sidehackers",
@@ -996,7 +1100,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/vWZlZKSrgLoUxBg2BhtVbi0cXpt.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/5Lye8jj5tga0LewL0DhaJTc7WHJ.jpg",
       "tmdbMovieId": 31124,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "203-jungle-goddess",
@@ -1014,7 +1120,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/6dE1BMWbQ3CYgFtJMcl1cZ81o9i.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/zBatKbzKbXsQU1y9omMlx3l4nGB.jpg",
       "tmdbMovieId": 160793,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "204-catalina-caper",
@@ -1032,7 +1140,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/6efmkosmHrbwDqkkq23R5JV0rPt.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/eWiUHC8DH4Uvly3tfCd1K66vevl.jpg",
       "tmdbMovieId": 31265,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "205-rocket-attack-u-s-a",
@@ -1050,7 +1160,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/uwiX7puxDD89fytQg4jZdpnlEoj.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/o5KEcyMGAA2pV9kjmcK1N01iyQ7.jpg",
       "tmdbMovieId": 113158,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "206-ring-of-terror",
@@ -1068,7 +1180,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/hVuVppiIntAR5Sf01nWCBinnWHL.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/sCoKZZmtRSCzlcKXFhpQAO4WHE0.jpg",
       "tmdbMovieId": 113739,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "207-wild-rebels",
@@ -1086,7 +1200,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/dT9jWJGNtu2ylWHcdfYInBTV3i2.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/dud5y5XuzoqojnIaA437WoyMQGI.jpg",
       "tmdbMovieId": 96334,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "208-lost-continent",
@@ -1104,7 +1220,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/sXI8wCc5osqLWtfKsWuqztNPhpL.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/iVvzZuBpagsgOGkaVkin9MDtCJU.jpg",
       "tmdbMovieId": 44592,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "209-the-hellcats",
@@ -1122,7 +1240,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/xKavmw50IwxQIlEUKMcQRY3BhNC.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/77wDcjzDlKD2jBv6pkJg5s1O7LV.jpg",
       "tmdbMovieId": 31125,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "210-king-dinosaur",
@@ -1140,7 +1260,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "211-first-spaceship-on-venus",
@@ -1158,7 +1280,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/7e1wyuPdaajWCogovoO2nwaESyf.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/A1S23XMWNbDw8gjtGSPkipDjYml.jpg",
       "tmdbMovieId": 17938,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "301-cave-dwellers",
@@ -1176,7 +1300,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "302-gamera",
@@ -1194,7 +1320,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "303-pod-people",
@@ -1212,7 +1340,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "304-gamera-vs-barugon",
@@ -1230,7 +1360,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/tXHVZDyeZPMtd3ggxZEpjmDIdWg.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/4r82M3QqtWfHKKDXwx2Rdo1ooMy.jpg",
       "tmdbMovieId": 22899,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "305-stranded-in-space",
@@ -1248,7 +1380,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/cW9O7ge37Miw2aKeG7BFDO8Jon0.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/r7JY0hqfyqlmvZ0KhDIs7WorI0m.jpg",
       "tmdbMovieId": 160799,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "306-time-of-the-apes",
@@ -1266,7 +1400,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/u8flqkhabppFOvry4UjRI8TNpWL.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/wk2F8Dn9HM1F9qzrUcfZJ5Kzxpp.jpg",
       "tmdbMovieId": 47444,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "307-daddy-o",
@@ -1284,7 +1420,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/rbG029DCHnlzuWXuzpF2QCk7KaZ.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/xeFgB7xscP7nTG66Ik688MzVsKM.jpg",
       "tmdbMovieId": 134732,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:30.921Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:30.921Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "308-gamera-vs-gaos",
@@ -1302,7 +1440,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/sQFFSD4ie6BqbXX7GWre7OikqmD.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/qwTPtDEtpG00lLl6C93HVz2TKfJ.jpg",
       "tmdbMovieId": 52728,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "310-fugitive-alien",
@@ -1320,7 +1460,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/hYq03NmJwcp8qg3U6RGOWLdil8J.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/71dwksxgv85ylQEzSIvKmFEEXVO.jpg",
       "tmdbMovieId": 113119,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:30.921Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:30.921Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "312-gamera-vs-guiron",
@@ -1338,7 +1480,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/13Hn8vS45Ua0ex5dpVED5eQlqZi.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/yFC72NT2tNv6AUonYj1IpYHflMl.jpg",
       "tmdbMovieId": 26947,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "313-earth-vs-the-spider",
@@ -1356,7 +1500,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/4uns8WSxu9LSFv0FkJP8uv6Q5kQ.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/4ZEW1hpw4EIJymClhtZO3ToMj4I.jpg",
       "tmdbMovieId": 43115,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "314-mighty-jack",
@@ -1374,7 +1520,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/2QXpzBMJJtmH7JvVf0ZzENvgc1o.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/X5kdpMCowusOsub7jSHSnALysp.jpg",
       "tmdbMovieId": 13321,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "315-teenage-caveman",
@@ -1392,7 +1540,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/38kDZhW3885yZBDZjiwMBY1KeBM.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/pMqlfO51TfV8HEEYCGU6JmqUZUP.jpg",
       "tmdbMovieId": 97784,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "316-gamera-vs-zigra",
@@ -1410,7 +1560,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/nL7CjKEQlsegz9FstfkzI05eGXt.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/AfhZxxJkmyDSkaIP3pJ0KJFPQaa.jpg",
       "tmdbMovieId": 70322,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "317-viking-women-and-the-sea-serpent",
@@ -1428,7 +1580,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/mQ2BZf0K7jJOvBZqgVE0m7rFmnQ.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/kymxh9tqeReK0DqKsmXpU2ZjvYJ.jpg",
       "tmdbMovieId": 85854,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "318-star-force-fugitive-alien-ii",
@@ -1446,7 +1600,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/43sLrPSRKtH99JGuyYWCzyhmd94.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/ewAzbJOPC0WRsUrlkS9VntovV7O.jpg",
       "tmdbMovieId": 118155,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "319-war-of-the-colossal-beast",
@@ -1464,7 +1620,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/xIQI3aN8zHZAmrCCm74EgwLcuVt.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/zu4ol66vtGH5JXa2WdYV2yAJ05w.jpg",
       "tmdbMovieId": 38269,
-      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T12:22:06.174Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "320-the-unearthly",
@@ -1482,7 +1640,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/sZcP866eeTI4V7V2JtqZwP2m5VR.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/sJTXx61jciDDzpoGcyxXgT0gc3b.jpg",
       "tmdbMovieId": 31393,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "321-santa-claus-conquers-the-martians",
@@ -1500,7 +1660,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/f8lxrcMx98AuvlLSb2hPkz0CuH0.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/5f1Li4gdAa16VEwTePZIQ29kPrg.jpg",
       "tmdbMovieId": 32307,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "322-master-ninja-i",
@@ -1519,7 +1681,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/qs8i1O6Spia46s5rhyNlknqOZ8b.jpg",
       "tmdbMovieId": 639413,
       "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
-      "spotlight": true
+      "spotlight": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "323-the-castle-of-fu-manchu",
@@ -1537,7 +1701,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/cRRVPZ5TyBa5T9pZrepNthAumet.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/ab68Ss1zgyfTqLpG0alV1GUulIm.jpg",
       "tmdbMovieId": 3485,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "324-master-ninja-ii",
@@ -1555,7 +1721,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/xci9m8GgMlkzut0gys2X08FQQEa.jpg",
       "backdropImageUrl": null,
       "tmdbMovieId": 506158,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "402-the-giant-gila-monster",
@@ -1573,7 +1741,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/o7LI2NQ0KtDaVaIYYhZ9PHFDV37.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/sbtAGCz7GIVgHHbAT9AO28QOCVM.jpg",
       "tmdbMovieId": 34077,
-      "tmdbArtworkSyncedAt": "2026-06-06T09:08:27.713Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T09:08:27.713Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "403-city-limits",
@@ -1591,7 +1761,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "404-teenagers-from-outer-space",
@@ -1609,7 +1781,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/lb8hW24LHSllzlHSOjCwOx2o07D.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/kkOZz1mNVvZSrRzc02gaE2lPxX7.jpg",
       "tmdbMovieId": 35139,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "405-being-from-another-planet",
@@ -1627,7 +1801,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/dzL1rGs3ZSv5Gp3E5U5FdFPWCkm.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/robXbyftpvfK3sw0PSRN9F4jQCx.jpg",
       "tmdbMovieId": 30049,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "406-attack-of-the-giant-leeches",
@@ -1645,7 +1821,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/n3dAhWfWxsNQJ5ZUcn8Q3mW8EIP.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/z9yXcMBSq2UUBgM8h1V92sD7NZN.jpg",
       "tmdbMovieId": 22718,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "407-the-killer-shrews",
@@ -1663,7 +1841,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/2agTmqPg2we1gd4Fr1p2UNAMORI.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/4kUnuf67zJlqOB6CaryXwsqDhgv.jpg",
       "tmdbMovieId": 43109,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "408-hercules-unchained",
@@ -1681,7 +1861,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/4lzZhokSXwb93GlrREMuRLw0SLL.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/2mHanIxLVLoNwWTQG4rVPRVnBX8.jpg",
       "tmdbMovieId": 39402,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "409-indestructible-man",
@@ -1699,7 +1881,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/kcD0kG86GK2mUHjNf6QoDfwtnxd.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/3bAoBfuCIVbIRLOBL8Nqerdycuz.jpg",
       "tmdbMovieId": 48385,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:49.483Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:49.483Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "410-hercules-against-the-moon-men",
@@ -1717,7 +1901,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/lQSDjwoJUr7uxmHYcrUHxVA2Roq.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/9qwC63drOWfYz8SEcc2ic1HnmOO.jpg",
       "tmdbMovieId": 31396,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "411-the-magic-sword",
@@ -1735,7 +1921,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/mVivlmUdyUwqSBnQkSzX3TLduky.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/kQt1Rg9v6AYyGROMeuTR9m8E7BW.jpg",
       "tmdbMovieId": 26643,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "412-hercules-and-the-captive-women",
@@ -1753,7 +1941,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/w7AmUyC8irs9ho31dC4SEl2mLRb.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/3EFgn1MZ1GOZBTExHlWiXVx4sy.jpg",
       "tmdbMovieId": 42576,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "413-manhunt-in-space",
@@ -1771,7 +1961,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/3xDnCvHvrRWLcy7t7Bw7Bbj3K1k.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/Am4f4xvlayDewKB306itYdOErfi.jpg",
       "tmdbMovieId": 154371,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "414-tormented",
@@ -1789,7 +1981,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/8sGHAZVgizrAO2ixNliGVLDgZwg.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/rJq9d4A3XjaReMHuLSt4p99Agpk.jpg",
       "tmdbMovieId": 28586,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "415-the-beatniks",
@@ -1807,7 +2001,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/5ghqUJ9lh0wxoNxo69tIgR6hO6j.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/ycY9c5DZgiM4ZK0eb8fR4YSj3w2.jpg",
       "tmdbMovieId": 89751,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "417-crash-of-moons",
@@ -1825,7 +2021,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/9ItQQY9H03fNDwWHlYWcCxvH5BC.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/f9dbqDZKBpCPy0DtkwnVbjrP871.jpg",
       "tmdbMovieId": 89998,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "419-the-rebel-set",
@@ -1843,7 +2041,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/7jZthaY0XP00ZkpX9lmPFY0F5Yo.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/zumwujsvDsltUpbFz6JWqdZ7Y0U.jpg",
       "tmdbMovieId": 127186,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "420-the-human-duplicators",
@@ -1861,7 +2061,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/iyLZfhEGuZ8xqLmwzK5U6zCBb5k.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/63zdPyDZcRTlvNWr6QQ03frpNUz.jpg",
       "tmdbMovieId": 42743,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "421-monster-a-go-go",
@@ -1879,7 +2081,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/qo7KOaQjodrJ2KfHjQaUwi6MTKw.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/a21fC2MBassba5GwzaJ1Tpdapon.jpg",
       "tmdbMovieId": 31119,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "422-the-day-the-earth-froze",
@@ -1897,7 +2101,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/4AjPAqxX2dJ0BiRTMqFclbikaa5.jpg",
       "backdropImageUrl": null,
       "tmdbMovieId": 1703736,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:40.647Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:40.647Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "423-bride-of-the-monster",
@@ -1916,7 +2122,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/puQQOAvPiMg7TBr8HwDidtthmz7.jpg",
       "tmdbMovieId": 36489,
       "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
-      "carousel": true
+      "carousel": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "424-manos-the-hands-of-fate",
@@ -1935,7 +2143,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/cjbIk6T7NqhX6myBGyQXU3j9ngk.jpg",
       "tmdbMovieId": 22293,
       "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
-      "spotlight": true
+      "spotlight": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "501-warrior-of-the-lost-world",
@@ -1953,7 +2163,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/xRtGeMm3ETvM5i51HgGzIsN3hhl.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/dlq14bCOOoGIUzNSddrlqDStlU.jpg",
       "tmdbMovieId": 52837,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "502-hercules",
@@ -1971,7 +2183,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "503-swamp-diamonds",
@@ -1989,7 +2203,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/4Rr4hDuXr8gJnH48d7UcySpEnfC.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/qCGttaliZIInqQaAYZEvm7ZcmOS.jpg",
       "tmdbMovieId": 27344,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "504-secret-agent-super-dragon",
@@ -2007,7 +2223,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/a9hyX0Pj7ZOGrXEf1Epnp0KWk5M.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/5ZRqeB9uurxQswNQXf2ZkDmyEUH.jpg",
       "tmdbMovieId": 3692,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "505-the-magic-voyage-of-sinbad",
@@ -2026,7 +2244,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/55FJdnwxzEpqqme5M0kObC7PEgz.jpg",
       "tmdbMovieId": 1692478,
       "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
-      "carousel": true
+      "carousel": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "506-eegah",
@@ -2044,7 +2264,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/mvLmdKwnzVjPNdRs5FYBgL3xQWB.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/pm7SvDzGFqmWNJ3cBNB51jSNSrC.jpg",
       "tmdbMovieId": 31287,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "507-i-accuse-my-parents",
@@ -2062,7 +2284,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/A4IdQ6lI1cPylgwNhMNgTnGZIzN.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/thMFavG6WLWpZucD3DT3npAPuXC.jpg",
       "tmdbMovieId": 31282,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "508-operation-double-007",
@@ -2080,7 +2304,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/rcLDzxLlhSEl3a7F11Wdnm0GlMA.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/4xPXmSUhMhDJxwjH6vob3vv6xUZ.jpg",
       "tmdbMovieId": 98085,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "509-the-girl-in-lovers-lane",
@@ -2098,7 +2324,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/jVDAYfzKfAihA14ssPDwDlWNuCw.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/sVJdox7cHSRscHYuMXaOpp2ys3C.jpg",
       "tmdbMovieId": 89763,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "510-the-painted-hills",
@@ -2116,7 +2344,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/4Xvm83XJiACBeVj3quKLhu1VSIH.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/nmg9kG7WeOJEtdcHuenNDW3P2ki.jpg",
       "tmdbMovieId": 61855,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "511-gunslinger",
@@ -2134,7 +2364,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "512-mitchell",
@@ -2152,7 +2384,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/14Afu2In8RPbdhTacNJl5kRechp.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/btCHqzjZgzggZ5k1mHx5Sq8t8kC.jpg",
       "tmdbMovieId": 32303,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:49.483Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:49.483Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "513-the-brain-that-wouldn-t-die",
@@ -2170,7 +2404,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/npg6NH4maZ4NTTWzA71KNCTvQNG.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/rlGq9CU2O5ii0nxWJUi6fMVZlhQ.jpg",
       "tmdbMovieId": 33468,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:49.483Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:49.483Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "514-teen-age-strangler",
@@ -2188,7 +2424,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/vAFPimcqta2cyB1SaXQLgnuH5QO.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/6mx3NKltP7KTzB582UsEoUqn7L4.jpg",
       "tmdbMovieId": 109097,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "515-the-wild-wild-world-of-batwoman",
@@ -2206,7 +2444,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/oPhwk02vibVJt6vVQxM40TENvlF.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/bK30scD8ODBRIWFi19ct5eCdlc5.jpg",
       "tmdbMovieId": 31258,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "516-alien-from-l-a",
@@ -2224,7 +2464,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/Al8v2ASozhufxTiA7HVL7GAxi3y.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/rwD8N3wvfxcDBborM1BCZ6AiExZ.jpg",
       "tmdbMovieId": 31397,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "517-beginning-of-the-end",
@@ -2242,7 +2484,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "518-the-atomic-brain",
@@ -2260,7 +2504,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "519-outlaw",
@@ -2278,7 +2524,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "520-radar-secret-service",
@@ -2296,7 +2544,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/8XSPWP8VaCVCxGliMZTBRzkcPQU.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/cry8DRgxCAIH8Ji35PW7ymt9mOt.jpg",
       "tmdbMovieId": 25953,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "521-santa-claus",
@@ -2314,7 +2564,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:08:27.624Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:08:27.624Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "523-village-of-the-giants",
@@ -2332,7 +2584,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/7K3s6cl7tfws2dCq3j5vHDxBksJ.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/lSUR21dFk3wGe48DPFaNHNPAzjl.jpg",
       "tmdbMovieId": 42780,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "524-12-to-the-moon",
@@ -2350,7 +2604,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/xZPAi8RWHdQ8ctKDE2RkxHsvFis.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/kpq9wHx1QaTrEGEn3rCd0nPdZjK.jpg",
       "tmdbMovieId": 61702,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "602-invasion-u-s-a",
@@ -2368,7 +2624,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/Y7ovODwkyGH149SXPEpiSY9sQk.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/t3MaIRN5YClpymyjFXOy3bbM3tL.jpg",
       "tmdbMovieId": 46145,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "603-the-dead-talk-back",
@@ -2386,7 +2644,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/ku4BfYVCfZtwY8DpMyU3a5Mf3Ci.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/iMRU0tUmViji9JnjIC0zr4G9PIz.jpg",
       "tmdbMovieId": 92809,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "604-zombie-nightmare",
@@ -2404,7 +2664,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "605-colossus-and-the-headhunters",
@@ -2422,7 +2684,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/dS0UbT5NrP8KrLRMB92OP7crcgg.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/rBR86Q52suXTCK8PKMuiLOBDVfe.jpg",
       "tmdbMovieId": 198558,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "606-the-creeping-terror",
@@ -2440,7 +2704,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "607-bloodlust",
@@ -2458,7 +2724,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "608-code-name-diamond-head",
@@ -2476,7 +2744,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/ldzw49n70z7ONaSv1b8dj5gtQWg.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/lamNIEK8D6xYiHRLk11uRD6fyf.jpg",
       "tmdbMovieId": 186584,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "609-the-skydivers",
@@ -2494,7 +2764,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/5uSZyEQeCMGO8GKfYlLtqsx2Rq1.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/74BtgomBYNgHpUjATYNPe4QNa50.jpg",
       "tmdbMovieId": 31118,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "610-the-violent-years",
@@ -2512,7 +2784,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/yz0Ezoq5XomtJAn8CeucniqZHQJ.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/5lq4ZpMikWKwLdeylN20oRJb8ni.jpg",
       "tmdbMovieId": 56157,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "611-last-of-the-wild-horses",
@@ -2530,7 +2804,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/yWaoqgdxjqSmmFZG9skdJARaDXG.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/mmgUkveGNQdjLduPzD6MYMv41J5.jpg",
       "tmdbMovieId": 186585,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "612-the-starfighters",
@@ -2548,7 +2824,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/oL9iO695oX3sK6B3nsZ6A3xg3bt.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/gIyO8Z39TLML2RBynKuEely4ky5.jpg",
       "tmdbMovieId": 31122,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "613-the-sinister-urge",
@@ -2566,7 +2844,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/9n54p4JLO4UhMCgMIMbexbTSeqx.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/rWjBcvvF3eoLVw9llwOKFwQIvEo.jpg",
       "tmdbMovieId": 31286,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "615-kitten-with-a-whip",
@@ -2584,7 +2864,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/rGNvcHMsjsETfmP7KYbJfgrX2xb.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/63ryQqprKrVMvazWaPCOdgMz6xI.jpg",
       "tmdbMovieId": 42786,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:30.796Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:30.796Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "616-racket-girls",
@@ -2602,7 +2884,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/e1ZjNLzX9vedsvxUzS4zKqje8I8.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/w9XnDqsBYTYedyuYSf8VQzXb8qK.jpg",
       "tmdbMovieId": 89993,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "617-the-sword-and-the-dragon",
@@ -2620,7 +2904,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "618-high-school-big-shot",
@@ -2638,7 +2924,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/hykr4TX2E6kk6Jul8v2in7HrhfO.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/W0y2sB23zStM82YbCdnGpuvKQW.jpg",
       "tmdbMovieId": 161088,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "619-red-zone-cuba",
@@ -2656,7 +2944,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/oqh6rEJbUZOiSd9h1SfKe1Oh6fZ.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/naBftqr9LOZDZe2WZruohmMCM2g.jpg",
       "tmdbMovieId": 31123,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "620-danger-death-ray",
@@ -2674,7 +2964,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/oSbN7TeMc2gsj0B2ww9jhbNTgSZ.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/fLPMhR2apeF8pNwiFTnMcYVzElb.jpg",
       "tmdbMovieId": 84643,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "621-the-beast-of-yucca-flats",
@@ -2692,7 +2984,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/EK8aMR79yM1JnaXbbwKSIeACV9.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/f1z9wc6ag3f3TK9v75esKuRI5sV.jpg",
       "tmdbMovieId": 22727,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "622-angels-revenge",
@@ -2710,7 +3004,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "623-the-amazing-transparent-man",
@@ -2728,7 +3024,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/aOME46GMTef0rkseEi4phAo4gRf.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/4gpT7MxxzgglHHQCVhckHLgEJr3.jpg",
       "tmdbMovieId": 31634,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "624-samson-vs-the-vampire-women",
@@ -2746,7 +3044,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/oPD8OgrIix57GY7xrOfH4XqxMXy.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/b48bXS0PElJOYiNE5yZuULY6wkc.jpg",
       "tmdbMovieId": 29871,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "701-night-of-the-blood-beast",
@@ -2764,7 +3064,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/sgA7DNvk3WuLsicTikuC8v87JTo.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/11MQfePzM4i4hFYIiIRJVBtsM5D.jpg",
       "tmdbMovieId": 109122,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "702-the-brute-man",
@@ -2782,7 +3084,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "703-deathstalker-and-the-warriors-from-hell",
@@ -2800,7 +3104,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/v02COOci4mePyLwn2447PdbnCxz.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/bjbVtLwO4CFtcyV4aGItWwUTHhF.jpg",
       "tmdbMovieId": 47360,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "705-escape-2000",
@@ -2818,7 +3124,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "706-laserblast",
@@ -2836,7 +3144,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/jxv1Z0URENuWADDRwvRINUWUsP.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/tOrprVcS1hdR91VqGTORQmZb0pr.jpg",
       "tmdbMovieId": 17874,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "801-revenge-of-the-creature",
@@ -2854,7 +3164,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:08:27.624Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:08:27.624Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "803-the-mole-people",
@@ -2872,7 +3184,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/utOyyOn1KQ47ONwtAlC8M9i7zmW.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/buU4bsenncCbSMkTfdk3Jg5pxTb.jpg",
       "tmdbMovieId": 41516,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "806-the-undead",
@@ -2890,7 +3204,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:05.138Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "808-the-she-creature",
@@ -2908,7 +3224,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "810-the-giant-spider-invasion",
@@ -2926,7 +3244,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/jUaJOZlnrmSRTny7ProiupczO42.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/tY6uezxJR57Eag6IfWbI5qNNxHF.jpg",
       "tmdbMovieId": 39154,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "811-parts-the-clonus-horror",
@@ -2944,7 +3264,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/tFAQLUDuoa2XVAVYMhLTXFh5bGD.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/jc4rnqG9K7cefgqXTIXYIfNfEVV.jpg",
       "tmdbMovieId": 98851,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "812-the-incredibly-strange-creatures-who-stopped-living-and-became-mixed-up-zombies",
@@ -2962,7 +3284,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/vfXLgQk5s1bzQfWV1LnS8Ch1Sbi.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/btViQKBLqjBQ7exByvmQXHJGnMS.jpg",
       "tmdbMovieId": 31383,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "813-jack-frost",
@@ -2980,7 +3304,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "816-prince-of-space",
@@ -2998,7 +3324,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "817-the-horror-of-party-beach",
@@ -3016,7 +3344,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/q7ro6YyinHyhMIEROwqS0Br98mz.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/bQXgxCNZ6zdTiuytQa70nNoNJ0V.jpg",
       "tmdbMovieId": 42794,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "819-invasion-of-the-neptune-men",
@@ -3034,7 +3364,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/qXFiYA9cDwCeMzEKrc0QOr6zLaB.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/7DG1tjim8dXBzm3z3tXpBwKJTkY.jpg",
       "tmdbMovieId": 31254,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "820-space-mutiny",
@@ -3052,7 +3384,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/ziGqFxqpjpPgDYeenw8GtYctinD.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/kGgLHHbFqhMLmrg5jJAuAL4gecJ.jpg",
       "tmdbMovieId": 32148,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:56:28.995Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "821-time-chasers",
@@ -3070,7 +3404,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "822-overdrawn-at-the-memory-bank",
@@ -3089,7 +3425,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/i8jXEnl5ocKxhsh7zeKQLYtR4nF.jpg",
       "tmdbMovieId": 118641,
       "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
-      "spotlight": false
+      "spotlight": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "902-the-phantom-planet",
@@ -3107,7 +3445,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:08:27.624Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:08:27.624Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "903-the-pumaman",
@@ -3125,7 +3465,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/1cmJeLWhqezudWa168KKy4REFbp.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/sE5gqaRgOSAQ2AYVDjxmsfeJVTu.jpg",
       "tmdbMovieId": 31278,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "904-werewolf",
@@ -3143,7 +3485,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "907-hobgoblins",
@@ -3161,7 +3505,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "908-the-touch-of-satan",
@@ -3179,7 +3525,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/hYuIjm96PQnzZzkvNm35BhX8kHl.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/vJuSO97qlgvtruzUOrnTdvVORbH.jpg",
       "tmdbMovieId": 31382,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:06.617Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "909-gorgo",
@@ -3197,7 +3545,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "910-the-final-sacrifice",
@@ -3215,7 +3565,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "911-devil-fish",
@@ -3233,7 +3585,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "912-the-screaming-skull",
@@ -3251,7 +3605,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/dvobVaHdaPn0y7KNZT6Nfmgohr0.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/eo5PeRTaCRQq2K52sT72obtqBiD.jpg",
       "tmdbMovieId": 34078,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "913-quest-of-the-delta-knights",
@@ -3269,7 +3625,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/4mw5zQqCma6ogkh5j3NxiO2QTYw.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/9Jwpn89ExUWAbwKmBD63MOPJZbG.jpg",
       "tmdbMovieId": 84633,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1002-girl-in-gold-boots",
@@ -3287,7 +3645,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/taI9BcHPaWlMescy31doA6bqmMo.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/mVFz8hqMmrX8JeXcAcowjW1EJtv.jpg",
       "tmdbMovieId": 31253,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:30.796Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:30.796Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1003-merlin-s-shop-of-mystical-wonders",
@@ -3305,7 +3665,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/uqPeZpDhy5CUG1W0YF1GzSWsKty.jpg",
       "backdropImageUrl": null,
       "tmdbMovieId": 31244,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:25.497Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1004-future-war",
@@ -3323,7 +3685,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1005-blood-waters-of-dr-z",
@@ -3341,7 +3705,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/g0kYZe6feiXQowaNsV6GBW5R5q0.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/na4bdJD8rwKkmiEEcSPHMBAhlVX.jpg",
       "tmdbMovieId": 31116,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1006-boggy-creek-ii-and-the-legend-continues",
@@ -3359,7 +3725,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/55tjsHfdIk0BtgxemqzKaBHa3xK.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/5ImZ5rIcO8ZdsCR6DkLknvQuFt0.jpg",
       "tmdbMovieId": 31263,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:48.941Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1007-track-of-the-moon-beast",
@@ -3377,7 +3745,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/nB9N0WegYbEAEoSZKrHWv5RkuEY.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/wdTC54O5xJgWoDTRy4bLjKYObGN.jpg",
       "tmdbMovieId": 31134,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:31:53.644Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1008-final-justice",
@@ -3395,7 +3765,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:11.058Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1009-hamlet",
@@ -3413,7 +3785,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:15.561Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1010-it-lives-by-night",
@@ -3431,7 +3805,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/37D2iBv7ihU4RsQcXo4uGFYGOaS.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/2ljcEOiJnV7Eu2u7aw0niXWepkE.jpg",
       "tmdbMovieId": 28159,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:32:15.837Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1011-horrors-of-spider-island",
@@ -3449,7 +3825,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/zeT4ZDY2TpUKY0rYijfzQh8HTUv.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/uMThhmhAldIVGaJiFjVDNhrsIYI.jpg",
       "tmdbMovieId": 31392,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1013-diabolik",
@@ -3467,7 +3845,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1101-reptilicus",
@@ -3486,7 +3866,9 @@
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/agv0jymYNeZkW8Pt9H54kA0P1qp.jpg",
       "tmdbMovieId": 1643182,
       "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
-      "spotlight": true
+      "spotlight": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1102-cry-wilderness",
@@ -3504,7 +3886,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/bA6GqxvbkXin1S8ckzLnQSpcrFe.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/abrtCipUf8JrcCdcfF1wA4bxEXm.jpg",
       "tmdbMovieId": 216163,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1103-the-time-travelers",
@@ -3522,7 +3906,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1104-avalanche",
@@ -3540,7 +3926,9 @@
       "posterImageUrl": null,
       "backdropImageUrl": null,
       "tmdbMovieId": null,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1105-the-beast-of-hollow-mountain",
@@ -3558,7 +3946,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/xN8Dv4DXCoJjupn12QjAgYCYfgi.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/pk2iagBsU2dTZ8sLiwieZtANcXk.jpg",
       "tmdbMovieId": 108181,
-      "tmdbArtworkSyncedAt": "2026-06-06T02:52:30.796Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T02:52:30.796Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1106-starcrash",
@@ -3576,7 +3966,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/npJt35Q36aGcTYpcg9epbwQIIkz.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/owpKSfeEtwQefx8XxxhmSpRVpwC.jpg",
       "tmdbMovieId": 22049,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1107-the-land-that-time-forgot",
@@ -3594,7 +3986,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/2Jtm4aP4kj4vHimFfnLqjnm8LqF.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/p9dUVuCMDLnlFDJvLNdw5FvYPgv.jpg",
       "tmdbMovieId": 27085,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1108-the-loves-of-hercules",
@@ -3612,7 +4006,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/4J1DNqn1wB8zxTuSnIRFRghIvKr.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/8REOD9flDR7KGNY3kFxqjSAhR9r.jpg",
       "tmdbMovieId": 56147,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1109-yongary-monster-from-the-deep",
@@ -3630,7 +4026,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/8o0ZwBHqueNvlynd2VX4xySRrFM.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/5cn7Nc7GA4zuFhfBMiwvzdeOw1y.jpg",
       "tmdbMovieId": 42699,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1110-wizards-of-the-lost-kingdom",
@@ -3648,7 +4046,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/3DHquDuiTx0Wp1SOH0oZSQUbkvc.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/jUql7CUpp4vsidsZ0PoX4qxzGMp.jpg",
       "tmdbMovieId": 7234,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1111-wizards-of-the-lost-kingdom-ii",
@@ -3666,7 +4066,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/39Emk29cNi1lBfW86yGFCVOawzp.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/4a1icLlGeh212x35R63UQXlOimH.jpg",
       "tmdbMovieId": 7237,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:04.495Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1112-carnival-magic",
@@ -3684,7 +4086,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/2UEBhca8be67AMKVeW7C1Pa0TKO.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/cY4Yyqpc73gqfsscga8WnrmfSEu.jpg",
       "tmdbMovieId": 29419,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:12.140Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1113-the-christmas-that-almost-wasn-t",
@@ -3702,7 +4106,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/jlryLOsibRwYjQh8s3fWodJjNt4.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/9VL0hcXbkCUz186bOA6LDJNP9s4.jpg",
       "tmdbMovieId": 128780,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1114-at-the-earth-s-core",
@@ -3720,7 +4126,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/hDMmR5asPdAHNXjo1uijHlba9VX.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/yPzNawgSgQKnBoE0t1It23y561L.jpg",
       "tmdbMovieId": 26398,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1115-mac-and-me",
@@ -3740,7 +4148,9 @@
       "tmdbMovieId": 20196,
       "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
       "carousel": true,
-      "movieSearchTitle": "Mac and Me"
+      "movieSearchTitle": "Mac and Me",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1116-atlantic-rim",
@@ -3758,7 +4168,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/weK1hp8lVe8kcNtIsRaLD3GzCfE.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/ptxBoTFuoghCJOROYkTyuVnxltW.jpg",
       "tmdbMovieId": 203351,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1117-lords-of-the-deep",
@@ -3776,7 +4188,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/uCxcVt1FMCc7dXckfuNCndgZ5zw.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/5C58nV1nl8jIaBwdUFh2ylHq8Cz.jpg",
       "tmdbMovieId": 222323,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:29:36.530Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1118-the-day-time-ended",
@@ -3794,7 +4208,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/4D5fgWAKmBLWllsdKEjF2y7NYeR.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/c2iWVCKxu4gDzbPUmr5LKPOlS6e.jpg",
       "tmdbMovieId": 57949,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:28:53.467Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1119-killer-fish",
@@ -3812,7 +4228,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/sz19oHOnmB9EQxYm0oEU060DNPc.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/8Bxh4EtH6o1MSEDFGo2iT7BeDfg.jpg",
       "tmdbMovieId": 36275,
-      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T15:39:24.107Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1120-ator-the-fighting-eagle",
@@ -3830,7 +4248,9 @@
       "posterImageUrl": "https://image.tmdb.org/t/p/w500/pwDOAEZN0UVTafivxdjUOvwpQVc.jpg",
       "backdropImageUrl": "https://image.tmdb.org/t/p/w780/6k5MHtvcLmS2ED3Aswokk0CdIkL.jpg",
       "tmdbMovieId": 40075,
-      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:30:00.683Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1312-the-bubble",
@@ -3852,7 +4272,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "1313-the-christmas-dragon",
@@ -3874,7 +4296,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2000-mst3k-shorts-x-marks-the-spot",
@@ -3895,7 +4319,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2001-mst3k-shorts-alphabet-antics",
@@ -3916,7 +4342,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2002-mst3k-shorts-speech-using-your-voice",
@@ -3937,7 +4365,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2003-mst3k-shorts-aquatic-wizards",
@@ -3958,7 +4388,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2004-mst3k-shorts-catching-trouble",
@@ -3979,7 +4411,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2005-mst3k-shorts-the-home-economics-story",
@@ -4000,7 +4434,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2006-mst3k-shorts-mr-b-natural",
@@ -4021,7 +4457,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2007-mst3k-shorts-posture-pals",
@@ -4042,7 +4480,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2008-mst3k-shorts-appreciating-our-parents",
@@ -4063,7 +4503,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2009-mst3k-shorts-johnny-at-the-fair",
@@ -4084,7 +4526,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2010-mst3k-shorts-circus-on-ice",
@@ -4105,7 +4549,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2011-mst3k-shorts-here-comes-the-circus",
@@ -4126,7 +4572,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2012-mst3k-shorts-what-to-do-on-a-date",
@@ -4147,7 +4595,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2013-mst3k-shorts-the-truck-farmer",
@@ -4168,7 +4618,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2014-mst3k-shorts-body-care-and-grooming",
@@ -4189,7 +4641,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2015-mst3k-shorts-is-this-love",
@@ -4210,7 +4664,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2016-mst3k-shorts-cheating",
@@ -4231,7 +4687,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2017-mst3k-shorts-what-about-juvinile-delinquency",
@@ -4252,7 +4710,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2018-mst3k-shorts-last-clear-chance",
@@ -4273,7 +4733,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2019-mst3k-shorts-design-for-dreaming",
@@ -4294,7 +4756,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2020-mst3k-shorts-uncle-jims-dairy-farm",
@@ -4315,7 +4779,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2021-mst3k-shorts-a-day-at-the-fair",
@@ -4336,7 +4802,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2022-mst3k-shorts-why-study-industrial-arts",
@@ -4357,7 +4825,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "2023-mst3k-shorts-young-mans-fancy",
@@ -4378,7 +4848,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": false
+      "embedAllows": false,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3000-bad-news-from-outer-space-the-bees",
@@ -4397,7 +4869,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3001-bad-news-from-outer-space-eegah",
@@ -4416,7 +4890,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3002-riffhead-best-of-the-terror",
@@ -4435,7 +4911,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3003-riffhead-night-of-the-ghouls",
@@ -4454,7 +4932,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3004-riffhead-shorts-the-sun-was-setting",
@@ -4473,7 +4953,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3005-riffhead-one-step-beyond-epilogue",
@@ -4492,7 +4974,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3006-riffhead-christmas-edition-three-young-kings",
@@ -4511,7 +4995,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3007-riffhead-a-cask-of-amontillado",
@@ -4530,7 +5016,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3008-riffhead-one-step-beyond-the-clown",
@@ -4549,7 +5037,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3009-riffhead-werewolf-of-washington",
@@ -4568,7 +5058,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3011-riffhead-the-dark-dark-hours",
@@ -4587,14 +5079,18 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "_meta",
       "catalog": "other",
       "tags": [],
       "labels": [],
-      "tmdbArtworkSyncedAt": "2026-06-06T03:08:27.624Z"
+      "tmdbArtworkSyncedAt": "2026-06-06T03:08:27.624Z",
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3010-riffhead-sorcerers-apprentice",
@@ -4613,7 +5109,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3012-riffhead-past-tense",
@@ -4632,7 +5130,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3013-riffhead-nightmare-at-ground-zero",
@@ -4651,7 +5151,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     },
     {
       "id": "3014-riffhead-shorts-collective-bits",
@@ -4670,7 +5172,9 @@
       "carousel": false,
       "spotlight": false,
       "movieSearchTitle": null,
-      "embedAllows": true
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     }
   ]
 }

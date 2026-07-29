@@ -167,6 +167,7 @@
               "type": "string",
               "format": "uri",
               "pattern": "^https://",
+              "maxLength": 2048,
               "description": "HTTPS movie-page URL when playbackHost is custom. Required non-null when playbackHost is custom."
             }
           ]
@@ -183,7 +184,8 @@
               "customPlaybackUrl": {
                 "type": "string",
                 "format": "uri",
-                "pattern": "^https://"
+                "pattern": "^https://",
+                "maxLength": 2048
               }
             },
             "required": ["customPlaybackUrl"]
