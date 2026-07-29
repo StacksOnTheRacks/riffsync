@@ -23,6 +23,8 @@ export function mergeRoomPatchResult(snapshot: RoomSnapshot, res: RoomPatchResul
     ...snapshot,
     version: res.version,
     catalogEpisodeId: res.catalogEpisodeId,
+    playbackHost: res.playbackHost,
+    customPlaybackUrl: res.customPlaybackUrl,
     youtubeVideoId: res.youtubeVideoId,
     visibility: res.visibility,
     lastActivityAt: res.lastActivityAt,

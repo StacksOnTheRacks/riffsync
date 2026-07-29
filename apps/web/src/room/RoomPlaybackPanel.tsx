@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import type { RoomPlaybackHost } from '../api/roomsApi'
+import { SoloCustomIframePlayer } from '../components/watch/SoloCustomIframePlayer'
 import type { TheaterPlaybackSnapshot } from './sessions/TheaterPlayback'
 import { RIFFSYNC_THEATER_AUDIO_STATUS_ID, RIFFSYNC_VIDEO_RELAY_STATUS_ID } from './drawerErrorPresentation'
 
@@ -20,6 +22,58 @@ type RoomPlaybackPanelProps = {
   startCapture: () => Promise<void>
   openCapturePlayerTab: () => void
   hostSourceOpensOnYoutube?: boolean
+  playbackHost?: RoomPlaybackHost
+  customPlaybackUrl?: string | null
+  episodeTitle?: string
+}
+
+function HostShareIntro({
+  hostSourceOpensOnYoutube,
+}: {
+  hostSourceOpensOnYoutube: boolean
+}) {
+  return (
+    <>
+      <p className="riffsync-room-page__host-preview-intro">
+        This is your presentation screen. Whatever appears here is what your guests see in the theater.
+      </p>
+      <p className="riffsync-room-page__host-preview-intro">
+        First open a source media tab by clicking <strong>Open Source Tab</strong>. Then come back to this tab and click{' '}
+        <strong>Share Source Tab</strong>.{' '}
+        {hostSourceOpensOnYoutube ? (
+          <>
+            YouTube opens in a new tab; in the picker, choose the <strong>YouTube tab</strong>.
+          </>
+        ) : (
+          <>
+            In the picker, choose the tab whose title starts with <strong>Share this tab</strong>.
+          </>
+        )}
+      </p>
+    </>
+  )
+}
+
+function HostShareButtons({
+  openCapturePlayerTab,
+  startCapture,
+}: {
+  openCapturePlayerTab: () => void
+  startCapture: () => Promise<void>
+}) {
+  return (
+    <div className="riffsync-room-page__center-share-buttons">
+      <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
+        Open Source Tab
+      </button>
+      <button type="button" className="gen-button" onClick={() => void startCapture()}>
+        Share Source Tab
+      </button>
+      <Link className="gen-button" to="/how-to-host-a-watchparty" target="_blank" rel="noopener noreferrer">
+        Hosting Guide
+      </Link>
+    </div>
+  )
 }
 
 export function RoomPlaybackPanel({
@@ -40,7 +94,15 @@ export function RoomPlaybackPanel({
   startCapture,
   openCapturePlayerTab,
   hostSourceOpensOnYoutube = false,
+  playbackHost = 'youtube',
+  customPlaybackUrl = null,
+  episodeTitle = 'Episode',
 }: RoomPlaybackPanelProps) {
+  const host = playbackHost === 'custom' ? 'custom' : 'youtube'
+  const trimmedCustomUrl = customPlaybackUrl?.trim() ?? ''
+  const hasCustomPlaybackUrl = host === 'custom' && trimmedCustomUrl.startsWith('https://')
+  const customPlaybackBlocked = host === 'custom' && !hasCustomPlaybackUrl
+
   if (isPublisher) {
     return (
       <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
@@ -62,43 +124,28 @@ export function RoomPlaybackPanel({
               disableRemotePlayback
               muted={false}
             />
+          ) : hasCustomPlaybackUrl ? (
+            <SoloCustomIframePlayer customPlaybackUrl={trimmedCustomUrl} title={episodeTitle} />
+          ) : customPlaybackBlocked ? (
+            <div className="riffsync-room-page__host-preview-placeholder">
+              <p role="status">
+                Playback unavailable — no custom playback URL is linked for this catalog entry.
+              </p>
+            </div>
           ) : (
             <div className="riffsync-room-page__host-preview-placeholder">
-              <p className="riffsync-room-page__host-preview-intro">
-                This is your presentation screen. Whatever appears here is what your guests see in the theater.
-              </p>
-              <p className="riffsync-room-page__host-preview-intro">
-                First open a source media tab by clicking <strong>Open Source Tab</strong>. Then come back to this tab
-                and click <strong>Share Source Tab</strong>.{' '}
-                {hostSourceOpensOnYoutube ? (
-                  <>
-                    YouTube opens in a new tab; in the picker, choose the <strong>YouTube tab</strong>.
-                  </>
-                ) : (
-                  <>
-                    In the picker, choose the tab whose title starts with <strong>Share this tab</strong>.
-                  </>
-                )}
-              </p>
-              <div className="riffsync-room-page__center-share-buttons">
-                <button type="button" className="gen-button" onClick={openCapturePlayerTab}>
-                  Open Source Tab
-                </button>
-                <button type="button" className="gen-button" onClick={() => void startCapture()}>
-                  Share Source Tab
-                </button>
-                <Link
-                  className="gen-button"
-                  to="/how-to-host-a-watchparty"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Hosting Guide
-                </Link>
-              </div>
+              <HostShareIntro hostSourceOpensOnYoutube={hostSourceOpensOnYoutube} />
+              <HostShareButtons openCapturePlayerTab={openCapturePlayerTab} startCapture={startCapture} />
             </div>
           )}
         </div>
+
+        {!captureStream && host === 'custom' ? (
+          <div className="riffsync-room-page__host-preview-placeholder">
+            <HostShareIntro hostSourceOpensOnYoutube={hostSourceOpensOnYoutube} />
+            <HostShareButtons openCapturePlayerTab={openCapturePlayerTab} startCapture={startCapture} />
+          </div>
+        ) : null}
 
         {videoRelayStatus ? (
           <p

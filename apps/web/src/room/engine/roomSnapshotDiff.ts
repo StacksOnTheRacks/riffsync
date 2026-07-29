@@ -1,8 +1,10 @@
-import type { RoomMode, RoomSnapshot } from '../../api/roomsApi'
+import type { RoomMode, RoomPlaybackHost, RoomSnapshot } from '../../api/roomsApi'
 
 export type RoomSnapshotMediaFields = {
   roomMode: RoomMode
   avDisabled: boolean
+  playbackHost: RoomPlaybackHost
+  customPlaybackUrl: string | null
   youtubeVideoId: string | null | undefined
   broadcastCaptureActive: boolean | undefined
 }
@@ -14,6 +16,8 @@ export function pickRoomSnapshotMediaFields(
   return {
     roomMode: room.roomMode,
     avDisabled: room.avDisabled,
+    playbackHost: room.playbackHost === 'custom' ? 'custom' : 'youtube',
+    customPlaybackUrl: room.customPlaybackUrl,
     youtubeVideoId: room.youtubeVideoId,
     broadcastCaptureActive: room.broadcastCaptureActive,
   }
@@ -28,6 +32,8 @@ export function roomSnapshotMediaFieldsEqual(
   return (
     a.roomMode === b.roomMode &&
     a.avDisabled === b.avDisabled &&
+    a.playbackHost === b.playbackHost &&
+    a.customPlaybackUrl === b.customPlaybackUrl &&
     a.youtubeVideoId === b.youtubeVideoId &&
     a.broadcastCaptureActive === b.broadcastCaptureActive
   )

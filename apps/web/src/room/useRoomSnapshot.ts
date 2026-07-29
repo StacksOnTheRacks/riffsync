@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
-import type { RoomSnapshot } from '../api/roomsApi'
+import type { RoomPlaybackHost, RoomSnapshot } from '../api/roomsApi'
 import { fetchRoom } from '../api/roomsApi'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { cognitoSub } from '../auth/jwtDecode'
@@ -18,6 +18,8 @@ export function useRoomSnapshot(roomId: string): {
   avDisabled: boolean
   roomMode: RoomSnapshot['roomMode']
   youtubeVideoId: string | null | undefined
+  playbackHost: RoomPlaybackHost
+  customPlaybackUrl: string | null
 } {
   const [fanToken, setFanToken] = useState<string | null>(() => getFanAccessToken())
 
@@ -49,6 +51,9 @@ export function useRoomSnapshot(roomId: string): {
   const avDisabled = room?.avDisabled ?? true
   const roomMode = room?.roomMode ?? 'theater'
   const youtubeVideoId = room?.youtubeVideoId ?? catalogEp?.youtubeVideoId ?? null
+  const playbackHost: RoomPlaybackHost =
+    (room?.playbackHost ?? catalogEp?.playbackHost) === 'custom' ? 'custom' : 'youtube'
+  const customPlaybackUrl = room?.customPlaybackUrl ?? catalogEp?.customPlaybackUrl ?? null
 
   const loadRoom = useCallback(async () => {
     if (!roomId) return
@@ -128,5 +133,7 @@ export function useRoomSnapshot(roomId: string): {
     avDisabled,
     roomMode,
     youtubeVideoId,
+    playbackHost,
+    customPlaybackUrl,
   }
 }

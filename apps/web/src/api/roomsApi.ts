@@ -50,11 +50,15 @@ export async function fetchLobby(sessionId: string): Promise<LobbyResponse> {
 
 export type RoomMode = 'theater' | 'videoChat'
 
+export type RoomPlaybackHost = 'youtube' | 'custom'
+
 export interface RoomSnapshot {
   roomId: string
   hostSub: string
   catalogEpisodeId: string
-  youtubeVideoId: string
+  playbackHost: RoomPlaybackHost
+  customPlaybackUrl: string | null
+  youtubeVideoId?: string
   /** Lobby / “now playing” label (host-editable). */
   displayTitle?: string
   playbackExpectation: RoomPlaybackExpectation
@@ -110,7 +114,9 @@ export interface RoomPatchResult {
   roomId: string
   version: number
   catalogEpisodeId: string
-  youtubeVideoId: string
+  playbackHost: RoomPlaybackHost
+  customPlaybackUrl: string | null
+  youtubeVideoId?: string
   visibility: 'public' | 'private'
   lastActivityAt: number
   displayTitle?: string
