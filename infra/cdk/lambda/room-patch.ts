@@ -5,6 +5,7 @@ import {
   GetCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { readCatalogPlaybackHost, validateCatalogRowForRoomSeed } from './catalog-room-playback-gate';
 import {
   readAvDisabled,
   readBroadcastCaptureActive,
@@ -105,7 +106,14 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   }
 
   let catalogEpisodeId = String(room.catalogEpisodeId ?? '');
-  let youtubeVideoId = String(room.youtubeVideoId ?? '');
+  let playbackHost = readCatalogPlaybackHost(room);
+  let customPlaybackUrl =
+    typeof room.customPlaybackUrl === 'string' ? room.customPlaybackUrl : null;
+  let youtubeVideoId: string | null =
+    typeof room.youtubeVideoId === 'string' && room.youtubeVideoId.trim() !== ''
+      ? room.youtubeVideoId.trim()
+      : null;
+
   if (typeof body.catalogEpisodeId === 'string' && body.catalogEpisodeId !== catalogEpisodeId) {
     catalogEpisodeId = body.catalogEpisodeId;
     const cat = await client.send(
@@ -115,17 +123,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       }),
     );
     const row = cat.Item as Record<string, unknown> | undefined;
-    if (
-      !row ||
-      typeof row.youtubeVideoId !== 'string' ||
-      (row.youtubeVideoId as string) === ''
-    ) {
+    const playback = validateCatalogRowForRoomSeed(row, catalogEpisodeId);
+    if (!playback.ok) {
       return {
-        statusCode: 404,
-        body: JSON.stringify({ error: `Unknown catalog episode: ${catalogEpisodeId}` }),
+        statusCode: playback.statusCode,
+        body: JSON.stringify({ code: playback.code, error: playback.error }),
       };
     }
-    youtubeVideoId = row.youtubeVideoId as string;
+    playbackHost = playback.playbackHost;
+    customPlaybackUrl = playback.customPlaybackUrl;
+    youtubeVideoId = playback.youtubeVideoId ?? null;
   }
 
   let playbackExpectationPatch: ReturnType<typeof parsePlaybackExpectation> | undefined;
@@ -218,6 +225,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     '#vat': 'lastActivityAt',
     '#ver': 'version',
     '#ceid': 'catalogEpisodeId',
+    '#ph': 'playbackHost',
+    '#cpu': 'customPlaybackUrl',
     '#yt': 'youtubeVideoId',
     '#visibility': 'visibility',
     '#lpk': 'lobbyPk',
@@ -231,11 +240,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     ':vnext': version + 1,
     ':visibility': visibility,
     ':ceid': catalogEpisodeId,
+    ':ph': playbackHost,
+    ':cpu': customPlaybackUrl,
     ':yt': youtubeVideoId,
   };
 
   const setParts = [
     '#ceid = :ceid',
+    '#ph = :ph',
+    '#cpu = :cpu',
     '#yt = :yt',
     '#visibility = :visibility',
     '#vat = :vat',
@@ -372,7 +385,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       roomId,
       version: nextVersion,
       catalogEpisodeId,
-      youtubeVideoId,
+      playbackHost,
+      customPlaybackUrl,
+      ...(youtubeVideoId !== null ? { youtubeVideoId } : {}),
       visibility,
       lastActivityAt: now,
       ...(storedDisplayTitle !== undefined ? { displayTitle: storedDisplayTitle } : {}),

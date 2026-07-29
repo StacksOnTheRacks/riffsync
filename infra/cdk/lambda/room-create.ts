@@ -5,6 +5,7 @@ import {
   GetCommand,
   PutCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { validateCatalogRowForRoomSeed } from './catalog-room-playback-gate';
 import {
   initialDisplayTitleFromCatalog,
   lobbySortKey,
@@ -75,14 +76,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }),
   );
   const row = cat.Item as Record<string, unknown> | undefined;
-  if (!row || typeof row.youtubeVideoId !== 'string' || row.youtubeVideoId === '') {
+  const playback = validateCatalogRowForRoomSeed(row, catalogEpisodeId);
+  if (!playback.ok) {
     return {
-      statusCode: 404,
-      body: JSON.stringify({ error: `Unknown catalog episode: ${catalogEpisodeId}` }),
+      statusCode: playback.statusCode,
+      body: JSON.stringify({ code: playback.code, error: playback.error }),
     };
   }
-
-  const youtubeVideoId = row.youtubeVideoId as string;
 
   const displayTitle = initialDisplayTitleFromCatalog({
     catalogEpisodeId,
@@ -97,7 +97,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     roomId,
     hostSub,
     catalogEpisodeId,
-    youtubeVideoId,
+    playbackHost: playback.playbackHost,
+    customPlaybackUrl: playback.customPlaybackUrl,
     displayTitle,
     playbackExpectation,
     visibility,
@@ -107,6 +108,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     version,
     createdAt: now,
   };
+
+  if (playback.youtubeVideoId !== undefined) {
+    item.youtubeVideoId = playback.youtubeVideoId;
+  }
 
   if (visibility === 'public') {
     item.lobbyPk = LOBBY_PARTITION;
@@ -128,7 +133,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       roomId,
       hostSub,
       catalogEpisodeId,
-      youtubeVideoId,
+      playbackHost: playback.playbackHost,
+      customPlaybackUrl: playback.customPlaybackUrl,
+      ...(playback.youtubeVideoId !== undefined ? { youtubeVideoId: playback.youtubeVideoId } : {}),
       displayTitle,
       playbackExpectation,
       visibility,

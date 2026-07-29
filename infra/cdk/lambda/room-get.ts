@@ -1,6 +1,7 @@
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { readCatalogPlaybackHost } from './catalog-room-playback-gate';
 import { parseRoomMode, type RoomMode } from './room-shared';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -42,6 +43,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const row = out.Item as Record<string, unknown>;
   const displayTitle =
     typeof row.displayTitle === 'string' && row.displayTitle.trim() !== '' ? row.displayTitle.trim() : undefined;
+  const playbackHost = readCatalogPlaybackHost(row);
+  const customPlaybackUrl =
+    typeof row.customPlaybackUrl === 'string' ? row.customPlaybackUrl : null;
+  const youtubeVideoId =
+    typeof row.youtubeVideoId === 'string' && row.youtubeVideoId.trim() !== ''
+      ? row.youtubeVideoId.trim()
+      : undefined;
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json; charset=utf-8' },
@@ -50,7 +58,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         roomId: row.roomId,
         hostSub: row.hostSub,
         catalogEpisodeId: row.catalogEpisodeId,
-        youtubeVideoId: row.youtubeVideoId,
+        playbackHost,
+        customPlaybackUrl,
+        ...(youtubeVideoId !== undefined ? { youtubeVideoId } : {}),
         ...(displayTitle !== undefined ? { displayTitle } : {}),
         playbackExpectation: row.playbackExpectation,
         visibility: row.visibility,

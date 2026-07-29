@@ -43,12 +43,15 @@ vi.mock('./room-patch-fanout', async (importOriginal) => {
 import { handler } from './room-patch';
 
 const hostSub = 'host-sub-1';
+const validYoutubeId = 'dQw4w9WgXcQ';
 
 const baseRoom = {
   roomId: 'room-1',
   hostSub,
   catalogEpisodeId: 'ep-1',
-  youtubeVideoId: 'yt-1',
+  playbackHost: 'youtube',
+  customPlaybackUrl: null,
+  youtubeVideoId: validYoutubeId,
   playbackExpectation: 'free',
   visibility: 'private',
   lastActivityAt: 1_700_000_000_000,
@@ -172,7 +175,9 @@ describe('room-patch handler', () => {
       roomId: 'room-legacy',
       hostSub,
       catalogEpisodeId: 'ep-1',
-      youtubeVideoId: 'yt-1',
+      playbackHost: 'youtube',
+      customPlaybackUrl: null,
+      youtubeVideoId: validYoutubeId,
       playbackExpectation: 'free',
       visibility: 'private',
       lastActivityAt: 1_700_000_000_000,
@@ -363,5 +368,84 @@ describe('room-patch handler', () => {
       ':rm': 'videoChat',
       ':bc': null,
     });
+  });
+
+  it('switches episode to Custom-host and refreshes playback mirrors', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: baseRoom })
+      .mockResolvedValueOnce({
+        Item: {
+          id: 'ep-custom',
+          title: 'Custom Episode',
+          playbackHost: 'custom',
+          customPlaybackUrl: 'https://example.com/watch/456',
+        },
+      })
+      .mockResolvedValueOnce({});
+
+    const res = await handler(patchEvent({ catalogEpisodeId: 'ep-custom' }));
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
+    expect(body).toMatchObject({
+      catalogEpisodeId: 'ep-custom',
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.com/watch/456',
+    });
+    expect(body).not.toHaveProperty('youtubeVideoId');
+
+    const updateCall = mocks.docSend.mock.calls[2]?.[0] as { input: Record<string, unknown> };
+    expect(updateCall.input.ExpressionAttributeValues).toMatchObject({
+      ':ceid': 'ep-custom',
+      ':ph': 'custom',
+      ':cpu': 'https://example.com/watch/456',
+      ':yt': null,
+    });
+  });
+
+  it('switches episode to YouTube-host and refreshes playback mirrors', async () => {
+    const customRoom = {
+      ...baseRoom,
+      catalogEpisodeId: 'ep-custom',
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.com/watch/456',
+      youtubeVideoId: null,
+    };
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: customRoom })
+      .mockResolvedValueOnce({
+        Item: {
+          id: 'ep-yt',
+          title: 'YouTube Episode',
+          playbackHost: 'youtube',
+          youtubeVideoId: validYoutubeId,
+        },
+      })
+      .mockResolvedValueOnce({});
+
+    const res = await handler(patchEvent({ catalogEpisodeId: 'ep-yt' }));
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
+    expect(body).toMatchObject({
+      catalogEpisodeId: 'ep-yt',
+      playbackHost: 'youtube',
+      customPlaybackUrl: null,
+      youtubeVideoId: validYoutubeId,
+    });
+  });
+
+  it('returns deny codes when switching to invalid catalog episodes', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: baseRoom })
+      .mockResolvedValueOnce({ Item: undefined });
+
+    const res = await handler(patchEvent({ catalogEpisodeId: 'missing' }));
+
+    expect(res.statusCode).toBe(404);
+    expect(JSON.parse(res.body ?? '{}')).toMatchObject({
+      code: 'catalog_episode_not_found',
+    });
+    expect(mocks.docSend).toHaveBeenCalledTimes(2);
   });
 });
