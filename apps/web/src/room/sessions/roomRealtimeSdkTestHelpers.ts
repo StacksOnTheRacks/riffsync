@@ -20,6 +20,8 @@ export const harnessBaseSnapshot: RoomSnapshot = {
   roomId: 'room-abc',
   hostSub: 'host-sub',
   catalogEpisodeId: 'ep-1',
+  playbackHost: 'youtube',
+  customPlaybackUrl: null,
   youtubeVideoId: 'yt-1',
   playbackExpectation: 'free',
   visibility: 'public',

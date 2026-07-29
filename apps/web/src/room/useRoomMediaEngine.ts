@@ -191,7 +191,7 @@ export function useRoomMediaEngine(options: {
     if (!room) return
     const fields = pickRoomSnapshotMediaFields(room)
     const key = fields
-      ? `${fields.roomMode}|${fields.avDisabled}|${fields.youtubeVideoId}|${fields.broadcastCaptureActive}`
+      ? `${fields.roomMode}|${fields.avDisabled}|${fields.playbackHost}|${fields.customPlaybackUrl}|${fields.youtubeVideoId}|${fields.broadcastCaptureActive}`
       : ''
     if (key === lastAppliedMediaFieldsRef.current) return
     lastAppliedMediaFieldsRef.current = key

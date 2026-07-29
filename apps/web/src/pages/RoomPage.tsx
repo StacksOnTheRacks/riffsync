@@ -79,6 +79,8 @@ export function RoomPage() {
     avDisabled,
     roomMode,
     youtubeVideoId,
+    playbackHost,
+    customPlaybackUrl,
   } = useRoomSnapshot(roomId)
 
   const announceRoomA11y = useCallback((message: string) => {
@@ -538,6 +540,13 @@ export function RoomPage() {
                             origin: getPublicOrigin(),
                           })
                         : false
+                    }
+                    playbackHost={playbackHost}
+                    customPlaybackUrl={customPlaybackUrl}
+                    episodeTitle={
+                      room?.displayTitle ??
+                      (catalogEp?.id === room?.catalogEpisodeId ? catalogEp.title : undefined) ??
+                      'Episode'
                     }
                   />
                 )

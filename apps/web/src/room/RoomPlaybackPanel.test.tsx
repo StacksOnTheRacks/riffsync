@@ -9,7 +9,7 @@ import { RIFFSYNC_VIDEO_RELAY_STATUS_ID } from './drawerErrorPresentation'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const baseProps = {
-  captureStream: null,
+  captureStream: null as MediaStream | null,
   captureErr: null,
   patchErr: null,
   renameModalOpen: false,
@@ -187,5 +187,99 @@ describe('RoomPlaybackPanel host video-relay status (#210)', () => {
     expect(container.textContent).toContain('YouTube opens in a new tab')
     expect(container.textContent).toContain('choose the YouTube tab')
     expect(container.textContent).not.toContain('Share this tab')
+  })
+})
+
+describe('RoomPlaybackPanel host Custom presentation (#394)', () => {
+  let container: HTMLDivElement
+  let root: Root
+
+  beforeEach(() => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+
+  afterEach(() => {
+    act(() => root.unmount())
+    container.remove()
+  })
+
+  function renderHost(
+    overrides: Partial<
+      typeof baseProps & {
+        videoRelayStatus: string | null
+        playbackHost: 'youtube' | 'custom'
+        customPlaybackUrl: string | null
+        episodeTitle: string
+      }
+    > = {},
+  ) {
+    act(() => {
+      root.render(
+        <MemoryRouter>
+          <RoomPlaybackPanel
+            isPublisher
+            videoRelayStatus={null}
+            playbackHost="custom"
+            customPlaybackUrl="https://example.com/watch/custom"
+            episodeTitle="Custom Movie"
+            {...baseProps}
+            {...overrides}
+          />
+        </MemoryRouter>,
+      )
+    })
+  }
+
+  it('shows Custom iframe in host shell when capture is inactive', () => {
+    renderHost()
+
+    const iframe = container.querySelector('iframe')
+    expect(iframe).not.toBeNull()
+    expect(iframe?.getAttribute('src')).toBe('https://example.com/watch/custom')
+    expect(iframe?.getAttribute('title')).toBe('Custom Movie')
+    expect(container.querySelector('video')).toBeNull()
+  })
+
+  it('hides Custom iframe and shows capture preview when captureStream is active', () => {
+    renderHost({ captureStream: new MediaStream() })
+
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.querySelector('video')).not.toBeNull()
+  })
+
+  it('shows blocked copy when Custom URL is missing', () => {
+    renderHost({ customPlaybackUrl: null })
+
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.textContent).toContain(
+      'Playback unavailable — no custom playback URL is linked for this catalog entry.',
+    )
+  })
+
+  it('uses Share this tab intro for Custom-host rooms', () => {
+    renderHost()
+
+    expect(container.textContent).toContain('Share this tab')
+    expect(container.textContent).not.toContain('choose the YouTube tab')
+  })
+
+  it('does not render Custom iframe on guest branch', () => {
+    act(() => {
+      root.render(
+        <RoomPlaybackPanel
+          isPublisher={false}
+          videoRelayStatus="Waiting for host to share…"
+          playbackHost="custom"
+          customPlaybackUrl="https://example.com/watch/custom"
+          episodeTitle="Custom Movie"
+          {...baseProps}
+        />,
+      )
+    })
+
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.querySelector('video')).not.toBeNull()
   })
 })
