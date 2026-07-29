@@ -19,6 +19,8 @@ function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>
     tmdbArtworkSyncedAt: null,
     carousel: false,
     spotlight: false,
+    playbackHost: 'youtube',
+    customPlaybackUrl: null,
     ...overrides,
   }
 }
