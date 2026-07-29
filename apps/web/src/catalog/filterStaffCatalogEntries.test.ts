@@ -21,6 +21,8 @@ function episode(overrides: Partial<StaffCatalogEpisode> & Pick<StaffCatalogEpis
     movieSearchTitle: null,
     embedAllows: true,
     youtubeThumbnailUrl: null,
+    playbackHost: 'youtube',
+    customPlaybackUrl: null,
     ...overrides,
   }
 }

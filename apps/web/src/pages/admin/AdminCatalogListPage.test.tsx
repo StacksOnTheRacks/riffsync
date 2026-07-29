@@ -45,6 +45,8 @@ const baseEpisode: StaffCatalogEpisode = {
   movieSearchTitle: null,
   embedAllows: true,
   youtubeThumbnailUrl: null,
+  playbackHost: 'youtube',
+  customPlaybackUrl: null,
 }
 
 describe('AdminCatalogListPage', () => {
