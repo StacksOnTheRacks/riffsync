@@ -61,6 +61,10 @@ export interface CatalogEpisode {
   spotlight: boolean
   /** When `false`, in-app YouTube embed should not be offered for this row. */
   embedAllows?: boolean
+  /** Playback surface for in-app watch; missing API values default to **`youtube`**. */
+  playbackHost: 'youtube' | 'custom'
+  /** HTTPS movie-page URL when **`playbackHost`** is **`custom`**; always present on public JSON. */
+  customPlaybackUrl: string | null
   /** Advisory label for ads vs Premium (honor-system). */
   playbackExpectation?: PlaybackExpectation
   /** TMDB movie popularity from reconcile; higher = more popular on TMDB. */

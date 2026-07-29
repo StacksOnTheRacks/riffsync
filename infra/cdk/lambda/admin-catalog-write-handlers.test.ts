@@ -212,6 +212,36 @@ describe('admin-catalog-post handler', () => {
     expect(body.entry.embedAllows).toBe(false);
   });
 
+  it('persists Custom-host fields and returns them on public projection', async () => {
+    mocks.docSend.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Attributes: { catalogGeneration: 4 },
+    });
+
+    const res = await postHandler(
+      staffEvent(
+        'POST',
+        '/v1/admin/catalog/episodes/ep-custom',
+        {
+          ...writeBody,
+          playbackHost: 'custom',
+          customPlaybackUrl: 'https://example.test/movie',
+        },
+        { sub: 'staff-1', 'cognito:groups': ['admin'] },
+        { id: 'ep-custom' },
+      ),
+      {} as never,
+      () => undefined,
+    );
+
+    expect(res?.statusCode).toBe(201);
+    const body = JSON.parse(res?.body ?? '');
+    expect(body.entry.playbackHost).toBe('custom');
+    expect(body.entry.customPlaybackUrl).toBe('https://example.test/movie');
+    const putInput = mocks.docSend.mock.calls[0]?.[0] as { input?: { Item?: Record<string, unknown> } };
+    expect(putInput?.input?.Item?.playbackHost).toBe('custom');
+    expect(putInput?.input?.Item?.customPlaybackUrl).toBe('https://example.test/movie');
+  });
+
   it('returns 403 when staff groups omit admin/curator', async () => {
     const res = await postHandler(
       staffEvent(

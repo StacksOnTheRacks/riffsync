@@ -53,4 +53,25 @@ describe('projectEpisode', () => {
     });
     expect(entry).not.toHaveProperty('movieSearchTitle');
   });
+
+  it('defaults playbackHost to youtube when omitted on legacy rows', () => {
+    const entry = projectEpisode(baseItem);
+    expect(entry.playbackHost).toBe('youtube');
+    expect(entry.customPlaybackUrl).toBeNull();
+  });
+
+  it('projects Custom-host rows with normalized customPlaybackUrl', () => {
+    const entry = projectEpisode({
+      ...baseItem,
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.test/movie',
+    });
+    expect(entry.playbackHost).toBe('custom');
+    expect(entry.customPlaybackUrl).toBe('https://example.test/movie');
+  });
+
+  it('defaults invalid playbackHost to youtube', () => {
+    const entry = projectEpisode({ ...baseItem, playbackHost: 'vimeo' });
+    expect(entry.playbackHost).toBe('youtube');
+  });
 });
