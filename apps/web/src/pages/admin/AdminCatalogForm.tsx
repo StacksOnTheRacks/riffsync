@@ -22,12 +22,14 @@ import {
 } from '../../catalog/catalogTypes'
 import {
   mapValidationDetailsToFieldErrors,
+  normalizeCustomPlaybackUrlField,
   normalizeNullableTextField,
   normalizeStringListField,
   normalizeTmdbMovieIdField,
   validateCatalogEpisodeForm,
   type CatalogEpisodeFormMode,
   type CatalogEpisodeFormValues,
+  type CatalogPlaybackHost,
 } from '../../catalog/validateCatalogEpisodeForm'
 import { parseYoutubeWatchUrl } from '../../catalog/youtubeUrl'
 import { invalidatePublicCatalogQueries } from '../../catalog/catalogQueries'
@@ -37,7 +39,7 @@ const RECONCILE_HELPER =
   'These fields are updated by the scheduled reconcile job. Pin a TMDB movie id or set a search title in Operator hints; art and tagline refresh on the next reconcile run.'
 
 const OPERATOR_HINTS_HELPER =
-  'Operator hints stored in Dynamo. tmdbMovieId locks reconcile to GET /movie/{id}; movieSearchTitle guides search when no id is set; embedAllows controls fan in-app embed.'
+  'Operator hints stored in Dynamo. tmdbMovieId locks reconcile to GET /movie/{id}; movieSearchTitle guides search when no id is set; embedAllows controls fan in-app YouTube embed only (not Custom playback).'
 
 function formValuesToWriteBody(
   values: CatalogEpisodeFormValues,
@@ -53,6 +55,11 @@ function formValuesToWriteBody(
     movieSearchTitle: normalizeNullableTextField(values.movieSearchTitle),
     tmdbMovieId: normalizeTmdbMovieIdField(values.tmdbMovieId),
     embedAllows: values.embedAllows,
+    playbackHost: values.playbackHost,
+    customPlaybackUrl:
+      values.playbackHost === 'custom'
+        ? normalizeCustomPlaybackUrlField(values.customPlaybackUrl)
+        : null,
   }
   const youtube = parseYoutubeWatchUrl(values.youtubeWatchUrl)
   if (youtube) {
@@ -83,6 +90,14 @@ function buildPatchBody(
   if (next.youtubeVideoId !== baseline.youtubeVideoId) body.youtubeVideoId = next.youtubeVideoId
   if (next.youtubeWatchUrl !== baseline.youtubeWatchUrl) {
     body.youtubeWatchUrl = next.youtubeWatchUrl
+  }
+  const baselinePlaybackHost = baseline.playbackHost === 'custom' ? 'custom' : 'youtube'
+  if (next.playbackHost !== baselinePlaybackHost) {
+    body.playbackHost = next.playbackHost
+  }
+  const baselineCustomUrl = baseline.customPlaybackUrl ?? null
+  if (next.customPlaybackUrl !== baselineCustomUrl) {
+    body.customPlaybackUrl = next.customPlaybackUrl
   }
   if (next.carousel !== baseline.carousel) body.carousel = next.carousel
   if (next.spotlight !== baseline.spotlight) body.spotlight = next.spotlight
@@ -466,32 +481,90 @@ export function AdminCatalogForm({
         </fieldset>
 
         <fieldset className="riffsync-admin-form-section">
-          <legend>YouTube</legend>
+          <legend>Playback</legend>
           <div className="riffsync-admin-form-field">
-            <label htmlFor="catalog-form-youtube-url">YouTube watch URL</label>
-            <input
-              id="catalog-form-youtube-url"
-              name="youtubeWatchUrl"
-              type="url"
-              value={values.youtubeWatchUrl}
-              onChange={(e) => setField('youtubeWatchUrl', e.target.value)}
-              aria-invalid={fieldErrors.youtubeWatchUrl ? true : undefined}
+            <label htmlFor="catalog-form-playback-host">Playback host</label>
+            <select
+              id="catalog-form-playback-host"
+              name="playbackHost"
+              value={values.playbackHost}
+              onChange={(e) => setField('playbackHost', e.target.value as CatalogPlaybackHost)}
+              aria-invalid={fieldErrors.playbackHost ? true : undefined}
               aria-describedby={
-                fieldErrors.youtubeWatchUrl ? 'catalog-form-youtube-url-error' : undefined
+                fieldErrors.playbackHost ? 'catalog-form-playback-host-error' : undefined
               }
               disabled={saving}
-              placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx"
-            />
-            {fieldErrors.youtubeWatchUrl ? (
+            >
+              <option value="youtube">YouTube</option>
+              <option value="custom">Custom</option>
+            </select>
+            {fieldErrors.playbackHost ? (
               <p
-                id="catalog-form-youtube-url-error"
+                id="catalog-form-playback-host-error"
                 className="riffsync-admin-form-field-error"
                 role="alert"
               >
-                {fieldErrors.youtubeWatchUrl}
+                {fieldErrors.playbackHost}
               </p>
             ) : null}
           </div>
+
+          {values.playbackHost === 'youtube' ? (
+            <div className="riffsync-admin-form-field">
+              <label htmlFor="catalog-form-youtube-url">YouTube watch URL</label>
+              <input
+                id="catalog-form-youtube-url"
+                name="youtubeWatchUrl"
+                type="url"
+                value={values.youtubeWatchUrl}
+                onChange={(e) => setField('youtubeWatchUrl', e.target.value)}
+                aria-invalid={fieldErrors.youtubeWatchUrl ? true : undefined}
+                aria-describedby={
+                  fieldErrors.youtubeWatchUrl ? 'catalog-form-youtube-url-error' : undefined
+                }
+                disabled={saving}
+                placeholder="https://www.youtube.com/watch?v=xxxxxxxxxxx"
+              />
+              {fieldErrors.youtubeWatchUrl ? (
+                <p
+                  id="catalog-form-youtube-url-error"
+                  className="riffsync-admin-form-field-error"
+                  role="alert"
+                >
+                  {fieldErrors.youtubeWatchUrl}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="riffsync-admin-form-field">
+              <label htmlFor="catalog-form-custom-playback-url">Custom playback URL</label>
+              <input
+                id="catalog-form-custom-playback-url"
+                name="customPlaybackUrl"
+                type="url"
+                required
+                value={values.customPlaybackUrl}
+                onChange={(e) => setField('customPlaybackUrl', e.target.value)}
+                aria-invalid={fieldErrors.customPlaybackUrl ? true : undefined}
+                aria-describedby={
+                  fieldErrors.customPlaybackUrl
+                    ? 'catalog-form-custom-playback-url-error'
+                    : undefined
+                }
+                disabled={saving}
+                placeholder="https://example.com/movie"
+              />
+              {fieldErrors.customPlaybackUrl ? (
+                <p
+                  id="catalog-form-custom-playback-url-error"
+                  className="riffsync-admin-form-field-error"
+                  role="alert"
+                >
+                  {fieldErrors.customPlaybackUrl}
+                </p>
+              ) : null}
+            </div>
+          )}
         </fieldset>
 
         <fieldset className="riffsync-admin-form-section">
