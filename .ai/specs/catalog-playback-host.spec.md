@@ -80,9 +80,21 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 
 - Keep bundle **`version: 1`**. Backfill committed **`data/catalog/episodes.json`** entries with **`playbackHost: youtube`** and **`customPlaybackUrl: null`** so CI schema validation passes.
 
-### Client surfaces (indicative)
+### Admin catalog form (`AdminCatalogForm.tsx`, issue **#391**)
 
-- **`AdminCatalogForm.tsx`** — playback host selector and conditional fields.
+| Concern | Contract |
+| --- | --- |
+| **Types** | Extend **`CatalogEpisodeFormValues`**, **`StaffCatalogEpisode`**, **`StaffCatalogEpisodeWrite`** with **`playbackHost`** and **`customPlaybackUrl`**. |
+| **Load** | **`catalogEpisodeToFormValues`**: default missing **`playbackHost`** to **`youtube`**; map **`customPlaybackUrl`** to string (empty when null). |
+| **Layout** | **Playback** fieldset after **Episode identity** — see **`.ai/interface/presentation.md`** → *Admin catalog playback host* (control order table). |
+| **Create POST** | Body includes **`playbackHost`** (default **`youtube`**) and **`customPlaybackUrl`** (NFC-normalized HTTPS or **`null`**). Existing YouTube id/url derivation unchanged when watch URL present. |
+| **Edit PATCH** | **`buildPatchBody`** diffs **`playbackHost`** and **`customPlaybackUrl`** against loaded episode; omit unchanged keys. Host toggle without URL edits still PATCHes **`playbackHost`** only. |
+| **Client validation** | **`validateCatalogEpisodeForm`**: when **`playbackHost === 'custom'`**, require trimmed URL; NFC-normalize; enforce **`https:`** and max **2048** chars with message **`customPlaybackUrl must be an HTTPS URL (max 2048 characters)`**. YouTube host keeps optional watch URL validation. |
+| **Server errors** | Map **`StaffCatalogValidationError`** **`/playbackHost`** and **`/customPlaybackUrl`** paths via existing **`mapValidationDetailsToFieldErrors`**. |
+| **Out of scope** | **`AdminCatalogListPage`** playback-host column/badge (optional follow-up). |
+
+### Other client surfaces (indicative)
+
 - **`SoloWatchPage.tsx`** — host-aware player shell (YouTube vs generic iframe).
 - **`hostSourceTab.ts`** — capture URL stays on RiffSync watch route for Custom.
 - **`RoomPlaybackPanel.tsx` / `TheaterPlayback`** — host presentation iframe for Custom.
@@ -102,6 +114,8 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 
 - **`catalog.schema.json`**: host-conditional validation (**custom** requires HTTPS **`customPlaybackUrl`**); **`maxLength: 2048`** on URL property; validate committed seed bundle after backfill.
 - **`admin-catalog-validation`**: writable allowlist includes **`playbackHost`** / **`customPlaybackUrl`**; POST defaults; Custom HTTPS accept/reject matrix (missing URL, `http://`, over 2048 chars, valid HTTPS); PATCH host switch preserves cross-host fields; NFC normalization persisted.
+- **`validateCatalogEpisodeForm`** / **`AdminCatalogForm.test.tsx`**: Custom URL required when host Custom; rejects `http://` and over-2048 NFC length; accepts valid HTTPS; create POST includes host fields; edit PATCH sends **`playbackHost`** on toggle without clearing YouTube fields in body; host-switch preserves form state; **`embedAllows`** still PATCHable on Custom rows.
+- **`staffAdminCatalogApi`**: types include host fields on **`StaffCatalogEpisode`** / write body.
 - **`hostSourceTab`**: Custom rows resolve party-capture URL on RiffSync watch route.
 
 ### Integration
@@ -113,7 +127,8 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 
 ### Manual / smoke
 
-- Admin save YouTube vs Custom rows; solo watch iframe render for Custom HTTPS URL.
+- Staff admin UI: create YouTube-host and Custom-host episodes; edit host toggle retains opposite URL in form; reload edit shows persisted host + URLs from **`GET /v1/admin/catalog/episodes/:id`**.
+- Solo watch iframe render for Custom HTTPS URL (separate issue).
 - Party capture tab share with Custom inner iframe.
 - CSP smoke: Custom origin loads in iframe on staging/prod headers.
 
