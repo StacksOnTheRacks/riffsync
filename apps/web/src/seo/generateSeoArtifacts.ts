@@ -1,5 +1,5 @@
 import type { CatalogEpisode } from '../catalog/catalogTypes'
-import { catalogEntriesWithYoutubeLink } from '../catalog/mockCatalog'
+import { catalogEntriesIndexableForSeo } from '../catalog/catalogSeo'
 import { STATIC_INDEXABLE_ROUTES } from './indexableRoutes'
 
 export const DEFAULT_PUBLIC_ORIGIN = 'https://riffsync.tv'
@@ -44,7 +44,7 @@ export function buildRobotsTxt(origin: string): string {
 
 export function buildSitemapXml(origin: string, episodes: CatalogEpisode[]): string {
   const locs: string[] = STATIC_SITEMAP_PATHS.map((path) => absoluteUrl(origin, path))
-  for (const episode of catalogEntriesWithYoutubeLink(episodes)) {
+  for (const episode of catalogEntriesIndexableForSeo(episodes)) {
     locs.push(absoluteUrl(origin, `/watch/${episode.id}`))
   }
 
@@ -62,7 +62,7 @@ export function buildSitemapXml(origin: string, episodes: CatalogEpisode[]): str
 }
 
 export function countSitemapUrls(episodes: CatalogEpisode[]): number {
-  return STATIC_SITEMAP_PATHS.length + catalogEntriesWithYoutubeLink(episodes).length
+  return STATIC_SITEMAP_PATHS.length + catalogEntriesIndexableForSeo(episodes).length
 }
 
 function escapeXml(value: string): string {

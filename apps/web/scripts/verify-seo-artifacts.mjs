@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { catalogEntriesWithYoutubeLink } from '../src/catalog/mockCatalog.ts'
+import { catalogEntriesIndexableForSeo } from '../src/catalog/catalogSeo.ts'
 import { countSitemapUrls } from '../src/seo/generateSeoArtifacts.ts'
 import { STATIC_INDEXABLE_ROUTES, staticRouteDistPath } from '../src/seo/indexableRoutes.ts'
 
@@ -87,9 +87,9 @@ async function main() {
     }
   }
 
-  const youtubeLinked = catalogEntriesWithYoutubeLink(episodes)
+  const indexableEpisodes = catalogEntriesIndexableForSeo(episodes)
   let watchPrerenderCount = 0
-  for (const episode of youtubeLinked) {
+  for (const episode of indexableEpisodes) {
     const watchPath = `watch/${episode.id}/index.html`
     try {
       await readFile(resolve(distDir, watchPath), 'utf8')
@@ -99,9 +99,9 @@ async function main() {
     }
   }
 
-  if (watchPrerenderCount !== youtubeLinked.length) {
+  if (watchPrerenderCount !== indexableEpisodes.length) {
     throw new Error(
-      `Expected ${youtubeLinked.length} watch prerender files; found ${watchPrerenderCount}`,
+      `Expected ${indexableEpisodes.length} watch prerender files; found ${watchPrerenderCount}`,
     )
   }
 
