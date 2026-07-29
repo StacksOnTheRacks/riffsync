@@ -65,9 +65,23 @@ describe('buildSitemapXml', () => {
     episode({ id: '101-the-crawling-eye' }),
     episode({ id: 'no-youtube', youtubeVideoId: null, youtubeWatchUrl: null }),
     episode({ id: 'blank-youtube', youtubeVideoId: '   ' }),
+    episode({
+      id: 'custom-host-only',
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.com/movie',
+      youtubeVideoId: null,
+      youtubeWatchUrl: null,
+    }),
+    episode({
+      id: 'custom-with-youtube-metadata',
+      playbackHost: 'custom',
+      customPlaybackUrl: 'https://example.com/movie',
+      youtubeVideoId: 'abc123',
+      youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc123',
+    }),
   ]
 
-  it('includes static routes and only YouTube-linked watch URLs', () => {
+  it('includes static routes and only SEO-indexable watch URLs', () => {
     const xml = buildSitemapXml('https://riffsync.tv', entries)
     for (const path of STATIC_SITEMAP_PATHS) {
       expect(xml).toContain(`<loc>${absoluteUrl('https://riffsync.tv', path)}</loc>`)
@@ -75,6 +89,8 @@ describe('buildSitemapXml', () => {
     expect(xml).toContain('<loc>https://riffsync.tv/watch/101-the-crawling-eye</loc>')
     expect(xml).not.toContain('/watch/no-youtube')
     expect(xml).not.toContain('/watch/blank-youtube')
+    expect(xml).not.toContain('/watch/custom-host-only')
+    expect(xml).not.toContain('/watch/custom-with-youtube-metadata')
   })
 
   it('escapes XML entities in loc values', () => {
@@ -86,11 +102,17 @@ describe('buildSitemapXml', () => {
 })
 
 describe('countSitemapUrls', () => {
-  it('counts static routes plus YouTube-linked episodes', () => {
+  it('counts static routes plus SEO-indexable episodes', () => {
     const entries = [
       episode({ id: 'linked-a' }),
       episode({ id: 'linked-b' }),
       episode({ id: 'missing', youtubeVideoId: null, youtubeWatchUrl: null }),
+      episode({
+        id: 'custom-host',
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.com/movie',
+        youtubeVideoId: 'abc123',
+      }),
     ]
     expect(countSitemapUrls(entries)).toBe(STATIC_SITEMAP_PATHS.length + 2)
   })
