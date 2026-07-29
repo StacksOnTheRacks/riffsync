@@ -27,9 +27,11 @@ RiffSync catalog episodes can use either **YouTube** or **Custom** as the playba
 
 ### Room create and host presentation
 
-- **`POST /v1/rooms`** applies YouTube playable / video-id validation **only when `playbackHost` is `youtube`**.
-- Custom-host create requires resolvable catalog row and validated **`customPlaybackUrl`**; **`youtubeVideoId` not required**.
-- In-room host presentation loads Custom URLs in an iframe (not external-tab-only).
+- **`POST /v1/rooms`** applies YouTube video-id validation **only when resolved `playbackHost` is `youtube`** (non-empty id matching **`/^[a-zA-Z0-9_-]{11}$/`**; no live YouTube API probe; **`embedAllows` not checked**).
+- Custom-host create requires resolvable catalog row and non-empty **`https://`** **`customPlaybackUrl`**; **`youtubeVideoId` not required**.
+- Host **`PATCH /v1/rooms/{roomId}`** re-runs the same gate when **`catalogEpisodeId`** changes.
+- Denormalize **`playbackHost`**, **`customPlaybackUrl`**, and optional **`youtubeVideoId`** onto the **Rooms** item; echo on **`GET`**, **`201`**, and **`PATCH` `200`**.
+- In-room host presentation loads Custom URLs in an iframe (not external-tab-only) — client wiring **#394**.
 
 ### Guests, Cast, SEO
 
@@ -76,6 +78,19 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 | **AJV (`$defs.episode`)** | Enum, required keys, **`if`/`then`** Custom URL requirement, **`format: uri`**, **`^https://`**, **`maxLength: 2048`**. |
 | **Lambda extras** | NFC-normalize **`customPlaybackUrl`** strings before length/scheme checks; persist normalized value. Reject over-length or non-HTTPS with detail **`customPlaybackUrl must be an HTTPS URL (max 2048 characters)`**. |
 
+### Room create / patch gate (`catalog-room-playback-gate.ts`, issue **#392**)
+
+| Concern | Contract |
+| --- | --- |
+| **Module** | Shared helper used by **`room-create.ts`** and **`room-patch.ts`** (episode-change branch). |
+| **`readCatalogPlaybackHost(row)`** | Returns **`youtube`** \| **`custom`**; missing/invalid Dynamo → **`youtube`**. |
+| **`validateCatalogRowForRoomSeed(row, catalogEpisodeId)`** | Returns success payload (**`playbackHost`**, **`customPlaybackUrl`**, optional **`youtubeVideoId`**) or failure **`code`**. |
+| **YouTube-host gate** | Non-empty trimmed **`youtubeVideoId`** matching **`/^[a-zA-Z0-9_-]{11}$/`**; **no** YouTube API probe; **`embedAllows` ignored**. |
+| **Custom-host gate** | Non-empty trimmed **`customPlaybackUrl`** starting with **`https://`**. |
+| **Denormalization** | On success, **`room-create`** / **`room-patch`** persist **`playbackHost`**, **`customPlaybackUrl`**, optional **`youtubeVideoId`** on **Rooms**; **`room-get.ts`** echoes on snapshot. |
+| **Lobby** | **`lobby-get.ts`** includes **`playbackHost`** on each listed room (optional **`youtubeVideoId`** unchanged). |
+| **Deny codes** | **`catalog_episode_not_found`** (**404**); **`catalog_episode_youtube_id_missing`** / **`catalog_episode_custom_url_missing`** (**400**) — body **`{ code, error }`**. |
+
 ### Seed bundle migration
 
 - Keep bundle **`version: 1`**. Backfill committed **`data/catalog/episodes.json`** entries with **`playbackHost: youtube`** and **`customPlaybackUrl: null`** so CI schema validation passes.
@@ -120,6 +135,10 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 
 ### Integration
 
+- **`catalog-room-playback-gate`**: unit matrix for **`readCatalogPlaybackHost`** legacy default; YouTube id shape; Custom HTTPS prefix; missing row vs missing URL codes.
+- **`room-create.test.ts`**: YouTube-host success; YouTube missing id → **400** **`catalog_episode_youtube_id_missing`**; Custom success without **`youtubeVideoId`**; Custom missing URL → **400** **`catalog_episode_custom_url_missing`**; unknown id → **404** **`catalog_episode_not_found`**; **`201`** body includes **`playbackHost`** / **`customPlaybackUrl`**.
+- **`room-patch.test.ts`**: episode change to Custom and YouTube rows; same deny codes; **`200`** echoes refreshed playback mirrors.
+- **`room-get.test.ts`**: snapshot includes playback mirrors for Custom and YouTube fixtures.
 - Room create: YouTube-host rejects missing playable id; Custom-host succeeds with HTTPS URL and no YouTube id — **#392**.
 - **`GET /v1/catalog`** / **`GET /v1/catalog/{id}`**: **`projectEpisode`** includes **`playbackHost`** (default **`youtube`** for legacy Dynamo rows) and **`customPlaybackUrl`** (**`null`** or HTTPS string).
 - Admin POST Custom-host fixture → handler persists item → list/get handlers return projected fields (**`catalog-public-handlers.test.ts`** / **`admin-catalog-write-handlers.test.ts`**).

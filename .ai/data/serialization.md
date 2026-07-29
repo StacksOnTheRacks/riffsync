@@ -9,7 +9,7 @@
 
 ## Room snapshot (HTTP)
 
-**`GET /v1/rooms/{roomId}`** and host **`PATCH`** responses carry **`room`** object fields including **`version`**, **`roomMode`** (**`theater` \| `videoChat`**), **`avDisabled`** (boolean), and **`broadcastCaptureActive`** (boolean, nullable clear via **`null`** on PATCH per existing host-capture pattern). Enum strings are lowercase camelCase on the wire unless OpenAPI standardizes otherwise.
+**`GET /v1/rooms/{roomId}`**, **`POST /v1/rooms` `201`**, and host **`PATCH` `200`** carry **`room`** / top-level fields including **`version`**, **`roomMode`** (**`theater` \| `videoChat`**), **`avDisabled`** (boolean), **`broadcastCaptureActive`** (boolean, nullable clear via **`null`** on PATCH per existing host-capture pattern), and playback mirrors **`playbackHost`**, **`customPlaybackUrl`** (**`string | null`**), and optional **`youtubeVideoId`**. Enum strings are lowercase camelCase on the wire unless OpenAPI standardizes otherwise.
 
 ## SFU join token (HTTP → SFU WebSocket)
 
