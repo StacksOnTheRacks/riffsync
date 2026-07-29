@@ -116,9 +116,20 @@ Host-only **presentation shell** inside **`RoomPlaybackPanel`** (Theater mode st
 | **Guest path** | Unchanged — guest **`RoomPlaybackPanel`** branch binds SFU **`host_screen`** to **`<video>`** only. |
 | **Cast MVP** | Cast receiver continues **`host_screen`** consume; no Custom iframe on TV (**`viewer-local-cast.spec.md`**). |
 
-### Catalog card actions
+### Catalog card actions (`EpisodeTileActions`, hub/subcategory grids, home rows)
 
-Custom episodes with valid **`customPlaybackUrl`** offer in-app watch / **Start Party** like embeddable YouTube rows. **`embedAllows === false`** gates **YouTube-path** in-app embed only; Custom playback is gated by **`playbackHost` + HTTPS URL**.
+Public browse surfaces list episodes that are **playable in-app** (host-aware). Tile actions mirror today's YouTube-linked posture: both **Watch Solo** and **Start Party** are **enabled** when playable and **disabled** when not.
+
+| Concern | Contract |
+| --- | --- |
+| **Shared helper** | **`apps/web/src/catalog/catalogPlayback.ts`**: **`readCatalogPlaybackHost`**, **`episodeIsPlayableInApp`**, **`catalogEntriesPlayableInApp`**. Replaces **`episodeHasYoutubeLink`** / **`catalogEntriesWithYoutubeLink`** on fan browse paths (**#396**). SEO **indexable** filtering stays a separate helper (**#397**). |
+| **Custom-host playable** | **`playbackHost === 'custom'`** (read-time default **`youtube`** when missing) **and** trimmed **`customPlaybackUrl`** starts with **`https://`**. **`embedAllows`** does **not** apply. |
+| **YouTube-host playable (browse)** | Non-empty trimmed **`youtubeVideoId`** — same inclusion rule as legacy **`episodeHasYoutubeLink`**. **`embedAllows`** does **not** exclude rows from browse lists. |
+| **YouTube-host in-app embed** | **`embedAllows === false`** continues to gate **solo watch** and external-tab messaging only (**`SoloWatchPage`**); tile actions may remain enabled (unchanged). |
+| **Tile actions** | **`EpisodeTileActions`**: **`Watch Solo`** links to **`/watch/:id`** when playable; **`Start Party`** calls **`POST /v1/rooms`** when playable and signed in. When **`!episodeIsPlayableInApp`**, both controls render **disabled** (visible, not navigable). |
+| **Card chrome** | **`embedAllows === false`** advisory copy on **`CatalogGridCard`** applies to **YouTube-host** rows only. Custom-host rows show **no** embedAllows message. **No** public playback-host badge in MVP (**optional follow-up**). |
+| **Empty browse copy** | When the loaded catalog has rows but none are playable in-app: **`No episodes are available for in-app playback yet.`** When the catalog is empty: **`No episodes in the catalog yet.`** |
+| **Surfaces** | **`CatalogPage`** hub grid, **`HomePage`** carousel/spotlight/era/popularity rows, and future M32 subcategory shells reuse the same helper + **`EpisodeTileActions`**. |
 
 ### `/watch/:catalogEpisodeId` heading
 
@@ -568,7 +579,6 @@ The render-confirmation slice gates the sender's active Cast UI after #302 reach
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### catalog-playback-host
-- **Catalog card** metadata: whether to show playback host badge on staff admin list vs public cards (**optional follow-up**).
 - **Static SEO table** copy referencing "lawful YouTube embeds" — marketing/legal refresh when Custom episodes ship (Custom-only `/watch/:id` remains excluded from sitemap; **#397** / product follow-up).
 - **Admin host selector focus order** — resolved in admin form issue **#391** (*Decisions (M37 — admin catalog form)*).
 
@@ -614,6 +624,18 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 | **SEO / discoverability** | No indexable friends/DM routes or sitemap entries. Overlays mount on existing pages only; **`/room/:id`** stays **`noindex`**. |
 | **Shared guard module** | **`apps/web/src/friends/`** exposes a single **`requireFanAccessToken()`** (or equivalent) used by dropdown, room pane, **`dmApi`**, and **`FanDmSession`** bootstrap — #363/#364 consume it; #365 owns regression tests. |
 | **Verification timing** | Auth-gate QA matrix runs in the **same release train** as #363 and #364 so guests never ship with half-enabled chrome. |
+
+## Decisions (M37 — catalog card actions — #396)
+
+| Topic | Decision |
+| --- | --- |
+| **Helper module** | **`catalogPlayback.ts`** with **`readCatalogPlaybackHost`**, **`episodeIsPlayableInApp`**, **`catalogEntriesPlayableInApp`**. |
+| **Browse inclusion** | Custom-host with valid HTTPS URL **or** YouTube-host with non-empty video id (legacy list rule). |
+| **Tile gating** | Disable **Watch Solo** + **Start Party** when **`!episodeIsPlayableInApp`**; do not hide the control group. |
+| **Start Party API** | Requires **#392** room gate on **`POST /v1/rooms`**; client only enables the button when playable. |
+| **YouTube non-embeddable** | Unchanged — row may list with YouTube id; actions enabled; **`SoloWatchPage`** blocks embed. |
+| **Public badge** | **Out of scope** — no playback-host chip on fan catalog cards. |
+| **Subcategory routes** | Not shipped in M32 app yet; subcategory shells inherit hub **`CatalogGridCard`** + helper when routed. |
 
 ## Decisions (M37 — host presentation Custom iframe — #394)
 
