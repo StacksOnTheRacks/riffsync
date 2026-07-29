@@ -20,7 +20,7 @@ RiffSync's public catalog and marketing surfaces - home, catalog hub, catalog su
 
 Catalog subcategory routes are first-class indexable entries alongside the `/catalog` hub. `/download` is a durable public app install instructions page and joins the same sitemap/prerender/head-tag pipeline. Browse IA (hub links, filters, labels) is owned by `catalog-browse-ia`; this capability owns discoverability packaging for those paths.
 
-`/watch/:catalogEpisodeId` is indexable only for episodes with a live YouTube link (the existing `episodeHasYoutubeLink` filter) — an episode without a YouTube link (including **Custom-host** rows with no YouTube enrichment) carries no surface worth summarizing or linking to under today's SEO packaging and is excluded from indexing and the sitemap until a YouTube link exists for discoverability. Custom playback alone does not add `/watch/:id` to the sitemap.
+`/watch/:catalogEpisodeId` is indexable only for **YouTube-host** episodes with a non-empty trimmed **`youtubeVideoId`** — evaluated by **`episodeIsIndexableForSeo`** in **`apps/web/src/catalog/catalogSeo.ts`** (issue **#397**). **Custom-host** rows are **never** indexable, including when optional YouTube enrichment coexists for thumbs/metadata. Rows without a YouTube video id (YouTube-host or legacy) carry no surface worth summarizing under today's SEO packaging and are excluded from indexing and the sitemap. Custom playback alone does not add `/watch/:id` to the sitemap.
 
 ### Per-route head tags
 
@@ -58,7 +58,7 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 | --- | --- |
 | **Module layout** | Pure functions in `apps/web/src/seo/generateSeoArtifacts.ts`; CLI `apps/web/scripts/generate-seo-artifacts.mjs` writes `dist/robots.txt` and `dist/sitemap.xml` after `vite build`. |
 | **Catalog read** | Committed `data/catalog/episodes.json` only — no `GET /v1/catalog` at build time. |
-| **Filter** | `episodeHasYoutubeLink` / `catalogEntriesWithYoutubeLink` from `apps/web/src/catalog/mockCatalog.ts`. |
+| **Filter** | **`episodeIsIndexableForSeo`** / **`catalogEntriesIndexableForSeo`** from **`apps/web/src/catalog/catalogSeo.ts`** (**#397**). Legacy **`episodeHasYoutubeLink`** remains for non-SEO browse helpers until **#396** retires fan-path usage. |
 | **Static sitemap paths** | `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` plus `/watch/{catalogEpisodeId}` per filtered episode. |
 | **Origin** | `VITE_PUBLIC_ORIGIN` at build when set, else `https://riffsync.tv`. |
 | **Deploy cache** | S3 `Cache-Control: public, max-age=3600` on both objects in `deploy-prod.yml` (see `build_packaging.md` M28 decisions). |
@@ -75,7 +75,7 @@ Full detail: `.ai/operations/build_packaging.md` → *Decisions (M28 — robots.
 | **Head-tag copy** | Normative strings in **`.ai/interface/presentation.md`** → *Public site head tags* table and *Decisions (M29 — per-route head tags — #326)*. |
 | **Prerender paths** | **`dist/index.html`** (home), **`dist/{route}/index.html`** for static indexable paths (including **`dist/catalog/index.html`**, **`dist/catalog/{mst3k,community,riff-material,movie-night}/index.html`**, and **`dist/download/index.html`**), **`dist/watch/{catalogEpisodeId}/index.html`** per YouTube-linked episode, **`dist/spa-shell.html`** (generic **`noindex`** fallback). |
 | **SPA fallback** | **`static-site-stack.ts`** maps **403/404** to **`/spa-shell.html`** so **`/room/*`**, **`/lobby`**, and other non-prerendered paths do not inherit home canonical metadata. |
-| **Catalog / filter** | Same committed catalog file and **`episodeHasYoutubeLink`** filter as M28. |
+| **Catalog / filter** | Same committed catalog file; **`catalogEntriesIndexableForSeo`** filter (**#397**). |
 | **Origin** | **`VITE_PUBLIC_ORIGIN`** at build when set, else **`https://riffsync.tv`**. |
 | **CI** | **`web-app`** verifies prerender file count and spot-checks head tags on **`/`** plus a fixture **`/watch/{id}`**; unit tests cover **`routeHeadTags`** for all indexable route shapes. |
 
@@ -116,13 +116,28 @@ Full detail: `.ai/interface/presentation.md` → *Decisions (M30 — home sr-onl
 
 **Static indexable route extensions:** **`STATIC_INDEXABLE_ROUTES`** contains ten paths: the original public surfaces, the four **`/catalog/*`** subcategory routes, and **`/download`**. Prerender/sitemap/CI follow list length; head-tag strings match **`presentation.md`** table as-is. Full detail: `.ai/operations/build_packaging.md` → *Decisions (M33 — catalog subcategory SEO packaging — #341)* and *Decisions (M31 — Search Console verification and release smoke — #328)*.
 
+**M37 (host-aware SEO indexable filter — #397):**
+
+| Concern | Contract |
+| --- | --- |
+| **Module** | **`apps/web/src/catalog/catalogSeo.ts`** — **`readCatalogPlaybackHost`**, **`episodeIsIndexableForSeo`**, **`catalogEntriesIndexableForSeo`**. Separate from browse **`catalogPlayback.ts`** (**#396**). |
+| **Predicate** | **`false`** when **`readCatalogPlaybackHost(ep) === 'custom'`** (even if **`youtubeVideoId`** is present). Otherwise **`true`** only when trimmed **`youtubeVideoId`** is non-empty (YouTube-host or legacy default host). **`embedAllows`** and **`customPlaybackUrl`** do not affect indexability. |
+| **Consumers** | **`generateSeoArtifacts.ts`**, **`generate-seo-artifacts.mjs`**, **`prerender-indexable-routes.mjs`**, **`verify-seo-artifacts.mjs`** — replace **`catalogEntriesWithYoutubeLink`** imports. |
+| **`robots.txt`** | Unchanged disallow list; Custom-only **`/watch/:id`** has no prerender artifact and falls through to **`spa-shell.html`** (**`noindex`**). |
+| **Tests** | **`catalogSeo.test.ts`**: Custom-host excluded; Custom + YouTube metadata excluded; YouTube-host + id included; blank id excluded. Extend **`generateSeoArtifacts.test.ts`** with Custom-host fixture asserting no **`<loc>`**. |
+| **Out of scope** | Making Custom-only watch pages indexable; static head-tag marketing copy refresh. |
+
+Full detail: `.ai/operations/build_packaging.md` → *Decisions (M37 — host-aware SEO indexable filter — #397)*.
+
 ## Testing Strategy
 
 **Unit/component:** home `sr-only` H1 renders exactly once (M30); catalog card `alt` text is non-empty (M30); **`routeHeadTags`** produces expected title/description/canonical/OG/Twitter for each of the **ten** static indexable routes (including the four catalog subcategory paths and **`/download`**) and for `/watch/:id` with and without `tagline`/poster art (M29/M33).
 
-**Build/CI (M28):** the `web-app` CI job asserts `robots.txt` and `sitemap.xml` exist after `npm run build`; sitemap `<url>` count equals 10 static indexable routes plus the count of catalog episodes passing `episodeHasYoutubeLink`; the build fails when catalog data is unavailable or counts mismatch.
+**Build/CI (M28):** the `web-app` CI job asserts `robots.txt` and `sitemap.xml` exist after `npm run build`; sitemap `<url>` count equals 10 static indexable routes plus the count of catalog episodes passing **`episodeIsIndexableForSeo`**; the build fails when catalog data is unavailable or counts mismatch.
 
-**Build/CI (M29):** after `npm run build`, `web-app` (via `verify:seo-artifacts` or dedicated verify script) asserts `spa-shell.html` contains `noindex`; prerendered `index.html` exists for `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/how-to-host-a-watchparty`, `/terms`, `/privacy`; `watch/{id}/index.html` count matches YouTube-linked catalog episodes; spot checks validate apex canonical on `/` and episode title/canonical on a fixture watch route.
+**Build/CI (M29):** after `npm run build`, `web-app` (via `verify:seo-artifacts` or dedicated verify script) asserts `spa-shell.html` contains `noindex`; prerendered `index.html` exists for `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/how-to-host-a-watchparty`, `/terms`, `/privacy`; `watch/{id}/index.html` count matches **`catalogEntriesIndexableForSeo`** episodes; spot checks validate apex canonical on `/` and episode title/canonical on a fixture watch route.
+
+**Unit (M37 #397):** **`catalogSeo.test.ts`** covers host-aware indexable matrix; **`generateSeoArtifacts.test.ts`** asserts Custom-host fixtures produce no watch **`<loc>`** in sitemap XML.
 
 **Manual/smoke (post-deploy, production only — M31 #328 + M33 #341):** run **`npm run smoke:production`** from repo root after M27–M29 and M33 subcategory prerender are deployed. The script asserts:
 

@@ -141,7 +141,17 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 | **Tile actions** | **`EpisodeTileActions`**: enable **Watch Solo** (`/watch/:id`) and **Start Party** (`POST /v1/rooms` via **`createRoom`**) when playable; **disabled** when not. Requires **#390** client types and **#392** room gate for Custom **Start Party**. |
 | **Surfaces** | **`CatalogPage`** hub grid, **`HomePage`** carousel/spotlight/era/popularity strips; M32 subcategory shells reuse the same helper when routed. |
 | **Card copy** | YouTube-only **`embedAllows`** advisory on **`CatalogGridCard`**; host-aware empty-catalog message per **`presentation.md`**. |
-| **Out of scope** | Public playback-host badge; SEO sitemap indexability (**#397**). |
+| **Out of scope** | Public playback-host badge; SEO sitemap indexability (**#397** — separate **`catalogSeo.ts`** helper). |
+
+### Public site SEO indexability (`catalogSeo.ts`, issue **#397**)
+
+| Concern | Contract |
+| --- | --- |
+| **Module** | **`apps/web/src/catalog/catalogSeo.ts`** — **`readCatalogPlaybackHost`**, **`episodeIsIndexableForSeo`**, **`catalogEntriesIndexableForSeo`**. |
+| **Not playable helper** | Distinct from **`episodeIsPlayableInApp`** (**#396**). Custom-host rows may be playable in-app but **never** SEO-indexable. |
+| **Predicate** | Exclude all **`playbackHost === 'custom'`** rows from sitemap/prerender. Include YouTube-host (or legacy default) rows with non-empty trimmed **`youtubeVideoId`**. Optional YouTube metadata on Custom rows does **not** restore indexability. |
+| **Consumers** | **`generateSeoArtifacts.ts`**, SEO build/verify/prerender scripts. |
+| **Tests** | **`catalogSeo.test.ts`** + extended **`generateSeoArtifacts.test.ts`**. |
 
 ### Other client surfaces (indicative)
 
@@ -178,6 +188,8 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 - **`RoomPlaybackPanel.test.tsx`**: host Custom presentation iframe when **`!captureStream`**; iframe hidden when **`captureStream`** active; guest branch unchanged (**#394**).
 - **`roomSnapshotDiff`**: diff key includes **`playbackHost`** and **`customPlaybackUrl`**; episode retarget triggers engine apply (**#394**).
 - **`catalogPlayback.test.ts`**: Custom HTTPS / missing URL; YouTube id / empty id; legacy missing **`playbackHost`** defaults **`youtube`**; **`catalogEntriesPlayableInApp`** filter.
+- **`catalogSeo.test.ts`**: Custom-host excluded from indexable set; Custom + **`youtubeVideoId`** still excluded; YouTube-host + id included (**#397**).
+- **`generateSeoArtifacts.test.ts`**: sitemap XML omits Custom-host watch **`<loc>`** (**#397**).
 - **`EpisodeTileActions.test.tsx`**: playable Custom + YouTube rows enable actions; missing Custom URL disables both; **Start Party** still requires fan JWT (existing auth path).
 - **`CatalogPage`** / **`HomePage`** tests: Custom-host fixture appears in grid/rows; empty copy uses host-aware string.
 
