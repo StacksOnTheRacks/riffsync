@@ -102,11 +102,10 @@ Defense-in-depth for a **public + anonymous** surface plus **operator** tools.
 ## Open implementation decisions
 
 ### catalog-playback-host
+- **Admin validation (`customPlaybackUrl`):** Apply **Unicode NFC** normalization before save checks. Reject URLs over **2048 characters** after normalization or with a non-**`https:`** scheme. Validation detail message: **`customPlaybackUrl must be an HTTPS URL (max 2048 characters)`**. Persist the normalized string on the catalog item.
 - Exact **CSP directive** edits in CloudFront response headers or meta tag strategy (**`operations/security.md`**, build packaging).
 - Whether generic iframe uses **`sandbox`** attribute and which tokens (**`allow-scripts`**, **`allow-same-origin`**, **`allow-popups`**) for partner players.
 - **`Referrer-Policy`** for Custom iframe navigations.
-- **Admin validation** max URL length and Unicode normalization for **`customPlaybackUrl`**.
-
 ### friends-and-direct-messaging
 - Exact **rate-limit bands** for DM send, unread mark-read, and friends-online query or push — **M35**, **#357** (remove-friend **30**/min decided #358).
 - WAF / API Gateway throttle key placement vs Lambda in-memory counters for DM HTTP (and any WS) routes.

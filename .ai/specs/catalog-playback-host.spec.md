@@ -49,11 +49,25 @@ RiffSync catalog episodes can use either **YouTube** or **Custom** as the playba
 | Field | When | Notes |
 | --- | --- | --- |
 | **`playbackHost`** | Always (default **`youtube`** on legacy rows) | **`youtube`** \| **`custom`** |
-| **`customPlaybackUrl`** | Required when host is **`custom`** | HTTPS only; validated at admin save |
+| **`customPlaybackUrl`** | Required when host is **`custom`** | HTTPS only; **max 2048** chars after NFC; validated at admin save |
 | **`youtubeVideoId`**, **`youtubeWatchUrl`** | Optional on Custom rows | May remain for thumbs/metadata |
 | **`embedAllows`** | Optional boolean | **YouTube-path only** |
 
 Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** for host-conditional **`customPlaybackUrl`**.
+
+### Admin save validation (`admin-catalog-validation.ts`)
+
+| Layer | Responsibility |
+| --- | --- |
+| **Writable allowlist** | **`playbackHost`**, **`customPlaybackUrl`** added to **`ADMIN_WRITABLE_KEYS`**. |
+| **POST defaults** | Missing **`playbackHost`** → **`youtube`**; missing **`customPlaybackUrl`** → **`null`**. Existing required POST keys (**`youtubeVideoId`**, **`youtubeWatchUrl`**, etc.) unchanged (nullable). |
+| **PATCH merge** | Merge writable body onto existing row; default missing **`playbackHost`** on existing legacy rows to **`youtube`** before validation. **Preserve** cross-host fields when switching host unless PATCH explicitly sets them. |
+| **AJV (`$defs.episode`)** | Enum, required keys, **`if`/`then`** Custom URL requirement, **`format: uri`**, **`^https://`**, **`maxLength: 2048`**. |
+| **Lambda extras** | NFC-normalize **`customPlaybackUrl`** strings before length/scheme checks; persist normalized value. Reject over-length or non-HTTPS with detail **`customPlaybackUrl must be an HTTPS URL (max 2048 characters)`**. |
+
+### Seed bundle migration
+
+- Keep bundle **`version: 1`**. Backfill committed **`data/catalog/episodes.json`** entries with **`playbackHost: youtube`** and **`customPlaybackUrl: null`** so CI schema validation passes.
 
 ### Client surfaces (indicative)
 
@@ -75,8 +89,8 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 
 ### Unit / contract
 
-- **`catalog.schema.json`**: host-conditional validation (**custom** requires HTTPS **`customPlaybackUrl`**).
-- **`admin-catalog-validation`**: writable allowlist includes new fields; Custom HTTPS rejection for non-HTTPS URLs.
+- **`catalog.schema.json`**: host-conditional validation (**custom** requires HTTPS **`customPlaybackUrl`**); **`maxLength: 2048`** on URL property; validate committed seed bundle after backfill.
+- **`admin-catalog-validation`**: writable allowlist includes **`playbackHost`** / **`customPlaybackUrl`**; POST defaults; Custom HTTPS accept/reject matrix (missing URL, `http://`, over 2048 chars, valid HTTPS); PATCH host switch preserves cross-host fields; NFC normalization persisted.
 - **`hostSourceTab`**: Custom rows resolve party-capture URL on RiffSync watch route.
 
 ### Integration

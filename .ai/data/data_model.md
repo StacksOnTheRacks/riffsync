@@ -294,11 +294,13 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 | --- | --- |
 | Storage class? | **Unchanged** — catalog episodes remain in **Dynamo Catalog**; Custom URL is durable curator data like YouTube fields. |
 | **`playbackHost` wire values?** | **`youtube`** \| **`custom`** on Dynamo, admin payload, and public catalog JSON. |
-| **`customPlaybackUrl` validation?** | **HTTPS only**, **any domain**, no staff domain allowlist at save (MVP). |
+| **`customPlaybackUrl` validation?** | **HTTPS only**, **any domain**, no staff domain allowlist at save (MVP). **Max 2048 characters** after **Unicode NFC** normalization at admin save. |
 | YouTube fields on Custom rows? | **May coexist** — optional for thumbs/metadata; ignored for playback when host is Custom. |
 | Public catalog projection? | **`customPlaybackUrl`** exposed on **`GET /v1/catalog`** (same class as **`youtubeWatchUrl`**). |
 | **`embedAllows` on Custom?** | Persisted boolean unchanged; semantics **YouTube-path only**. |
 | Seed schema authority? | **`data/catalog/catalog.schema.json`** — host-conditional required fields (see schema **`if`/`then`**). |
+| Legacy rows missing **`playbackHost`?** | Default **`youtube`** at admin POST/PATCH merge; backfill git seed **`episodes.json`** with **`playbackHost: youtube`** and **`customPlaybackUrl: null`**. Bundle stays **`version: 1`**. |
+| PATCH when switching **`playbackHost`?** | **Preserve** opposite-host fields unless the PATCH body explicitly sets them (including **`null`**). No auto-null of YouTube ids when switching to Custom. |
 
 ## Open implementation decisions
 
@@ -307,9 +309,7 @@ Server-authoritative unread state for DM activity. Survives refresh and device c
 - Account-closure cascade and explicit per-message user delete jobs relative to retained-after-unfriend bodies — future ops slice (not #359).
 
 ### catalog-playback-host
-- Admin PATCH partial update rules when switching **`playbackHost`** (nulling vs retaining opposite-host fields).
-- JSON Schema bundle **`version`** bump vs additive migration for existing seed files.
-- Whether **public catalog handler** field allowlist changes beyond **`customPlaybackUrl`** / **`playbackHost`** in **`catalog-shared.ts`**.
+- Whether **public catalog handler** field allowlist changes beyond **`customPlaybackUrl`** / **`playbackHost`** in **`catalog-shared.ts`** — **#390** (out of scope for schema/admin-validation issue **#389**).
 
 ## Primary code pointers (optional)
 

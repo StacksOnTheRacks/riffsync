@@ -70,7 +70,7 @@ Staff **`/admin/catalog`** form gains a **Playback host** selector per episode: 
 | Host | Fields | Contract |
 | --- | --- | --- |
 | **YouTube** | Existing YouTube watch URL / video id fields | Unchanged validation intent; **`embedAllows`** applies to YouTube in-app embed path. |
-| **Custom** | **HTTPS** movie-page URL (**`customPlaybackUrl`**) | Required when host is Custom. YouTube fields **optional** (may remain for thumbs/metadata). Switching host does not require clearing opposite-host fields unless admin validation chooses to null them (tier TW). |
+| **Custom** | **HTTPS** movie-page URL (**`customPlaybackUrl`**) | Required when host is Custom (**max 2048 chars**, NFC-normalized at save). YouTube fields **optional** (may remain for thumbs/metadata). Switching host **preserves** opposite-host fields unless staff explicitly PATCH them (including **`null`**). |
 
 ### Solo watch and party capture (`/watch/:catalogEpisodeId`)
 
