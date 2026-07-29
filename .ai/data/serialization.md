@@ -20,7 +20,7 @@ HMAC JWT payload today: **`env`**, **`roomId`**, **`sessionId`**, **`role`** (**
 | Artifact | Role |
 | --- | --- |
 | **`data/catalog/catalog.schema.json`** | **Git bundle** episodes — CI validation target. Includes **`playbackHost`** (**`youtube`** \| **`custom`**) and host-conditional **`customPlaybackUrl`** (required when host is **`custom`**). |
-| **Public catalog JSON** | Includes **`playbackHost`**, **`youtubeWatchUrl`**, **`customPlaybackUrl`** when set — handler projection matches **`GET /v1/catalog`** contract. |
+| **Public catalog JSON** | **`projectEpisode`** (**`catalog-shared.ts`**) always emits **`playbackHost`** (**`youtube`** \| **`custom`**; missing/invalid Dynamo → **`youtube`**) and **`customPlaybackUrl`** (**`string | null`**, same wire class as **`youtubeWatchUrl`**). Also includes existing curator/TMDB fields per allowlist. |
 
 ## Decisions (answered)
 
