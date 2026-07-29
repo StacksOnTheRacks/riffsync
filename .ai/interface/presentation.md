@@ -100,9 +100,21 @@ Staff **`/admin/catalog`** form gains a **Playback host** selector per episode: 
 | **Custom player component** | Dedicated **`SoloCustomIframePlayer`** (`apps/web/src/components/watch/SoloCustomIframePlayer.tsx`) — **not** an extension of **`SoloYouTubePlayer`**. Reuses **`.riffsync-solo-player`**, **`.riffsync-solo-player__frame`**, **`.riffsync-solo-player__chrome`** for layout parity in solo and **`?partyCapture=1`** modes. |
 | **Custom iframe a11y** | **`<iframe title={episode.title}>`** (catalog **`title`** only). |
 
-### Room host presentation
+### Room host presentation (`/room/:roomId` host branch)
 
-When the room admin's selected catalog episode has **`playbackHost: custom`**, host presentation loads **`customPlaybackUrl`** in an **iframe** in the presentation area (not external-tab-only for Custom). YouTube-host episodes retain existing YouTube embed / capture behavior.
+Host-only **presentation shell** inside **`RoomPlaybackPanel`** (Theater mode stage). Guests continue the existing guest **`<video>`** WebRTC **`host_screen`** path — no direct Custom URL load for guests.
+
+| Concern | Contract |
+| --- | --- |
+| **Surface** | **`RoomPlaybackPanel`** host branch, **`riffsync-room-page__player-shell`**, within **`/room/:roomId`** stage (standard and expanded layouts). |
+| **Custom-host** | When **`playbackHost === 'custom'`** and trimmed **`https://`** **`customPlaybackUrl`** is present, render **`SoloCustomIframePlayer`** in the host player shell using room snapshot mirrors (**#392**) with catalog-query fallback when mirrors are absent. Same iframe attrs and blocked copy as solo watch (**#393**). |
+| **YouTube-host** | Unchanged capture workflow: external YouTube tab when not embeddable; RiffSync party-capture watch tab when embeddable. No Custom iframe. Existing host capture preview **`<video>`** when **`captureStream`** is active. |
+| **Capture vs embed** | When host **`captureStream`** is **inactive**, player shell shows presentation embed (Custom iframe). When **`captureStream`** is **active**, player shell shows capture preview **`<video>`**; presentation embed is **hidden**. Share controls and intro copy remain available in the host placeholder region. |
+| **Separate DOM from capture tab** | Party-capture tab (**`/watch/:id?partyCapture=1`**) and in-room presentation are **separate iframe instances** in separate documents. Both reuse **`SoloCustomIframePlayer`** — not one shared DOM mount across tabs. |
+| **React ownership** | Presentation embed is rendered by **`RoomPlaybackPanel`** React tree. **`TheaterPlayback.setYoutubeMountElement`** / dataset metadata is **not** the Custom presentation path; WebRTC video binding stays in **`TheaterPlayback`**. |
+| **Episode retarget** | When host **`PATCH`** changes **`catalogEpisodeId`**, presentation embed updates from refreshed snapshot **`playbackHost`** / **`customPlaybackUrl`** mirrors without remounting the room session. |
+| **Guest path** | Unchanged — guest **`RoomPlaybackPanel`** branch binds SFU **`host_screen`** to **`<video>`** only. |
+| **Cast MVP** | Cast receiver continues **`host_screen`** consume; no Custom iframe on TV (**`viewer-local-cast.spec.md`**). |
 
 ### Catalog card actions
 
@@ -556,7 +568,6 @@ The render-confirmation slice gates the sender's active Cast UI after #302 reach
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
 
 ### catalog-playback-host
-- **`TheaterPlayback` / `RoomPlaybackPanel`** iframe mount for host presentation vs capture tab inner iframe (**#394**).
 - **Catalog card** metadata: whether to show playback host badge on staff admin list vs public cards (**optional follow-up**).
 - **Static SEO table** copy referencing "lawful YouTube embeds" — marketing/legal refresh when Custom episodes ship (Custom-only `/watch/:id` remains excluded from sitemap; **#397** / product follow-up).
 - **Admin host selector focus order** — resolved in admin form issue **#391** (*Decisions (M37 — admin catalog form)*).
@@ -603,6 +614,19 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 | **SEO / discoverability** | No indexable friends/DM routes or sitemap entries. Overlays mount on existing pages only; **`/room/:id`** stays **`noindex`**. |
 | **Shared guard module** | **`apps/web/src/friends/`** exposes a single **`requireFanAccessToken()`** (or equivalent) used by dropdown, room pane, **`dmApi`**, and **`FanDmSession`** bootstrap — #363/#364 consume it; #365 owns regression tests. |
 | **Verification timing** | Auth-gate QA matrix runs in the **same release train** as #363 and #364 so guests never ship with half-enabled chrome. |
+
+## Decisions (M37 — host presentation Custom iframe — #394)
+
+| Topic | Decision |
+| --- | --- |
+| **Component reuse** | **`SoloCustomIframePlayer`** from **#393** — same blocked copy, iframe **`allow`**, and **`title={episode.title}`**. Optional **`layout="room"`** (or equivalent) may swap outer shell classes to **`riffsync-room-page__player-shell`** instead of **`.riffsync-solo-player*`** when solo layout classes do not fit the stage. |
+| **Mount strategy** | **Separate DOM instances** for in-room presentation vs party-capture tab; **shared component module**, not shared element. |
+| **Visibility rule** | Presentation iframe when host **`!captureStream`**; capture preview **`<video>`** when **`captureStream`** active. |
+| **Playback mirrors** | Prefer **`room.playbackHost`** and **`room.customPlaybackUrl`** from **`GET /v1/rooms`** (**#392**); defensive fallback to catalog episode query for the same fields. |
+| **Snapshot diff** | Extend **`pickRoomSnapshotMediaFields`** / **`useRoomMediaEngine`** diff key to include **`playbackHost`** and **`customPlaybackUrl`** alongside **`youtubeVideoId`**. |
+| **TheaterPlayback scope** | **No Custom iframe wiring through **`TheaterPlayback`**. Keep **`setYoutubeVideoIdForTheater`** for YouTube-host episode retarget only; presentation Custom embed is **`RoomPlaybackPanel`** React-owned. |
+| **Guest WebRTC** | Unchanged — guests never load **`customPlaybackUrl`** directly. |
+| **Out of scope** | Cast receiver Custom iframe; guest-direct Custom load; CSP **`frame-src`** (**#395**). |
 
 ## Decisions (M37 — solo watch Custom iframe — #393)
 
