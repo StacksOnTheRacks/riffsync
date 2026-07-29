@@ -72,6 +72,21 @@ Staff **`/admin/catalog`** form gains a **Playback host** selector per episode: 
 | **YouTube** | Existing YouTube watch URL / video id fields | Unchanged validation intent; **`embedAllows`** applies to YouTube in-app embed path. |
 | **Custom** | **HTTPS** movie-page URL (**`customPlaybackUrl`**) | Required when host is Custom (**max 2048 chars**, NFC-normalized at save). YouTube fields **optional** (may remain for thumbs/metadata). Switching host **preserves** opposite-host fields unless staff explicitly PATCH them (including **`null`**). |
 
+**Form layout (create + edit):**
+
+| Order | Control | Contract |
+| --- | --- | --- |
+| 1 | **Episode identity** fieldset | Unchanged (`id` create-only, experiment #, title, catalog, tags, labels). |
+| 2 | **Playback** fieldset | **Playback host** labeled select: **YouTube** (`youtube`) \| **Custom** (`custom`). Default **`youtube`** on create and when legacy row omits host on load. |
+| 3 | Host-conditional URL | **YouTube:** **YouTube watch URL** input (same validation as today — valid watch URL or empty). **Custom:** **Custom playback URL** (`type="url"`) — required before save; client rejects empty, non-HTTPS, or NFC-normalized length **> 2048** with **`customPlaybackUrl must be an HTTPS URL (max 2048 characters)`** (same detail string as Lambda). |
+| 4 | **Featured on home page** | Unchanged. |
+| 5 | **Reconcile (read-only)** | Edit only; unchanged. |
+| 6 | **Operator hints** | Unchanged placement; **`embedAllows`** stays here. When host is **Custom**, helper copy states **`embedAllows` gates YouTube in-app embed only** — it does not block Custom playback. YouTube watch URL and **`embedAllows`** remain editable on Custom rows (optional enrichment). |
+
+**Host-switch UX:** Toggling **Playback host** in the form **does not clear** the other host's URL fields in local state. Save sends **`playbackHost`** when changed; server PATCH merge retains stored opposite-host attributes unless the body explicitly sets them.
+
+**Admin catalog list:** Playback-host column or badge on **`AdminCatalogListPage`** is **optional** and **out of scope** for the admin-form issue — follow-up if staff need list-at-a-glance host filtering.
+
 ### Solo watch and party capture (`/watch/:catalogEpisodeId`)
 
 | Concern | Contract |
