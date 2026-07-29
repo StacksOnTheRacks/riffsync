@@ -9,7 +9,7 @@ import { RIFFSYNC_VIDEO_RELAY_STATUS_ID } from './drawerErrorPresentation'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const baseProps = {
-  captureStream: null,
+  captureStream: null as MediaStream | null,
   captureErr: null,
   patchErr: null,
   renameModalOpen: false,
@@ -212,7 +212,6 @@ describe('RoomPlaybackPanel host Custom presentation (#394)', () => {
         playbackHost: 'youtube' | 'custom'
         customPlaybackUrl: string | null
         episodeTitle: string
-        captureStream: MediaStream | null
       }
     > = {},
   ) {
