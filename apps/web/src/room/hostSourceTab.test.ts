@@ -65,4 +65,20 @@ describe('resolveHostSourceTabUrl', () => {
       }),
     ).toBe('https://riffsync.tv/watch/movie%20with%20spaces?partyCapture=1')
   })
+
+  it('uses party-capture RiffSync watch URL for Custom-host rows', () => {
+    const args = {
+      catalogEp: episode({
+        playbackHost: 'custom',
+        customPlaybackUrl: 'https://example.test/movie',
+        embedAllows: false,
+        youtubeVideoId: null,
+      }),
+      catalogEpisodeId: '032-mitchell',
+      origin: 'https://riffsync.tv',
+    }
+
+    expect(resolveHostSourceTabUrl(args)).toBe('https://riffsync.tv/watch/032-mitchell?partyCapture=1')
+    expect(hostSourceOpensOnYoutube(args)).toBe(false)
+  })
 })
