@@ -219,7 +219,11 @@ export function SoloWatchPage() {
       ) : null}
       {hasCustomPlaybackUrl ? (
         <div className="riffsync-solo-watch__player-shell">
-          <SoloCustomIframePlayer customPlaybackUrl={customPlaybackUrl} title={episode.title} />
+          <SoloCustomIframePlayer
+            key={customPlaybackUrl}
+            customPlaybackUrl={customPlaybackUrl}
+            title={episode.title}
+          />
         </div>
       ) : null}
       {playbackHost === 'youtube' && vid && canEmbed ? (

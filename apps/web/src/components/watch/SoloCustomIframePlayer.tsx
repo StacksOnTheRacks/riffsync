@@ -11,7 +11,6 @@ export function SoloCustomIframePlayer({
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 
   useEffect(() => {
-    setStatus('loading')
     const iframe = iframeRef.current
     if (!iframe) return
 
