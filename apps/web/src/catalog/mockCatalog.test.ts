@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { CatalogEpisode } from './catalogTypes'
-import { compareByTmdbPopularity, topEpisodesByTmdbPopularity, topEpisodesForHomeMostPopular } from './mockCatalog'
+import {
+  CATALOG_VIDEO_PLACEHOLDER_IMAGE_URL,
+  catalogCardImageUrl,
+  catalogStillImageUrl,
+  compareByTmdbPopularity,
+  topEpisodesByTmdbPopularity,
+  topEpisodesForHomeMostPopular,
+} from './mockCatalog'
 
 function ep(
   id: string,
@@ -74,5 +81,21 @@ describe('topEpisodesForHomeMostPopular', () => {
       'mike-hit',
       'joel-hit',
     ])
+  })
+})
+
+describe('catalog image fallbacks', () => {
+  it('uses the generic video placeholder when no episode artwork is available', () => {
+    const entry = { ...ep('custom-without-art', 1), youtubeVideoId: null, playbackHost: 'custom' as const }
+
+    expect(catalogCardImageUrl(entry)).toBe(CATALOG_VIDEO_PLACEHOLDER_IMAGE_URL)
+    expect(catalogStillImageUrl(entry)).toBe(CATALOG_VIDEO_PLACEHOLDER_IMAGE_URL)
+  })
+
+  it('keeps YouTube thumbnails ahead of the generic placeholder', () => {
+    const entry = ep('youtube-without-art', 1)
+
+    expect(catalogCardImageUrl(entry)).toBe('https://img.youtube.com/vi/abcdefghijk/hqdefault.jpg')
+    expect(catalogStillImageUrl(entry)).toBe('https://img.youtube.com/vi/abcdefghijk/hqdefault.jpg')
   })
 })

@@ -2,6 +2,7 @@ import type { CatalogCategory, CatalogEpisode } from './catalogTypes'
 import { episodeIsPlayableInApp } from './catalogPlayback'
 
 const ERA_PLAYABLE_ROW_CAP = 10
+export const CATALOG_VIDEO_PLACEHOLDER_IMAGE_URL = '/design/images/background/video-placeholder.png'
 
 /** @deprecated SEO scripts (#397) still import this; fan browse uses catalogPlayback helpers. */
 export function episodeHasYoutubeLink(ep: CatalogEpisode): boolean {
@@ -44,7 +45,7 @@ export function catalogStillImageUrl(ep: CatalogEpisode): string {
   if (ep.youtubeVideoId) {
     return `https://img.youtube.com/vi/${ep.youtubeVideoId}/hqdefault.jpg`
   }
-  return '/design/images/background/asset-53.jpg'
+  return CATALOG_VIDEO_PLACEHOLDER_IMAGE_URL
 }
 
 /**
@@ -57,7 +58,7 @@ export function catalogCardImageUrl(ep: CatalogEpisode): string {
   }
   if (ep.backdropImageUrl) return ep.backdropImageUrl
   if (ep.posterImageUrl) return ep.posterImageUrl
-  return '/design/images/background/asset-53.jpg'
+  return CATALOG_VIDEO_PLACEHOLDER_IMAGE_URL
 }
 
 export interface HeroSlide {
