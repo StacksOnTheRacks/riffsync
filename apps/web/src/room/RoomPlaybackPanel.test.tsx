@@ -190,7 +190,7 @@ describe('RoomPlaybackPanel host video-relay status (#210)', () => {
   })
 })
 
-describe('RoomPlaybackPanel host Custom presentation (#394)', () => {
+describe('RoomPlaybackPanel host source-tab flow (#394)', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -209,9 +209,7 @@ describe('RoomPlaybackPanel host Custom presentation (#394)', () => {
     overrides: Partial<
       typeof baseProps & {
         videoRelayStatus: string | null
-        playbackHost: 'youtube' | 'custom'
-        customPlaybackUrl: string | null
-        episodeTitle: string
+        hostSourceOpensOnYoutube: boolean
       }
     > = {},
   ) {
@@ -221,9 +219,6 @@ describe('RoomPlaybackPanel host Custom presentation (#394)', () => {
           <RoomPlaybackPanel
             isPublisher
             videoRelayStatus={null}
-            playbackHost="custom"
-            customPlaybackUrl="https://example.com/watch/custom"
-            episodeTitle="Custom Movie"
             {...baseProps}
             {...overrides}
           />
@@ -232,30 +227,21 @@ describe('RoomPlaybackPanel host Custom presentation (#394)', () => {
     })
   }
 
-  it('shows Custom iframe in host shell when capture is inactive', () => {
+  it('shows source-tab controls in host shell when capture is inactive', () => {
     renderHost()
 
-    const iframe = container.querySelector('iframe')
-    expect(iframe).not.toBeNull()
-    expect(iframe?.getAttribute('src')).toBe('https://example.com/watch/custom')
-    expect(iframe?.getAttribute('title')).toBe('Custom Movie')
+    expect(container.querySelector('iframe')).toBeNull()
     expect(container.querySelector('video')).toBeNull()
+    expect(container.textContent).toContain('Open Source Tab')
+    expect(container.textContent).toContain('Share Source Tab')
   })
 
-  it('hides Custom iframe and shows capture preview when captureStream is active', () => {
+  it('hides source-tab controls and shows capture preview when captureStream is active', () => {
     renderHost({ captureStream: new MediaStream() })
 
     expect(container.querySelector('iframe')).toBeNull()
     expect(container.querySelector('video')).not.toBeNull()
-  })
-
-  it('shows blocked copy when Custom URL is missing', () => {
-    renderHost({ customPlaybackUrl: null })
-
-    expect(container.querySelector('iframe')).toBeNull()
-    expect(container.textContent).toContain(
-      'Playback unavailable — no custom playback URL is linked for this catalog entry.',
-    )
+    expect(container.textContent).not.toContain('Open Source Tab')
   })
 
   it('uses Share this tab intro for Custom-host rooms', () => {
@@ -271,9 +257,6 @@ describe('RoomPlaybackPanel host Custom presentation (#394)', () => {
         <RoomPlaybackPanel
           isPublisher={false}
           videoRelayStatus="Waiting for host to share…"
-          playbackHost="custom"
-          customPlaybackUrl="https://example.com/watch/custom"
-          episodeTitle="Custom Movie"
           {...baseProps}
         />,
       )

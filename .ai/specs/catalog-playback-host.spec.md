@@ -31,7 +31,7 @@ RiffSync catalog episodes can use either **YouTube** or **Custom** as the playba
 - Custom-host create requires resolvable catalog row and non-empty **`https://`** **`customPlaybackUrl`**; **`youtubeVideoId` not required**.
 - Host **`PATCH /v1/rooms/{roomId}`** re-runs the same gate when **`catalogEpisodeId`** changes.
 - Denormalize **`playbackHost`**, **`customPlaybackUrl`**, and optional **`youtubeVideoId`** onto the **Rooms** item; echo on **`GET`**, **`201`**, and **`PATCH` `200`**.
-- In-room host presentation loads Custom URLs in an iframe (not external-tab-only) — client wiring **#394**.
+- In-room host presentation keeps the same source-tab/share flow as YouTube. Custom URLs load only in the RiffSync `/watch/:id?partyCapture=1` source tab, then reach guests through host WebRTC capture.
 
 ### Guests, Cast, SEO
 
@@ -119,17 +119,17 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 | **Blocked states** | Missing URL and embed failure copy per **`error_state.md`** and **`presentation.md`** *Decisions (M37 — solo watch Custom iframe — #393)*. |
 | **`hostSourceTab.ts`** | Extend catalog pick with **`playbackHost`**. Custom → always **`{origin}/watch/{id}?partyCapture=1`**; **`hostSourceOpensOnYoutube`** false. |
 
-### In-room host presentation (`RoomPlaybackPanel`, issue **#394**)
+### In-room host source-tab flow (`RoomPlaybackPanel`, issue **#394**)
 
 | Concern | Contract |
 | --- | --- |
-| **Host surface** | **`RoomPlaybackPanel`** publisher branch inside **`riffsync-room-page__player-shell`**. |
-| **Custom render** | When **`playbackHost === 'custom'`** and trimmed **`https://`** **`customPlaybackUrl`**, render **`SoloCustomIframePlayer`** (reuse from **#393**). Blocked states use same copy as solo watch. |
-| **Capture precedence** | When host **`captureStream`** is active, show capture preview **`<video>`** and hide presentation iframe. When inactive, show presentation iframe. |
-| **Playback source** | Room snapshot mirrors **`playbackHost`**, **`customPlaybackUrl`** (**#392**); catalog episode query fallback when mirrors absent. Episode title from catalog **`title`** for iframe **`title`**. |
-| **Snapshot diff** | **`pickRoomSnapshotMediaFields`** and **`useRoomMediaEngine`** diff key include **`playbackHost`** and **`customPlaybackUrl`** so episode retarget refreshes presentation without session remount. |
+| **Host surface** | **`RoomPlaybackPanel`** publisher branch inside **`riffsync-room-page__player-shell`** shows the same **Open Source Tab** / **Share Source Tab** controls for Custom as for YouTube. |
+| **Custom render** | Do **not** render **`SoloCustomIframePlayer`** inside the room. Custom playback belongs to the opened `/watch/:id?partyCapture=1` source tab. |
+| **Capture precedence** | When host **`captureStream`** is active, show capture preview **`<video>`**. When inactive, show source-tab share controls. |
+| **Playback source** | Room snapshot mirrors **`playbackHost`**, **`customPlaybackUrl`** (**#392**) for durable room state and retarget diffing. The host source tab resolves to `/watch/:id?partyCapture=1`; that watch route loads the catalog playback URL. |
+| **Snapshot diff** | **`pickRoomSnapshotMediaFields`** and **`useRoomMediaEngine`** diff key include **`playbackHost`** and **`customPlaybackUrl`** so episode retarget refreshes durable media state without session remount. |
 | **Guest branch** | Unchanged SFU **`host_screen`** **`<video>`** — no Custom URL chrome. |
-| **TheaterPlayback** | WebRTC audio/video binding only; Custom presentation is React-owned in **`RoomPlaybackPanel`**, not **`setYoutubeMountElement`**. |
+| **TheaterPlayback** | WebRTC audio/video binding only. Custom iframe playback is owned by the `/watch/:id?partyCapture=1` source tab, not **`RoomPlaybackPanel`** or **`setYoutubeMountElement`**. |
 
 ### Public catalog browse and card actions (`catalogPlayback.ts`, issue **#396**)
 
@@ -156,7 +156,7 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 ### Other client surfaces (indicative)
 
 - **`hostSourceTab.ts`** — capture URL stays on RiffSync watch route for Custom (tests in **#393**).
-- **`RoomPlaybackPanel.tsx` / `TheaterPlayback`** — host presentation iframe for Custom (**#394**).
+- **`RoomPlaybackPanel.tsx` / `TheaterPlayback`** — host source-tab controls for Custom and unchanged WebRTC relay (**#394**).
 
 ### Operations (CSP — issue **#395**)
 
@@ -185,7 +185,7 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 - **`staffAdminCatalogApi`**: types include host fields on **`StaffCatalogEpisode`** / write body.
 - **`hostSourceTab`**: Custom **`playbackHost`** rows resolve party-capture URL on RiffSync watch route; **`hostSourceOpensOnYoutube`** false (**#393**).
 - **`SoloCustomIframePlayer`** / **`SoloWatchPage.test.tsx`**: Custom-host iframe **`src`** and **`title`**; missing URL blocked copy; YouTube-host regression unchanged (**#393**).
-- **`RoomPlaybackPanel.test.tsx`**: host Custom presentation iframe when **`!captureStream`**; iframe hidden when **`captureStream`** active; guest branch unchanged (**#394**).
+- **`RoomPlaybackPanel.test.tsx`**: host Custom source-tab controls when **`!captureStream`**; capture preview **`<video>`** when **`captureStream`** active; guest branch unchanged (**#394**).
 - **`roomSnapshotDiff`**: diff key includes **`playbackHost`** and **`customPlaybackUrl`**; episode retarget triggers engine apply (**#394**).
 - **`catalogPlayback.test.ts`**: Custom HTTPS / missing URL; YouTube id / empty id; legacy missing **`playbackHost`** defaults **`youtube`**; **`catalogEntriesPlayableInApp`** filter.
 - **`catalogSeo.test.ts`**: Custom-host excluded from indexable set; Custom + **`youtubeVideoId`** still excluded; YouTube-host + id included (**#397**).
@@ -209,7 +209,7 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 - Staff admin UI: create YouTube-host and Custom-host episodes; edit host toggle retains opposite URL in form; reload edit shows persisted host + URLs from **`GET /v1/admin/catalog/episodes/:id`**.
 - Solo watch: Custom-host **`/watch/:id`** shows generic HTTPS iframe; missing URL shows blocked copy; known non-embeddable origin shows escape link (**#393**).
 - Party capture: **`/watch/:id?partyCapture=1`** with Custom host stretches iframe in capture layout; document title and banner unchanged (**#393**).
-- In-room host: Custom-host room shows **`SoloCustomIframePlayer`** in host player shell before capture; after **Share Source Tab**, guests receive WebRTC capture and host sees preview **`<video>`** (**#394**).
+- In-room host: Custom-host room shows **Open Source Tab** / **Share Source Tab** before capture; after **Share Source Tab**, guests receive WebRTC capture and host sees preview **`<video>`** (**#394**).
 - CSP smoke (**#395**): after CloudFront deploy, open Custom-host **`/watch/:id`** and **`?partyCapture=1`** — iframe loads staff embeddable HTTPS origin; browser devtools show no **`frame-src`** CSP violations; YouTube-host watch still frames YouTube.
 
 ## References

@@ -1,6 +1,4 @@
 import { Link } from 'react-router-dom'
-import type { RoomPlaybackHost } from '../api/roomsApi'
-import { SoloCustomIframePlayer } from '../components/watch/SoloCustomIframePlayer'
 import type { TheaterPlaybackSnapshot } from './sessions/TheaterPlayback'
 import { RIFFSYNC_THEATER_AUDIO_STATUS_ID, RIFFSYNC_VIDEO_RELAY_STATUS_ID } from './drawerErrorPresentation'
 
@@ -22,9 +20,6 @@ type RoomPlaybackPanelProps = {
   startCapture: () => Promise<void>
   openCapturePlayerTab: () => void
   hostSourceOpensOnYoutube?: boolean
-  playbackHost?: RoomPlaybackHost
-  customPlaybackUrl?: string | null
-  episodeTitle?: string
 }
 
 function HostShareIntro({
@@ -94,15 +89,7 @@ export function RoomPlaybackPanel({
   startCapture,
   openCapturePlayerTab,
   hostSourceOpensOnYoutube = false,
-  playbackHost = 'youtube',
-  customPlaybackUrl = null,
-  episodeTitle = 'Episode',
 }: RoomPlaybackPanelProps) {
-  const host = playbackHost === 'custom' ? 'custom' : 'youtube'
-  const trimmedCustomUrl = customPlaybackUrl?.trim() ?? ''
-  const hasCustomPlaybackUrl = host === 'custom' && trimmedCustomUrl.startsWith('https://')
-  const customPlaybackBlocked = host === 'custom' && !hasCustomPlaybackUrl
-
   if (isPublisher) {
     return (
       <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
@@ -124,14 +111,6 @@ export function RoomPlaybackPanel({
               disableRemotePlayback
               muted={false}
             />
-          ) : hasCustomPlaybackUrl ? (
-            <SoloCustomIframePlayer customPlaybackUrl={trimmedCustomUrl} title={episodeTitle} />
-          ) : customPlaybackBlocked ? (
-            <div className="riffsync-room-page__host-preview-placeholder">
-              <p role="status">
-                Playback unavailable — no custom playback URL is linked for this catalog entry.
-              </p>
-            </div>
           ) : (
             <div className="riffsync-room-page__host-preview-placeholder">
               <HostShareIntro hostSourceOpensOnYoutube={hostSourceOpensOnYoutube} />
@@ -139,13 +118,6 @@ export function RoomPlaybackPanel({
             </div>
           )}
         </div>
-
-        {!captureStream && host === 'custom' ? (
-          <div className="riffsync-room-page__host-preview-placeholder">
-            <HostShareIntro hostSourceOpensOnYoutube={hostSourceOpensOnYoutube} />
-            <HostShareButtons openCapturePlayerTab={openCapturePlayerTab} startCapture={startCapture} />
-          </div>
-        ) : null}
 
         {videoRelayStatus ? (
           <p
