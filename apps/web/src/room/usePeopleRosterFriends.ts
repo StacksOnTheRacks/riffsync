@@ -74,6 +74,7 @@ export function usePeopleRosterFriends(fanToken: string | null, activeSidebarTab
                   requesterSub: myFanSub ?? '',
                   recipientSub: peerFanSub,
                   createdAt: result.createdAt,
+                  displayName: 'Friend',
                 },
               ],
               anyUnread: false,
@@ -89,6 +90,7 @@ export function usePeopleRosterFriends(fanToken: string | null, activeSidebarTab
                 requesterSub: myFanSub ?? '',
                 recipientSub: peerFanSub,
                 createdAt: result.createdAt,
+                displayName: 'Friend',
               },
             ],
           }

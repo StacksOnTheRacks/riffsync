@@ -17,6 +17,7 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
   PutCommand: vi.fn((input: unknown) => ({ input, kind: 'Put' })),
   DeleteCommand: vi.fn((input: unknown) => ({ input, kind: 'Delete' })),
   QueryCommand: vi.fn((input: unknown) => ({ input, kind: 'Query' })),
+  BatchGetCommand: vi.fn((input: unknown) => ({ input, kind: 'BatchGet' })),
   UpdateCommand: vi.fn((input: unknown) => ({ input, kind: 'Update' })),
   TransactWriteCommand: vi.fn((input: unknown) => ({ input, kind: 'TransactWrite' })),
 }));
@@ -91,6 +92,7 @@ describe('friends-requests handler', () => {
     mocks.docSend.mockReset();
     process.env.FRIENDSHIP_REQUESTS_TABLE_NAME = 'FriendshipRequests';
     process.env.FRIENDSHIPS_TABLE_NAME = 'Friendships';
+    process.env.FAN_PROFILES_TABLE_NAME = 'FanProfiles';
     process.env.FRIENDSHIP_RATE_LIMIT_TABLE_NAME = 'FriendshipRateLimits';
     process.env.FRIEND_INVITE_LIMIT_PER_MINUTE = '10';
     process.env.FRIEND_ACTION_LIMIT_PER_MINUTE = '30';
@@ -215,7 +217,20 @@ describe('friends-requests handler', () => {
     const outbound = pendingItem({ requestId: 'out-1', requesterSub: 'fan-a', recipientSub: 'fan-c' });
     mocks.docSend
       .mockResolvedValueOnce({ Items: [inbound] })
-      .mockResolvedValueOnce({ Items: [outbound] });
+      .mockResolvedValueOnce({ Items: [outbound] })
+      .mockResolvedValueOnce({
+        Responses: {
+          FanProfiles: [
+            { sub: 'fan-b', displayName: 'Christen Servo' },
+            { sub: 'fan-c', displayName: 'TVs Frank III' },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        Responses: {
+          FanProfiles: [{ sub: 'fan-b', avatarUrl: 'https://cdn.example/avatar-b.png' }],
+        },
+      });
 
     const res = await handler(
       fanEvent('GET', '/v1/friends/requests', { claims: { sub: 'fan-a' } }),
@@ -231,6 +246,8 @@ describe('friends-requests handler', () => {
           requesterSub: 'fan-b',
           recipientSub: 'fan-a',
           createdAt: inbound.createdAt,
+          displayName: 'Christen Servo',
+          avatarUrl: 'https://cdn.example/avatar-b.png',
         },
       ],
       outbound: [
@@ -239,6 +256,7 @@ describe('friends-requests handler', () => {
           requesterSub: 'fan-a',
           recipientSub: 'fan-c',
           createdAt: outbound.createdAt,
+          displayName: 'TVs Frank III',
         },
       ],
     });

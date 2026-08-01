@@ -40,6 +40,13 @@ describe('chat drawer UX wiring (#207)', () => {
     expect(src).not.toMatch(/videoRelayStatus/)
   })
 
+  it('Room friends pane backfills DM history while push is unavailable', () => {
+    const src = readSrc('../friends/useRoomFriendsPane.ts')
+    expect(src).toContain('DM_PUSH_FALLBACK_POLL_MS')
+    expect(src).toContain('fetchDmMessages(fanToken, peer.pairKey)')
+    expect(src).toContain("dmPushStatus === 'open'")
+  })
+
   it('anchors sparse chat history to the compose edge', () => {
     const css = readSrc('../styles/riffsync-app.css')
     expect(css).toMatch(

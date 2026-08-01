@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { cognitoSub } from '../auth/jwtDecode'
 import type { DmDrawerError } from './dmDrawerCodes'
 import { ensureDmThread, fetchDmMessages, markDmRead, type DmMessage } from './dmApi'
-import { getSharedFanDmSession, syncSharedFanDmSessionWithAuth, type InboundDmMessage } from './FanDmSession'
+import {
+  getSharedFanDmSession,
+  syncSharedFanDmSessionWithAuth,
+  type FanDmSessionStatus,
+  type InboundDmMessage,
+} from './FanDmSession'
 import {
   acceptFriendRequest,
   cancelFriendRequest,
@@ -46,8 +51,21 @@ export type RoomFriendsPaneState = {
   sendDm: () => void
 }
 
+const DM_PUSH_FALLBACK_POLL_MS = 5_000
+
 function sortDmMessages(messages: DmMessage[]): DmMessage[] {
   return [...messages].sort((a, b) => a.sentAt - b.sentAt || a.messageId.localeCompare(b.messageId))
+}
+
+function mergeDmMessages(existing: DmMessage[], incoming: DmMessage[]): DmMessage[] {
+  const byId = new Map<string, DmMessage>()
+  for (const message of existing) {
+    byId.set(message.messageId, message)
+  }
+  for (const message of incoming) {
+    byId.set(message.messageId, message)
+  }
+  return sortDmMessages([...byId.values()])
 }
 
 function mergeInboundMessage(existing: DmMessage[], inbound: InboundDmMessage): DmMessage[] {
@@ -92,6 +110,7 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
   const [dmLoading, setDmLoading] = useState(false)
   const [dmDraft, setDmDraft] = useState('')
   const [dmComposeError, setDmComposeError] = useState<string | null>(null)
+  const [dmPushStatus, setDmPushStatus] = useState<FanDmSessionStatus>(() => getSharedFanDmSession().getStatus())
   const [removeTarget, setRemoveTarget] = useState<FriendEntry | null>(null)
   const bootstrappedRef = useRef(false)
   const openPeerRef = useRef<OpenDmPeer | null>(null)
@@ -167,6 +186,28 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
     [fanToken, myFanSub, refreshRoster],
   )
 
+  const refreshOpenDmHistory = useCallback(async () => {
+    const peer = openPeerRef.current
+    if (!fanToken || !peer || dmClosed) return
+    const history = await fetchDmMessages(fanToken, peer.pairKey)
+    if (!history.ok) {
+      if (
+        history.code === 'friendship_not_active' ||
+        history.code === 'dm_thread_closed' ||
+        history.status === 403
+      ) {
+        setDmClosed(true)
+        setDmMessages([])
+      }
+      return
+    }
+    const sorted = sortDmMessages(history.page.messages)
+    setDmMessages((current) => mergeDmMessages(current, sorted))
+    void markPeerMessagesRead(fanToken, peer.pairKey, sorted, myFanSub, () => {
+      void refreshRoster()
+    })
+  }, [dmClosed, fanToken, myFanSub, refreshRoster])
+
   useEffect(() => {
     if (!enabled || !fanToken) return
     if (!bootstrappedRef.current && friendsTabActive) {
@@ -211,8 +252,25 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
           setDmComposeError('Live delivery unavailable. Messages still send when you retry.')
         }
       },
+      onStatusChange: (status) => {
+        setDmPushStatus(status)
+        if (status === 'open') {
+          setDmComposeError((current) =>
+            current === 'Live delivery unavailable. Messages still send when you retry.' ? null : current,
+          )
+        }
+      },
     })
   }, [enabled, fanToken, myFanSub, refreshRoster])
+
+  useEffect(() => {
+    if (!enabled || !fanToken || !openPeer || dmClosed || dmPushStatus === 'open') return
+    void refreshOpenDmHistory()
+    const timer = window.setInterval(() => {
+      void refreshOpenDmHistory()
+    }, DM_PUSH_FALLBACK_POLL_MS)
+    return () => window.clearInterval(timer)
+  }, [dmClosed, dmPushStatus, enabled, fanToken, openPeer, refreshOpenDmHistory])
 
   const acceptRequest = useCallback(
     async (requestId: string) => {

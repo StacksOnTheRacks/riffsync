@@ -19,7 +19,15 @@ const mockUseRoomFriendsPane = vi.fn(() => ({
   loadError: false,
   snapshot: {
     friends: [{ fanSub: 'fan-b', pairKey: 'a#b', displayName: 'Buddy', online: true, hasUnread: true, createdAt: 1 }],
-    inbound: [{ requestId: 'req-1', requesterSub: 'fan-c', recipientSub: 'fan-a', createdAt: 2 }],
+    inbound: [
+      {
+        requestId: 'req-1',
+        requesterSub: 'fan-c',
+        recipientSub: 'fan-a',
+        createdAt: 2,
+        displayName: 'Christen Servo',
+      },
+    ],
     outbound: [],
     anyUnread: true,
   },

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { cognitoSub } from '../auth/jwtDecode'
-import type { FriendEntry } from './friendsApi'
+import type { FriendEntry, FriendRequestEntry } from './friendsApi'
 import { requireFanAccessToken } from './requireFanAccessToken'
 import type { RoomFriendsPaneState } from './useRoomFriendsPane'
 
@@ -152,7 +152,7 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
               <ul className="riffsync-room-friends-list">
                 {pane.snapshot.inbound.map((request) => (
                   <li key={request.requestId} className="riffsync-room-friends-row">
-                    <span className="riffsync-room-friends-row-name">Friend request</span>
+                    <PendingRequestIdentity request={request} />
                     <div className="riffsync-room-friends-row-actions">
                       <button
                         type="button"
@@ -173,7 +173,7 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
                 ))}
                 {pane.snapshot.outbound.map((request) => (
                   <li key={request.requestId} className="riffsync-room-friends-row">
-                    <span className="riffsync-room-friends-row-name">Request pending</span>
+                    <PendingRequestIdentity request={request} />
                     <div className="riffsync-room-friends-row-actions">
                       <button
                         type="button"
@@ -224,6 +224,15 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
         />
       ) : null}
     </div>
+  )
+}
+
+function PendingRequestIdentity({ request }: { request: FriendRequestEntry }) {
+  return (
+    <>
+      <FanAvatarThumb displayName={request.displayName} avatarUrl={request.avatarUrl} />
+      <span className="riffsync-room-friends-row-name">{request.displayName}</span>
+    </>
   )
 }
 

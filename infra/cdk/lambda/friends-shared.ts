@@ -48,6 +48,8 @@ export type PendingRequestWire = {
   requesterSub: string;
   recipientSub: string;
   createdAt: number;
+  displayName?: string;
+  avatarUrl?: string;
 };
 
 type JsonRecord = { [key: string]: unknown };
@@ -99,13 +101,23 @@ export function splitPairKey(pairKey: string): { fanSubA: string; fanSubB: strin
   return { fanSubA, fanSubB };
 }
 
-export function toPendingWire(item: FriendshipRequestItem): PendingRequestWire {
-  return {
+export function toPendingWire(
+  item: FriendshipRequestItem,
+  profile?: { displayName: string; avatarUrl?: string },
+): PendingRequestWire {
+  const wire: PendingRequestWire = {
     requestId: item.requestId,
     requesterSub: item.requesterSub,
     recipientSub: item.recipientSub,
     createdAt: item.createdAt,
   };
+  if (profile) {
+    wire.displayName = profile.displayName;
+    if (profile.avatarUrl) {
+      wire.avatarUrl = profile.avatarUrl;
+    }
+  }
+  return wire;
 }
 
 export function parseFriendshipRequestItem(raw: Record<string, unknown> | undefined): FriendshipRequestItem | null {

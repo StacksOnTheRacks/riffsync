@@ -115,6 +115,48 @@ describe('FriendsDropdown (#363)', () => {
     expect(container.querySelector('.riffsync-friends-dropdown')).toBeNull()
   })
 
+  it('renders pending request peer names in the dropdown', () => {
+    mockUseRoomFriendsPane.mockReturnValue(
+      buildPaneState({
+        snapshot: {
+          friends: [],
+          inbound: [
+            {
+              requestId: 'req-in-1',
+              requesterSub: 'fan-b',
+              recipientSub: 'fan-a',
+              createdAt: 1,
+              displayName: 'Christen Servo',
+            },
+          ],
+          outbound: [
+            {
+              requestId: 'req-out-1',
+              requesterSub: 'fan-a',
+              recipientSub: 'fan-c',
+              createdAt: 2,
+              displayName: 'TVs Frank III',
+            },
+          ],
+          anyUnread: false,
+        },
+      }),
+    )
+
+    act(() => {
+      root.render(<FriendsDropdown />)
+    })
+    const trigger = container.querySelector('#gen-user-btn') as HTMLButtonElement
+    act(() => {
+      trigger.click()
+    })
+
+    expect(container.textContent).toContain('Christen Servo')
+    expect(container.textContent).toContain('TVs Frank III')
+    expect(container.textContent).toContain('Accept')
+    expect(container.textContent).toContain('Cancel request')
+  })
+
   it('opens DM overlay from friend row and shows empty durable copy', () => {
     const openDm = vi.fn()
     mockUseRoomFriendsPane.mockReturnValue(

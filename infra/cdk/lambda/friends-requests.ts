@@ -27,22 +27,24 @@ import {
   toPendingWire,
   type FriendshipRequestItem,
 } from './friends-shared';
+import { batchAvatarUrlsByFanSub, batchDisplayNamesByFanSub } from './fan-profile-shared';
 
 const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
 function tables():
-  | { ok: true; requests: string; friendships: string; rateLimits: string }
+  | { ok: true; requests: string; friendships: string; rateLimits: string; fanProfiles: string }
   | { ok: false; response: APIGatewayProxyResultV2 } {
   const requests = process.env.FRIENDSHIP_REQUESTS_TABLE_NAME?.trim();
   const friendships = process.env.FRIENDSHIPS_TABLE_NAME?.trim();
   const rateLimits = process.env.FRIENDSHIP_RATE_LIMIT_TABLE_NAME?.trim();
-  if (!requests || !friendships || !rateLimits) {
+  const fanProfiles = process.env.FAN_PROFILES_TABLE_NAME?.trim();
+  if (!requests || !friendships || !rateLimits || !fanProfiles) {
     return {
       ok: false,
       response: jsonResponse(500, { error: 'Server misconfigured' }),
     };
   }
-  return { ok: true, requests, friendships, rateLimits };
+  return { ok: true, requests, friendships, rateLimits, fanProfiles };
 }
 
 function inviteLimit(): number {
@@ -151,16 +153,29 @@ async function handleInvite(
 
 async function handleList(
   fanSub: string,
-  t: { requests: string },
+  t: { requests: string; fanProfiles: string },
 ): Promise<APIGatewayProxyResultV2> {
   const [inboundRaw, outboundRaw] = await Promise.all([
     queryPendingByRole(doc, t.requests, FRIENDSHIP_REQUESTS_RECIPIENT_INDEX, 'recipientSub', fanSub),
     queryPendingByRole(doc, t.requests, FRIENDSHIP_REQUESTS_REQUESTER_INDEX, 'requesterSub', fanSub),
   ]);
+  const peerSubs = [
+    ...inboundRaw.map((request) => request.requesterSub),
+    ...outboundRaw.map((request) => request.recipientSub),
+  ];
+  const [displayNames, avatarUrls] = await Promise.all([
+    batchDisplayNamesByFanSub(doc, t.fanProfiles, peerSubs),
+    batchAvatarUrlsByFanSub(doc, t.fanProfiles, peerSubs),
+  ]);
+
+  const profileForPeer = (peerSub: string) => ({
+    displayName: displayNames.get(peerSub) ?? 'Friend',
+    avatarUrl: avatarUrls.get(peerSub),
+  });
 
   return jsonResponse(200, {
-    inbound: inboundRaw.map(toPendingWire),
-    outbound: outboundRaw.map(toPendingWire),
+    inbound: inboundRaw.map((request) => toPendingWire(request, profileForPeer(request.requesterSub))),
+    outbound: outboundRaw.map((request) => toPendingWire(request, profileForPeer(request.recipientSub))),
   });
 }
 

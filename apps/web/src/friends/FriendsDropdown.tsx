@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } f
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { cognitoSub } from '../auth/jwtDecode'
-import type { FriendEntry } from './friendsApi'
+import type { FriendEntry, FriendRequestEntry } from './friendsApi'
 import { requireFanAccessToken } from './requireFanAccessToken'
 import { useRoomFriendsPane, type RoomFriendsPaneState } from './useRoomFriendsPane'
 
@@ -173,7 +173,7 @@ function FriendsDropdownList({
               <ul className="riffsync-room-friends-list">
                 {pane.snapshot.inbound.map((request) => (
                   <li key={request.requestId} className="riffsync-room-friends-row">
-                    <span className="riffsync-room-friends-row-name">Friend request</span>
+                    <PendingRequestIdentity request={request} />
                     <div className="riffsync-room-friends-row-actions">
                       <button
                         type="button"
@@ -194,7 +194,7 @@ function FriendsDropdownList({
                 ))}
                 {pane.snapshot.outbound.map((request) => (
                   <li key={request.requestId} className="riffsync-room-friends-row">
-                    <span className="riffsync-room-friends-row-name">Request pending</span>
+                    <PendingRequestIdentity request={request} />
                     <div className="riffsync-room-friends-row-actions">
                       <button
                         type="button"
@@ -228,6 +228,15 @@ function FriendsDropdownList({
         </>
       ) : null}
     </div>
+  )
+}
+
+function PendingRequestIdentity({ request }: { request: FriendRequestEntry }) {
+  return (
+    <>
+      <FanAvatarThumb displayName={request.displayName} avatarUrl={request.avatarUrl} />
+      <span className="riffsync-room-friends-row-name">{request.displayName}</span>
+    </>
   )
 }
 

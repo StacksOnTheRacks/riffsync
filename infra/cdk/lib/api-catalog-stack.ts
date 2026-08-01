@@ -986,6 +986,7 @@ export class ApiCatalogStack extends cdk.Stack {
       environment: {
         FRIENDSHIP_REQUESTS_TABLE_NAME: this.friendshipRequestsTable.tableName,
         FRIENDSHIPS_TABLE_NAME: this.friendshipsTable.tableName,
+        FAN_PROFILES_TABLE_NAME: this.fanProfilesTable.tableName,
         FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
         FRIEND_INVITE_LIMIT_PER_MINUTE: '10',
         FRIEND_ACTION_LIMIT_PER_MINUTE: '30',
@@ -995,6 +996,7 @@ export class ApiCatalogStack extends cdk.Stack {
     });
     this.friendshipRequestsTable.grantReadWriteData(friendsRequestsFn);
     this.friendshipsTable.grantReadWriteData(friendsRequestsFn);
+    this.fanProfilesTable.grantReadData(friendsRequestsFn);
     friendshipRateLimitTable.grantReadWriteData(friendsRequestsFn);
 
     const friendsListFn = new lambdaNodejs.NodejsFunction(this, 'FriendsListFn', {

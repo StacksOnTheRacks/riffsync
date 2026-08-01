@@ -7,6 +7,8 @@ import { requireFanAccessToken } from './requireFanAccessToken'
 const PING_MS = 25_000
 const SEND_RETRY_ATTEMPTS = 3
 const SEND_RETRY_BASE_MS = 400
+const RECONNECT_BASE_MS = 1_000
+const RECONNECT_MAX_MS = 15_000
 
 export type InboundDmMessage = {
   type: 'dm_message'
@@ -75,6 +77,8 @@ function sleep(ms: number): Promise<void> {
 export class FanDmSession {
   private ws: WebSocket | null = null
   private pingTimer: number | null = null
+  private reconnectTimer: number | null = null
+  private reconnectAttempts = 0
   private status: FanDmSessionStatus = 'idle'
   private readonly sessionId: string
   private readonly handlers: FanDmSessionHandlers
@@ -135,6 +139,25 @@ export class FanDmSession {
     }
   }
 
+  private clearReconnect(): void {
+    if (this.reconnectTimer !== null) {
+      globalThis.clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer !== null || !requireFanAccessToken() || !getPublicFanDmWsUrl()) {
+      return
+    }
+    const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempts, RECONNECT_MAX_MS)
+    this.reconnectAttempts += 1
+    this.reconnectTimer = globalThis.setTimeout(() => {
+      this.reconnectTimer = null
+      this.connect()
+    }, delay) as unknown as number
+  }
+
   connect(): void {
     const accessToken = requireFanAccessToken()
     if (!accessToken) {
@@ -149,6 +172,7 @@ export class FanDmSession {
       return
     }
 
+    this.clearReconnect()
     this.disconnect()
     this.setStatus('connecting')
 
@@ -157,6 +181,7 @@ export class FanDmSession {
 
     ws.onopen = () => {
       if (this.ws !== ws) return
+      this.reconnectAttempts = 0
       this.setStatus('open')
       this.startPing()
     }
@@ -181,11 +206,14 @@ export class FanDmSession {
     ws.onclose = () => {
       if (this.ws !== ws) return
       this.stopPing()
+      this.ws = null
       this.setStatus('closed')
+      this.scheduleReconnect()
     }
   }
 
   disconnect(): void {
+    this.clearReconnect()
     this.stopPing()
     if (this.ws) {
       const socket = this.ws

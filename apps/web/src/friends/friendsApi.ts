@@ -6,6 +6,8 @@ export type FriendRequestEntry = {
   requesterSub: string
   recipientSub: string
   createdAt: number
+  displayName: string
+  avatarUrl?: string
 }
 
 export type FriendEntry = {
@@ -110,7 +112,8 @@ export async function fetchFriendRosterSnapshot(
               entry !== null &&
               typeof (entry as FriendRequestEntry).requestId === 'string' &&
               typeof (entry as FriendRequestEntry).requesterSub === 'string' &&
-              typeof (entry as FriendRequestEntry).recipientSub === 'string',
+              typeof (entry as FriendRequestEntry).recipientSub === 'string' &&
+              typeof (entry as FriendRequestEntry).displayName === 'string',
           )
         : []
 

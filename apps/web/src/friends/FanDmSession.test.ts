@@ -52,6 +52,7 @@ describe('FanDmSession', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.unstubAllEnvs()
     vi.restoreAllMocks()
@@ -101,6 +102,22 @@ describe('FanDmSession', () => {
     await Promise.resolve()
     MockWebSocket.instances[0].close()
     expect(errors).toContain('DM_PUSH_UNAVAILABLE')
+  })
+
+  it('reconnects after an open socket closes while fan auth remains available', async () => {
+    vi.useFakeTimers()
+    const session = new FanDmSession({}, 'tab-reconnect')
+    session.connect()
+    await Promise.resolve()
+
+    MockWebSocket.instances[0].close()
+    expect(session.getStatus()).toBe('closed')
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    await Promise.resolve()
+
+    expect(MockWebSocket.instances).toHaveLength(2)
+    expect(MockWebSocket.instances[1].url).toContain('sessionId=tab-reconnect')
   })
 
   it('does not open WebSocket when fan access token is absent', async () => {

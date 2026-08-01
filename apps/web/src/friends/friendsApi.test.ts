@@ -77,7 +77,15 @@ describe('friendsApi', () => {
           ok: true,
           json: async () => ({
             inbound: [],
-            outbound: [{ requestId: 'req-2', requesterSub: 'fan-a', recipientSub: 'fan-c', createdAt: 2 }],
+            outbound: [
+              {
+                requestId: 'req-2',
+                requesterSub: 'fan-a',
+                recipientSub: 'fan-c',
+                createdAt: 2,
+                displayName: 'Christen Servo',
+              },
+            ],
           }),
         }
       }),
@@ -87,5 +95,6 @@ describe('friendsApi', () => {
 
     expect(snapshot?.friends).toHaveLength(1)
     expect(snapshot?.outbound).toHaveLength(1)
+    expect(snapshot?.outbound[0]?.displayName).toBe('Christen Servo')
   })
 })

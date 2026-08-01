@@ -112,6 +112,7 @@ describe('RoomFriendsPane (#364)', () => {
                   requesterSub: 'fan-a',
                   recipientSub: 'fan-c',
                   createdAt: 3,
+                  displayName: 'Christen Servo',
                 },
               ],
               anyUnread: false,
@@ -124,7 +125,7 @@ describe('RoomFriendsPane (#364)', () => {
     })
 
     expect(container.textContent).toContain('Pending requests')
-    expect(container.textContent).toContain('Request pending')
+    expect(container.textContent).toContain('Christen Servo')
     expect(container.textContent).toContain('Cancel request')
     expect(container.textContent).toContain('No friends yet.')
 
@@ -151,6 +152,7 @@ describe('RoomFriendsPane (#364)', () => {
                   requesterSub: 'fan-c',
                   recipientSub: 'fan-a',
                   createdAt: 2,
+                  displayName: 'TVs Frank III',
                 },
               ],
               outbound: [],
@@ -172,6 +174,7 @@ describe('RoomFriendsPane (#364)', () => {
     )
     acceptButton?.click()
     declineButton?.click()
+    expect(container.textContent).toContain('TVs Frank III')
     expect(acceptRequest).toHaveBeenCalledWith('req-in-1')
     expect(declineRequest).toHaveBeenCalledWith('req-in-1')
   })
