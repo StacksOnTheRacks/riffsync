@@ -20,7 +20,7 @@ export const LIVE_CHANNELS: readonly LiveChannelSeed[] = [
     enabled: true,
     defaultTitle: 'MST3K Forever-A-Thon',
     defaultDescription:
-      'Watch the MST3K Forever-A-Thon live on RiffSync with room chat. Unofficial fan project.',
+      'Watch the MST3K Forever-A-Thon live on RiffSync with room chat.',
   },
 ] as const
 
