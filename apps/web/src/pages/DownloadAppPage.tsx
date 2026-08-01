@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { staticRouteDocumentTitle } from '../seo/routeHeadTags'
 import { usePwaInstallPrompt } from '../pwa/usePwaInstallPrompt'
 
+const BROWSER_INSTALL_URL = 'https://riffsync.tv/download'
+
 export function DownloadAppPage() {
   const { canPrompt, isInstalled, promptInstall } = usePwaInstallPrompt()
   const [installAccepted, setInstallAccepted] = useState(false)
@@ -25,6 +27,13 @@ export function DownloadAppPage() {
         <h1>Install the RiffSync app</h1>
         <p className="riffsync-legal__meta text-muted">
           Add RiffSync to your phone, tablet, dock, or taskbar for a focused watch-party window.
+        </p>
+        <p>
+          If you are viewing this inside the installed app and need browser install controls, open{' '}
+          <a href={BROWSER_INSTALL_URL} target="_blank" rel="noreferrer">
+            RiffSync in your browser
+          </a>
+          .
         </p>
 
         {isInstalled ? (

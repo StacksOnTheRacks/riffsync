@@ -50,6 +50,12 @@ describe('DownloadAppPage', () => {
     expect(container.textContent).toContain('iPhone or iPad Safari')
     expect(container.textContent).toContain('Mac Safari')
     expect(container.textContent).toContain('Firefox and other browsers')
+    expect(container.querySelector('a[href="https://riffsync.tv/download"]')?.textContent).toBe(
+      'RiffSync in your browser',
+    )
+    expect(container.querySelector('a[href="https://riffsync.tv/download"]')?.getAttribute('target')).toBe(
+      '_blank',
+    )
   })
 
   it('shows an install button when the browser prompt is available', async () => {
