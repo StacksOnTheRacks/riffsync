@@ -78,7 +78,7 @@ describe('buildStaticRouteHeadTags', () => {
     const head = buildStaticRouteHeadTags('/catalog', 'https://riffsync.tv')
     expect(head.documentTitle).toBe('RiffSync Catalog - Browse the Library')
     expect(head.description).toBe(
-      'Browse the RiffSync catalog of riff-style episodes with lawful YouTube embeds. Explore MST3K, Community, Riff Material, and Movie Night, pick an experiment, and start a watch party. Unofficial fan project.',
+      'Browse RiffSync episodes across MST3K, Community, Riff Material, and Movie Night. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
     )
     expect(head.canonicalUrl).toBe('https://riffsync.tv/catalog')
   })
@@ -99,7 +99,7 @@ describe('buildStaticRouteHeadTags', () => {
         route: '/catalog/mst3k' as const,
         title: 'MST3K - RiffSync Catalog',
         description:
-          'Browse Mystery Science Theater 3000 episodes on RiffSync — Joel, Mike, Jonah, and Emily eras with lawful YouTube embeds. Unofficial fan project.',
+          'Browse Mystery Science Theater 3000 episodes on RiffSync — Joel, Mike, Jonah, and Emily catalogs with lawful YouTube embeds. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/mst3k',
       },
       {

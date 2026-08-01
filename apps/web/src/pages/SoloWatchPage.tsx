@@ -44,28 +44,24 @@ export function SoloWatchPage() {
   const { data: episode, isPending, isError, error, refetch } = useCatalogEpisodeQuery(catalogEpisodeId)
 
   useEffect(() => {
+    if (!partyCapture) {
+      return
+    }
+
     const prev = document.title
     let next: string
     if (!catalogEpisodeId) {
       next = `Watch · ${SITE_DOCUMENT_TITLE}`
     } else if (isPending) {
-      next = partyCapture
-        ? `Share this tab · loading… · ${SITE_DOCUMENT_TITLE}`
-        : `Watch · loading… · ${SITE_DOCUMENT_TITLE}`
+      next = `Share this tab · loading… · ${SITE_DOCUMENT_TITLE}`
     } else if (isError) {
       const hint = catalogEpisodeId ? trimTabTitleSegment(catalogEpisodeId, 28) : 'error'
-      next = partyCapture
-        ? `Share this tab · ${hint} · ${SITE_DOCUMENT_TITLE}`
-        : `Watch · ${hint} · ${SITE_DOCUMENT_TITLE}`
+      next = `Share this tab · ${hint} · ${SITE_DOCUMENT_TITLE}`
     } else if (!episode) {
-      next = partyCapture
-        ? `Share this tab · not found · ${SITE_DOCUMENT_TITLE}`
-        : `Watch · not found · ${SITE_DOCUMENT_TITLE}`
+      next = `Share this tab · not found · ${SITE_DOCUMENT_TITLE}`
     } else {
       const label = trimTabTitleSegment(episode.title)
-      next = partyCapture
-        ? `Share this tab · ${label} · ${SITE_DOCUMENT_TITLE}`
-        : `Watch · ${label} · ${SITE_DOCUMENT_TITLE}`
+      next = `Share this tab · ${label} · ${SITE_DOCUMENT_TITLE}`
     }
     document.title = next
     return () => {

@@ -94,6 +94,17 @@ describe('StaticSiteStack', () => {
           ResponseHeadersPolicyId: {
             Ref: Match.stringLikeRegexp('WebResponseHeadersPolicy'),
           },
+          FunctionAssociations: Match.arrayWith([
+            Match.objectLike({
+              EventType: 'viewer-request',
+              FunctionARN: {
+                'Fn::GetAtt': [
+                  Match.stringLikeRegexp('CanonicalHostRedirect'),
+                  'FunctionARN',
+                ],
+              },
+            }),
+          ]),
         },
         CustomErrorResponses: Match.arrayWith([
           Match.objectLike({

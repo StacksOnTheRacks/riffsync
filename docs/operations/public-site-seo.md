@@ -72,7 +72,7 @@ node --check scripts/launch-readiness/smoke-production.mjs   # syntax only
 npm run smoke:production                                      # live production URLs
 ```
 
-**When to run:** after **`deploy-prod.yml`** completes phase 5 (S3 sync + CloudFront invalidation) and DNS points at the current distribution.
+**When to run:** after **`deploy-prod.yml`** completes phase 5 (S3 sync + CloudFront invalidation) and DNS points at the current distribution. Treat SEO as not live until this smoke passes against the clean public URLs, not just the underlying **`/index.html`** object keys.
 
 **What the script asserts:**
 
@@ -81,9 +81,11 @@ npm run smoke:production                                      # live production 
 | 1 | **`https://riffsync.tv/`** returns **200** |
 | 2 | **`https://www.riffsync.tv/lobby`** returns **301** with **`Location: https://riffsync.tv/lobby`** |
 | 3 | **`https://riffsync.tv/robots.txt`** and **`https://riffsync.tv/sitemap.xml`** return **200** |
-| 4 | **`/`** HTML contains **`<link rel="canonical" href="https://riffsync.tv/">`** |
-| 5 | **`/watch/101-the-crawling-eye`** HTML contains canonical **`https://riffsync.tv/watch/101-the-crawling-eye`** |
-| 6 | Fetched home **`index.html`** body contains no **`www.riffsync.tv`** host strings |
+| 4 | **`/`** HTML contains the home **`<title>`** and apex canonical, with no **`noindex`** and no **`www.riffsync.tv`** absolute URLs |
+| 5 | Clean URL **`/catalog`** returns the catalog prerender title and apex canonical, with no **`noindex`** |
+| 6 | Clean URL **`/catalog/mst3k`** returns the MST3K prerender title and apex canonical, with no **`noindex`** |
+| 7 | Clean URL **`/watch/101-the-crawling-eye`** returns the episode prerender title and apex canonical, with no **`noindex`** |
+| 8 | Fetched home **`index.html`** body contains no **`www.riffsync.tv`** host strings |
 
 **Expected output:** one **`OK:`** line per check, then **`Production smoke check passed.`** and exit code **0**.
 

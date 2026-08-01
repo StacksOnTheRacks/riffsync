@@ -80,7 +80,7 @@ The hub and four subcategory routes are part of the public discoverable (indexab
 
 **Build/CI:** SEO verify asserts sitemap/prerender coverage for the four subcategory paths as part of the shared static route list (ten static routes + YouTube-linked watch pages after `/download`; fixture head tags per `public-site-seo` / `build_packaging.md`).
 
-**Manual/smoke:** Post-deploy **`npm run smoke:production`** includes **`https://riffsync.tv/catalog/mst3k`** **200** with apex canonical (normative under `public-site-seo` / M33 — #341); not PR-CI-wired.
+**Manual/smoke:** Post-deploy **`npm run smoke:production`** includes clean URL **`https://riffsync.tv/catalog/mst3k`** **200** with the MST3K prerender **`<title>`**, apex canonical, and no **`noindex`** (normative under `public-site-seo` / M33 — #341); not PR-CI-wired.
 
 ## References
 

@@ -74,7 +74,7 @@ Full detail: `.ai/operations/build_packaging.md` → *Decisions (M28 — robots.
 | **Build order** | Last step after M28 SEO artifact generation: **`… && node scripts/generate-seo-artifacts.mjs && node scripts/prerender-indexable-routes.mjs`**. |
 | **Head-tag copy** | Normative strings in **`.ai/interface/presentation.md`** → *Public site head tags* table and *Decisions (M29 — per-route head tags — #326)*. |
 | **Prerender paths** | **`dist/index.html`** (home), **`dist/{route}/index.html`** for static indexable paths (including **`dist/catalog/index.html`**, **`dist/catalog/{mst3k,community,riff-material,movie-night}/index.html`**, and **`dist/download/index.html`**), **`dist/watch/{catalogEpisodeId}/index.html`** per YouTube-linked episode, **`dist/spa-shell.html`** (generic **`noindex`** fallback). |
-| **SPA fallback** | **`static-site-stack.ts`** maps **403/404** to **`/spa-shell.html`** so **`/room/*`**, **`/lobby`**, and other non-prerendered paths do not inherit home canonical metadata. |
+| **Clean URL serving / SPA fallback** | **`cloudfront-canonical-redirect.ts`** viewer-request Function rewrites clean indexable paths to their prerendered S3 keys before origin fetch (for example **`/catalog`** → **`/catalog/index.html`**, **`/watch/{id}`** → **`/watch/{id}/index.html`**) while leaving extensioned objects unchanged. **`static-site-stack.ts`** maps true **403/404** misses to **`/spa-shell.html`** so **`/room/*`**, **`/lobby`**, and other non-prerendered paths do not inherit home canonical metadata. |
 | **Catalog / filter** | Same committed catalog file; **`catalogEntriesIndexableForSeo`** filter (**#397**). |
 | **Origin** | **`VITE_PUBLIC_ORIGIN`** at build when set, else **`https://riffsync.tv`**. |
 | **CI** | **`web-app`** verifies prerender file count and spot-checks head tags on **`/`** plus a fixture **`/watch/{id}`**; unit tests cover **`routeHeadTags`** for all indexable route shapes. |
@@ -95,7 +95,7 @@ Full detail: `.ai/interface/presentation.md` → *Decisions (M30 — home sr-onl
 
 **Canonical origin sourcing:** the same `public_domain` / `PUBLIC_WEB_ORIGIN` build-time value already used for `VITE_PUBLIC_ORIGIN` (`.ai/runtime/configuration.md`) is the single source for all absolute URLs this capability emits.
 
-**Canonical hostname redirect:** GitHub Actions repository variables (`PROD_FAN_WEB_HOSTNAME`, `PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`, `PROD_FAN_WEB_CANONICAL_HOSTNAME`) and matching CDK context on `RiffSyncStatic-prod` (`infra/cdk/lib/static-site-stack.ts`) set apex `riffsync.tv` as canonical with `www.riffsync.tv` as an alternate. The existing `cloudfront-canonical-redirect.ts` CloudFront Function **301**-redirects any non-canonical custom alias (including `www.riffsync.tv`) to apex, preserving path and query. Change redirect status from **302** to **301** in `viewerRequestRedirectToCanonicalSource` as part of M27. No new CDK construct is required.
+**Canonical hostname redirect:** GitHub Actions repository variables (`PROD_FAN_WEB_HOSTNAME`, `PROD_FAN_WEB_ALTERNATE_DOMAIN_NAMES`, `PROD_FAN_WEB_CANONICAL_HOSTNAME`) and matching CDK context on `RiffSyncStatic-prod` (`infra/cdk/lib/static-site-stack.ts`) set apex `riffsync.tv` as canonical with `www.riffsync.tv` as an alternate. The existing `cloudfront-canonical-redirect.ts` CloudFront Function **301**-redirects any non-canonical custom alias (including `www.riffsync.tv`) to apex, preserving path and query, then rewrites clean canonical-host requests to prerendered `index.html` object keys before origin fetch.
 
 **M27 static shell:** `apps/web/index.html` canonical `<link>`, `og:url`, `og:image`, and `twitter:image` absolute URLs must use apex `https://riffsync.tv` (not `www`). Production `VITE_PUBLIC_ORIGIN` comes from `FanWebSiteUrl` CloudFormation output via `deploy-prod.yml`.
 
@@ -112,7 +112,7 @@ Full detail: `.ai/interface/presentation.md` → *Decisions (M30 — home sr-onl
 | **Smoke script** | **`scripts/launch-readiness/smoke-production.mjs`** — Node ESM, zero deps; root **`npm run smoke:production`**. |
 | **Smoke timing** | After **`deploy-prod.yml`** phase 5 when M27–M29 (and M33 subcategory prerender) are live; not CI. |
 | **Fixture watch path** | **`/watch/101-the-crawling-eye`** (committed catalog entry with YouTube link). |
-| **Subcategory smoke path (M33)** | **`/catalog/mst3k`** — **200** plus apex canonical **`<link>`** (or equivalent substring). |
+| **Subcategory smoke path (M33)** | Clean URL **`/catalog/mst3k`** — **200** plus MST3K prerender **`<title>`**, apex canonical **`<link>`**, and no **`noindex`**. |
 
 **Static indexable route extensions:** **`STATIC_INDEXABLE_ROUTES`** contains ten paths: the original public surfaces, the four **`/catalog/*`** subcategory routes, and **`/download`**. Prerender/sitemap/CI follow list length; head-tag strings match **`presentation.md`** table as-is. Full detail: `.ai/operations/build_packaging.md` → *Decisions (M33 — catalog subcategory SEO packaging — #341)* and *Decisions (M31 — Search Console verification and release smoke — #328)*.
 
@@ -144,10 +144,11 @@ Full detail: `.ai/operations/build_packaging.md` → *Decisions (M37 — host-aw
 1. **`https://riffsync.tv/`** returns **200**
 2. **`https://www.riffsync.tv/lobby`** returns **301** with **`Location: https://riffsync.tv/lobby`**
 3. **`https://riffsync.tv/robots.txt`** and **`https://riffsync.tv/sitemap.xml`** return **200**
-4. **`/`** response HTML includes **`<link rel="canonical" href="https://riffsync.tv/">`**
-5. **`/watch/101-the-crawling-eye`** response HTML includes canonical **`https://riffsync.tv/watch/101-the-crawling-eye`**
-6. **`index.html`** body contains no **`www.riffsync.tv`** absolute URLs
-7. **`https://riffsync.tv/catalog/mst3k`** returns **200** and HTML includes apex canonical for that path
+4. **`/`** response HTML includes home **`<title>`**, apex canonical **`<link>`**, no **`noindex`**, and no **`www.riffsync.tv`** absolute URLs
+5. **`/catalog`** returns **200** at the clean URL with catalog prerender **`<title>`**, apex canonical, and no **`noindex`**
+6. **`/catalog/mst3k`** returns **200** at the clean URL with MST3K prerender **`<title>`**, apex canonical, and no **`noindex`**
+7. **`/watch/101-the-crawling-eye`** returns **200** at the clean URL with episode prerender **`<title>`**, apex canonical, and no **`noindex`**
+8. **`index.html`** body contains no **`www.riffsync.tv`** absolute URLs
 
 Operator separately confirms Search Console and Bing Webmaster show **Verified** after DNS TXT propagation (checklist in **`docs/operations/public-site-seo.md`**). Peer prior art for script shape: `control9/control9-www`'s `smoke-production.mjs` (reference only).
 

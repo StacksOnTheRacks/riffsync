@@ -9,6 +9,7 @@ import { FanDmSessionKeepAlive } from './friends/FanDmSessionKeepAlive'
 import { GoogleAnalytics } from './components/GoogleAnalytics'
 import { ScrollToTop } from './components/ScrollToTop'
 import { AppRoutes } from './AppRoutes.tsx'
+import { PublicRouteHeadTags } from './seo/PublicRouteHeadTags'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ScrollToTop />
+        <PublicRouteHeadTags />
         <GoogleAnalytics />
         <FanSessionKeepAlive />
         <FanDmSessionKeepAlive />

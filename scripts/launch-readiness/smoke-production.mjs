@@ -33,13 +33,41 @@ const CHECKS = [
     label: 'Home canonical link tag',
     url: `${CANONICAL}/`,
     expectStatus: 200,
-    expectBodyIncludes: '<link rel="canonical" href="https://riffsync.tv/">',
+    expectBodyIncludes: [
+      '<title>RiffSync - Watch Parties</title>',
+      '<link rel="canonical" href="https://riffsync.tv/">',
+    ],
+    expectBodyExcludes: ['<meta name="robots" content="noindex" />', 'www.riffsync.tv'],
   },
   {
-    label: 'Watch fixture canonical link',
+    label: 'Catalog clean URL serves prerendered head tags',
+    url: `${CANONICAL}/catalog`,
+    expectStatus: 200,
+    expectBodyIncludes: [
+      '<title>RiffSync Catalog - Browse the Library</title>',
+      '<link rel="canonical" href="https://riffsync.tv/catalog" />',
+    ],
+    expectBodyExcludes: ['<meta name="robots" content="noindex" />'],
+  },
+  {
+    label: 'MST3K clean URL serves prerendered head tags',
+    url: `${CANONICAL}/catalog/mst3k`,
+    expectStatus: 200,
+    expectBodyIncludes: [
+      '<title>MST3K - RiffSync Catalog</title>',
+      '<link rel="canonical" href="https://riffsync.tv/catalog/mst3k" />',
+    ],
+    expectBodyExcludes: ['<meta name="robots" content="noindex" />'],
+  },
+  {
+    label: 'Watch fixture clean URL serves prerendered head tags',
     url: `${CANONICAL}/watch/${WATCH_FIXTURE_ID}`,
     expectStatus: 200,
-    expectBodyIncludes: `https://riffsync.tv/watch/${WATCH_FIXTURE_ID}`,
+    expectBodyIncludes: [
+      '<title>The Crawling Eye - RiffSync</title>',
+      `<link rel="canonical" href="https://riffsync.tv/watch/${WATCH_FIXTURE_ID}" />`,
+    ],
+    expectBodyExcludes: ['<meta name="robots" content="noindex" />'],
   },
   {
     label: 'index.html has no www.riffsync.tv hosts',
@@ -47,13 +75,14 @@ const CHECKS = [
     expectStatus: 200,
     expectBodyExcludes: 'www.riffsync.tv',
   },
-  {
-    label: 'MST3K subcategory canonical link',
-    url: `${CANONICAL}/catalog/mst3k`,
-    expectStatus: 200,
-    expectBodyIncludes: '<link rel="canonical" href="https://riffsync.tv/catalog/mst3k">',
-  },
 ];
+
+function asArray(value) {
+  if (!value) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
+}
 
 async function runCheck(check) {
   const response = await fetch(check.url, { redirect: 'manual' });
@@ -70,13 +99,19 @@ async function runCheck(check) {
     }
   }
 
-  if (check.expectBodyIncludes || check.expectBodyExcludes) {
+  const expectedIncludes = asArray(check.expectBodyIncludes);
+  const expectedExcludes = asArray(check.expectBodyExcludes);
+  if (expectedIncludes.length > 0 || expectedExcludes.length > 0) {
     const body = await response.text();
-    if (check.expectBodyIncludes && !body.includes(check.expectBodyIncludes)) {
-      return `${check.label}: response body did not include "${check.expectBodyIncludes}"`;
+    for (const expected of expectedIncludes) {
+      if (!body.includes(expected)) {
+        return `${check.label}: response body did not include "${expected}"`;
+      }
     }
-    if (check.expectBodyExcludes && body.includes(check.expectBodyExcludes)) {
-      return `${check.label}: response body contained forbidden string "${check.expectBodyExcludes}"`;
+    for (const forbidden of expectedExcludes) {
+      if (body.includes(forbidden)) {
+        return `${check.label}: response body contained forbidden string "${forbidden}"`;
+      }
     }
   }
 

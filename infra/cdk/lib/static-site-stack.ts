@@ -131,16 +131,17 @@ export class StaticSiteStack extends cdk.Stack {
         ? acm.Certificate.fromCertificateArn(this, 'WebTlsCertImported', fanWebCertificateArn)
         : undefined;
 
-    const canonicalRedirectFn =
-      fanWebCanonicalHostname && customDomainConfigured
-        ? new cloudfront.Function(this, 'CanonicalHostRedirect', {
-            comment: `Redirect alternate aliases to https://${fanWebCanonicalHostname}/`,
-            code: cloudfront.FunctionCode.fromInline(
-              viewerRequestRedirectToCanonicalSource(fanWebCanonicalHostname),
-            ),
-            runtime: cloudfront.FunctionRuntime.JS_2_0,
-          })
-        : undefined;
+    const spaViewerRequestFn = new cloudfront.Function(this, 'CanonicalHostRedirect', {
+      comment: fanWebCanonicalHostname
+        ? `Redirect alternate aliases to https://${fanWebCanonicalHostname}/ and rewrite clean SPA URLs`
+        : 'Rewrite clean SPA URLs to prerendered index.html objects',
+      code: cloudfront.FunctionCode.fromInline(
+        viewerRequestRedirectToCanonicalSource(
+          fanWebCanonicalHostname && customDomainConfigured ? fanWebCanonicalHostname : undefined,
+        ),
+      ),
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+    });
 
     const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'WebResponseHeadersPolicy', {
       comment: 'RiffSync fan SPA security headers',
@@ -218,14 +219,12 @@ export class StaticSiteStack extends cdk.Stack {
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         compress: true,
         responseHeadersPolicy,
-        functionAssociations: canonicalRedirectFn
-          ? [
-              {
-                function: canonicalRedirectFn,
-                eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
-              },
-            ]
-          : undefined,
+        functionAssociations: [
+          {
+            function: spaViewerRequestFn,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
+        ],
       },
     });
 
