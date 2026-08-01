@@ -271,6 +271,7 @@ export class RoomMediaEngine {
             isHost: member.isHost,
             ...(member.active === true ? { active: true } : member.active === false ? { active: false } : {}),
             ...(member.lastActiveAt !== undefined ? { lastActiveAt: member.lastActiveAt } : {}),
+            ...(member.fanSub !== undefined ? { fanSub: member.fanSub } : {}),
             ...(member.avatarUrl !== undefined ? { avatarUrl: member.avatarUrl } : {}),
           })),
         }
