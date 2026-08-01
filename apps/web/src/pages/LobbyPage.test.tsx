@@ -72,4 +72,20 @@ describe('LobbyPage', () => {
     expect(container.textContent).toContain('Hosted by CosmicCrow123')
     expect(container.textContent).toContain('Night of the Living Bread')
   })
+
+  it('renders official live channels above lobby rooms', async () => {
+    fetchLobby.mockResolvedValue({ rooms: [] })
+
+    renderPage()
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(container.textContent).toContain('Live now')
+    expect(container.textContent).toContain('MST3K Forever-A-Thon')
+    expect(container.querySelector('a[href="/live/mst3k-forever-a-thon"]')?.textContent).toBe(
+      'MST3K Forever-A-Thon',
+    )
+    expect(container.querySelector('.riffsync-lobby-list__live-dot')).not.toBeNull()
+  })
 })

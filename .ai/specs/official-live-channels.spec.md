@@ -17,8 +17,8 @@ RiffSync hosts **official Live channels**: durable, hostless watch surfaces at *
 | Surface | Contract |
 | --- | --- |
 | **Route** | **`/live/:slug`**. First channel: **`/live/mst3k-forever-a-thon`**. |
-| **Main nav** | Header **Live** navigates to that first/default enabled channel. v1 does not require a Live dropdown or hub. |
-| **Discovery** | Official Live is **not** listed on **`/catalog`**, subcategory grids, home carousel/spotlight, or the public lobby as a host-created party. |
+| **Main nav** | Header links to **Lobby**; there is no separate **Live** nav item. |
+| **Discovery** | Official Live channels are listed on the public **`/lobby`** above host-created parties with a red live indicator. They are **not** listed on **`/catalog`**, subcategory grids, or home carousel/spotlight. |
 
 ### Hostless live party mode
 
@@ -72,14 +72,14 @@ A small **LiveChannel** registry maps URL slug → playback + chat partition. v1
 | Concern | Contract |
 | --- | --- |
 | **Create** | System **`roomId`** is seeded or ensured on first join / deploy — not via fan **`POST /v1/rooms`**. |
-| **Lobby** | Official Live rooms are **not** subject to host-disconnect lobby hide (**`HOST_DISCONNECT_GRACE_MS`**) or stale-host sweeper removal. They are not presented as ordinary lobby parties. |
+| **Lobby** | Official Live rooms are **not** subject to host-disconnect lobby hide (**`HOST_DISCONNECT_GRACE_MS`**) or stale-host sweeper removal. They appear as official Live entries, not ordinary host-created lobby parties. |
 | **Chat retention** | Reuse existing RoomChat TTL and rate limits; no special permanent transcript class in v1. |
 
 ## Technical Specification
 
 ### Resolution flow
 
-1. Fan opens **`/live/:slug`** (or header **Live** → default slug).
+1. Fan opens **`/live/:slug`** (or follows a Lobby Live entry).
 2. Client (or thin read API) resolves **LiveChannel** by slug.
 3. If missing/disabled → honest unavailable status.
 4. Load catalog episode by **`catalogEpisodeId`**; require **`catalog === live`**, YouTube playback fields, and embeddable posture (**`embedAllows !== false`**).
@@ -119,7 +119,7 @@ A small **LiveChannel** registry maps URL slug → playback + chat partition. v1
 
 ## Acceptance Criteria
 
-- Header **Live** opens **`/live/mst3k-forever-a-thon`**.
+- Lobby lists **`/live/mst3k-forever-a-thon`** with a red live indicator.
 - Anonymous viewer sees YouTube live embed and can read chat; cannot send.
 - Signed-in fan can send chat under existing RoomChat rules.
 - No Share Source Tab / host controls on the Live page.

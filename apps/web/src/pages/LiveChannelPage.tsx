@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { fetchFanProfile } from '../api/fanProfileApi'
 import type { LiveChannelSnapshot } from '../api/liveApi'
 import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
 import { useFanSession } from '../auth/useFanSession'
@@ -15,7 +16,7 @@ import { isContinuedChatLine } from '../room/chatMessageGrouping'
 import { formatChatSystemText } from '../room/chatSystemLine'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { useRoomChrome } from '../room/useRoomChrome'
-import { ensureGuestSession } from '../session/guestSession'
+import { ensureGuestSession, setGuestDisplayName } from '../session/guestSession'
 
 export function LiveChannelPage() {
   const { slug: slugParam } = useParams<{ slug: string }>()
@@ -26,7 +27,7 @@ export function LiveChannelPage() {
 
   const guest = ensureGuestSession('live')
   const [sessionId] = useState(guest.sessionId)
-  const [displayName] = useState(guest.displayName)
+  const [displayName, setDisplayName] = useState(guest.displayName)
   const { fanToken } = useFanSession()
 
   const channelQuery = useLiveChannelQuery(seedEnabled ? slug : undefined)
@@ -50,6 +51,23 @@ export function LiveChannelPage() {
     setNowPlayingLabel(pageTitle)
     return () => setNowPlayingLabel(null)
   }, [loadError, loading, pageTitle, setNowPlayingLabel])
+
+  useEffect(() => {
+    if (!fanToken) return
+    let cancelled = false
+    void fetchFanProfile(fanToken)
+      .then((profile) => {
+        if (cancelled) return
+        const nextDisplayName = profile.displayName?.trim()
+        if (nextDisplayName) {
+          setDisplayName(setGuestDisplayName(nextDisplayName))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [fanToken])
 
   return (
     <div className="riffsync-live-page">
@@ -129,7 +147,10 @@ function LiveChannelReady(props: {
         )}
       </section>
 
-      <aside className="riffsync-live-page__chat riffsync-room-page__chat-column" aria-label="Live chat">
+      <aside
+        className="riffsync-live-page__chat riffsync-room-page__chat riffsync-room-page__chat-column"
+        aria-label="Live chat"
+      >
         <div className="riffsync-live-page__chat-bar">
           <span className="riffsync-live-page__chat-bar-label">Live chat</span>
           {chat.presenceCount > 0 ? (

@@ -5,6 +5,7 @@ import { fetchLobby, roomPlaybackForBadge } from '../api/roomsApi'
 import { ensureGuestSession } from '../session/guestSession'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
+import { LIVE_CHANNELS } from '../live/liveChannels'
 
 function formatLobbyActivity(lastActivityAt: number | undefined): string {
   if (typeof lastActivityAt !== 'number' || !Number.isFinite(lastActivityAt)) return ''
@@ -56,6 +57,7 @@ export function LobbyPage() {
   }
 
   const rooms = data?.rooms ?? []
+  const liveChannels = LIVE_CHANNELS.filter((channel) => channel.enabled)
 
   return (
     <div className="container riffsync-lobby-page">
@@ -64,6 +66,26 @@ export function LobbyPage() {
         Join a public room from the list below. To host, sign in and start a room from the{' '}
         <Link to="/catalog">catalog</Link>.
       </p>
+      {liveChannels.length > 0 ? (
+        <section className="riffsync-lobby-live" aria-labelledby="riffsync-lobby-live-heading">
+          <h2 id="riffsync-lobby-live-heading" className="riffsync-lobby-section-title">
+            Live now
+          </h2>
+          <ul className="riffsync-lobby-list">
+            {liveChannels.map((channel) => (
+              <li key={channel.slug} className="riffsync-lobby-list__item riffsync-lobby-list__item--live">
+                <div className="riffsync-lobby-list__body">
+                  <h3 className="riffsync-lobby-list__title">
+                    <span className="riffsync-lobby-list__live-dot" aria-label="Live" />
+                    <Link to={channel.path}>{channel.defaultTitle}</Link>
+                  </h3>
+                  <p className="riffsync-lobby-list__host riffsync-muted">{channel.defaultDescription}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {!data ? (
         <p>Loading lobby…</p>
       ) : rooms.length === 0 ? (

@@ -97,9 +97,8 @@ describe('SiteHeader fan session nav', () => {
     expect(container.querySelector('.riffsync-friends-nav')).toBeNull()
     expect(container.textContent).toContain('Sign In')
     expect(container.textContent).toContain('Lobby')
-    expect(container.querySelector('a[href="/live/mst3k-forever-a-thon"]')?.textContent).toBe(
-      'Live',
-    )
+    expect(container.querySelector('a[href="/live/mst3k-forever-a-thon"]')).toBeNull()
+    expect(container.textContent).not.toContain('Live')
     expect(container.querySelector('a[href="/download"]')?.textContent).toBe('Get App')
   })
 
