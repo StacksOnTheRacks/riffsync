@@ -8,6 +8,7 @@ export type CatalogCategory =
   | 'riff_material'
   | 'movie_night'
   | 'other'
+  | 'live'
 
 export const CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   'mst3k',
@@ -15,12 +16,14 @@ export const CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   'riff_material',
   'movie_night',
   'other',
+  'live',
 ]
 
 /**
  * Categories exposed on public catalog surfaces.
- * `other` is staff-only curation; `movie_night` stays in admin/data but is
- * withheld from public browse until YouTube license churn is manageable.
+ * `other` is staff-only curation; `live` is official Live channel sources;
+ * `movie_night` stays in admin/data but is withheld from public browse until
+ * YouTube license churn is manageable.
  */
 export const PUBLIC_CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   'mst3k',
@@ -34,6 +37,7 @@ const CATALOG_CATEGORY_LABELS: Record<CatalogCategory, string> = {
   riff_material: 'Riff Material',
   movie_night: 'Movie Night',
   other: 'Other',
+  live: 'Live',
 }
 
 /** Display label for category filters, cards, and admin selects. */

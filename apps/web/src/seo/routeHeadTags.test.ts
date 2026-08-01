@@ -127,8 +127,16 @@ describe('buildStaticRouteHeadTags', () => {
     }
   })
 
-  it('indexes nine static routes', () => {
-    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(9)
+  it('indexes ten static routes including official Live', () => {
+    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(10)
+    expect(STATIC_INDEXABLE_ROUTES).toContain('/live/mst3k-forever-a-thon')
+  })
+
+  it('builds Live channel head tags', () => {
+    const head = buildStaticRouteHeadTags('/live/mst3k-forever-a-thon', 'https://riffsync.tv')
+    expect(head.documentTitle).toBe('MST3K Forever-A-Thon - Live on RiffSync')
+    expect(head.canonicalUrl).toBe('https://riffsync.tv/live/mst3k-forever-a-thon')
+    expect(head.robotsNoindex).toBe(false)
   })
 })
 

@@ -10,6 +10,7 @@ Scopes **HTTP/WebSocket APIs**, **external providers** (YouTube, TMDB, Meta, AWS
 - Record durable constraints and boundaries for this domain.
 - Keep this file aligned with mapped child contracts.
 - **Friends / DM** boundaries live primarily in **`api_contracts.md`** (surfaces + plane split), **`authorization.md`** (fan JWT only; mutual remove revoke), and **`messaging_async.md`** (sync-on-open + write-then-fan-out). **`ChatSession`** remains the **room** chat/presence plane.
+- **Official Live** reuses room WebSocket chat auth (anonymous read / fan send) on a system **`roomId`**; optional **`GET /v1/live/{slug}`** read surface is documented in **`api_contracts.md`**. Full product contract: **`.ai/specs/official-live-channels.spec.md`**.
 
 ## Primary code pointers (optional)
 

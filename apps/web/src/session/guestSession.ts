@@ -21,8 +21,10 @@ function newSessionId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-/** Mint session + display name only when entering lobby or room — not catalog browse. */
-export function ensureGuestSession(reason: 'lobby' | 'room'): { sessionId: string; displayName: string } {
+/** Mint session + display name only when entering lobby, room, or live — not catalog browse. */
+export function ensureGuestSession(
+  reason: 'lobby' | 'room' | 'live',
+): { sessionId: string; displayName: string } {
   void reason
   let sessionId = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_SESSION) : null
   let displayName = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_DISPLAY) : null
@@ -46,7 +48,7 @@ export function setGuestDisplayName(name: string): string {
   return trimmed
 }
 
-export function headersWithSession(reason: 'lobby' | 'room' = 'lobby'): Record<string, string> {
+export function headersWithSession(reason: 'lobby' | 'room' | 'live' = 'lobby'): Record<string, string> {
   const { sessionId } = ensureGuestSession(reason)
   return { 'X-Session-Id': sessionId }
 }

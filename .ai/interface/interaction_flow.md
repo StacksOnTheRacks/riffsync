@@ -15,6 +15,7 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
 | **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch), **Room** tab lobby visibility toggle (**Show in lobby** / **Link only**). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
 | **`/lobby`** | Public rooms from **`GET` lobby API** → navigate to **`/room/:id`**. |
+| **`/live/:slug`** | Official **hostless** Live channel: resolve seeded LiveChannel → bound **`catalog: live`** episode → YouTube iframe for every viewer + room WebSocket chat on the system **`roomId`**. No Share Source Tab / host controls. Anonymous: watch + read chat. Signed-in fan: watch + send chat. Lazy **`sessionId`** on join (same guest mint posture as rooms). First slug: **`mst3k-forever-a-thon`**. |
 | **`/admin/login`** | **Unlisted** operator gate (bookmark or direct URL only; no links from catalog or room chrome). Primary action starts **staff** Cognito Hosted UI + PKCE; copy makes clear this is **operators only**, not fan Facebook sign-in. |
 | **`/admin/auth/callback`** | Staff OAuth code exchange; on success navigates to stored **`returnTo`** or **`/admin`**; on failure shows **recoverable** error with **retry sign-in** (no silent blank shell). |
 | **`/admin` / `/admin/*`** | **Staff JWT required** in the SPA before rendering protected admin chrome. Unauthenticated visitors redirect to **`/admin/login`** with intended path preserved for post-login return. **Auth slice:** minimal session probe at **`/admin`** (operator identity / group sanity check) and **Sign out**; catalog, lists, and roster UI are **out of scope** until later initiatives. |
@@ -31,7 +32,19 @@ Staff operator routes ship as **gated routes in the existing `apps/web` SPA** (o
 | **Hub entry links** | On **`/catalog`**, four large text links in the page-header subtitle slot navigate to the same four subcategory routes in the same order. |
 | **Subcategory subtitles** | Each subcategory page replaces breadcrumb chrome with the route-fixed subtitle defined in **`presentation.md`** while keeping the H1 as the category label. |
 | **Subcategory search / sort** | Same title-search and sort chrome as the hub; filters operate within the route-fixed `catalogs` set (not a second catalog picker). |
-| **Staff-only catalog** | **`other`** never appears in hub links, dropdown, or subcategory chrome. |
+| **Staff-only catalog** | **`other`** and **`live`** never appear in hub links, dropdown, or subcategory chrome. |
+| **Main-nav Live** | Navigates to the first/default enabled official channel (**`/live/mst3k-forever-a-thon`** in v1). Not a Catalog dropdown item. |
+
+## Official Live
+
+| Path | Flow |
+| --- | --- |
+| **Enter** | Header **Live** or direct **`/live/:slug`** → resolve registry → load episode embed + join system room chat. |
+| **Anonymous** | Watch embed; read chat; compose shows **Sign In to Chat** (no send). |
+| **Signed-in fan** | Watch embed; full RoomChat compose/react/GIF under existing gates. |
+| **Host controls** | Absent — no Open/Share Source Tab, room mode, or AV kill switch on this surface. |
+| **Catalog ops** | Staff edit the bound **`catalog: live`** episode in admin when the YouTube live id changes; slug stays stable. |
+| **Unavailable** | Unknown slug, disabled channel, or missing/non-embeddable binding → honest unavailable status (no fall-through to catalog hub). |
 
 ## Staff operator auth (token and session boundaries)
 
@@ -52,7 +65,7 @@ Fan token keys (**`riffsync.fan*`**) and fan PKCE session keys remain **untouche
 
 ## Session establishment
 
-**Lazy creation (cost-first):** Do **not** mint **`sessionId`** for pure catalog browsing. When the user **joins lobby or a room as a guest**—**opening `/lobby`**, **joining `/room/:id`**—generate **`sessionId`** + random **display name** (**`authorization.md`**). **Hosts** authenticate via **Cognito JWT** for **`POST /v1/rooms`** and publisher actions (**no anonymous host binding**).
+**Lazy creation (cost-first):** Do **not** mint **`sessionId`** for pure catalog browsing. When the user **joins lobby, a room, or an official Live channel as a guest**—**opening `/lobby`**, **joining `/room/:id`**, **joining `/live/:slug`**—generate **`sessionId`** + random **display name** (**`authorization.md`**). **Hosts** authenticate via **Cognito JWT** for **`POST /v1/rooms`** and publisher actions (**no anonymous host binding**). Official Live has **no host** path.
 
 1. **Client:** generate **`sessionId`** + display name at that first boundary; keep stable until site data cleared (**`architecture.frontend.md`**).
 2. **WebSocket `$connect`:** send **`roomId` + sessionId`** (+ **`Authorization`** if signed in).

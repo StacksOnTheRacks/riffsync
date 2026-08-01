@@ -7,6 +7,7 @@ import { useFanSession } from '../../auth/useFanSession'
 import { FriendsDropdown } from '../../friends/FriendsDropdown'
 import { useShowGetAppNav } from '../../pwa/useShowGetAppNav'
 import { useRoomChromeOptional } from '../../room/useRoomChrome'
+import { DEFAULT_LIVE_CHANNEL_PATH } from '../../live/liveChannels'
 import { CatalogNavItem } from './CatalogNavItem'
 
 function PrimaryNavItem({
@@ -91,6 +92,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
                         Home
                       </PrimaryNavItem>
                       <CatalogNavItem />
+                      <PrimaryNavItem to={DEFAULT_LIVE_CHANNEL_PATH}>Live</PrimaryNavItem>
                       <PrimaryNavItem to="/lobby">Lobby</PrimaryNavItem>
                       {showGetAppNav ? <PrimaryNavItem to="/download">Get App</PrimaryNavItem> : null}
                       {fanToken ? (

@@ -4354,3 +4354,88 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   border-color: rgb(144 238 144 / 0.35);
 }
 
+/* Official Live channel (/live/:slug) */
+.riffsync-live-page {
+  padding-block: 1.5rem 2.5rem;
+}
+
+.riffsync-live-page__eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  color: var(--secondary-color);
+}
+
+.riffsync-live-page__eyebrow a {
+  color: inherit;
+}
+
+.riffsync-live-page__header h1 {
+  margin: 0 0 0.35rem;
+}
+
+.riffsync-live-page__presence {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+}
+
+.riffsync-live-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 1.25rem;
+  align-items: stretch;
+  margin-top: 1.25rem;
+  min-height: min(70vh, 720px);
+}
+
+.riffsync-live-page__stage {
+  min-width: 0;
+  background: rgb(0 0 0 / 0.35);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.riffsync-live-page__stage .riffsync-solo-player,
+.riffsync-live-page__stage .riffsync-solo-player__frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.riffsync-live-page__chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(70vh, 720px);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.riffsync-live-page__chat .riffsync-room-page__tab-panel--chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.riffsync-live-page__chat .riffsync-room-chat-log {
+  flex: 1;
+  min-height: 0;
+}
+
+.riffsync-live-page__ws-status {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .riffsync-live-page__layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .riffsync-live-page__chat {
+    max-height: 50vh;
+  }
+}
+

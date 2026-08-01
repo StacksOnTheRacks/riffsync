@@ -71,6 +71,14 @@ describe('episodeIsIndexableForSeo', () => {
       ),
     ).toBe(false)
   })
+
+  it('excludes catalog live rows (official Live SEO is /live/:slug)', () => {
+    expect(
+      episodeIsIndexableForSeo(
+        episode({ catalog: 'live', youtubeVideoId: 'abc12345678' }),
+      ),
+    ).toBe(false)
+  })
 })
 
 describe('catalogEntriesIndexableForSeo', () => {

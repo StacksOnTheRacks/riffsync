@@ -6,9 +6,9 @@ RiffSync catalog episodes can use either **YouTube** or **Custom** as the playba
 
 **Audience:** staff curators (admin catalog form), signed-in hosts starting parties, and fans using solo watch.
 
-**Related capabilities:** `catalog-browse-ia` (card actions and browse filters), `public-site-seo` (Custom-only `/watch/:id` sitemap exclusion), `viewer-local-cast` (no Custom iframe on TV receiver in MVP).
+**Related capabilities:** `catalog-browse-ia` (card actions and browse filters), `public-site-seo` (Custom-only `/watch/:id` sitemap exclusion), `official-live-channels` (hostless `/live/:slug` using YouTube-host **`catalog: live`** source episodes), `viewer-local-cast` (no Custom iframe on TV receiver in MVP).
 
-**Non-goals:** RiffSync rehosting/transcoding third-party video; YouTube IFrame API sync for Custom URLs; guest-direct load of Custom URLs; anonymous catalog writes; per-room playback host override at create time.
+**Non-goals:** RiffSync rehosting/transcoding third-party video; YouTube IFrame API sync for Custom URLs; guest-direct load of Custom URLs; anonymous catalog writes; per-room playback host override at create time; defining official Live chat-room UX (owned by `official-live-channels`).
 
 ## Functional Specification
 

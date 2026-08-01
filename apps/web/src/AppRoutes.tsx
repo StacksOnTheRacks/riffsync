@@ -4,6 +4,7 @@ import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
 import { CatalogSubcategoryPage } from './pages/CatalogSubcategoryPage'
 import { LobbyPage } from './pages/LobbyPage'
+import { LiveChannelPage } from './pages/LiveChannelPage'
 import { AccountPage } from './pages/AccountPage'
 import { RoomPage } from './pages/RoomPage'
 import { CastReceiverPage } from './pages/cast/CastReceiverPage'
@@ -50,6 +51,7 @@ export function AppRoutes() {
         <Route path="/catalog/movie-night" element={<Navigate to="/catalog" replace />} />
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/live/:slug" element={<LiveChannelPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/download" element={<DownloadAppPage />} />
         <Route path="/how-to-host-a-watchparty" element={<HowToHostWatchPartyPage />} />

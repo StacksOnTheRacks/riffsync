@@ -7,7 +7,7 @@ export interface CatalogEpisode {
   readonly id: string;
   readonly experimentNumber: number;
   readonly title: string;
-  readonly catalog: 'mst3k' | 'community' | 'riff_material' | 'movie_night' | 'other';
+  readonly catalog: 'mst3k' | 'community' | 'riff_material' | 'movie_night' | 'other' | 'live';
   readonly tags: string[];
   readonly labels: string[];
   readonly youtubeVideoId: string | null;
@@ -33,7 +33,7 @@ export interface CatalogEpisode {
   readonly tmdbBackdropPath?: string | null;
 }
 
-const CATALOGS = new Set(['mst3k', 'community', 'riff_material', 'movie_night', 'other']);
+const CATALOGS = new Set(['mst3k', 'community', 'riff_material', 'movie_night', 'other', 'live']);
 
 /** Dynamo / hand-edited rows may use BOOL, or accidentally String/Number — treat like UI expectations. */
 function parseBooleanCatalogFlag(v: unknown): boolean {

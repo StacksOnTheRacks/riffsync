@@ -11,11 +11,15 @@ export function readCatalogPlaybackHost(
 
 /**
  * Whether the episode earns a sitemap `/watch/:id` entry and watch-route prerender.
- * Custom-host rows are never indexable. YouTube-host rows require a non-empty video id.
- * Categories withheld from public browse (e.g. movie_night) are not indexable.
+ * Custom-host rows and `catalog: live` rows are never indexable as `/watch/:id`
+ * (official Live SEO is owned by `/live/:slug`). YouTube-host rows require a
+ * non-empty video id. Categories withheld from public browse are not indexable.
  * embedAllows and customPlaybackUrl do not affect indexability.
  */
 export function episodeIsIndexableForSeo(ep: CatalogEpisode): boolean {
+  if (ep.catalog === 'live') {
+    return false
+  }
   if (!PUBLIC_SEO_CATEGORIES.has(ep.catalog)) {
     return false
   }

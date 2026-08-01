@@ -48,6 +48,12 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P0-13e | signed-in fan on the main site | open friends from the person-icon header entry when authenticated | I manage friends and DMs outside a room; signed-out visitors do not see that affordance |
 | US-P0-13f | signed-in fan in a watch party | use a Friends panel in the room right pane alongside public chat and People | I DM friends without leaving the party and without replacing the People roster |
 | US-P0-13g | anonymous guest | remain unable to manage friends or send DMs | private social features stay fan-authenticated |
+| US-P0-14 | visitor | open **Live** from the main nav | I join the official **`/live/mst3k-forever-a-thon`** channel without creating a room |
+| US-P0-14a | visitor on **`/live/:slug`** | watch the staff-bound YouTube live embed without a host tab-share | I can follow the continuous stream immediately |
+| US-P0-14b | anonymous guest on Live | read room chat while watching | I follow conversation without signing in |
+| US-P0-14c | signed-in fan on Live | send chat (text, emoji, GIF) and react under normal RoomChat rules | we can talk during the live stream |
+| US-P0-14d | visitor | share or find an official Live URL via search/social | **`/live/:slug`** is indexable with episode-derived title/art |
+| US-P0-14e | visitor browsing catalog | not see **`catalog: live`** source rows as normal titles | Live sources stay off hub/subcategory grids and create-party tiles |
 
 | ID | As a… | I want… | So that… |
 | --- | --- | --- | --- |
@@ -57,6 +63,8 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P1-02 | operator | CloudWatch dashboards | I see health and reconcile outcomes |
 | US-P1-03 | fan | federated login (e.g. Facebook) | I can **host** rooms and retain continuity across devices |
 | US-P1-04 | operator | admin catalog + lists | I can curate without editing raw JSON in prod (**depends on US-P1-05**) |
+| US-P1-04a | operator | create/edit episodes with category **Live** | I keep official Live YouTube ids current without publishing those rows on public catalog pages |
+| US-P1-04b | operator | rely on a seeded LiveChannel binding for the first slug | v1 does not need a Live-channels admin CRUD page |
 | US-P1-06 | signed-in fan in room | my **active** badge to persist across brief reconnects when I was recently engaged | late joiners and refresh see accurate engagement state on **People** |
 | US-P1-07 | Cast-capable room viewer | start a viewer-local Cast session from normal room view | I can watch the RiffSync room presentation on a TV while continuing to chat from my sender device |
 | US-P1-08 | search visitor | find a specific riffed episode via search engine | I can watch it without already knowing RiffSync exists |
@@ -68,6 +76,9 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 - Server-side video hosting
 - CRDT / multi-host democratic control
 - Self-service operator registration or in-app access requests (invite-only provisioning)
+- Live-channels staff CRUD UI (seeded registry for v1)
+- Participant A/V and Cast on official Live surfaces
+- Live hub listing multiple channels in nav (header links the first/default channel)
 - Catalog CRUD, curated lists, fan roster, and activity reporting as part of the **auth slice** (downstream of **US-P1-05**)
 - Room moderation or host takeover via staff login
 - Server-side or client-side **recording/storage** of participant camera/mic or mixed room audio
@@ -120,6 +131,9 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 ## Open implementation decisions
 
 Implementation-level items not yet fully specified. `/refine-issue` resolves these into timeless contract prose and removes or collapses bullets when done.
+
+### official-live-channels
+- Registry storage medium and ensure-room API shape — see **`.ai/specs/official-live-channels.spec.md`** open decisions.
 
 ### catalog-subcategory-browse
 - Per-route SEO head-tag and social-preview copy for catalog subcategory pages is owned by **`interface/presentation.md`** and **`specs/public-site-seo.spec.md`** (not this file). **US-P1-08** / **US-P1-09** stay scoped to search discovery and **`/watch/:id`** share previews unless those contracts extend them.

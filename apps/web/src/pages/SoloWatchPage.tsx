@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { SoloCustomIframePlayer } from '../components/watch/SoloCustomIframePlayer'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { EPISODE_UNAVAILABLE_MESSAGE, formatCatalogUserError } from '../catalog/catalogLoadError'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
+import { getLivePathForEpisodeId } from '../live/liveChannels'
 
 const PARTY_CAPTURE_ANIMATION = 'riffsyncPartyCaptureBannerFadeOut'
 
@@ -147,6 +148,11 @@ export function SoloWatchPage() {
         </p>
       </div>
     )
+  }
+
+  const livePath = !partyCapture && episode.catalog === 'live' ? getLivePathForEpisodeId(episode.id) : undefined
+  if (livePath) {
+    return <Navigate to={livePath} replace />
   }
 
   const playbackHost = episode.playbackHost === 'custom' ? 'custom' : 'youtube'

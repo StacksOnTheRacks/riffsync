@@ -8,13 +8,27 @@ Curator + enrichment merged for **`GET /v1/catalog`** output.
 
 | Field group | Fields | Notes |
 | --- | --- | --- |
-| **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`catalog`** | **`title`** never overwritten from TMDB. **`catalog`** enum: **`joel`**, **`mike`**, **`jonah`**, **`emily`**, **`community`**, **`movie_night`**, **`riff_material`**, **`other`**. All public-facing catalog displays omit **`other`** (staff curation bucket). Public subcategory browse IA (`mst3k` / `community` / `riff-ready` / `movie-night`) is route/display grouping over this flat enum (no parent/group field; MST3K is a display-time union of **`joel`** / **`mike`** / **`jonah`** / **`emily`**). Display label for persisted **`riff_material`** may be **Riff Material** without changing the stored value. |
+| **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`catalog`** | **`title`** never overwritten from TMDB. **`catalog`** enum: **`mst3k`**, **`community`**, **`riff_material`**, **`movie_night`**, **`other`**, **`live`**. Public-facing catalog displays omit **`other`** (staff curation bucket) and **`live`** (official Live **source** rows). Public subcategory browse IA (`mst3k` / `community` / `riff-material` / `movie-night`) is route/display grouping over this flat enum (no parent/group field). Display label for persisted **`riff_material`** may be **Riff Material** without changing the stored value. **`live`** rows are bound to **LiveChannel** registry entries for **`/live/:slug`**; they are not public catalog titles. |
 | **Playback host** | **`playbackHost`**, **`customPlaybackUrl`** | **`playbackHost`**: **`youtube`** \| **`custom`** (required on new/updated rows after schema migration; seed backfill defaults missing values to **`youtube`**). **`customPlaybackUrl`**: HTTPS movie-page URL when host is **`custom`**; validated at admin save (**HTTPS only**, any domain). **`customPlaybackUrl` drives playback** when host is Custom; YouTube linkage fields may remain for thumbs/metadata. |
 | **YouTube** | **`youtubeVideoId`**, **`youtubeWatchUrl`** | Nullable when unknown. **Not required** for persistence or room create when **`playbackHost` is `custom`**. May coexist on Custom rows for optional enrichment. |
 | **Embed policy** | **`embedAllows`** | Optional boolean; applies **YouTube in-app embed path only**. Custom in-app playback does **not** consult **`embedAllows`**. |
 | **TMDB-aligned (nullable keys always on row in seed)** | **`tagline`**, **`posterImageUrl`**, **`backdropImageUrl`**, **`tmdbMovieId`**, **`tmdbArtworkSyncedAt`** | Filled by reconcile; see contracts. |
 | **Dynamo-only (optional on seed)** | **`tmdbOverview`**, **`tmdbPopularity`**, raw **`tmdbPosterPath`**, **`tmdbBackdropPath`** | Per **`docs/architecture.catalog-images.md`**. |
 | **Thumb (optional)** | **`youtubeThumbnailUrl`** | Resolved from **`img.youtube.com`** in reconcile when enabled. |
+
+## LiveChannel (official live registry)
+
+Seeded (v1) registry mapping a public Live slug to a catalog source episode and a system chat room. Not user-created.
+
+| Field | Contract |
+| --- | --- |
+| **`slug`** | URL-safe key for **`/live/:slug`** (example **`mst3k-forever-a-thon`**). Stable; do not recycle for a different channel. |
+| **`catalogEpisodeId`** | Must reference an Episode with **`catalog: live`**. Staff update that episode’s YouTube fields when the live stream id changes. |
+| **`roomId`** | Stable system Room id for RoomChat / RoomPresence. Created/ensured out-of-band or on first join — **not** via fan **`POST /v1/rooms`**. Exempt from host-disconnect lobby cleanup. |
+| **`enabled`** | When false, **`/live/:slug`** shows unavailable; omit from sitemap/prerender when packaging runs. |
+| **SEO overrides** | Optional title/description; default from bound episode **`title`** / tagline patterns (**Invariant 9**). |
+
+v1 ships at least one seeded row for **`mst3k-forever-a-thon`**. Staff Live-channels CRUD UI is deferred.
 
 ## Room (watch party)
 
@@ -26,7 +40,7 @@ Authoritative server state for **room identity**, **catalog selection**, **admin
 | **Catalog / playback intent** | **`catalogEpisodeId`** — **current** episode for the room (**mutable** by **room admin** via picker; seeded at room create). **Denormalized playback mirrors** on the **Rooms** item (refreshed on create and episode-change **`PATCH`**): **`playbackHost`** (**`youtube`** \| **`custom`**), **`customPlaybackUrl`** (**`string | null`**, null when YouTube-host), **`youtubeVideoId`** (optional when Custom-host and catalog row has no id). Enables host reconnect without catalog re-fetch (#392). Optional **`currentTime`**, **`playing`**, **`playbackRate`** if persisted for admin reconnect UX—**room admin** mutates via HTTP or WS per contracts; guests do **not** advance timeline via parallel embed state in MVP. Episode **changes** update durable room fields; **`GET /v1/lobby`** picks up **Now watching** metadata on poll (no new WebSocket envelope). |
 | **`playbackExpectation`** | Enum **`premium` \| free-ad-supported`** — advisory, admin-set. |
 | **`visibility`** | **`public`** \| **`private`** — **`public`** rooms may appear on **`GET /v1/lobby`** while active; **`private`** rooms are link-only (no lobby index). Host **`PATCH`** may toggle after create; **`POST /v1/rooms`** defaults **`public`** from catalog. Direct **`/room/:roomId`** join is unchanged for either value. |
-| **`hostSub`** | Cognito **`sub`** of the user who **`POST /v1/rooms`** — immutable host binding for MVP; only this principal may **publish host tab-capture WebRTC** and mutate authoritative room admin fields. |
+| **`hostSub`** | Cognito **`sub`** of the user who **`POST /v1/rooms`** — immutable host binding for MVP; only this principal may **publish host tab-capture WebRTC** and mutate authoritative room admin fields. **System Live rooms** may omit meaningful host authority (hostless); playback does not depend on **`hostSub`** presence. |
 | **`roomMode`** | Host-authoritative layout policy: **`theater`** (default) \| **`videoChat`**. **Durable** on the room item; host **`PATCH`**; returned on room snapshot/join; late joiners inherit current mode. |
 | **`avDisabled`** | Host **room-wide A/V kill switch** — when true, participant camera/mic publish and consumption revert to movie + text chat only. **Durable** on the room item; host **`PATCH`**; late joiners and refresh inherit until host re-enables. |
 | **`broadcastCaptureActive`** | Host tab-capture coordination flag (already on room item via host **`PATCH`**). **Video Chat** entry may set false / clear when capture must fully stop; **Theater** return does not auto-resume capture (host must **Share Source Tab** again). |

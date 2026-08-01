@@ -2,13 +2,13 @@
 
 ## Introduction
 
-RiffSync's public catalog and marketing surfaces - home, catalog hub, catalog subcategory browse pages, app install instructions, episode watch pages, host-help, and legal pages - are discoverable by search engines and shareable with rich social previews (Discord, Reddit, Mastodon, and similar unfurlers), without changing the SPA's existing visual design and without extending discoverability to live, ephemeral room state.
+RiffSync's public catalog, marketing, and official Live surfaces - home, catalog hub, catalog subcategory browse pages, app install instructions, episode watch pages, enabled **`/live/:slug`** channels, host-help, and legal pages - are discoverable by search engines and shareable with rich social previews (Discord, Reddit, Mastodon, and similar unfurlers), without changing the SPA's existing visual design and without extending discoverability to ephemeral user-created room state.
 
-**Audience:** fans searching for riff-style watch parties and episode discovery; community sharers posting catalog and watch links.
+**Audience:** fans searching for riff-style watch parties and episode discovery; community sharers posting catalog, watch, and official Live links.
 
-**Related capabilities:** `catalog-browse-ia` (hub and subcategory browse routes, nav, and display grouping); `viewer-local-cast` (separate optional per-viewer presentation layer; not part of this capability).
+**Related capabilities:** `catalog-browse-ia` (hub and subcategory browse routes, nav, and display grouping); `official-live-channels` (indexable hostless `/live/:slug`); `viewer-local-cast` (separate optional per-viewer presentation layer; not part of this capability).
 
-**Non-goals:** indexing `/room/*` or `/lobby`; a server-side rendering framework migration; CloudFront-based bot-detection or edge compute for dynamic rendering; per-subcategory visual SEO campaigns beyond unique head tags and sitemap/prerender entries for the shared subcategory shell.
+**Non-goals:** indexing `/room/*` or `/lobby`; indexing `catalog: live` rows as `/watch/:id`; a server-side rendering framework migration; CloudFront-based bot-detection or edge compute for dynamic rendering; per-subcategory visual SEO campaigns beyond unique head tags and sitemap/prerender entries for the shared subcategory shell.
 
 ## Functional Specification
 
@@ -16,11 +16,11 @@ RiffSync's public catalog and marketing surfaces - home, catalog hub, catalog su
 
 | Indexable | `noindex` |
 | --- | --- |
-| `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/watch/:catalogEpisodeId`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` | `/room/:roomId` (+ `/room/:roomId/experimental/:experimental`), `/lobby`, `/account`, `/admin/*`, `/cast/receiver`, `/privacy/data-removal`, `/auth/callback`, `/admin/auth/callback` |
+| `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/watch/:catalogEpisodeId` (non-`live` YouTube-host), `/live/:slug` (enabled official Live channels), `/how-to-host-a-watchparty`, `/terms`, `/privacy` | `/room/:roomId` (+ `/room/:roomId/experimental/:experimental`), `/lobby`, `/account`, `/admin/*`, `/cast/receiver`, `/privacy/data-removal`, `/auth/callback`, `/admin/auth/callback` |
 
-Catalog subcategory routes are first-class indexable entries alongside the `/catalog` hub. `/download` is a durable public app install instructions page and joins the same sitemap/prerender/head-tag pipeline. Browse IA (hub links, filters, labels) is owned by `catalog-browse-ia`; this capability owns discoverability packaging for those paths.
+Catalog subcategory routes are first-class indexable entries alongside the `/catalog` hub. `/download` is a durable public app install instructions page and joins the same sitemap/prerender/head-tag pipeline. Enabled official Live slugs join the same pipeline as durable public hangouts (not ephemeral `/room/*`). Browse IA is owned by `catalog-browse-ia`; Live channel behavior by `official-live-channels`; this capability owns discoverability packaging for those paths.
 
-`/watch/:catalogEpisodeId` is indexable only for **YouTube-host** episodes with a non-empty trimmed **`youtubeVideoId`** — evaluated by **`episodeIsIndexableForSeo`** in **`apps/web/src/catalog/catalogSeo.ts`** (issue **#397**). **Custom-host** rows are **never** indexable, including when optional YouTube enrichment coexists for thumbs/metadata. Rows without a YouTube video id (YouTube-host or legacy) carry no surface worth summarizing under today's SEO packaging and are excluded from indexing and the sitemap. Custom playback alone does not add `/watch/:id` to the sitemap.
+`/watch/:catalogEpisodeId` is indexable only for **YouTube-host** episodes with a non-empty trimmed **`youtubeVideoId`** that are **not** **`catalog: live`** — evaluated by **`episodeIsIndexableForSeo`** in **`apps/web/src/catalog/catalogSeo.ts`** (issue **#397**, extended for Live). **Custom-host** rows and **`catalog: live`** rows are **never** indexable as `/watch/:id`, including when optional YouTube enrichment coexists for thumbs/metadata. Official Live SEO belongs on **`/live/:slug`**. Rows without a YouTube video id (YouTube-host or legacy) carry no surface worth summarizing under today's SEO packaging and are excluded from indexing and the sitemap. Custom playback alone does not add `/watch/:id` to the sitemap.
 
 ### Per-route head tags
 
@@ -59,7 +59,7 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 | **Module layout** | Pure functions in `apps/web/src/seo/generateSeoArtifacts.ts`; CLI `apps/web/scripts/generate-seo-artifacts.mjs` writes `dist/robots.txt` and `dist/sitemap.xml` after `vite build`. |
 | **Catalog read** | Committed `data/catalog/episodes.json` only — no `GET /v1/catalog` at build time. |
 | **Filter** | **`episodeIsIndexableForSeo`** / **`catalogEntriesIndexableForSeo`** from **`apps/web/src/catalog/catalogSeo.ts`** (**#397**). Legacy **`episodeHasYoutubeLink`** remains for non-SEO browse helpers until **#396** retires fan-path usage. |
-| **Static sitemap paths** | `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` plus `/watch/{catalogEpisodeId}` per filtered episode. |
+| **Static sitemap paths** | `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` plus `/watch/{catalogEpisodeId}` per filtered episode. When official Live ships, add enabled `/live/{slug}` paths (first: `/live/mst3k-forever-a-thon`). |
 | **Origin** | `VITE_PUBLIC_ORIGIN` at build when set, else `https://riffsync.tv`. |
 | **Deploy cache** | S3 `Cache-Control: public, max-age=3600` on both objects in `deploy-prod.yml` (see `build_packaging.md` M28 decisions). |
 | **CI** | `web-app` asserts both files exist; sitemap `<url>` count = 10 static routes + YouTube-linked episode count. |

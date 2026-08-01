@@ -61,8 +61,8 @@
         },
         "catalog": {
           "type": "string",
-          "enum": ["mst3k", "community", "riff_material", "movie_night", "other"],
-          "description": "Top-level catalog page assignment."
+          "enum": ["mst3k", "community", "riff_material", "movie_night", "other", "live"],
+          "description": "Top-level catalog page assignment. `live` is staff-only (official Live channel sources; omitted from public catalog browse)."
         },
         "tags": {
           "type": "array",

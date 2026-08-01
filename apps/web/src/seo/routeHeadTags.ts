@@ -37,6 +37,11 @@ const STATIC_ROUTE_COPY = {
     description:
       'Install RiffSync as an app on your phone, tablet, or computer. Step-by-step instructions for Chrome, Edge, Safari, and more. Fan watch parties with a curated catalog.',
   },
+  '/live/mst3k-forever-a-thon': {
+    title: 'MST3K Forever-A-Thon - Live on RiffSync',
+    description:
+      'Watch the MST3K Forever-A-Thon live on RiffSync with room chat. Unofficial fan project.',
+  },
   '/how-to-host-a-watchparty': {
     title: 'How to Host a Watch Party - RiffSync',
     description:

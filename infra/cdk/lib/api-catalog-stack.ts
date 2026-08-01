@@ -605,10 +605,34 @@ export class ApiCatalogStack extends cdk.Stack {
       },
     });
 
+    const liveGetFn = new lambdaNodejs.NodejsFunction(this, 'LiveGetFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/live-get.ts'),
+      handler: 'handler',
+      environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        CATALOG_TABLE_NAME: this.catalogTable.tableName,
+        // Override bound episode without code change: LIVE_CHANNEL_MST3K_FOREVER_A_THON_EPISODE_ID
+        ...(this.node.tryGetContext('liveMst3kForeverEpisodeId')
+          ? {
+              LIVE_CHANNEL_MST3K_FOREVER_A_THON_EPISODE_ID: String(
+                this.node.tryGetContext('liveMst3kForeverEpisodeId'),
+              ),
+            }
+          : {}),
+        ...jwtEnvShared,
+      },
+    });
+
     this.roomsTable.grantReadWriteData(roomCreateFn);
     this.roomsTable.grantReadWriteData(roomPatchFn);
+    this.roomsTable.grantReadWriteData(liveGetFn);
     this.catalogTable.grantReadData(roomCreateFn);
     this.catalogTable.grantReadData(roomPatchFn);
+    this.catalogTable.grantReadData(liveGetFn);
     this.roomsTable.grantReadData(roomGetFn);
     this.roomsTable.grantReadData(lobbyGetFn);
     this.connectionsTable.grantReadData(lobbyGetFn);
@@ -1457,6 +1481,13 @@ export class ApiCatalogStack extends cdk.Stack {
       path: '/v1/lobby',
       methods: [apigwv2.HttpMethod.GET],
       integration: lobbyGetIntegration,
+    });
+
+    const liveGetIntegration = new integrations.HttpLambdaIntegration('LiveGetInt', liveGetFn);
+    this.httpApi.addRoutes({
+      path: '/v1/live/{slug}',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: liveGetIntegration,
     });
 
     this.httpApi.addRoutes({
