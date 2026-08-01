@@ -1,4 +1,6 @@
-import type { CatalogEpisode } from './catalogTypes'
+import { PUBLIC_CATALOG_CATEGORIES, type CatalogEpisode } from './catalogTypes'
+
+const PUBLIC_BROWSE_CATEGORIES = new Set<string>(PUBLIC_CATALOG_CATEGORIES)
 
 /** Read-time default: missing or invalid values behave as YouTube host. */
 export function readCatalogPlaybackHost(
@@ -24,4 +26,13 @@ export function episodeIsPlayableInApp(ep: CatalogEpisode): boolean {
 
 export function catalogEntriesPlayableInApp(entries: CatalogEpisode[]): CatalogEpisode[] {
   return entries.filter(episodeIsPlayableInApp)
+}
+
+/** Playable rows in categories exposed on public home/catalog surfaces. */
+export function catalogEntriesVisibleInPublicBrowse(
+  entries: CatalogEpisode[],
+): CatalogEpisode[] {
+  return catalogEntriesPlayableInApp(entries).filter((ep) =>
+    PUBLIC_BROWSE_CATEGORIES.has(ep.catalog),
+  )
 }

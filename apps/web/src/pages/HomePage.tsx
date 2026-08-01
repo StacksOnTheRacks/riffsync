@@ -6,7 +6,7 @@ import {
 } from '../catalog/catalogQueries'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
-import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
+import { catalogEntriesVisibleInPublicBrowse } from '../catalog/catalogPlayback'
 import {
   buildHeroSlides,
   firstEpisodesPlayableForTag,
@@ -66,9 +66,9 @@ export function HomePage() {
   const entries = data ?? []
   const carouselEntries = carouselQ.data ?? []
   const spotlightEntries = spotlightQ.data ?? []
-  const playableEntries = catalogEntriesPlayableInApp(entries)
-  const carouselPlayable = catalogEntriesPlayableInApp(carouselEntries)
-  const spotlightPlayable = catalogEntriesPlayableInApp(spotlightEntries)
+  const playableEntries = catalogEntriesVisibleInPublicBrowse(entries)
+  const carouselPlayable = catalogEntriesVisibleInPublicBrowse(carouselEntries)
+  const spotlightPlayable = catalogEntriesVisibleInPublicBrowse(spotlightEntries)
 
   if (entries.length === 0) {
     return (

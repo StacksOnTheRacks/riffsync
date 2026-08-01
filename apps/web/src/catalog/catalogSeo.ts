@@ -1,4 +1,6 @@
-import type { CatalogEpisode } from './catalogTypes'
+import { PUBLIC_CATALOG_CATEGORIES, type CatalogEpisode } from './catalogTypes'
+
+const PUBLIC_SEO_CATEGORIES = new Set<string>(PUBLIC_CATALOG_CATEGORIES)
 
 /** Read-time default: missing or invalid values behave as YouTube host. */
 export function readCatalogPlaybackHost(
@@ -10,9 +12,13 @@ export function readCatalogPlaybackHost(
 /**
  * Whether the episode earns a sitemap `/watch/:id` entry and watch-route prerender.
  * Custom-host rows are never indexable. YouTube-host rows require a non-empty video id.
+ * Categories withheld from public browse (e.g. movie_night) are not indexable.
  * embedAllows and customPlaybackUrl do not affect indexability.
  */
 export function episodeIsIndexableForSeo(ep: CatalogEpisode): boolean {
+  if (!PUBLIC_SEO_CATEGORIES.has(ep.catalog)) {
+    return false
+  }
   if (readCatalogPlaybackHost(ep) === 'custom') {
     return false
   }

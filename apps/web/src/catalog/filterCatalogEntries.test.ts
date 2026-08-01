@@ -107,11 +107,12 @@ describe('filterCatalogEntries', () => {
       titleQuery: '',
       catalogs: DEFAULT_CATALOG_FILTER_CATEGORIES,
     })
-    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-f', 'ep-d', 'ep-g', 'ep-h'])
+    expect(result.map((e) => e.id)).toEqual(['ep-b', 'ep-a', 'ep-c', 'ep-f', 'ep-d', 'ep-h'])
   })
 
-  it('excludes other from public catalog category chips', () => {
+  it('excludes other and movie_night from public catalog category chips', () => {
     expect(PUBLIC_CATALOG_CATEGORIES).toContain('riff_material')
     expect(PUBLIC_CATALOG_CATEGORIES).not.toContain('other')
+    expect(PUBLIC_CATALOG_CATEGORIES).not.toContain('movie_night')
   })
 })

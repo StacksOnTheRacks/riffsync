@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CatalogEpisode } from './catalogTypes'
 import {
   catalogEntriesPlayableInApp,
+  catalogEntriesVisibleInPublicBrowse,
   episodeIsPlayableInApp,
   readCatalogPlaybackHost,
 } from './catalogPlayback'
@@ -113,5 +114,16 @@ describe('catalogEntriesPlayableInApp', () => {
       episode({ id: 'bad-custom', playbackHost: 'custom', customPlaybackUrl: null }),
     ]
     expect(catalogEntriesPlayableInApp(entries).map((e) => e.id)).toEqual(['yt', 'custom'])
+  })
+})
+
+describe('catalogEntriesVisibleInPublicBrowse', () => {
+  it('excludes playable movie_night rows from public browse', () => {
+    const entries = [
+      episode({ id: 'yt', youtubeVideoId: 'abc12345678' }),
+      episode({ id: 'movie', catalog: 'movie_night', youtubeVideoId: 'abc12345678' }),
+      episode({ id: 'other', catalog: 'other', youtubeVideoId: 'abc12345678' }),
+    ]
+    expect(catalogEntriesVisibleInPublicBrowse(entries).map((e) => e.id)).toEqual(['yt'])
   })
 })

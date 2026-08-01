@@ -89,7 +89,7 @@ describe('CatalogPage', () => {
     }
   })
 
-  it('renders four hub entry links in the page header above search and the mixed grid in fixed order', () => {
+  it('renders hub entry links in the page header above search and the mixed grid in fixed order', () => {
     renderCatalogPage()
 
     const pageHeader = container.querySelector('.riffsync-catalog-page-header')
@@ -99,6 +99,7 @@ describe('CatalogPage', () => {
     const hubNav = pageHeader?.querySelector('.riffsync-catalog-hub-entry-links')
     expect(hubNav).not.toBeNull()
     expect(container.textContent).not.toContain('Push the button, Frank')
+    expect(container.textContent).not.toContain('Movie Night')
 
     const filterBar = container.querySelector('.riffsync-catalog-filter-bar')
     const grid = container.querySelector('.riffsync-catalog-grid')
@@ -109,7 +110,7 @@ describe('CatalogPage', () => {
       container.querySelectorAll('.riffsync-catalog-hub-entry-links__link'),
     ) as HTMLAnchorElement[]
 
-    expect(hubLinks).toHaveLength(4)
+    expect(hubLinks).toHaveLength(CATALOG_HUB_ENTRY_LINKS.length)
     expect(hubLinks.map((link) => link.textContent?.trim())).toEqual(
       CATALOG_HUB_ENTRY_LINKS.map((entry) => entry.label),
     )
@@ -169,10 +170,31 @@ describe('CatalogPage', () => {
     expect(container.textContent).toContain('No episodes are available for in-app playback yet.')
   })
 
-  it('keeps the mixed grid unfiltered by catalog on the hub', () => {
+  it('keeps the mixed grid unfiltered by catalog on the hub for public categories', () => {
     renderCatalogPage()
 
     const cards = container.querySelectorAll('.riffsync-catalog-card')
     expect(cards).toHaveLength(catalogFixtures.length)
+  })
+
+  it('excludes movie_night rows from the public hub grid', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: [
+        ...catalogFixtures,
+        episode({
+          id: 'ep-movie-night',
+          title: 'Movie Night Pick',
+          catalog: 'movie_night',
+        }),
+      ],
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+    renderCatalogPage()
+
+    expect(container.querySelectorAll('.riffsync-catalog-card')).toHaveLength(catalogFixtures.length)
+    expect(container.textContent).not.toContain('Movie Night Pick')
   })
 })

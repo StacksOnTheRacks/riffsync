@@ -59,7 +59,7 @@ describe('CatalogNavItem', () => {
     expect(parent?.textContent?.trim()).toBe('Catalog')
   })
 
-  it('lists the four public subcategory destinations in order in a Streamlab sub-menu', () => {
+  it('lists the public subcategory destinations in order in a Streamlab sub-menu', () => {
     renderNav('/catalog')
 
     const expectedHrefs = CATALOG_HUB_ENTRY_LINKS.map((entry) => entry.href)
@@ -73,6 +73,7 @@ describe('CatalogNavItem', () => {
     expect(subcategoryLabels(submenu!)).toEqual(expectedLabels)
     expect(catalogNav().classList.contains('menu-item-has-children')).toBe(true)
     expect(container.textContent).not.toContain('other')
+    expect(container.textContent).not.toContain('Movie Night')
   })
 
   it('marks the catalog nav item active on subcategory routes', () => {

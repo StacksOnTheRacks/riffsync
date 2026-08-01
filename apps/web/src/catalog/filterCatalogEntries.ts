@@ -1,12 +1,12 @@
-import type { CatalogCategory, CatalogEpisode } from './catalogTypes'
+import {
+  PUBLIC_CATALOG_CATEGORIES,
+  type CatalogCategory,
+  type CatalogEpisode,
+} from './catalogTypes'
 
 /** Default public category toggles when a category filter surface is present. */
-export const DEFAULT_CATALOG_FILTER_CATEGORIES: readonly CatalogCategory[] = [
-  'mst3k',
-  'community',
-  'riff_material',
-  'movie_night',
-]
+export const DEFAULT_CATALOG_FILTER_CATEGORIES: readonly CatalogCategory[] =
+  PUBLIC_CATALOG_CATEGORIES
 
 export interface CatalogFilterOptions {
   titleQuery: string

@@ -47,7 +47,7 @@ export function AppRoutes() {
         <Route path="/catalog/community" element={<CatalogSubcategoryPage />} />
         <Route path="/catalog/riff-ready" element={<Navigate to="/catalog/riff-material" replace />} />
         <Route path="/catalog/riff-material" element={<CatalogSubcategoryPage />} />
-        <Route path="/catalog/movie-night" element={<CatalogSubcategoryPage />} />
+        <Route path="/catalog/movie-night" element={<Navigate to="/catalog" replace />} />
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/account" element={<AccountPage />} />

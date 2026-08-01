@@ -7,7 +7,7 @@ import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogHubEntryLinks } from '../components/catalog/CatalogHubEntryLinks'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
-import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
+import { catalogEntriesVisibleInPublicBrowse } from '../catalog/catalogPlayback'
 import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 
@@ -22,7 +22,7 @@ export function CatalogPage() {
 
   const allEntries = data ?? EMPTY_CATALOG_ENTRIES
   const playableEntries = useMemo(
-    () => catalogEntriesPlayableInApp(allEntries),
+    () => catalogEntriesVisibleInPublicBrowse(allEntries),
     [allEntries],
   )
   const filteredEntries = useMemo(

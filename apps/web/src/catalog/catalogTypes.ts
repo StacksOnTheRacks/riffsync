@@ -17,12 +17,15 @@ export const CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   'other',
 ]
 
-/** Categories exposed on the public catalog surfaces (`other` is staff-only curation). */
+/**
+ * Categories exposed on public catalog surfaces.
+ * `other` is staff-only curation; `movie_night` stays in admin/data but is
+ * withheld from public browse until YouTube license churn is manageable.
+ */
 export const PUBLIC_CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   'mst3k',
   'community',
   'riff_material',
-  'movie_night',
 ]
 
 const CATALOG_CATEGORY_LABELS: Record<CatalogCategory, string> = {

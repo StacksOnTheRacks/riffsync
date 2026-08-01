@@ -63,6 +63,14 @@ describe('episodeIsIndexableForSeo', () => {
     expect(episodeIsIndexableForSeo(episode({ youtubeVideoId: null }))).toBe(false)
     expect(episodeIsIndexableForSeo(episode({ youtubeVideoId: '   ' }))).toBe(false)
   })
+
+  it('excludes movie_night rows withheld from public browse', () => {
+    expect(
+      episodeIsIndexableForSeo(
+        episode({ catalog: 'movie_night', youtubeVideoId: 'abc12345678' }),
+      ),
+    ).toBe(false)
+  })
 })
 
 describe('catalogEntriesIndexableForSeo', () => {

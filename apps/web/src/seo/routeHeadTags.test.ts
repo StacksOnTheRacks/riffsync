@@ -78,7 +78,7 @@ describe('buildStaticRouteHeadTags', () => {
     const head = buildStaticRouteHeadTags('/catalog', 'https://riffsync.tv')
     expect(head.documentTitle).toBe('RiffSync Catalog - Browse the Library')
     expect(head.description).toBe(
-      'Browse RiffSync episodes across MST3K, Community, Riff Material, and Movie Night. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
+      'Browse RiffSync episodes across MST3K, Community, and Riff Material. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
     )
     expect(head.canonicalUrl).toBe('https://riffsync.tv/catalog')
   })
@@ -116,13 +116,6 @@ describe('buildStaticRouteHeadTags', () => {
           'Browse Riff Material titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/riff-material',
       },
-      {
-        route: '/catalog/movie-night' as const,
-        title: 'Movie Night - RiffSync Catalog',
-        description:
-          'Browse Movie Night titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
-        canonical: 'https://riffsync.tv/catalog/movie-night',
-      },
     ] as const
 
     for (const { route, title, description, canonical } of subcategories) {
@@ -134,8 +127,8 @@ describe('buildStaticRouteHeadTags', () => {
     }
   })
 
-  it('indexes ten static routes', () => {
-    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(10)
+  it('indexes nine static routes', () => {
+    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(9)
   })
 })
 

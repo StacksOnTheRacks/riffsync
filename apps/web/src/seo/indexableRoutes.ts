@@ -5,7 +5,6 @@ export const STATIC_INDEXABLE_ROUTES = [
   '/catalog/mst3k',
   '/catalog/community',
   '/catalog/riff-material',
-  '/catalog/movie-night',
   '/download',
   '/how-to-host-a-watchparty',
   '/terms',
