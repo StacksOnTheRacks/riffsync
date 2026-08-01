@@ -6,22 +6,31 @@ import { useVisualViewportRoomShell } from '../room/useVisualViewportRoomShell'
 
 function SiteLayoutShell() {
   const roomMatch = useMatch({ path: '/room/:roomId/*', end: false })
+  const liveMatch = useMatch({ path: '/live/:slug', end: true })
   const roomShell = Boolean(roomMatch)
-  const viewportShell = useVisualViewportRoomShell(roomShell)
+  const liveShell = Boolean(liveMatch)
+  const partyShell = roomShell || liveShell
+  const viewportShell = useVisualViewportRoomShell(partyShell)
 
   return (
     <div
-      className={`riffsync-site${roomShell ? ` riffsync-site--room${viewportShell.className}` : ''}`}
-      style={roomShell ? viewportShell.style : undefined}
+      className={`riffsync-site${
+        partyShell
+          ? ` riffsync-site--room${liveShell ? ' riffsync-site--live' : ''}${viewportShell.className}`
+          : ''
+      }`}
+      style={partyShell ? viewportShell.style : undefined}
     >
-      {!roomMatch ? <SiteHeader /> : null}
+      {roomShell ? null : <SiteHeader compact={liveShell} />}
       <main
         id="riffsync-main"
-        className={`riffsync-main${roomShell ? ' riffsync-main--room' : ''}`}
+        className={`riffsync-main${partyShell ? ' riffsync-main--room' : ''}${
+          liveShell ? ' riffsync-main--live' : ''
+        }`}
       >
         <Outlet />
       </main>
-      {!roomMatch ? <SiteFooter compact={false} /> : null}
+      {partyShell ? null : <SiteFooter compact={false} />}
     </div>
   )
 }

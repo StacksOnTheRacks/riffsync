@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { RoomChromeProvider } from '../room/RoomChromeProvider'
 import { LiveChannelPage } from './LiveChannelPage'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -36,11 +37,13 @@ vi.mock('../room/ChatComposeMediaPicker', () => ({
 function renderLive(root: Root, path: string, queryClient: QueryClient) {
   root.render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/live/:slug" element={<LiveChannelPage />} />
-        </Routes>
-      </MemoryRouter>
+      <RoomChromeProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/live/:slug" element={<LiveChannelPage />} />
+          </Routes>
+        </MemoryRouter>
+      </RoomChromeProvider>
     </QueryClientProvider>,
   )
 }

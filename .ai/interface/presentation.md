@@ -60,9 +60,9 @@ Meta titles/descriptions/OG for **`/watch/:id`** and **`/live/:slug`** always us
 
 | Concern | Contract |
 | --- | --- |
-| **Shell** | Dedicated Live page (not full Theater room chrome): stage = YouTube iframe; sidebar = Chat with existing compose / Sign In to Chat gates. |
+| **Shell** | Hostless Live **party shell**: compact site header (Now Playing + brand), **no** site footer, full-viewport stage + chat (not marketing page chrome, not full Theater room sidebar). Stage = YouTube iframe; sidebar = Chat with existing compose / Sign In to Chat gates. |
 | **Absent controls** | No Open/Share Source Tab, host control bar, room-mode toggle, AV kill switch, or host capture preview. |
-| **Heading** | Visible or sr-only primary heading from channel/episode title (Invariant 9). |
+| **Heading** | Sr-only primary heading from channel/episode title (Invariant 9); visible title surfaces in compact header Now Playing. |
 | **v1 chrome scope** | Participant A/V toggles and Cast are out of scope on Live; People/Friends may be deferred or minimal. |
 
 ### Catalog card image alt text
