@@ -155,6 +155,8 @@ describe('FriendsDropdown (#363)', () => {
     expect(container.textContent).toContain('TVs Frank III')
     expect(container.textContent).toContain('Accept')
     expect(container.textContent).toContain('Cancel request')
+    expect(container.querySelectorAll('.riffsync-room-friends-row--pending')).toHaveLength(2)
+    expect(container.querySelectorAll('.riffsync-room-friends-pending-identity')).toHaveLength(2)
   })
 
   it('opens DM overlay from friend row and shows empty durable copy', () => {

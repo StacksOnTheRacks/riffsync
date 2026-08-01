@@ -128,6 +128,9 @@ describe('RoomFriendsPane (#364)', () => {
     expect(container.textContent).toContain('Christen Servo')
     expect(container.textContent).toContain('Cancel request')
     expect(container.textContent).toContain('No friends yet.')
+    expect(container.querySelector('.riffsync-room-friends-list--pending')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-friends-row--pending')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-friends-pending-identity')).not.toBeNull()
 
     const cancelButton = Array.from(container.querySelectorAll('button')).find((node) =>
       node.textContent?.includes('Cancel request'),

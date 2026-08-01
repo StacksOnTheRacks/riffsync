@@ -1914,6 +1914,13 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   overflow-y: auto;
 }
 
+.riffsync-room-friends-list--pending {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+  padding-bottom: 0.35rem;
+}
+
 .riffsync-room-friends-row {
   display: flex;
   align-items: center;
@@ -1924,8 +1931,22 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   background: rgb(255 255 255 / 0.035);
 }
 
+.riffsync-room-friends-row--pending {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.65rem;
+}
+
 .riffsync-room-friends-row + .riffsync-room-friends-row {
   margin-top: 0.35rem;
+}
+
+.riffsync-room-friends-pending-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .riffsync-room-friends-row-main {
@@ -1961,6 +1982,15 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   display: flex;
   gap: 0.35rem;
   flex-shrink: 0;
+}
+
+.riffsync-room-friends-row--pending .riffsync-room-friends-row-actions {
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.riffsync-room-friends-row--pending .riffsync-room-friends-row-actions .gen-button {
+  flex: 1 1 9rem;
 }
 
 .riffsync-room-friends-online {

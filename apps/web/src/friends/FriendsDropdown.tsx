@@ -170,9 +170,9 @@ function FriendsDropdownList({
           (pane.snapshot.inbound.length > 0 || pane.snapshot.outbound.length > 0) ? (
             <section className="riffsync-room-friends-section" aria-label="Pending friend requests">
               <h3 className="riffsync-room-friends-section-title">Pending requests</h3>
-              <ul className="riffsync-room-friends-list">
+              <ul className="riffsync-room-friends-list riffsync-room-friends-list--pending">
                 {pane.snapshot.inbound.map((request) => (
-                  <li key={request.requestId} className="riffsync-room-friends-row">
+                  <li key={request.requestId} className="riffsync-room-friends-row riffsync-room-friends-row--pending">
                     <PendingRequestIdentity request={request} />
                     <div className="riffsync-room-friends-row-actions">
                       <button
@@ -193,7 +193,7 @@ function FriendsDropdownList({
                   </li>
                 ))}
                 {pane.snapshot.outbound.map((request) => (
-                  <li key={request.requestId} className="riffsync-room-friends-row">
+                  <li key={request.requestId} className="riffsync-room-friends-row riffsync-room-friends-row--pending">
                     <PendingRequestIdentity request={request} />
                     <div className="riffsync-room-friends-row-actions">
                       <button
@@ -233,10 +233,10 @@ function FriendsDropdownList({
 
 function PendingRequestIdentity({ request }: { request: FriendRequestEntry }) {
   return (
-    <>
+    <div className="riffsync-room-friends-pending-identity">
       <FanAvatarThumb displayName={request.displayName} avatarUrl={request.avatarUrl} />
       <span className="riffsync-room-friends-row-name">{request.displayName}</span>
-    </>
+    </div>
   )
 }
 
