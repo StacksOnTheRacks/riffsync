@@ -1,19 +1,28 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchLiveChannel } from '../api/liveApi'
-import { getLiveChannelSeed } from './liveChannels'
+import { fetchLiveChannel, fetchLiveChannels } from '../api/liveApi'
 
 export function liveChannelQueryKey(slug: string) {
   return ['live-channel', slug] as const
 }
 
-export function useLiveChannelQuery(slug: string | undefined) {
-  const seed = typeof slug === 'string' ? getLiveChannelSeed(slug) : undefined
-  const enabled = Boolean(slug && seed?.enabled)
+export function liveChannelsQueryKey() {
+  return ['live-channels'] as const
+}
 
+export function useLiveChannelsQuery(enabled = true) {
+  return useQuery({
+    queryKey: liveChannelsQueryKey(),
+    queryFn: fetchLiveChannels,
+    enabled,
+    staleTime: 30_000,
+  })
+}
+
+export function useLiveChannelQuery(slug: string | undefined) {
   return useQuery({
     queryKey: liveChannelQueryKey(slug ?? ''),
     queryFn: () => fetchLiveChannel(slug!),
-    enabled,
+    enabled: Boolean(slug),
     staleTime: 30_000,
   })
 }

@@ -16,9 +16,9 @@ RiffSync hosts **official Live channels**: durable, hostless watch surfaces at *
 
 | Surface | Contract |
 | --- | --- |
-| **Route** | **`/live/:slug`**. First channel: **`/live/mst3k-forever-a-thon`**. |
+| **Route** | **`/live/:slug`**, where **`slug`** is the **`catalog: live`** episode id. |
 | **Main nav** | Header links to **Lobby**; there is no separate **Live** nav item. |
-| **Discovery** | Official Live channels are listed on the public **`/lobby`** above host-created parties with a red live indicator. They are **not** listed on **`/catalog`**, subcategory grids, or home carousel/spotlight. |
+| **Discovery** | Official Live channels are listed dynamically from **`catalog: live`** rows on the public **`/lobby`** above host-created parties with a red live indicator. They are **not** listed on **`/catalog`**, subcategory grids, or home carousel/spotlight. |
 
 ### Hostless live party mode
 
@@ -43,21 +43,20 @@ RiffSync hosts **official Live channels**: durable, hostless watch surfaces at *
 | **Start party** | Public “start watch party” / create-room tile flows are **not** offered for Live rows. |
 | **Helper copy (admin)** | Live sources are not shown on public catalog pages; bind them to a Live channel registry entry to publish at **`/live/:slug`**. |
 
-### Live channel registry (seeded v1)
+### Live channel catalog rows
 
-A small **LiveChannel** registry maps URL slug → playback + chat partition. v1 is **seeded / checked-in config** (or equivalent deploy-time seed), not a staff CRUD admin page.
+A **`catalog: live`** row maps URL slug → playback + chat partition. The catalog episode **`id`** is the public slug and the stable chat room id is derived as **`live-{id}`**.
 
 | Field | Role |
 | --- | --- |
-| **`slug`** | URL key (**`mst3k-forever-a-thon`**). |
-| **`catalogEpisodeId`** | Pointer to a **`catalog: live`** episode (staff edit the episode when YouTube live id changes). |
-| **`roomId`** | Stable **system** room id for RoomChat / RoomPresence (create-once; never user-minted). |
-| **`enabled`** | Soft kill switch; disabled slug shows honest unavailable UI. |
-| **SEO title / description** | Optional override; default from bound episode **`title`** / tagline patterns. |
+| **`id`** | URL key and catalog episode id (for example **`mst3k-forever-a-thon`**). |
+| **`roomId`** | Stable derived **system** room id for RoomChat / RoomPresence: **`live-{id}`**. |
+| **`catalog`** | Must be **`live`** to publish under **`/live/{id}`**. |
+| **SEO title / description** | Derived from the catalog episode **`title`** / **`tagline`**. |
 
-**Day-to-day ops:** when the YouTube live id rotates, staff **Admin → Catalog → Live → edit episode → save**. No code deploy required if the registry already points at that episode.
+**Day-to-day ops:** staff publish a Live channel by creating or editing a **`catalog: live`** episode. When the YouTube live id rotates, staff **Admin → Catalog → Live → edit episode → save**. No code deploy is required.
 
-**Later:** a Live channels admin CRUD page when a second slug needs non-engineer editing. Out of scope for v1.
+**Later:** explicit publish/draft, sort order, or custom slug fields if staff need private Live drafts or custom ordering.
 
 ### SEO and `/watch` boundary
 
@@ -80,7 +79,7 @@ A small **LiveChannel** registry maps URL slug → playback + chat partition. v1
 ### Resolution flow
 
 1. Fan opens **`/live/:slug`** (or follows a Lobby Live entry).
-2. Client (or thin read API) resolves **LiveChannel** by slug.
+2. Client/API resolves the catalog row by **`id === slug`**.
 3. If missing/disabled → honest unavailable status.
 4. Load catalog episode by **`catalogEpisodeId`**; require **`catalog === live`**, YouTube playback fields, and embeddable posture (**`embedAllows !== false`**).
 5. Render YouTube iframe from episode **`youtubeVideoId`** (or agreed live embed URL shape).
@@ -95,8 +94,8 @@ A small **LiveChannel** registry maps URL slug → playback + chat partition. v1
 | **Client types** | **`CatalogCategory`** / **`CATALOG_CATEGORIES`** / labels add Live; **`PUBLIC_CATALOG_CATEGORIES`** stays without **`live`**. |
 | **Admin form** | Category select includes **Live**. |
 | **Public filters** | Hub mixed grid and subcategory filters exclude **`live`** (and continue to exclude **`other`**). |
-| **Registry** | Seeded module or config (path TBD in implementation) listing at least **`mst3k-forever-a-thon`**. |
-| **SEO** | Add enabled Live slugs to static/indexable packaging (**`indexableRoutes`** / generator), head tags, prerender, CloudFront clean-URL rewrite as needed. |
+| **Live list API** | **`GET /v1/live`** lists **`catalog: live`** rows as official Live channels. |
+| **SEO** | Add **`catalog: live`** ids to dynamic **`/live/{id}`** sitemap/prerender output; keep them out of **`/watch/{id}`**. |
 
 ### Authorization
 
@@ -119,13 +118,13 @@ A small **LiveChannel** registry maps URL slug → playback + chat partition. v1
 
 ## Acceptance Criteria
 
-- Lobby lists **`/live/mst3k-forever-a-thon`** with a red live indicator.
+- Lobby lists **`catalog: live`** rows as **`/live/{id}`** entries with a red live indicator.
 - Anonymous viewer sees YouTube live embed and can read chat; cannot send.
 - Signed-in fan can send chat under existing RoomChat rules.
 - No Share Source Tab / host controls on the Live page.
 - Admin can create an episode with **`catalog: live`**; it does not appear on public catalog hub/subcategory grids.
 - Editing the bound episode’s **`youtubeVideoId`** updates Live playback without changing the slug.
-- **`/live/mst3k-forever-a-thon`** is indexable (sitemap + prerender + non-**`noindex`** head tags) when enabled.
+- **`/live/{id}`** is indexable (sitemap + prerender + non-**`noindex`** head tags) for **`catalog: live`** rows.
 - Live-category episodes are excluded from normal **`/watch/:id`** sitemap indexability.
 - System live room is not removed by host-disconnect lobby cleanup.
 
@@ -133,8 +132,8 @@ A small **LiveChannel** registry maps URL slug → playback + chat partition. v1
 
 | Topic | Notes |
 | --- | --- |
-| Registry storage | Seeded TypeScript/JSON vs Dynamo item — pick at build; staff CRUD deferred. |
-| Default nav target | Hardcode first slug vs **`enabled` + sortOrder** “primary” flag when a second channel exists. |
+| Live ordering | Current ordering follows catalog **`experimentNumber`**; add a Live-specific sort field if needed. |
+| Draft/private Live rows | Current contract treats **`catalog: live`** as published; add a publish flag if staff need drafts. |
 | Ensure-room API | Dedicated **`GET /v1/live/:slug`** vs reuse room GET after seed. |
 | CloudFront rewrite | Confirm clean **`/live/{slug}`** → prerender key pattern alongside existing catalog/watch rules. |
 

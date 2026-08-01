@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import type { LiveChannelSnapshot } from '../api/liveApi'
+import { fetchLiveChannels } from '../api/liveApi'
 import type { LobbyResponse } from '../api/roomsApi'
 import { fetchLobby, roomPlaybackForBadge } from '../api/roomsApi'
 import { ensureGuestSession } from '../session/guestSession'
 import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
-import { LIVE_CHANNELS } from '../live/liveChannels'
 
 function formatLobbyActivity(lastActivityAt: number | undefined): string {
   if (typeof lastActivityAt !== 'number' || !Number.isFinite(lastActivityAt)) return ''
@@ -20,6 +21,7 @@ function formatLobbyActivity(lastActivityAt: number | undefined): string {
 export function LobbyPage() {
   const apiUrl = getPublicApiBaseUrl()
   const [data, setData] = useState<LobbyResponse | null>(null)
+  const [liveChannels, setLiveChannels] = useState<LiveChannelSnapshot[]>([])
   const [fetchErr, setFetchErr] = useState<string | null>(null)
 
   useEffect(() => {
@@ -30,6 +32,11 @@ export function LobbyPage() {
       .catch((e: unknown) =>
         setFetchErr(e instanceof Error ? e.message : 'Lobby request failed'),
       )
+    void fetchLiveChannels()
+      .then((live) => {
+        setLiveChannels(live.channels.filter((channel) => channel.enabled))
+      })
+      .catch(() => setLiveChannels([]))
   }, [apiUrl])
 
   if (!apiUrl) {
@@ -57,7 +64,6 @@ export function LobbyPage() {
   }
 
   const rooms = data?.rooms ?? []
-  const liveChannels = LIVE_CHANNELS.filter((channel) => channel.enabled)
 
   return (
     <div className="container riffsync-lobby-page">
@@ -77,9 +83,11 @@ export function LobbyPage() {
                 <div className="riffsync-lobby-list__body">
                   <h3 className="riffsync-lobby-list__title">
                     <span className="riffsync-lobby-list__live-dot" aria-label="Live" />
-                    <Link to={channel.path}>{channel.defaultTitle}</Link>
+                    <Link to={channel.path}>{channel.title}</Link>
                   </h3>
-                  <p className="riffsync-lobby-list__host riffsync-muted">{channel.defaultDescription}</p>
+                  <p className="riffsync-lobby-list__host riffsync-muted">
+                    {channel.tagline?.trim() || 'Watch live on RiffSync with room chat.'}
+                  </p>
                 </div>
               </li>
             ))}

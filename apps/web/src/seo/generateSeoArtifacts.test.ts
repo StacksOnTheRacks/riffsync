@@ -79,14 +79,17 @@ describe('buildSitemapXml', () => {
       youtubeVideoId: 'abc123',
       youtubeWatchUrl: 'https://www.youtube.com/watch?v=abc123',
     }),
+    episode({ id: 'forever-live', catalog: 'live' }),
   ]
 
-  it('includes static routes and only SEO-indexable watch URLs', () => {
+  it('includes static routes, live URLs, and only SEO-indexable watch URLs', () => {
     const xml = buildSitemapXml('https://riffsync.tv', entries)
     for (const path of STATIC_SITEMAP_PATHS) {
       expect(xml).toContain(`<loc>${absoluteUrl('https://riffsync.tv', path)}</loc>`)
     }
+    expect(xml).toContain('<loc>https://riffsync.tv/live/forever-live</loc>')
     expect(xml).toContain('<loc>https://riffsync.tv/watch/101-the-crawling-eye</loc>')
+    expect(xml).not.toContain('/watch/forever-live')
     expect(xml).not.toContain('/watch/no-youtube')
     expect(xml).not.toContain('/watch/blank-youtube')
     expect(xml).not.toContain('/watch/custom-host-only')
@@ -113,7 +116,8 @@ describe('countSitemapUrls', () => {
         customPlaybackUrl: 'https://example.com/movie',
         youtubeVideoId: 'abc123',
       }),
+      episode({ id: 'live-channel', catalog: 'live' }),
     ]
-    expect(countSitemapUrls(entries)).toBe(STATIC_SITEMAP_PATHS.length + 2)
+    expect(countSitemapUrls(entries)).toBe(STATIC_SITEMAP_PATHS.length + 3)
   })
 })

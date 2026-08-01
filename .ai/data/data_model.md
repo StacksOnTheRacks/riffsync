@@ -8,7 +8,7 @@ Curator + enrichment merged for **`GET /v1/catalog`** output.
 
 | Field group | Fields | Notes |
 | --- | --- | --- |
-| **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`catalog`** | **`title`** never overwritten from TMDB. **`catalog`** enum: **`mst3k`**, **`community`**, **`riff_material`**, **`movie_night`**, **`other`**, **`live`**. Public-facing catalog displays omit **`other`** (staff curation bucket) and **`live`** (official Live **source** rows). Public subcategory browse IA (`mst3k` / `community` / `riff-material` / `movie-night`) is route/display grouping over this flat enum (no parent/group field). Display label for persisted **`riff_material`** may be **Riff Material** without changing the stored value. **`live`** rows are bound to **LiveChannel** registry entries for **`/live/:slug`**; they are not public catalog titles. |
+| **Identity** | **`id`**, **`experimentNumber`**, **`title`**, **`catalog`** | **`title`** never overwritten from TMDB. **`catalog`** enum: **`mst3k`**, **`community`**, **`riff_material`**, **`movie_night`**, **`other`**, **`live`**. Public-facing catalog displays omit **`other`** (staff curation bucket) and **`live`** (official Live **source** rows). Public subcategory browse IA (`mst3k` / `community` / `riff-material` / `movie-night`) is route/display grouping over this flat enum (no parent/group field). Display label for persisted **`riff_material`** may be **Riff Material** without changing the stored value. **`live`** rows publish Live channels at **`/live/{id}`**; they are not public catalog titles. |
 | **Playback host** | **`playbackHost`**, **`customPlaybackUrl`** | **`playbackHost`**: **`youtube`** \| **`custom`** (required on new/updated rows after schema migration; seed backfill defaults missing values to **`youtube`**). **`customPlaybackUrl`**: HTTPS movie-page URL when host is **`custom`**; validated at admin save (**HTTPS only**, any domain). **`customPlaybackUrl` drives playback** when host is Custom; YouTube linkage fields may remain for thumbs/metadata. |
 | **YouTube** | **`youtubeVideoId`**, **`youtubeWatchUrl`** | Nullable when unknown. **Not required** for persistence or room create when **`playbackHost` is `custom`**. May coexist on Custom rows for optional enrichment. |
 | **Embed policy** | **`embedAllows`** | Optional boolean; applies **YouTube in-app embed path only**. Custom in-app playback does **not** consult **`embedAllows`**. |
@@ -16,19 +16,18 @@ Curator + enrichment merged for **`GET /v1/catalog`** output.
 | **Dynamo-only (optional on seed)** | **`tmdbOverview`**, **`tmdbPopularity`**, raw **`tmdbPosterPath`**, **`tmdbBackdropPath`** | Per **`docs/architecture.catalog-images.md`**. |
 | **Thumb (optional)** | **`youtubeThumbnailUrl`** | Resolved from **`img.youtube.com`** in reconcile when enabled. |
 
-## LiveChannel (official live registry)
+## LiveChannel (official live catalog row)
 
-Seeded (v1) registry mapping a public Live slug to a catalog source episode and a system chat room. Not user-created.
+Catalog-backed mapping from a public Live slug to a system chat room. Not user-created.
 
 | Field | Contract |
 | --- | --- |
-| **`slug`** | URL-safe key for **`/live/:slug`** (example **`mst3k-forever-a-thon`**). Stable; do not recycle for a different channel. |
-| **`catalogEpisodeId`** | Must reference an Episode with **`catalog: live`**. Staff update that episode’s YouTube fields when the live stream id changes. |
-| **`roomId`** | Stable system Room id for RoomChat / RoomPresence. Created/ensured out-of-band or on first join — **not** via fan **`POST /v1/rooms`**. Exempt from host-disconnect lobby cleanup. |
-| **`enabled`** | When false, **`/live/:slug`** shows unavailable; omit from sitemap/prerender when packaging runs. |
-| **SEO overrides** | Optional title/description; default from bound episode **`title`** / tagline patterns (**Invariant 9**). |
+| **`id`** | URL-safe catalog episode id and public key for **`/live/{id}`** (example **`mst3k-forever-a-thon`**). Stable; do not recycle for a different channel. |
+| **`catalog`** | Must be **`live`** to publish as an official Live channel. |
+| **`roomId`** | Derived stable system Room id for RoomChat / RoomPresence: **`live-{id}`**. Created/ensured on first join — **not** via fan **`POST /v1/rooms`**. Exempt from host-disconnect lobby cleanup. |
+| **SEO copy** | Derived from episode **`title`** / **`tagline`** patterns (**Invariant 9**). |
 
-v1 ships at least one seeded row for **`mst3k-forever-a-thon`**. Staff Live-channels CRUD UI is deferred.
+Staff publish Live channels through normal catalog management by creating or editing **`catalog: live`** rows.
 
 ## Room (watch party)
 

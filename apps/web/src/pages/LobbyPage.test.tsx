@@ -7,6 +7,11 @@ import type { LobbyResponse } from '../api/roomsApi'
 import { LobbyPage } from './LobbyPage'
 
 const fetchLobby = vi.fn<(sessionId: string) => Promise<LobbyResponse>>()
+const fetchLiveChannels = vi.fn()
+
+vi.mock('../api/liveApi', () => ({
+  fetchLiveChannels: (...args: unknown[]) => fetchLiveChannels(...args),
+}))
 
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
@@ -30,6 +35,27 @@ describe('LobbyPage', () => {
 
   beforeEach(() => {
     fetchLobby.mockReset()
+    fetchLiveChannels.mockReset()
+    fetchLiveChannels.mockResolvedValue({
+      version: 1,
+      channels: [
+        {
+          slug: 'mst3k-forever-a-thon',
+          path: '/live/mst3k-forever-a-thon',
+          roomId: 'live-mst3k-forever-a-thon',
+          catalogEpisodeId: 'mst3k-forever-a-thon',
+          enabled: true,
+          title: 'MST3K Forever-A-Thon',
+          tagline: 'Watch the MST3K Forever-A-Thon live on RiffSync with room chat.',
+          posterImageUrl: null,
+          backdropImageUrl: null,
+          youtubeVideoId: 'abcdefghijk',
+          youtubeWatchUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
+          embedAllows: true,
+          playbackHost: 'youtube',
+        },
+      ],
+    })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)

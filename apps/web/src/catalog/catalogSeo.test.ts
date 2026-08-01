@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { CatalogEpisode } from './catalogTypes'
 import {
   catalogEntriesIndexableForSeo,
+  catalogLiveEntriesIndexableForSeo,
   episodeIsIndexableForSeo,
+  liveEpisodeIsIndexableForSeo,
   readCatalogPlaybackHost,
 } from './catalogSeo'
 
@@ -100,5 +102,16 @@ describe('catalogEntriesIndexableForSeo', () => {
       episode({ id: 'missing', youtubeVideoId: null }),
     ]
     expect(catalogEntriesIndexableForSeo(entries).map((e) => e.id)).toEqual(['yt'])
+  })
+})
+
+describe('catalogLiveEntriesIndexableForSeo', () => {
+  it('returns catalog live rows for /live SEO', () => {
+    const live = episode({ id: 'live-a', catalog: 'live' })
+    const regular = episode({ id: 'yt' })
+
+    expect(liveEpisodeIsIndexableForSeo(live)).toBe(true)
+    expect(liveEpisodeIsIndexableForSeo(regular)).toBe(false)
+    expect(catalogLiveEntriesIndexableForSeo([regular, live]).map((e) => e.id)).toEqual(['live-a'])
   })
 })

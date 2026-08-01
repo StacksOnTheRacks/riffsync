@@ -103,6 +103,7 @@ describe('LiveChannelPage', () => {
   it('renders YouTube player and chat chrome for a resolved channel', async () => {
     fetchLiveChannel.mockResolvedValue({
       slug: 'mst3k-forever-a-thon',
+      path: '/live/mst3k-forever-a-thon',
       roomId: 'live-mst3k-forever-a-thon',
       catalogEpisodeId: 'mst3k-forever-a-thon',
       enabled: true,
@@ -142,6 +143,7 @@ describe('LiveChannelPage', () => {
     })
     fetchLiveChannel.mockResolvedValue({
       slug: 'mst3k-forever-a-thon',
+      path: '/live/mst3k-forever-a-thon',
       roomId: 'live-mst3k-forever-a-thon',
       catalogEpisodeId: 'mst3k-forever-a-thon',
       enabled: true,
@@ -173,11 +175,15 @@ describe('LiveChannelPage', () => {
   })
 
   it('shows unavailable copy for unknown slug', async () => {
+    fetchLiveChannel.mockRejectedValue(new Error('Live channel not found'))
+
     await act(async () => {
       renderLive(root, '/live/not-a-channel', queryClient)
     })
 
-    expect(fetchLiveChannel).not.toHaveBeenCalled()
-    expect(container.textContent).toContain('Live channel not found')
+    await vi.waitFor(() => {
+      expect(fetchLiveChannel).toHaveBeenCalledWith('not-a-channel')
+      expect(container.textContent).toContain('Live channel not found')
+    })
   })
 })

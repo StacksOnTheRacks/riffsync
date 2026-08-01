@@ -3,6 +3,8 @@ import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { buildPrerenderDocument } from './buildPrerenderDocument'
 import { STATIC_INDEXABLE_ROUTES } from './indexableRoutes'
 import {
+  buildLiveEpisodeRouteHeadTags,
+  buildLiveRouteHeadTags,
   buildSpaShellHeadTags,
   buildStaticRouteHeadTags,
   buildWatchRouteHeadTags,
@@ -127,16 +129,44 @@ describe('buildStaticRouteHeadTags', () => {
     }
   })
 
-  it('indexes ten static routes including official Live', () => {
-    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(10)
-    expect(STATIC_INDEXABLE_ROUTES).toContain('/live/mst3k-forever-a-thon')
+  it('indexes nine static routes without dynamic Live entries', () => {
+    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(9)
+    expect(STATIC_INDEXABLE_ROUTES).not.toContain('/live/mst3k-forever-a-thon')
+  })
+})
+
+describe('buildLiveRouteHeadTags', () => {
+  it('builds Live channel head tags from API channel data', () => {
+    const head = buildLiveRouteHeadTags(
+      {
+        slug: 'second-live',
+        title: 'Second Live',
+        tagline: 'Live all day.',
+        posterImageUrl: '/posters/live.jpg',
+        backdropImageUrl: null,
+      },
+      'https://riffsync.tv',
+    )
+
+    expect(head.documentTitle).toBe('Second Live - Live on RiffSync')
+    expect(head.description).toBe('Live all day.')
+    expect(head.canonicalUrl).toBe('https://riffsync.tv/live/second-live')
+    expect(head.ogImageUrl).toBe('https://riffsync.tv/posters/live.jpg')
+    expect(head.robotsNoindex).toBe(false)
   })
 
-  it('builds Live channel head tags', () => {
-    const head = buildStaticRouteHeadTags('/live/mst3k-forever-a-thon', 'https://riffsync.tv')
+  it('builds Live channel head tags from catalog live episodes', () => {
+    const head = buildLiveEpisodeRouteHeadTags(
+      episode({
+        id: 'mst3k-forever-a-thon',
+        title: 'MST3K Forever-A-Thon',
+        catalog: 'live',
+      }),
+      'https://riffsync.tv',
+    )
+
     expect(head.documentTitle).toBe('MST3K Forever-A-Thon - Live on RiffSync')
     expect(head.canonicalUrl).toBe('https://riffsync.tv/live/mst3k-forever-a-thon')
-    expect(head.robotsNoindex).toBe(false)
   })
 })
 

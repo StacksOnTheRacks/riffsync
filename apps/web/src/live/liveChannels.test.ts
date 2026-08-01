@@ -1,22 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { STATIC_INDEXABLE_ROUTES } from '../seo/indexableRoutes'
-import {
-  DEFAULT_LIVE_CHANNEL_PATH,
-  enabledLiveChannelPaths,
-  getLiveChannelSeed,
-  LIVE_CHANNELS,
-} from './liveChannels'
+import { getLivePathForEpisodeId } from './liveChannels'
 
-describe('liveChannels registry', () => {
-  it('defaults nav to the forever-a-thon path', () => {
-    expect(DEFAULT_LIVE_CHANNEL_PATH).toBe('/live/mst3k-forever-a-thon')
-    expect(getLiveChannelSeed('mst3k-forever-a-thon')?.enabled).toBe(true)
+describe('live channel path helpers', () => {
+  it('uses the catalog episode id as the live slug', () => {
+    expect(getLivePathForEpisodeId('mst3k-forever-a-thon')).toBe('/live/mst3k-forever-a-thon')
   })
 
-  it('keeps enabled live paths in the static SEO indexable list', () => {
-    for (const path of enabledLiveChannelPaths()) {
-      expect(STATIC_INDEXABLE_ROUTES).toContain(path)
-    }
-    expect(LIVE_CHANNELS.length).toBeGreaterThan(0)
+  it('omits empty episode ids', () => {
+    expect(getLivePathForEpisodeId('   ')).toBeUndefined()
   })
 })

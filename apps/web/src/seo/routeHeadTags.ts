@@ -1,4 +1,5 @@
 import type { CatalogEpisode } from '../catalog/catalogTypes'
+import type { LiveChannelSnapshot } from '../api/liveApi'
 import { trimTabTitleSegment } from '../config/documentTitle'
 import { absoluteUrl, resolveCanonicalOrigin } from './generateSeoArtifacts'
 
@@ -36,11 +37,6 @@ const STATIC_ROUTE_COPY = {
     title: 'Install the RiffSync App - Download and Add to Home Screen',
     description:
       'Install RiffSync as an app on your phone, tablet, or computer. Step-by-step instructions for Chrome, Edge, Safari, and more. Fan watch parties with a curated catalog.',
-  },
-  '/live/mst3k-forever-a-thon': {
-    title: 'MST3K Forever-A-Thon - Live on RiffSync',
-    description:
-      'Watch the MST3K Forever-A-Thon live on RiffSync with room chat. Unofficial fan project.',
   },
   '/how-to-host-a-watchparty': {
     title: 'How to Host a Watch Party - RiffSync',
@@ -132,6 +128,47 @@ export function buildWatchRouteHeadTags(episode: CatalogEpisode, origin: string)
     ogImageUrl,
     robotsNoindex: false,
   }
+}
+
+export function buildLiveRouteHeadTags(
+  channel: Pick<
+    LiveChannelSnapshot,
+    'slug' | 'title' | 'tagline' | 'posterImageUrl' | 'backdropImageUrl'
+  >,
+  origin: string,
+): RouteHeadTags {
+  const title = channel.title.trim() || channel.slug
+  const documentTitle = `${title} - Live on ${SITE_SUFFIX}`
+  const tagline = channel.tagline?.trim() ?? ''
+  const description =
+    tagline.length > 0
+      ? tagline
+      : `Watch ${title} live on RiffSync with room chat.`
+  const poster = resolveAbsoluteAssetUrl(origin, channel.posterImageUrl)
+  const backdrop = resolveAbsoluteAssetUrl(origin, channel.backdropImageUrl)
+  const ogImageUrl = poster ?? backdrop ?? defaultOgCardUrl(origin)
+
+  return {
+    documentTitle,
+    ogTitle: documentTitle,
+    description,
+    canonicalUrl: absoluteUrl(origin, `/live/${channel.slug}`),
+    ogImageUrl,
+    robotsNoindex: false,
+  }
+}
+
+export function buildLiveEpisodeRouteHeadTags(episode: CatalogEpisode, origin: string): RouteHeadTags {
+  return buildLiveRouteHeadTags(
+    {
+      slug: episode.id,
+      title: episode.title,
+      tagline: episode.tagline,
+      posterImageUrl: episode.posterImageUrl,
+      backdropImageUrl: episode.backdropImageUrl,
+    },
+    origin,
+  )
 }
 
 export function buildSpaShellHeadTags(): RouteHeadTags {

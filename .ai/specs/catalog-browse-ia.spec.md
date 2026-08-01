@@ -22,7 +22,7 @@ Fans browse the RiffSync catalog through a hub at `/catalog` plus four dedicated
 | `/catalog/riff-material` | Filtered grid for `catalog` = `riff_material`; public label **Riff Material**. Header subtitle: **Cheesy Flicks Ready to Riff**. |
 | `/catalog/movie-night` | Filtered grid for `catalog` = `movie_night`. Header subtitle: **Pull the Family Together for a Movie Night**. |
 
-Staff-only `other` and official Live source category `live` never appear on hub links, nav dropdown items, or public subcategory grids. Official Live discovery is via main-nav **Live** → `/live/:slug` (`official-live-channels`), not catalog browse.
+Staff-only `other` and official Live source category `live` never appear on hub links, nav dropdown items, or public subcategory grids. Official Live discovery is via `/lobby` (`official-live-channels`), not catalog browse.
 
 ### Navigation
 

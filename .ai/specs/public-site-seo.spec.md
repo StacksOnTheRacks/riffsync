@@ -59,7 +59,7 @@ Search Console / Bing Webmaster verification uses a DNS TXT record on the existi
 | **Module layout** | Pure functions in `apps/web/src/seo/generateSeoArtifacts.ts`; CLI `apps/web/scripts/generate-seo-artifacts.mjs` writes `dist/robots.txt` and `dist/sitemap.xml` after `vite build`. |
 | **Catalog read** | Committed `data/catalog/episodes.json` only — no `GET /v1/catalog` at build time. |
 | **Filter** | **`episodeIsIndexableForSeo`** / **`catalogEntriesIndexableForSeo`** from **`apps/web/src/catalog/catalogSeo.ts`** (**#397**). Legacy **`episodeHasYoutubeLink`** remains for non-SEO browse helpers until **#396** retires fan-path usage. |
-| **Static sitemap paths** | `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` plus `/watch/{catalogEpisodeId}` per filtered episode. When official Live ships, add enabled `/live/{slug}` paths (first: `/live/mst3k-forever-a-thon`). |
+| **Static sitemap paths** | `/`, `/catalog`, `/catalog/mst3k`, `/catalog/community`, `/catalog/riff-material`, `/catalog/movie-night`, `/download`, `/how-to-host-a-watchparty`, `/terms`, `/privacy` plus `/watch/{catalogEpisodeId}` per filtered episode. Official Live adds `/live/{id}` paths for `catalog: live` rows. |
 | **Origin** | `VITE_PUBLIC_ORIGIN` at build when set, else `https://riffsync.tv`. |
 | **Deploy cache** | S3 `Cache-Control: public, max-age=3600` on both objects in `deploy-prod.yml` (see `build_packaging.md` M28 decisions). |
 | **CI** | `web-app` asserts both files exist; sitemap `<url>` count = 10 static routes + YouTube-linked episode count. |

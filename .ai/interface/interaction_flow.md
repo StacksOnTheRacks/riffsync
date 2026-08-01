@@ -15,7 +15,7 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
 | **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch), **Room** tab lobby visibility toggle (**Show in lobby** / **Link only**). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
 | **`/lobby`** | Public rooms from **`GET` lobby API** → navigate to **`/room/:id`**. |
-| **`/live/:slug`** | Official **hostless** Live channel: resolve seeded LiveChannel → bound **`catalog: live`** episode → YouTube iframe for every viewer + room WebSocket chat on the system **`roomId`**. No Share Source Tab / host controls. Anonymous: watch + read chat. Signed-in fan: watch + send chat. Lazy **`sessionId`** on join (same guest mint posture as rooms). First slug: **`mst3k-forever-a-thon`**. |
+| **`/live/:slug`** | Official **hostless** Live channel: resolve **`catalog: live`** episode by **`id === slug`** → YouTube iframe for every viewer + room WebSocket chat on derived system **`roomId`** (`live-{id}`). No Share Source Tab / host controls. Anonymous: watch + read chat. Signed-in fan: watch + send chat. Lazy **`sessionId`** on join (same guest mint posture as rooms). |
 | **`/admin/login`** | **Unlisted** operator gate (bookmark or direct URL only; no links from catalog or room chrome). Primary action starts **staff** Cognito Hosted UI + PKCE; copy makes clear this is **operators only**, not fan Facebook sign-in. |
 | **`/admin/auth/callback`** | Staff OAuth code exchange; on success navigates to stored **`returnTo`** or **`/admin`**; on failure shows **recoverable** error with **retry sign-in** (no silent blank shell). |
 | **`/admin` / `/admin/*`** | **Staff JWT required** in the SPA before rendering protected admin chrome. Unauthenticated visitors redirect to **`/admin/login`** with intended path preserved for post-login return. **Auth slice:** minimal session probe at **`/admin`** (operator identity / group sanity check) and **Sign out**; catalog, lists, and roster UI are **out of scope** until later initiatives. |
@@ -33,13 +33,13 @@ Staff operator routes ship as **gated routes in the existing `apps/web` SPA** (o
 | **Subcategory subtitles** | Each subcategory page replaces breadcrumb chrome with the route-fixed subtitle defined in **`presentation.md`** while keeping the H1 as the category label. |
 | **Subcategory search / sort** | Same title-search and sort chrome as the hub; filters operate within the route-fixed `catalogs` set (not a second catalog picker). |
 | **Staff-only catalog** | **`other`** and **`live`** never appear in hub links, dropdown, or subcategory chrome. |
-| **Main-nav Live** | Navigates to the first/default enabled official channel (**`/live/mst3k-forever-a-thon`** in v1). Not a Catalog dropdown item. |
+| **Lobby Live entry** | Navigates to an official Live channel at **`/live/{id}`**, where **`id`** is the `catalog: live` episode id. Not a Catalog dropdown item. |
 
 ## Official Live
 
 | Path | Flow |
 | --- | --- |
-| **Enter** | Header **Live** or direct **`/live/:slug`** → resolve registry → load episode embed + join system room chat. |
+| **Enter** | Lobby Live entry or direct **`/live/:slug`** → resolve catalog Live row → load episode embed + join system room chat. |
 | **Anonymous** | Watch embed; read chat; compose shows **Sign In to Chat** (no send). |
 | **Signed-in fan** | Watch embed; full RoomChat compose/react/GIF under existing gates. |
 | **Host controls** | Absent — no Open/Share Source Tab, room mode, or AV kill switch on this surface. |

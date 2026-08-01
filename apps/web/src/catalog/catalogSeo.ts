@@ -33,3 +33,11 @@ export function episodeIsIndexableForSeo(ep: CatalogEpisode): boolean {
 export function catalogEntriesIndexableForSeo(entries: CatalogEpisode[]): CatalogEpisode[] {
   return entries.filter(episodeIsIndexableForSeo)
 }
+
+export function liveEpisodeIsIndexableForSeo(ep: CatalogEpisode): boolean {
+  return ep.catalog === 'live'
+}
+
+export function catalogLiveEntriesIndexableForSeo(entries: CatalogEpisode[]): CatalogEpisode[] {
+  return entries.filter(liveEpisodeIsIndexableForSeo)
+}

@@ -9,9 +9,14 @@ import { PublicRouteHeadTags } from './PublicRouteHeadTags'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const useCatalogEpisodeQuery = vi.fn()
+const useLiveChannelQuery = vi.fn()
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: (...args: unknown[]) => useCatalogEpisodeQuery(...args),
+}))
+
+vi.mock('../live/liveQueries', () => ({
+  useLiveChannelQuery: (...args: unknown[]) => useLiveChannelQuery(...args),
 }))
 
 vi.mock('../config/publicOrigin', () => ({
@@ -66,6 +71,11 @@ describe('PublicRouteHeadTags', () => {
       data: undefined,
       isPending: true,
     })
+    useLiveChannelQuery.mockReset()
+    useLiveChannelQuery.mockReturnValue({
+      data: undefined,
+      isPending: true,
+    })
   })
 
   afterEach(() => {
@@ -107,6 +117,37 @@ describe('PublicRouteHeadTags', () => {
     )
     expect(document.head.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe(
       'https://riffsync.tv/poster.jpg',
+    )
+  })
+
+  it('applies live route head tags after the channel loads', async () => {
+    useLiveChannelQuery.mockReturnValue({
+      data: {
+        slug: 'second-live',
+        path: '/live/second-live',
+        roomId: 'live-second-live',
+        catalogEpisodeId: 'second-live',
+        enabled: true,
+        title: 'Second Live',
+        tagline: 'Live all day.',
+        posterImageUrl: '/live-poster.jpg',
+        backdropImageUrl: null,
+        youtubeVideoId: 'abcdefghijk',
+        youtubeWatchUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
+        embedAllows: true,
+        playbackHost: 'youtube',
+      },
+      isPending: false,
+    })
+
+    await renderAt('/live/second-live')
+
+    expect(document.title).toBe('Second Live - Live on RiffSync')
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
+      'https://riffsync.tv/live/second-live',
+    )
+    expect(document.head.querySelector('meta[property="og:image"]')?.getAttribute('content')).toBe(
+      'https://riffsync.tv/live-poster.jpg',
     )
   })
 

@@ -5,7 +5,7 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 ## Core entities
 
 - **Episode (catalog row):** a stable **`id`** and **`experimentNumber`**, MST-flavored **`title`/`catalog`**, staff-selected **playback host** (**YouTube** | **Custom**), playback URL fields for the active host, optional YouTube enrichment (thumbs/metadata may coexist on Custom rows), and TMDB artwork fields. Persisted **`catalog`** includes **`live`** for official Live **source** rows (staff-only library bucket; never shown on public catalog browse).
-- **LiveChannel:** official, **hostless** continuous watch surface at **`/live/:slug`**. Registry fields: **`slug`**, **`catalogEpisodeId`** (must point at a **`catalog: live`** episode), stable system **`roomId`** for chat/presence, **`enabled`**, optional SEO copy overrides. Viewers each load the bound episode’s **YouTube embed** locally; there is **no** room admin, tab-capture, or SFU **`host_screen`** movie path. v1 registry is **seeded** (not staff CRUD). First channel: **`mst3k-forever-a-thon`**.
+- **LiveChannel:** official, **hostless** continuous watch surface at **`/live/:slug`** where **`slug`** is the **`id`** of a **`catalog: live`** episode. The system derives a stable chat/presence **`roomId`** as **`live-{id}`**. Viewers each load the episode’s **YouTube embed** locally; there is **no** room admin, tab-capture, or SFU **`host_screen`** movie path. Creating or editing a **`catalog: live`** row publishes the corresponding Lobby Live entry.
 - **Room:** shared viewing session on **`/room/:id`** with a **mutable current catalog episode** (**`catalogEpisodeId`** / **`videoId`** on the room document — seeded when the **signed-in** host creates the room, then changeable via **in-room picker**); the host (**room admin**) opens a source media tab for that selection (**YouTube** or the RiffSync **`/watch/:id?partyCapture=1`** page for Custom) and may **publish** a captured **`MediaStream`** to guests over **WebRTC**; guests consume that stream—**not** parallel iframe timelines kept in sync server-side. The room also carries **host-authoritative layout policy**: **`roomMode`** (**Theater** default | **Video Chat**) and **`avDisabled`** (room-wide participant A/V kill switch), both **durable** on the room document and returned on snapshot/join. **Official Live** reuses a **system** Room document solely as the chat/presence partition for a **LiveChannel**; it is not a user-created host party and is not lobby-swept for missing **`hostSub`**.
 - **Local Cast session:** optional per-viewer Chromecast viewing state for Cast-capable senders. It is **session-only** client state, entered only from the normal room view, and never persisted on the room document, replayed on join, or fanned out as room state. A local Cast session launches the custom RiffSync receiver presentation, reusing the expanded-view stage-primary plus chat-overlay composition while the sender remains joined as the same participant. Native media-only Cast or YouTube-only Cast is not the current RiffSync Cast maturity behavior.
 - **Participant A/V (camera / microphone):** optional **signed-in fan** publish of **`getUserMedia`** streams over the same SFU path as host capture; **default off** until the fan explicitly enables each control. **Anonymous guests** may **subscribe** to participant A/V when **`avDisabled`** is false but **must not publish** participant camera or microphone. Participant A/V is **parallel** to host tab-capture movie broadcast—not a replacement for embed/capture lawful playback.
@@ -31,7 +31,7 @@ Business concepts and rules (language-agnostic). UI maps here via **`docs/archit
 
   Ephemeral, authenticated, and receiver-only routes carry no durable identity worth surfacing to crawlers — this mirrors the existing **Identity modes** boundary below, not a new access rule. **`/watch/:catalogEpisodeId`** is indexable only for **YouTube-host** episodes with a non-empty trimmed **`youtubeVideoId`** that are **not** **`catalog: live`** (**`episodeIsIndexableForSeo`**). **Custom-host** rows and **`catalog: live`** rows are **never** indexable as **`/watch/:id`** landings (Live SEO belongs on **`/live/:slug`**). Rows without a YouTube video id have no surface worth summarizing under today's SEO packaging and are **excluded from indexing and the sitemap**. **Custom playback** does not by itself add `/watch/:id` to the sitemap.
 
-  **Catalog browse IA:** Hub **`/catalog`** is the mixed (all-titles) catalog browse entry. Subcategory routes own filtered views: **MST3K**, **Community**, **Riff Material**, and **Movie Night**. Staff-only **`other`** and official Live source category **`live`** never appear on hub links, nav dropdown, or public subcategory grids. **Riff Material** is the public label and route slug only; the persisted **`catalog`** value remains **`riff_material`**. Each episode retains a single discrete **`catalog`**, so a title appears in at most one subcategory grid. Per-subcategory visual customization is out of scope for this surface (shared shell only). Official Live discovery is via header **Live** → **`/live/:slug`**, not catalog browse.
+  **Catalog browse IA:** Hub **`/catalog`** is the mixed (all-titles) catalog browse entry. Subcategory routes own filtered views: **MST3K**, **Community**, **Riff Material**, and **Movie Night**. Staff-only **`other`** and official Live source category **`live`** never appear on hub links, nav dropdown, or public subcategory grids. **Riff Material** is the public label and route slug only; the persisted **`catalog`** value remains **`riff_material`**. Each episode retains a single discrete **`catalog`**, so a title appears in at most one subcategory grid. Per-subcategory visual customization is out of scope for this surface (shared shell only). Official Live discovery is via **`/lobby`**, not catalog browse.
 
 ## Realtime session jurisdictions (watch-party client)
 
@@ -414,15 +414,15 @@ Friends online is room-presence-derived and aggregate across rooms. It is not a 
 
 | Question | Decision |
 | --- | --- |
-| Public route shape? | **`/live/:slug`** — first channel **`mst3k-forever-a-thon`**. |
-| Header nav? | Main-nav **Live** opens the first/default enabled channel (v1 hard-link; no Live hub required). |
+| Public route shape? | **`/live/:slug`**, where **`slug`** is the **`id`** of a **`catalog: live`** episode. |
+| Header nav? | No separate main-nav **Live** item; Lobby owns Live discovery. |
 | Playback model? | **Guest-local YouTube embed** for every joiner — no tab-share, no SFU **`host_screen`**. |
 | Host / room admin? | **None** — hostless mode; system **`roomId`** is chat/presence only. |
 | Chat gates? | Same as rooms: signed-in fans send/react/type; anonymous read-only. Same RoomChat TTL and rate limits. |
-| Catalog binding? | LiveChannel **`catalogEpisodeId`** → episode with **`catalog: live`**; staff edit episode when YouTube live id changes. |
-| Admin management v1? | New catalog category **`live`** in admin; **seeded** LiveChannel registry (no Live-channels CRUD UI yet). |
+| Catalog binding? | **`catalog: live`** rows publish Live channels directly; staff edit the episode when YouTube live id changes. |
+| Admin management v1? | New catalog category **`live`** in admin; no separate LiveChannel CRUD UI yet. |
 | Public catalog visibility? | **`live`** omitted from hub, subcategory grids, Catalog dropdown, and home carousel/spotlight (same isolation class as **`other`**). |
-| SEO? | Enabled **`/live/:slug`** is **indexable**. **`catalog: live`** rows are **not** indexable as **`/watch/:id`**. |
+| SEO? | **`/live/{id}`** for **`catalog: live`** rows is **indexable**. **`catalog: live`** rows are **not** indexable as **`/watch/:id`**. |
 | Lobby sweeper? | System Live rooms are **not** hidden/removed for missing host presence. |
 
 ## Open implementation decisions
@@ -433,8 +433,7 @@ Implementation-level items not yet fully specified. `/refine-issue` resolves the
 - **SEO meta copy** referencing "lawful YouTube embeds" on static routes when Custom episodes exist (marketing/legal wording refresh scope) — **out of scope #397**; track as a separate marketing/TW follow-up.
 
 ### official-live-channels
-- Registry storage medium (seeded module/JSON vs Dynamo) and ensure-room API shape (**`GET /v1/live/:slug`** vs seed-only + room GET).
-- Default nav target when multiple enabled channels exist (**primary** flag vs hard-coded first slug).
+- Live-specific sort/publish fields if catalog ordering or the **`catalog: live`** publish contract becomes too coarse.
 - Whether bound **`/watch/:id`** Live episodes **redirect** to **`/live/:slug`** or return a non-indexable unavailable page.
 
 ### friends-and-direct-messaging

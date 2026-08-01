@@ -3,8 +3,12 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildPrerenderDocument } from '../src/seo/buildPrerenderDocument.ts'
 import { STATIC_INDEXABLE_ROUTES, staticRouteDistPath } from '../src/seo/indexableRoutes.ts'
-import { catalogEntriesIndexableForSeo } from '../src/catalog/catalogSeo.ts'
 import {
+  catalogEntriesIndexableForSeo,
+  catalogLiveEntriesIndexableForSeo,
+} from '../src/catalog/catalogSeo.ts'
+import {
+  buildLiveEpisodeRouteHeadTags,
   buildSpaShellHeadTags,
   buildStaticRouteHeadTags,
   buildWatchRouteHeadTags,
@@ -56,6 +60,7 @@ async function main() {
   const templateHtml = await readFile(templatePath, 'utf8')
   const episodes = await loadCatalogEntries()
   const indexableEpisodes = catalogEntriesIndexableForSeo(episodes)
+  const liveEpisodes = catalogLiveEntriesIndexableForSeo(episodes)
 
   for (const route of STATIC_INDEXABLE_ROUTES) {
     const head = buildStaticRouteHeadTags(route, origin)
@@ -69,11 +74,17 @@ async function main() {
     await writePrerenderedHtml(`watch/${episode.id}/index.html`, html)
   }
 
+  for (const episode of liveEpisodes) {
+    const head = buildLiveEpisodeRouteHeadTags(episode, origin)
+    const html = buildPrerenderDocument(templateHtml, head)
+    await writePrerenderedHtml(`live/${episode.id}/index.html`, html)
+  }
+
   const spaShell = buildPrerenderDocument(templateHtml, buildSpaShellHeadTags())
   await writePrerenderedHtml('spa-shell.html', spaShell)
 
   console.log(
-    `Prerendered ${STATIC_INDEXABLE_ROUTES.length} static routes, ${indexableEpisodes.length} watch pages, and spa-shell.html`,
+    `Prerendered ${STATIC_INDEXABLE_ROUTES.length} static routes, ${liveEpisodes.length} live pages, ${indexableEpisodes.length} watch pages, and spa-shell.html`,
   )
 }
 

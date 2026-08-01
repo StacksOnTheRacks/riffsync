@@ -4,12 +4,60 @@ import {
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
+  ScanCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { projectEpisode } from './catalog-shared';
-import { getLiveChannel, LIVE_SYSTEM_HOST_SUB } from './live-channels';
+import { CATALOG_META_ID } from './catalog-meta';
+import { projectEpisode, sortEpisodes, type CatalogEpisode } from './catalog-shared';
+import { liveRoomIdForCatalogEpisodeId, LIVE_SYSTEM_HOST_SUB } from './live-channels';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+
+function liveChannelPayload(episode: CatalogEpisode) {
+  const youtubeVideoId = episode.youtubeVideoId?.trim() || null;
+  const title =
+    typeof episode.title === 'string' && episode.title.trim() !== ''
+      ? episode.title.trim()
+      : episode.id;
+  return {
+    slug: episode.id,
+    path: `/live/${encodeURIComponent(episode.id)}`,
+    roomId: liveRoomIdForCatalogEpisodeId(episode.id),
+    catalogEpisodeId: episode.id,
+    enabled: true,
+    title,
+    tagline: episode.tagline,
+    posterImageUrl: episode.posterImageUrl,
+    backdropImageUrl: episode.backdropImageUrl,
+    youtubeVideoId,
+    youtubeWatchUrl: episode.youtubeWatchUrl,
+    embedAllows: episode.embedAllows !== false,
+    playbackHost: episode.playbackHost,
+  };
+}
+
+async function listLiveEpisodes(catalogTable: string): Promise<CatalogEpisode[]> {
+  const entries: CatalogEpisode[] = [];
+  let startKey: Record<string, unknown> | undefined;
+
+  do {
+    const out = await client.send(
+      new ScanCommand({
+        TableName: catalogTable,
+        ...(startKey ? { ExclusiveStartKey: startKey } : {}),
+      }),
+    );
+    for (const raw of out.Items ?? []) {
+      const item = raw as Record<string, unknown>;
+      if (item.id === CATALOG_META_ID) continue;
+      const episode = projectEpisode(item);
+      if (episode.catalog === 'live') entries.push(episode);
+    }
+    startKey = out.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (startKey);
+
+  return sortEpisodes(entries);
+}
 
 async function ensureSystemLiveRoom(params: {
   roomsTable: string;
@@ -77,16 +125,23 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'Missing table env' }) };
   }
 
-  const slug = event.pathParameters?.slug ?? '';
-  const channel = getLiveChannel(slug);
-  if (!channel || !channel.enabled) {
-    return { statusCode: 404, body: JSON.stringify({ error: 'Live channel not found', code: 'live_channel_not_found' }) };
+  const slug = event.pathParameters?.slug?.trim() ?? '';
+  if (!slug) {
+    const episodes = await listLiveEpisodes(catalogTable);
+    return {
+      statusCode: 200,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        version: 1,
+        channels: episodes.map(liveChannelPayload),
+      }),
+    };
   }
 
   const cat = await client.send(
     new GetCommand({
       TableName: catalogTable,
-      Key: { id: channel.catalogEpisodeId },
+      Key: { id: slug },
     }),
   );
   const row = cat.Item as Record<string, unknown> | undefined;
@@ -96,7 +151,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       body: JSON.stringify({
         error: 'Live channel source episode missing',
         code: 'live_channel_episode_missing',
-        catalogEpisodeId: channel.catalogEpisodeId,
+        catalogEpisodeId: slug,
       }),
     };
   }
@@ -113,45 +168,28 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
   if (episode.catalog !== 'live') {
     return {
-      statusCode: 409,
+      statusCode: 404,
       body: JSON.stringify({
-        error: 'Bound catalog episode must use catalog live',
-        code: 'live_channel_episode_wrong_catalog',
-        catalogEpisodeId: channel.catalogEpisodeId,
+        error: 'Live channel not found',
+        code: 'live_channel_not_found',
+        catalogEpisodeId: slug,
       }),
     };
   }
 
-  const youtubeVideoId = episode.youtubeVideoId?.trim() || null;
-  const displayTitle =
-    typeof episode.title === 'string' && episode.title.trim() !== ''
-      ? episode.title.trim()
-      : channel.defaultTitle;
+  const channel = liveChannelPayload(episode);
 
   await ensureSystemLiveRoom({
     roomsTable,
     roomId: channel.roomId,
     catalogEpisodeId: channel.catalogEpisodeId,
-    displayTitle,
-    youtubeVideoId,
+    displayTitle: channel.title,
+    youtubeVideoId: channel.youtubeVideoId,
   });
 
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      slug: channel.slug,
-      roomId: channel.roomId,
-      catalogEpisodeId: channel.catalogEpisodeId,
-      enabled: channel.enabled,
-      title: displayTitle,
-      tagline: episode.tagline,
-      posterImageUrl: episode.posterImageUrl,
-      backdropImageUrl: episode.backdropImageUrl,
-      youtubeVideoId,
-      youtubeWatchUrl: episode.youtubeWatchUrl,
-      embedAllows: episode.embedAllows !== false,
-      playbackHost: episode.playbackHost,
-    }),
+    body: JSON.stringify(channel),
   };
 };

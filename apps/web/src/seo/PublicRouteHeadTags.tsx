@@ -2,9 +2,11 @@ import { useEffect } from 'react'
 import { matchPath, useLocation } from 'react-router-dom'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { getPublicOrigin } from '../config/publicOrigin'
+import { useLiveChannelQuery } from '../live/liveQueries'
 import { STATIC_INDEXABLE_ROUTES, type StaticIndexableRoute } from './indexableRoutes'
 import { applyRouteHeadTags } from './applyRouteHeadTags'
 import {
+  buildLiveRouteHeadTags,
   buildSpaShellHeadTags,
   buildStaticRouteHeadTags,
   buildWatchRouteHeadTags,
@@ -33,9 +35,12 @@ function isNoindexPath(pathname: string): boolean {
 export function PublicRouteHeadTags() {
   const location = useLocation()
   const watchMatch = matchPath('/watch/:catalogEpisodeId', location.pathname)
+  const liveMatch = matchPath('/live/:slug', location.pathname)
   const watchEpisodeId = watchMatch?.params.catalogEpisodeId
+  const liveSlug = liveMatch?.params.slug
   const partyCapture = new URLSearchParams(location.search).get('partyCapture') === '1'
   const episodeQuery = useCatalogEpisodeQuery(watchEpisodeId)
+  const liveQuery = useLiveChannelQuery(liveSlug)
 
   useEffect(() => {
     const origin = getPublicOrigin()
@@ -54,12 +59,24 @@ export function PublicRouteHeadTags() {
       return
     }
 
+    if (liveSlug) {
+      if (liveQuery.data) {
+        applyRouteHeadTags(buildLiveRouteHeadTags(liveQuery.data, origin))
+      } else if (!liveQuery.isPending) {
+        applyRouteHeadTags(buildSpaShellHeadTags())
+      }
+      return
+    }
+
     if (watchEpisodeId || isNoindexPath(location.pathname)) {
       applyRouteHeadTags(buildSpaShellHeadTags())
     }
   }, [
     episodeQuery.data,
     episodeQuery.isPending,
+    liveQuery.data,
+    liveQuery.isPending,
+    liveSlug,
     location.pathname,
     partyCapture,
     watchEpisodeId,

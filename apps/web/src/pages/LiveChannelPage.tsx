@@ -6,7 +6,6 @@ import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
 import { useFanSession } from '../auth/useFanSession'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
-import { getLiveChannelSeed } from '../live/liveChannels'
 import { useLiveChannelQuery } from '../live/liveQueries'
 import { useLiveChannelChat } from '../live/useLiveChannelChat'
 import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
@@ -21,8 +20,6 @@ import { ensureGuestSession, setGuestDisplayName } from '../session/guestSession
 export function LiveChannelPage() {
   const { slug: slugParam } = useParams<{ slug: string }>()
   const slug = slugParam ? decodeURIComponent(slugParam) : ''
-  const seed = getLiveChannelSeed(slug)
-  const seedEnabled = Boolean(seed?.enabled)
   const { setNowPlayingLabel } = useRoomChrome()
 
   const guest = ensureGuestSession('live')
@@ -30,10 +27,10 @@ export function LiveChannelPage() {
   const [displayName, setDisplayName] = useState(guest.displayName)
   const { fanToken } = useFanSession()
 
-  const channelQuery = useLiveChannelQuery(seedEnabled ? slug : undefined)
+  const channelQuery = useLiveChannelQuery(slug || undefined)
   const channel = channelQuery.data ?? null
-  const loading = seedEnabled && channelQuery.isPending
-  const loadError = !seedEnabled
+  const loading = Boolean(slug) && channelQuery.isPending
+  const loadError = !slug
     ? 'Live channel not found'
     : channelQuery.isError
       ? channelQuery.error instanceof Error
@@ -41,7 +38,7 @@ export function LiveChannelPage() {
         : 'Live channel unavailable'
       : null
 
-  const pageTitle = channel?.title ?? seed?.defaultTitle ?? 'Live'
+  const pageTitle = channel?.title ?? 'Live'
 
   useEffect(() => {
     if (loadError || loading) {

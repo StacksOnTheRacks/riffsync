@@ -615,14 +615,6 @@ export class ApiCatalogStack extends cdk.Stack {
       environment: {
         ROOMS_TABLE_NAME: this.roomsTable.tableName,
         CATALOG_TABLE_NAME: this.catalogTable.tableName,
-        // Override bound episode without code change: LIVE_CHANNEL_MST3K_FOREVER_A_THON_EPISODE_ID
-        ...(this.node.tryGetContext('liveMst3kForeverEpisodeId')
-          ? {
-              LIVE_CHANNEL_MST3K_FOREVER_A_THON_EPISODE_ID: String(
-                this.node.tryGetContext('liveMst3kForeverEpisodeId'),
-              ),
-            }
-          : {}),
         ...jwtEnvShared,
       },
     });
@@ -1484,6 +1476,11 @@ export class ApiCatalogStack extends cdk.Stack {
     });
 
     const liveGetIntegration = new integrations.HttpLambdaIntegration('LiveGetInt', liveGetFn);
+    this.httpApi.addRoutes({
+      path: '/v1/live',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: liveGetIntegration,
+    });
     this.httpApi.addRoutes({
       path: '/v1/live/{slug}',
       methods: [apigwv2.HttpMethod.GET],

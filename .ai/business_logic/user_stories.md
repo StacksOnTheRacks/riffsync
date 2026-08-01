@@ -48,7 +48,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P0-13e | signed-in fan on the main site | open friends from the person-icon header entry when authenticated | I manage friends and DMs outside a room; signed-out visitors do not see that affordance |
 | US-P0-13f | signed-in fan in a watch party | use a Friends panel in the room right pane alongside public chat and People | I DM friends without leaving the party and without replacing the People roster |
 | US-P0-13g | anonymous guest | remain unable to manage friends or send DMs | private social features stay fan-authenticated |
-| US-P0-14 | visitor | open **Live** from the main nav | I join the official **`/live/mst3k-forever-a-thon`** channel without creating a room |
+| US-P0-14 | visitor | open a Live entry from the lobby | I join an official **`/live/{id}`** channel without creating a room |
 | US-P0-14a | visitor on **`/live/:slug`** | watch the staff-bound YouTube live embed without a host tab-share | I can follow the continuous stream immediately |
 | US-P0-14b | anonymous guest on Live | read room chat while watching | I follow conversation without signing in |
 | US-P0-14c | signed-in fan on Live | send chat (text, emoji, GIF) and react under normal RoomChat rules | we can talk during the live stream |
@@ -64,7 +64,7 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 | US-P1-03 | fan | federated login (e.g. Facebook) | I can **host** rooms and retain continuity across devices |
 | US-P1-04 | operator | admin catalog + lists | I can curate without editing raw JSON in prod (**depends on US-P1-05**) |
 | US-P1-04a | operator | create/edit episodes with category **Live** | I keep official Live YouTube ids current without publishing those rows on public catalog pages |
-| US-P1-04b | operator | rely on a seeded LiveChannel binding for the first slug | v1 does not need a Live-channels admin CRUD page |
+| US-P1-04b | operator | create a **`catalog: live`** episode | the episode appears as an official Lobby Live entry without a code deploy |
 | US-P1-06 | signed-in fan in room | my **active** badge to persist across brief reconnects when I was recently engaged | late joiners and refresh see accurate engagement state on **People** |
 | US-P1-07 | Cast-capable room viewer | start a viewer-local Cast session from normal room view | I can watch the RiffSync room presentation on a TV while continuing to chat from my sender device |
 | US-P1-08 | search visitor | find a specific riffed episode via search engine | I can watch it without already knowing RiffSync exists |
@@ -76,9 +76,9 @@ MVP slice derived from **`vision.json`** + **`README.md`** — prioritized for s
 - Server-side video hosting
 - CRDT / multi-host democratic control
 - Self-service operator registration or in-app access requests (invite-only provisioning)
-- Live-channels staff CRUD UI (seeded registry for v1)
+- Live-channels staff CRUD UI beyond catalog episode management
 - Participant A/V and Cast on official Live surfaces
-- Live hub listing multiple channels in nav (header links the first/default channel)
+- Live hub listing multiple channels in nav (Lobby owns Live discovery)
 - Catalog CRUD, curated lists, fan roster, and activity reporting as part of the **auth slice** (downstream of **US-P1-05**)
 - Room moderation or host takeover via staff login
 - Server-side or client-side **recording/storage** of participant camera/mic or mixed room audio
