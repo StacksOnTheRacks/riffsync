@@ -13,8 +13,12 @@ import type { ChatLine } from '../room/roomPageTypes'
 import { useChatSession } from '../room/useChatSession'
 import type { ChatPresenceMember, TypingEvent } from '../room/sessions/ChatSession'
 
+/**
+ * Hostless Live chat plane. Remount (or change `roomId` via a keyed parent) to clear
+ * chat state — do not reset with a setState-in-effect on room change.
+ */
 export function useLiveChannelChat(options: {
-  roomId: string | undefined
+  roomId: string
   sessionId: string
   displayName: string
   fanToken: string | null
@@ -24,7 +28,7 @@ export function useLiveChannelChat(options: {
   const wsBase = getPublicWsUrl()
   const { status, sendJson, session } = useChatSession({
     url: wsBase,
-    roomId: roomId ?? '',
+    roomId,
     sessionId,
     displayName,
     accessToken: fanToken,
@@ -34,17 +38,13 @@ export function useLiveChannelChat(options: {
   const [chat, setChat] = useState<ChatLine[]>([])
   const [chatReactions, setChatReactions] = useState<ReactionsByMessage>({})
   const chatReactionsRef = useRef(chatReactions)
-  chatReactionsRef.current = chatReactions
+  useEffect(() => {
+    chatReactionsRef.current = chatReactions
+  }, [chatReactions])
+
   const [chatDraft, setChatDraft] = useState('')
   const [presenceMembers, setPresenceMembers] = useState<ChatPresenceMember[]>([])
   const [remoteTyping, setRemoteTyping] = useState<TypingEvent[]>([])
-
-  useEffect(() => {
-    setChat([])
-    setChatReactions({})
-    setRemoteTyping([])
-    setPresenceMembers([])
-  }, [roomId])
 
   useEffect(() => {
     const unsubs = [
@@ -81,11 +81,11 @@ export function useLiveChannelChat(options: {
         })
       }),
       session.onPresence((event) => {
-        if (!roomId || event.roomId !== roomId) return
+        if (event.roomId !== roomId) return
         setPresenceMembers(event.members)
       }),
       session.onTyping((event) => {
-        if (!roomId || event.roomId !== roomId) return
+        if (event.roomId !== roomId) return
         if (event.sessionId === sessionId) return
         setRemoteTyping((prev) => {
           const without = prev.filter((e) => e.sessionId !== event.sessionId)

@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -32,14 +33,28 @@ vi.mock('../room/ChatComposeMediaPicker', () => ({
   ChatComposeMediaPicker: () => null,
 }))
 
+function renderLive(root: Root, path: string, queryClient: QueryClient) {
+  root.render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/live/:slug" element={<LiveChannelPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
 describe('LiveChannelPage', () => {
   let container: HTMLDivElement
   let root: Root
+  let queryClient: QueryClient
 
   beforeEach(() => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     fetchLiveChannel.mockReset()
     useLiveChannelChat.mockReturnValue({
       wsStatus: 'open',
@@ -61,6 +76,7 @@ describe('LiveChannelPage', () => {
     act(() => {
       root.unmount()
     })
+    queryClient.clear()
     container.remove()
   })
 
@@ -81,17 +97,13 @@ describe('LiveChannelPage', () => {
     })
 
     await act(async () => {
-      root.render(
-        <MemoryRouter initialEntries={['/live/mst3k-forever-a-thon']}>
-          <Routes>
-            <Route path="/live/:slug" element={<LiveChannelPage />} />
-          </Routes>
-        </MemoryRouter>,
-      )
+      renderLive(root, '/live/mst3k-forever-a-thon', queryClient)
     })
 
-    expect(fetchLiveChannel).toHaveBeenCalledWith('mst3k-forever-a-thon')
-    expect(container.querySelector('[data-testid="yt-player"]')?.textContent).toBe('abcdefghijk')
+    await vi.waitFor(() => {
+      expect(fetchLiveChannel).toHaveBeenCalledWith('mst3k-forever-a-thon')
+      expect(container.querySelector('[data-testid="yt-player"]')?.textContent).toBe('abcdefghijk')
+    })
     expect(container.textContent).toContain('MST3K Forever-A-Thon')
     expect(container.textContent).toContain('2 watching')
     expect(container.textContent).toContain('Sign In to Chat')
@@ -99,13 +111,7 @@ describe('LiveChannelPage', () => {
 
   it('shows unavailable copy for unknown slug', async () => {
     await act(async () => {
-      root.render(
-        <MemoryRouter initialEntries={['/live/not-a-channel']}>
-          <Routes>
-            <Route path="/live/:slug" element={<LiveChannelPage />} />
-          </Routes>
-        </MemoryRouter>,
-      )
+      renderLive(root, '/live/not-a-channel', queryClient)
     })
 
     expect(fetchLiveChannel).not.toHaveBeenCalled()
