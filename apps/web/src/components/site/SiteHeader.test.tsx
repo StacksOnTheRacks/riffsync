@@ -3,7 +3,12 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CATALOG_HUB_ENTRY_LINKS } from '../../catalog/catalogBrowseIa'
+import {
+  CATALOG_HUB_ENTRY_LINKS,
+  MST3K_ERA_NAV_LINKS,
+  MST3K_SEASON_NAV_LINKS,
+  MST3K_SHORTS_NAV_LINK,
+} from '../../catalog/catalogBrowseIa'
 import { SiteHeader } from './SiteHeader'
 
 const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
@@ -155,10 +160,17 @@ describe('SiteHeader fan session nav', () => {
 
     expect(collapse?.contains(catalogNav)).toBe(true)
     expect(catalogNav?.classList.contains('menu-item-has-children')).toBe(true)
+    const expectedCatalogLinks = [
+      ...CATALOG_HUB_ENTRY_LINKS.map(({ href }) => href),
+      ...MST3K_SEASON_NAV_LINKS.map(({ href }) => href),
+      ...MST3K_ERA_NAV_LINKS.map(({ href }) => href),
+      MST3K_SHORTS_NAV_LINK.href,
+    ]
+
     expect(container.querySelectorAll('.riffsync-catalog-nav > .sub-menu a')).toHaveLength(
-      CATALOG_HUB_ENTRY_LINKS.length,
+      expectedCatalogLinks.length,
     )
     expect(container.querySelectorAll('a[href="/catalog"]')).toHaveLength(1)
-    expect(CATALOG_HUB_ENTRY_LINKS.every(({ href }) => container.querySelector(`a[href="${href}"]`))).toBe(true)
+    expect(expectedCatalogLinks.every((href) => container.querySelector(`a[href="${href}"]`))).toBe(true)
   })
 })

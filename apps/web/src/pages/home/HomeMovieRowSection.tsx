@@ -44,10 +44,12 @@ export function HomeMovieRowSection({
   title,
   episodes,
   sectionId,
+  moreVideosTo = '/catalog',
 }: {
   title: string
   episodes: CatalogEpisode[]
   sectionId: string
+  moreVideosTo?: string
 }) {
   return (
     <section className="gen-section-padding-2" id={sectionId} aria-labelledby={`${sectionId}-heading`}>
@@ -61,7 +63,7 @@ export function HomeMovieRowSection({
           <div className="col-xl-6 col-lg-6 col-md-6 d-none d-md-inline-block">
             <div className="gen-movie-action">
               <div className="gen-btn-container text-right">
-                <Link to="/catalog" className="gen-button gen-button-flat">
+                <Link to={moreVideosTo} className="gen-button gen-button-flat">
                   <span className="text">More Videos</span>
                 </Link>
               </div>

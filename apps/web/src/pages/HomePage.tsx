@@ -109,6 +109,7 @@ export function HomePage() {
           sectionId="home-joel-era"
           title="Joel-era experiments"
           episodes={joelRow}
+          moreVideosTo="/catalog/mst3k/era/joel"
         />
       ) : null}
       {mikeRow.length > 0 ? (
@@ -116,6 +117,7 @@ export function HomePage() {
           sectionId="home-mike-era"
           title="Mike-era experiments"
           episodes={mikeRow}
+          moreVideosTo="/catalog/mst3k/era/mike"
         />
       ) : null}
       {jonahRow.length > 0 ? (
@@ -123,6 +125,7 @@ export function HomePage() {
           sectionId="home-jonah-era"
           title="Jonah-era experiments"
           episodes={jonahRow}
+          moreVideosTo="/catalog/mst3k/era/jonah"
         />
       ) : null}
     </div>

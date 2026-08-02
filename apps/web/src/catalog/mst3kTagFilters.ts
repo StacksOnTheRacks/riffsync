@@ -1,5 +1,6 @@
 import type { CatalogEpisode } from './catalogTypes'
 import { filterCatalogEntries, type CatalogFilterOptions } from './filterCatalogEntries'
+import type { Mst3kCatalogRouteFilter } from './catalogBrowseIa'
 
 /** Tag namespaces rendered as pill filters on `/catalog/mst3k`. */
 export const MST3K_TAG_PILL_NAMESPACES = ['Era', 'Season'] as const
@@ -85,6 +86,21 @@ export function filterMst3kCatalogEntries(
   const catalogFiltered = filterCatalogEntries(entries, catalogOptions)
   const tagFiltered = filterCatalogEntriesByTagPills(catalogFiltered, selectedTagPills)
   return [...tagFiltered].sort((a, b) => a.experimentNumber - b.experimentNumber)
+}
+
+export function filterMst3kCatalogEntriesByRouteFilter(
+  entries: readonly CatalogEpisode[],
+  routeFilter: Mst3kCatalogRouteFilter = { kind: 'all' },
+): CatalogEpisode[] {
+  if (routeFilter.kind === 'all') {
+    return [...entries]
+  }
+
+  if (routeFilter.kind === 'shorts') {
+    return entries.filter((entry) => entry.labels.includes(routeFilter.label))
+  }
+
+  return entries.filter((entry) => entry.tags.includes(routeFilter.tag))
 }
 
 export function toggleMst3kTagPill(

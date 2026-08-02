@@ -1,13 +1,143 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import type { ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
-import { CATALOG_HUB_ENTRY_LINKS } from '../../catalog/catalogBrowseIa'
+import {
+  CATALOG_SUBCATEGORIES,
+  MST3K_ERA_NAV_LINKS,
+  MST3K_SEASON_NAV_LINKS,
+  MST3K_SHORTS_NAV_LINK,
+} from '../../catalog/catalogBrowseIa'
+
+function onDisclosureKeyDown({
+  event,
+  toggle,
+  close,
+  focusTarget,
+}: {
+  event: KeyboardEvent<HTMLButtonElement>
+  toggle: () => void
+  close: () => void
+  focusTarget: HTMLButtonElement | null
+}) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    toggle()
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    close()
+    focusTarget?.focus()
+  }
+}
+
+function NestedDisclosureItem({
+  label,
+  ariaLabel,
+  children,
+  linkTo,
+}: {
+  label: string
+  ariaLabel: string
+  children: ReactNode
+  linkTo?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelId = useId()
+
+  const closeMenu = useCallback(() => {
+    setOpen(false)
+  }, [])
+
+  const openMenu = useCallback(() => {
+    setOpen(true)
+  }, [])
+
+  const toggleMenu = useCallback(() => {
+    setOpen((current) => !current)
+  }, [])
+
+  return (
+    <li
+      className={`menu-item menu-item-has-children riffsync-catalog-nav__nested-item${open ? ' is-open' : ''}`}
+      onMouseEnter={openMenu}
+      onMouseLeave={closeMenu}
+    >
+      {linkTo ? (
+        <NavLink to={linkTo} end={false}>
+          {label}
+        </NavLink>
+      ) : (
+        <span className="riffsync-catalog-nav__nested-label">{label}</span>
+      )}
+      <button
+        ref={triggerRef}
+        type="button"
+        className="gen-submenu-icon riffsync-catalog-nav__submenu-toggle riffsync-catalog-nav__nested-toggle"
+        aria-label={ariaLabel}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={toggleMenu}
+        onKeyDown={(event) =>
+          onDisclosureKeyDown({
+            event,
+            toggle: toggleMenu,
+            close: closeMenu,
+            focusTarget: triggerRef.current,
+          })
+        }
+      >
+        <i className="fa fa-chevron-down" aria-hidden />
+      </button>
+      <ul id={panelId} className="sub-menu" aria-label={ariaLabel.replace(/^Show /, '')}>
+        {children}
+      </ul>
+    </li>
+  )
+}
 
 function CatalogSubcategoryLinks() {
+  const mst3kSubcategory = CATALOG_SUBCATEGORIES.find((entry) => entry.slug === 'mst3k')
+  const leafSubcategories = CATALOG_SUBCATEGORIES.filter((entry) => entry.slug !== 'mst3k')
+
   return (
     <>
-      {CATALOG_HUB_ENTRY_LINKS.map(({ label, href }) => (
-        <li key={href}>
-          <NavLink to={href} end>
+      {mst3kSubcategory ? (
+        <NestedDisclosureItem
+          label={mst3kSubcategory.label}
+          linkTo={mst3kSubcategory.path}
+          ariaLabel="Show MST3K catalog filters"
+        >
+          <NestedDisclosureItem label="By Season" ariaLabel="Show MST3K season links">
+            {MST3K_SEASON_NAV_LINKS.map(({ href, label }) => (
+              <li key={href} className="menu-item">
+                <NavLink to={href} end>
+                  {label}
+                </NavLink>
+              </li>
+            ))}
+          </NestedDisclosureItem>
+          <NestedDisclosureItem label="By Era" ariaLabel="Show MST3K era links">
+            {MST3K_ERA_NAV_LINKS.map(({ href, label }) => (
+              <li key={href} className="menu-item">
+                <NavLink to={href} end>
+                  {label}
+                </NavLink>
+              </li>
+            ))}
+          </NestedDisclosureItem>
+          <li className="menu-item">
+            <NavLink to={MST3K_SHORTS_NAV_LINK.href} end>
+              {MST3K_SHORTS_NAV_LINK.label}
+            </NavLink>
+          </li>
+        </NestedDisclosureItem>
+      ) : null}
+      {leafSubcategories.map(({ label, path }) => (
+        <li key={path} className="menu-item">
+          <NavLink to={path} end>
             {label}
           </NavLink>
         </li>
@@ -33,19 +163,6 @@ export function CatalogNavItem() {
   const toggleMenu = useCallback(() => {
     setOpen((current) => !current)
   }, [])
-
-  const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      toggleMenu()
-      return
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      closeMenu()
-      triggerRef.current?.focus()
-    }
-  }
 
   useEffect(() => {
     if (!open) {
@@ -85,7 +202,14 @@ export function CatalogNavItem() {
         aria-expanded={open}
         aria-controls={panelId}
         onClick={toggleMenu}
-        onKeyDown={onTriggerKeyDown}
+        onKeyDown={(event) =>
+          onDisclosureKeyDown({
+            event,
+            toggle: toggleMenu,
+            close: closeMenu,
+            focusTarget: triggerRef.current,
+          })
+        }
       >
         <i className="fa fa-chevron-down" aria-hidden />
       </button>

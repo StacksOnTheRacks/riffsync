@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useCatalogListQuery } from '../catalog/catalogQueries'
-import { getCatalogSubcategoryByPath } from '../catalog/catalogBrowseIa'
+import { getCatalogBrowseViewByPath } from '../catalog/catalogBrowseIa'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { CatalogFilterBar } from '../components/catalog/CatalogFilterBar'
 import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagFilterBar'
@@ -11,6 +11,7 @@ import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
 import {
   EMPTY_MST3K_TAG_PILLS,
+  filterMst3kCatalogEntriesByRouteFilter,
   filterMst3kCatalogEntries,
   type SelectedMst3kTagPills,
 } from '../catalog/mst3kTagFilters'
@@ -22,11 +23,13 @@ const EMPTY_CATALOG_ENTRIES: CatalogEpisode[] = []
 export function CatalogSubcategoryPage() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const subcategory = getCatalogSubcategoryByPath(pathname)
+  const browseView = getCatalogBrowseViewByPath(pathname)
+  const subcategory = browseView?.subcategory
   const { data, isPending, isError, error, refetch } = useCatalogListQuery()
   const [titleQuery, setTitleQuery] = useState('')
   const [selectedTagPills, setSelectedTagPills] = useState<SelectedMst3kTagPills>(EMPTY_MST3K_TAG_PILLS)
   const isMst3kRoute = subcategory?.slug === 'mst3k'
+  const showMst3kTagPills = browseView?.mst3kRouteFilter?.kind === 'all'
 
   useResumePendingPartyRoom(data, navigate)
 
@@ -35,12 +38,22 @@ export function CatalogSubcategoryPage() {
     () => catalogEntriesPlayableInApp(allEntries),
     [allEntries],
   )
-  const routeCatalogEntries = useMemo(
+  const baseCatalogEntries = useMemo(
     () =>
       subcategory
         ? filterCatalogEntries(playableEntries, { titleQuery: '', catalogs: [subcategory.catalog] })
         : [],
     [playableEntries, subcategory],
+  )
+  const routeCatalogEntries = useMemo(
+    () =>
+      isMst3kRoute
+        ? filterMst3kCatalogEntriesByRouteFilter(
+            baseCatalogEntries,
+            browseView?.mst3kRouteFilter,
+          )
+        : baseCatalogEntries,
+    [baseCatalogEntries, browseView, isMst3kRoute],
   )
   const filteredEntries = useMemo(
     () =>
@@ -49,21 +62,29 @@ export function CatalogSubcategoryPage() {
           ? filterMst3kCatalogEntries(routeCatalogEntries, {
               titleQuery,
               catalogs: [subcategory.catalog],
-              selectedTagPills,
+              selectedTagPills: showMst3kTagPills ? selectedTagPills : EMPTY_MST3K_TAG_PILLS,
             })
           : filterCatalogEntries(playableEntries, { titleQuery, catalogs: [subcategory.catalog] })
         : [],
-    [routeCatalogEntries, playableEntries, titleQuery, subcategory, isMst3kRoute, selectedTagPills],
+    [
+      routeCatalogEntries,
+      playableEntries,
+      titleQuery,
+      subcategory,
+      isMst3kRoute,
+      selectedTagPills,
+      showMst3kTagPills,
+    ],
   )
 
   const filterBarDisabled = isPending && !data
   const hasActiveTagPills =
-    selectedTagPills.Era.length > 0 || selectedTagPills.Season.length > 0
+    showMst3kTagPills && (selectedTagPills.Era.length > 0 || selectedTagPills.Season.length > 0)
   const isFilterNoMatch = isMst3kRoute
     ? routeCatalogEntries.length > 0 && filteredEntries.length === 0
     : playableEntries.length > 0 && filteredEntries.length === 0
 
-  if (!subcategory) {
+  if (!browseView) {
     return (
       <div className="container">
         <h1>Catalog</h1>
@@ -78,7 +99,7 @@ export function CatalogSubcategoryPage() {
   if (isPending && !data) {
     return (
       <div className="container">
-        <h1>{subcategory.label}</h1>
+        <h1>{browseView?.title}</h1>
         <p>Loading…</p>
       </div>
     )
@@ -100,7 +121,7 @@ export function CatalogSubcategoryPage() {
 
   return (
     <>
-      <CatalogPageHeader title={subcategory.label} subtitle={subcategory.subtitle} />
+      <CatalogPageHeader title={browseView.title} subtitle={browseView.subtitle} />
       <section className="gen-section-padding-3">
         <div className="container riffsync-catalog-page riffsync-catalog-subcategory-page">
           <CatalogFilterBar
@@ -109,7 +130,7 @@ export function CatalogSubcategoryPage() {
             disabled={filterBarDisabled}
             showCatalogChips={false}
           />
-          {isMst3kRoute && (
+          {showMst3kTagPills && (
             <Mst3kCatalogTagFilterBar
               entries={routeCatalogEntries}
               selectedTagPills={selectedTagPills}

@@ -63,6 +63,13 @@ const catalogFixtures: CatalogEpisode[] = [
     title: 'Emily Special',
     tags: ['Era: Emily', 'Season: 12'],
   }),
+  episode({
+    id: 'ep-short',
+    experimentNumber: 2500,
+    title: 'Robot Rumpus',
+    tags: ['Era: Mike'],
+    labels: ['Short'],
+  }),
   episode({ id: 'ep-community', experimentNumber: 500, title: 'Community Riff', catalog: 'community' }),
   episode({
     id: 'ep-riff-material',
@@ -183,6 +190,51 @@ describe('CatalogSubcategoryPage', () => {
     expect(titles).toEqual(['Cave Dwellers', 'Pod People'])
   })
 
+  it('locks a season route to that season and updates the subtitle', () => {
+    renderSubcategoryPage('/catalog/mst3k/season/3')
+
+    expect(container.querySelector('h1')?.textContent).toBe('MST3K')
+    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+      'Season 3',
+    )
+    expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
+
+    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+      (link) => link.textContent?.trim(),
+    )
+    expect(titles).toEqual(['Giant Spider'])
+  })
+
+  it('locks an era route to that era and updates the subtitle', () => {
+    renderSubcategoryPage('/catalog/mst3k/era/mike')
+
+    expect(container.querySelector('h1')?.textContent).toBe('MST3K')
+    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+      'Mike Era',
+    )
+    expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
+
+    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+      (link) => link.textContent?.trim(),
+    )
+    expect(titles).toEqual(['Cave Dwellers', 'Robot Rumpus'])
+  })
+
+  it('locks the Shorts route to rows labeled Short and updates the subtitle', () => {
+    renderSubcategoryPage('/catalog/mst3k/shorts')
+
+    expect(container.querySelector('h1')?.textContent).toBe('MST3K')
+    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+      'Short Riffs',
+    )
+    expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
+
+    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+      (link) => link.textContent?.trim(),
+    )
+    expect(titles).toEqual(['Robot Rumpus'])
+  })
+
   it('combines Era and Season pill filters with AND semantics', () => {
     renderSubcategoryPage('/catalog/mst3k')
     clickPill('Era: Joel')
@@ -239,7 +291,7 @@ describe('CatalogSubcategoryPage', () => {
       (link) => link.textContent?.trim(),
     )
 
-    expect(titles).toEqual(['Cave Dwellers', 'Pod People', 'Giant Spider', 'Emily Special'])
+    expect(titles).toEqual(['Cave Dwellers', 'Pod People', 'Giant Spider', 'Emily Special', 'Robot Rumpus'])
     expect(titles).not.toContain('Community Riff')
     expect(titles).not.toContain('Riff Material Classic')
     expect(titles).not.toContain('Movie Night Pick')

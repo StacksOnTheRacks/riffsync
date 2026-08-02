@@ -197,4 +197,26 @@ describe('HomePage', () => {
 
     expect(container.textContent).toContain('Custom Host Film')
   })
+
+  it('links era row More Videos buttons to the matching MST3K era catalog pages', () => {
+    mockCatalogQueries({
+      list: {
+        data: [
+          episode({ id: 'ep-joel', title: 'Joel Movie', tags: ['Era: Joel'] }),
+          episode({ id: 'ep-mike', title: 'Mike Movie', tags: ['Era: Mike'] }),
+          episode({ id: 'ep-jonah', title: 'Jonah Movie', tags: ['Era: Jonah'] }),
+        ],
+        isPending: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      },
+    })
+    renderHomePage()
+
+    expect(container.querySelector('#home-most-popular a[href="/catalog"]')).not.toBeNull()
+    expect(container.querySelector('#home-joel-era a[href="/catalog/mst3k/era/joel"]')).not.toBeNull()
+    expect(container.querySelector('#home-mike-era a[href="/catalog/mst3k/era/mike"]')).not.toBeNull()
+    expect(container.querySelector('#home-jonah-era a[href="/catalog/mst3k/era/jonah"]')).not.toBeNull()
+  })
 })
