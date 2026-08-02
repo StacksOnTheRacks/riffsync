@@ -16,8 +16,13 @@ export type InboundDmMessage = {
   pairKey: string
   messageId: string
   senderSub: string
-  kind: 'text'
+  kind: 'text' | 'gif'
   body: string
+  giphyId?: string
+  renditionUrl?: string
+  title?: string
+  width?: number
+  height?: number
   sentAt: number
   displayName?: string
   avatarUrl?: string
@@ -45,12 +50,19 @@ function parseInboundDmMessage(raw: unknown): InboundDmMessage | null {
   const pairKey = typeof record.pairKey === 'string' ? record.pairKey : ''
   const messageId = typeof record.messageId === 'string' ? record.messageId : ''
   const senderSub = typeof record.senderSub === 'string' ? record.senderSub : ''
-  const kind = record.kind === 'text' ? 'text' : null
+  const kind = record.kind === 'text' || record.kind === 'gif' ? record.kind : null
   const body = typeof record.body === 'string' ? record.body : ''
   const sentAt = typeof record.sentAt === 'number' && Number.isFinite(record.sentAt) ? record.sentAt : NaN
-  if (!pairKey || !messageId || !senderSub || !kind || !body || !Number.isFinite(sentAt)) {
+  if (!pairKey || !messageId || !senderSub || !kind || !Number.isFinite(sentAt)) {
     return null
   }
+  if (kind === 'text' && !body) return null
+  const giphyId = typeof record.giphyId === 'string' ? record.giphyId : ''
+  const renditionUrl = typeof record.renditionUrl === 'string' ? record.renditionUrl : ''
+  if (kind === 'gif' && (!giphyId || !renditionUrl)) return null
+  const title = typeof record.title === 'string' && record.title.trim() !== '' ? record.title : undefined
+  const width = typeof record.width === 'number' && Number.isFinite(record.width) ? record.width : undefined
+  const height = typeof record.height === 'number' && Number.isFinite(record.height) ? record.height : undefined
   const displayName = typeof record.displayName === 'string' ? record.displayName : undefined
   const avatarUrl = typeof record.avatarUrl === 'string' ? record.avatarUrl : undefined
   return {
@@ -61,6 +73,15 @@ function parseInboundDmMessage(raw: unknown): InboundDmMessage | null {
     senderSub,
     kind,
     body,
+    ...(kind === 'gif'
+      ? {
+          giphyId,
+          renditionUrl,
+          ...(title !== undefined ? { title } : {}),
+          ...(width !== undefined ? { width } : {}),
+          ...(height !== undefined ? { height } : {}),
+        }
+      : {}),
     sentAt,
     ...(displayName ? { displayName } : {}),
     ...(avatarUrl ? { avatarUrl } : {}),

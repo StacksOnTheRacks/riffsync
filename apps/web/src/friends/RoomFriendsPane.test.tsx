@@ -53,6 +53,7 @@ function buildPaneState(overrides: Partial<RoomFriendsPaneState> = {}): RoomFrie
     cancelRemove: vi.fn(),
     executeRemove: vi.fn(),
     sendDm: vi.fn(),
+    sendDmGif: vi.fn(),
     ...overrides,
   }
 }
@@ -203,6 +204,39 @@ describe('RoomFriendsPane (#364)', () => {
     expect(container.textContent).toContain('Back to friends')
     expect(container.textContent).toContain('No messages yet. Say hello.')
     expect(container.querySelector('.riffsync-room-friends-dm-compose')).not.toBeNull()
+  })
+
+  it('renders gif messages in a DM thread', () => {
+    act(() => {
+      root.render(
+        <RoomFriendsPane
+          pane={buildPaneState({
+            openPeer: {
+              fanSub: 'fan-b',
+              pairKey: 'a#b',
+              displayName: 'Buddy',
+            },
+            dmMessages: [
+              {
+                messageId: 'gif-1',
+                senderSub: 'fan-b',
+                kind: 'gif',
+                body: 'dance',
+                giphyId: 'abc123',
+                renditionUrl: 'https://media.example/gif.gif',
+                title: 'Dance',
+                sentAt: 2,
+              },
+            ],
+          })}
+          visible
+        />,
+      )
+    })
+
+    const gif = container.querySelector<HTMLImageElement>('.riffsync-room-chat-log__gif-img')
+    expect(gif?.src).toBe('https://media.example/gif.gif')
+    expect(gif?.alt).toBe('Dance')
   })
 
   it('shows closed conversation copy after remove', () => {

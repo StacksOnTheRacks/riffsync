@@ -8,7 +8,10 @@ import {
   isDirectMessageUnread,
   isPairMember,
   isReadCursorNewer,
+  parseDmSendBody,
+  parseDirectMessageItem,
   parseHistoryLimit,
+  toDirectMessageWire,
 } from './dm-shared';
 import { friendshipPairKey } from './friends-shared';
 
@@ -95,5 +98,45 @@ describe('dm-shared helpers', () => {
     expect(directMessagePassesHistoryCutoff(oldMessage, thread)).toBe(false);
     expect(directMessagePassesHistoryCutoff(cutoffMessage, thread)).toBe(false);
     expect(directMessagePassesHistoryCutoff(newMessage, thread)).toBe(true);
+  });
+
+  it('parses and serializes gif direct messages', () => {
+    const parsedBody = parseDmSendBody(
+      JSON.stringify({
+        messageId: 'gif-1',
+        kind: 'gif',
+        giphyId: 'abc123',
+        renditionUrl: 'https://media.example/gif.gif',
+        title: 'Dance',
+        width: 320,
+        height: 240,
+      }),
+    );
+    expect(parsedBody).toMatchObject({
+      ok: true,
+      kind: 'gif',
+      body: 'Dance',
+      giphyId: 'abc123',
+      renditionUrl: 'https://media.example/gif.gif',
+    });
+
+    const item = parseDirectMessageItem({
+      pairKey: 'a#b',
+      sk: 'm#1#gif-1',
+      messageId: 'gif-1',
+      senderSub: 'a',
+      kind: 'gif',
+      body: 'Dance',
+      giphyId: 'abc123',
+      renditionUrl: 'https://media.example/gif.gif',
+      title: 'Dance',
+      sentAt: 123,
+    });
+    expect(item).not.toBeNull();
+    expect(item ? toDirectMessageWire(item) : null).toMatchObject({
+      kind: 'gif',
+      giphyId: 'abc123',
+      renditionUrl: 'https://media.example/gif.gif',
+    });
   });
 });

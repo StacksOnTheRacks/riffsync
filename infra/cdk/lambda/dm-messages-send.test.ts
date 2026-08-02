@@ -275,4 +275,69 @@ describe('dm-messages-send handler', () => {
     expect(unreadUpdate).toBeTruthy();
     expect(unreadUpdate![0].input.Key).toEqual({ recipientSub: 'fan-b', pairKey });
   });
+
+  it('returns 201, persists gif DirectMessage metadata, and pushes gif fields', async () => {
+    const pairKey = friendshipPairKey('fan-a', 'fan-b');
+    const openThread = {
+      Item: { pairKey, subA: 'fan-a', subB: 'fan-b', status: 'open', openedAt: 1, updatedAt: 2 },
+    };
+    mocks.docSend
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
+      .mockResolvedValueOnce(openThread)
+      .mockResolvedValueOnce({ Item: { pairKey, fanSub: 'fan-a' } })
+      .mockResolvedValueOnce(openThread)
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+
+    const res = await handler(
+      sendEvent(
+        pairKey,
+        {
+          messageId: 'gif-uuid-1',
+          kind: 'gif',
+          giphyId: 'abc123',
+          renditionUrl: 'https://media.example/gif.gif',
+          title: 'Dance',
+          width: 320,
+          height: 240,
+        },
+        { claims: { sub: 'fan-a' } },
+      ),
+      {} as never,
+      {} as never,
+    );
+    expect((res as { statusCode: number }).statusCode).toBe(201);
+    const body = JSON.parse((res as { body: string }).body);
+    expect(body).toMatchObject({
+      pairKey,
+      messageId: 'gif-uuid-1',
+      senderSub: 'fan-a',
+      kind: 'gif',
+      body: 'Dance',
+      giphyId: 'abc123',
+      renditionUrl: 'https://media.example/gif.gif',
+      title: 'Dance',
+      width: 320,
+      height: 240,
+    });
+
+    const putCall = mocks.docSend.mock.calls.find((call) => call[0].kind === 'Put');
+    const put = putCall![0].input as { Item: Record<string, unknown> };
+    expect(put.Item).toMatchObject({
+      kind: 'gif',
+      body: 'Dance',
+      giphyId: 'abc123',
+      renditionUrl: 'https://media.example/gif.gif',
+    });
+
+    expect(mocks.pushDmMessageToRecipient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientFanSub: 'fan-b',
+        kind: 'gif',
+        giphyId: 'abc123',
+        renditionUrl: 'https://media.example/gif.gif',
+      }),
+    );
+  });
 });

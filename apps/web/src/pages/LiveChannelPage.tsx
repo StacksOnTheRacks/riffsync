@@ -2,20 +2,44 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { fetchFanProfile } from '../api/fanProfileApi'
 import type { LiveChannelSnapshot } from '../api/liveApi'
-import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
 import { useFanSession } from '../auth/useFanSession'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
-import { FanAvatarThumb } from '../components/FanAvatarThumb'
+import { getPublicWsUrl } from '../config/wsUrl'
 import { useLiveChannelQuery } from '../live/liveQueries'
 import { useLiveChannelChat } from '../live/useLiveChannelChat'
-import { ChatComposeMediaPicker } from '../room/ChatComposeMediaPicker'
-import { ChatReactionsStrip } from '../room/ChatReactionsStrip'
-import { isEmojiOnlyChatMessage } from '../room/chatEmojiDisplay'
-import { isContinuedChatLine } from '../room/chatMessageGrouping'
-import { formatChatSystemText } from '../room/chatSystemLine'
+import { RoomPageSidebar } from '../room/RoomPageSidebar'
+import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { useRoomChrome } from '../room/useRoomChrome'
+import type { RoomSidebarTab } from '../room/roomPageTypes'
+import type { ParticipantAvController } from '../room/sfu/participantAvSession'
 import { ensureGuestSession, setGuestDisplayName } from '../session/guestSession'
+
+const LIVE_EMPTY_MAP = new Map()
+const LIVE_PARTICIPANT_AV_CONTROLLER: ParticipantAvController = {
+  getState: () => ({
+    cameraEnabled: false,
+    micEnabled: false,
+    micMuted: false,
+    canPublish: false,
+    needsProducerToken: false,
+    error: null,
+    busy: false,
+  }),
+  getLocalPreviewStream: () => null,
+  subscribe: () => () => {},
+  refreshPublishGate: () => {},
+  attachSession: () => {},
+  resetOnReconnect: () => {},
+  teardownPublishing: () => {},
+  enableCamera: async () => {},
+  disableCamera: () => {},
+  enableMic: async () => {},
+  disableMic: () => {},
+  toggleMicMute: () => {},
+  failPublish: () => {},
+  clearError: () => {},
+}
 
 export function LiveChannelPage() {
   const { slug: slugParam } = useParams<{ slug: string }>()
@@ -25,6 +49,7 @@ export function LiveChannelPage() {
   const guest = ensureGuestSession('live')
   const [sessionId] = useState(guest.sessionId)
   const [displayName, setDisplayName] = useState(guest.displayName)
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null)
   const { fanToken } = useFanSession()
 
   const channelQuery = useLiveChannelQuery(slug || undefined)
@@ -59,6 +84,7 @@ export function LiveChannelPage() {
         if (nextDisplayName) {
           setDisplayName(setGuestDisplayName(nextDisplayName))
         }
+        setMyAvatarUrl(profile.avatarUrl)
       })
       .catch(() => {})
     return () => {
@@ -89,6 +115,9 @@ export function LiveChannelPage() {
             channel={channel}
             sessionId={sessionId}
             displayName={displayName}
+            setDisplayName={setDisplayName}
+            myAvatarUrl={myAvatarUrl}
+            setMyAvatarUrl={setMyAvatarUrl}
             fanToken={fanToken}
           />
         ) : null}
@@ -102,10 +131,15 @@ function LiveChannelReady(props: {
   channel: LiveChannelSnapshot
   sessionId: string
   displayName: string
+  setDisplayName: (name: string) => void
+  myAvatarUrl: string | null
+  setMyAvatarUrl: (url: string | null) => void
   fanToken: string | null
 }) {
-  const { slug, channel, sessionId, displayName, fanToken } = props
+  const { slug, channel, sessionId, displayName, setDisplayName, myAvatarUrl, setMyAvatarUrl, fanToken } = props
   const chatInputRef = useRef<HTMLInputElement>(null)
+  const castToTvButtonRef = useRef<HTMLButtonElement>(null)
+  const [roomSidebarTab, setRoomSidebarTab] = useState<RoomSidebarTab>('chat')
   const chat = useLiveChannelChat({
     roomId: channel.roomId,
     sessionId,
@@ -116,6 +150,19 @@ function LiveChannelReady(props: {
 
   const { logRef: chatLogRef, showJumpToLatest, jumpToLatestLabel, jumpToLatest } =
     useChatLogStickToBottom(chat.chat.length, true, channel.roomId)
+  const activeSidebarTab =
+    !fanToken && (roomSidebarTab === 'profile' || roomSidebarTab === 'friends')
+      ? 'chat'
+      : roomSidebarTab === 'room'
+        ? 'chat'
+        : roomSidebarTab
+  const profile = useRoomProfileTab({
+    fanToken,
+    roomSidebarTab: activeSidebarTab,
+    displayName,
+    setDisplayName,
+    setMyAvatarUrl,
+  })
 
   const canPlay =
     Boolean(channel.youtubeVideoId) && channel.embedAllows !== false && channel.playbackHost !== 'custom'
@@ -144,174 +191,66 @@ function LiveChannelReady(props: {
         )}
       </section>
 
-      <aside
-        className="riffsync-live-page__chat riffsync-room-page__chat riffsync-room-page__chat-column"
-        aria-label="Live chat"
-      >
-        <div className="riffsync-live-page__chat-bar">
-          <span className="riffsync-live-page__chat-bar-label">Live chat</span>
-          {chat.presenceCount > 0 ? (
-            <span className="riffsync-live-page__presence" aria-live="polite">
-              {chat.presenceCount} watching
-            </span>
-          ) : null}
-        </div>
-
-        <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
-          <ul ref={chatLogRef} className="riffsync-room-chat-log">
-            {chat.chat.map((m, index) => {
-              if (m.kind === 'system') {
-                return (
-                  <li
-                    key={m.messageId}
-                    className="riffsync-room-chat-log__row riffsync-room-chat-log__row--system"
-                  >
-                    <p className="riffsync-room-chat-log__system-line" role="status">
-                      {formatChatSystemText(m.displayName, m.systemEvent)}
-                    </p>
-                  </li>
-                )
-              }
-              const chatDisplayName =
-                (m.displayName && m.displayName.trim() !== ''
-                  ? m.displayName
-                  : chat.chatMemberLabels.get(m.sessionId)) ??
-                `${m.sessionId.slice(0, 6)}…`
-              const reactionChips = chat.chatReactions[m.messageId] ?? {}
-              const isContinued = isContinuedChatLine(chat.chat, index)
-              const isMine = m.sessionId === sessionId
-              const rowClassName = [
-                'riffsync-room-chat-log__row',
-                isMine ? 'riffsync-room-chat-log__row--mine' : 'riffsync-room-chat-log__row--theirs',
-                isContinued ? 'riffsync-room-chat-log__row--continued' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')
-              const showTheirsMeta = !isMine && !isContinued
-              return (
-                <li key={m.messageId} className={rowClassName}>
-                  <div className="riffsync-room-chat-log__entry">
-                    {showTheirsMeta ? (
-                      <div className="riffsync-room-chat-log__meta">
-                        <FanAvatarThumb displayName={chatDisplayName} avatarUrl={m.avatarUrl} />
-                        <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
-                      </div>
-                    ) : (
-                      <span className="sr-only">{chatDisplayName}: </span>
-                    )}
-                    <div className="riffsync-room-chat-log__bubble">
-                      {m.kind === 'gif' ? (
-                        <img
-                          className="riffsync-room-chat-log__gif-img"
-                          src={m.renditionUrl}
-                          alt={m.title?.trim() || 'GIF'}
-                          loading="lazy"
-                          width={m.width}
-                          height={m.height}
-                        />
-                      ) : (
-                        <div
-                          className={`riffsync-room-chat-log__body${isEmojiOnlyChatMessage(m.text) ? ' riffsync-room-chat-log__body--emoji-only' : ''}`}
-                        >
-                          {m.text}
-                        </div>
-                      )}
-                      <ChatReactionsStrip
-                        messageId={m.messageId}
-                        chips={reactionChips}
-                        canReact={Boolean(fanToken)}
-                        onToggleReaction={chat.toggleChatReaction}
-                      />
-                    </div>
-                  </div>
-                </li>
-              )
-            })}
-            {chat.remoteTyping.map((entry) => (
-              <li
-                key={`typing-${entry.sessionId}`}
-                className="riffsync-room-chat-log__row riffsync-room-chat-log__row--typing"
-              >
-                <p className="riffsync-room-chat-log__typing-line" role="status" aria-live="polite">
-                  <span className="riffsync-room-chat-log__typing-name">{entry.displayName}</span>
-                  <span aria-hidden="true"> is typing</span>
-                  <span className="riffsync-room-chat-log__typing-ellipsis" aria-hidden="true">
-                    …
-                  </span>
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="riffsync-room-chat-compose-holder">
-          {showJumpToLatest ? (
-            <button
-              type="button"
-              className="riffsync-room-chat-jump-latest gen-button"
-              aria-label="Jump to latest messages"
-              onClick={jumpToLatest}
-            >
-              {jumpToLatestLabel}
-            </button>
-          ) : null}
-          <div
-            className={`riffsync-room-chat-compose${fanToken ? '' : ' riffsync-room-chat-compose--inactive'}`}
-          >
-            {fanToken ? (
-              <ChatComposeMediaPicker
-                draft={chat.chatDraft}
-                onDraftChange={chat.setChatDraft}
-                inputRef={chatInputRef}
-                accessToken={fanToken}
-                onGifSelect={chat.sendChatGif}
-              />
-            ) : null}
-            <input
-              ref={chatInputRef}
-              type="text"
-              maxLength={2000}
-              value={fanToken ? chat.chatDraft : ''}
-              placeholder="Say something…"
-              disabled={!fanToken}
-              onChange={(e) => {
-                if (fanToken) chat.setChatDraft(e.target.value)
-              }}
-              onBlur={() => {
-                if (fanToken) chat.onComposeBlur()
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && fanToken) chat.sendChat()
-              }}
-            />
-            <button
-              type="button"
-              className="riffsync-room-chat-compose-send gen-button"
-              disabled={!fanToken || chat.chatDraft.trim() === ''}
-              onClick={chat.sendChat}
-            >
-              Send
-            </button>
-          </div>
-          {!fanToken ? (
-            <div
-              className="riffsync-room-chat-signin-overlay"
-              role="region"
-              aria-label="Sign in to participate in chat"
-            >
-              <button
-                type="button"
-                className="gen-button"
-                onClick={() =>
-                  void startFanHostedUiSignIn(`/live/${encodeURIComponent(slug)}`).catch(console.error)
-                }
-              >
-                Sign In to Chat
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </aside>
+      <RoomPageSidebar
+        variant="live"
+        className="riffsync-live-page__chat"
+        signInReturnPath={`/live/${encodeURIComponent(slug)}`}
+        wsBase={getPublicWsUrl()}
+        fanToken={fanToken}
+        roomId={channel.roomId}
+        sessionId={sessionId}
+        myAvatarUrl={myAvatarUrl}
+        activeSidebarTab={activeSidebarTab}
+        setRoomSidebarTab={setRoomSidebarTab}
+        viewerCount={chat.presenceCount}
+        chat={chat.chat}
+        chatReactions={chat.chatReactions}
+        remoteTyping={chat.remoteTyping}
+        chatMemberLabels={chat.chatMemberLabels}
+        chatDraft={chat.chatDraft}
+        setChatDraft={chat.setChatDraft}
+        notifyComposeBlur={chat.onComposeBlur}
+        chatLogRef={chatLogRef}
+        chatInputRef={chatInputRef}
+        showJumpToLatest={showJumpToLatest}
+        jumpToLatestLabel={jumpToLatestLabel}
+        jumpToLatest={jumpToLatest}
+        chatDrawerBanner={null}
+        chatComposeStatus={{ message: null, disableSubmit: chat.chatDraft.trim() === '' }}
+        sendChat={chat.sendChat}
+        sendChatGif={chat.sendChatGif}
+        toggleChatReaction={chat.toggleChatReaction}
+        peopleShown={chat.presenceMembers}
+        participantProducerBySessionId={LIVE_EMPTY_MAP}
+        speakingBySessionId={LIVE_EMPTY_MAP}
+        isPublisher={false}
+        experimentalFeatures={false}
+        shareHint={null}
+        onCopyShare={() => {}}
+        onOpenRenameModal={() => {}}
+        roomVisibility="private"
+        visibilityBusy={false}
+        visibilityErr={null}
+        onSelectRoomVisibility={() => {}}
+        avDisabled
+        participantAvController={LIVE_PARTICIPANT_AV_CONTROLLER}
+        announceRoomA11y={() => {}}
+        profileDraft={profile.profileDraft}
+        setProfileDraft={profile.setProfileDraft}
+        profileSaveErr={profile.profileSaveErr}
+        profileSaving={profile.profileSaving}
+        profileAvatarUrl={profile.profileAvatarUrl}
+        profileAvatarLoading={profile.profileAvatarLoading}
+        profileAvatarUploading={profile.profileAvatarUploading}
+        profileAvatarErr={profile.profileAvatarErr}
+        profileAvatarInputRef={profile.profileAvatarInputRef}
+        saveProfileDisplayName={profile.saveProfileDisplayName}
+        onProfileAvatarSelected={profile.onProfileAvatarSelected}
+        castAvailability="unavailable"
+        castStartLifecycle="idle"
+        onCastToTvClick={() => {}}
+        castToTvButtonRef={castToTvButtonRef}
+      />
     </div>
   )
 }

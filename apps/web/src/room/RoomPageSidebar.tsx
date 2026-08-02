@@ -32,7 +32,10 @@ import { RoomVisibilityControl } from './RoomVisibilityControl'
 import type { RoomVisibility } from './hostRoomControls'
 
 type RoomPageSidebarProps = {
+  variant?: 'party' | 'live'
   presentation?: 'sidebar' | 'overlay'
+  className?: string
+  signInReturnPath?: string
   wsBase: string | undefined
   fanToken: string | null
   roomId: string
@@ -91,7 +94,10 @@ type RoomPageSidebarProps = {
 }
 
 export function RoomPageSidebar({
+  variant = 'party',
   presentation = 'sidebar',
+  className,
+  signInReturnPath,
   wsBase,
   fanToken,
   roomId,
@@ -151,6 +157,11 @@ export function RoomPageSidebar({
   const peopleFriends = usePeopleRosterFriends(fanToken, activeSidebarTab)
   const roomFriends = useRoomFriendsPane(activeSidebarTab === 'friends', Boolean(fanToken))
   const friendsAnyUnread = roomFriends.anyUnread
+  const isLiveVariant = variant === 'live'
+  const showRoomTab = presentation === 'sidebar' && !isLiveVariant
+  const showParticipantAvControls = !isLiveVariant
+  const chatSignInReturnPath = signInReturnPath ?? `/room/${encodeURIComponent(roomId)}`
+  const sidebarClassName = ['riffsync-room-page__chat-column', className].filter(Boolean).join(' ')
 
   const chatPlane = (
     <section
@@ -207,14 +218,16 @@ export function RoomPageSidebar({
                 ) : null}
               </button>
             ) : null}
-            <button
-              type="button"
-              className={`riffsync-room-page__tab${activeSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
-              aria-pressed={activeSidebarTab === 'room'}
-              onClick={() => setRoomSidebarTab('room')}
-            >
-              Room
-            </button>
+            {showRoomTab ? (
+              <button
+                type="button"
+                className={`riffsync-room-page__tab${activeSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
+                aria-pressed={activeSidebarTab === 'room'}
+                onClick={() => setRoomSidebarTab('room')}
+              >
+                Room
+              </button>
+            ) : null}
             {fanToken ? (
               <button
                 type="button"
@@ -338,11 +351,13 @@ export function RoomPageSidebar({
                   participantProducerBySessionId.get(p.sessionId) ??
                   EMPTY_PARTICIPANT_PRODUCER_SNAPSHOT
                 const speaking = speakingBySessionId.get(p.sessionId) ?? false
-                const showAvIndicators = shouldShowPeopleAvIndicators(
-                  p.sessionId,
-                  sessionId,
-                  fanToken,
-                )
+                const showAvIndicators =
+                  !isLiveVariant &&
+                  shouldShowPeopleAvIndicators(
+                    p.sessionId,
+                    sessionId,
+                    fanToken,
+                  )
                 const rowClassName = `riffsync-room-page__people-row${p.isHost ? ' riffsync-room-page__people-row--host' : ''}${peopleRowSpeakingClass(speaking)}`
                 return (
                   <PeopleRosterRow
@@ -372,7 +387,7 @@ export function RoomPageSidebar({
           <RoomFriendsPane pane={roomFriends} visible={activeSidebarTab === 'friends'} />
         ) : null}
 
-        {presentation === 'sidebar' && activeSidebarTab === 'room' ? (
+        {showRoomTab && activeSidebarTab === 'room' ? (
           <div className="riffsync-room-page__tab-panel riffsync-room-page__room-panel">
             <button type="button" className="gen-button gen-button-wide" onClick={onCopyShare}>
               Copy Party Link
@@ -486,7 +501,7 @@ export function RoomPageSidebar({
         ) : null}
 
         <div className="riffsync-room-page__sidebar-footer">
-          {fanToken ? (
+          {showParticipantAvControls && fanToken ? (
             <ParticipantAvToggles
               controller={participantAvController}
               avDisabled={avDisabled}
@@ -558,9 +573,7 @@ export function RoomPageSidebar({
                   <button
                     type="button"
                     className="gen-button"
-                    onClick={() =>
-                      void startFanHostedUiSignIn(`/room/${encodeURIComponent(roomId)}`).catch(console.error)
-                    }
+                    onClick={() => void startFanHostedUiSignIn(chatSignInReturnPath).catch(console.error)}
                   >
                     Sign In to Chat
                   </button>
@@ -575,7 +588,7 @@ export function RoomPageSidebar({
   if (presentation === 'overlay') return chatPlane
 
   return (
-    <aside className="riffsync-room-page__chat-column" aria-label="Room sidebar">
+    <aside className={sidebarClassName} aria-label={isLiveVariant ? 'Live sidebar' : 'Room sidebar'}>
       {chatPlane}
     </aside>
   )

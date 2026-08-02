@@ -129,6 +129,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         kind: parsedBody.kind,
         body: parsedBody.body,
         sentAt,
+        ...(parsedBody.kind === 'gif'
+          ? {
+              giphyId: parsedBody.giphyId,
+              renditionUrl: parsedBody.renditionUrl,
+              ...(parsedBody.title !== undefined ? { title: parsedBody.title } : {}),
+              ...(parsedBody.width !== undefined ? { width: parsedBody.width } : {}),
+              ...(parsedBody.height !== undefined ? { height: parsedBody.height } : {}),
+            }
+          : {}),
       },
     }),
   );
@@ -156,7 +165,17 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     senderSub: auth.fanSub,
     pairKey,
     messageId: parsedBody.messageId,
+    kind: parsedBody.kind,
     body: parsedBody.body,
+    ...(parsedBody.kind === 'gif'
+      ? {
+          giphyId: parsedBody.giphyId,
+          renditionUrl: parsedBody.renditionUrl,
+          ...(parsedBody.title !== undefined ? { title: parsedBody.title } : {}),
+          ...(parsedBody.width !== undefined ? { width: parsedBody.width } : {}),
+          ...(parsedBody.height !== undefined ? { height: parsedBody.height } : {}),
+        }
+      : {}),
     sentAt,
   }).catch((err: unknown) => {
     console.warn(
@@ -174,6 +193,15 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     senderSub: auth.fanSub,
     kind: parsedBody.kind,
     body: parsedBody.body,
+    ...(parsedBody.kind === 'gif'
+      ? {
+          giphyId: parsedBody.giphyId,
+          renditionUrl: parsedBody.renditionUrl,
+          ...(parsedBody.title !== undefined ? { title: parsedBody.title } : {}),
+          ...(parsedBody.width !== undefined ? { width: parsedBody.width } : {}),
+          ...(parsedBody.height !== undefined ? { height: parsedBody.height } : {}),
+        }
+      : {}),
     sentAt,
   });
 };

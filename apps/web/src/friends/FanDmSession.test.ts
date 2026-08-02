@@ -93,6 +93,36 @@ describe('FanDmSession', () => {
     expect(inbound).toHaveLength(1)
   })
 
+  it('parses inbound dm gif frames', async () => {
+    const inbound: unknown[] = []
+    const session = new FanDmSession({
+      onInboundMessage: (msg) => inbound.push(msg),
+    })
+    session.connect()
+    await Promise.resolve()
+    const ws = MockWebSocket.instances[0]
+    ws.onmessage?.({
+      data: JSON.stringify({
+        type: 'dm_message',
+        schemaVersion: 1,
+        pairKey: 'a#b',
+        messageId: 'gif-1',
+        senderSub: 'b',
+        kind: 'gif',
+        body: 'dance',
+        giphyId: 'abc123',
+        renditionUrl: 'https://media.example/gif.gif',
+        title: 'Dance',
+        sentAt: 123,
+      }),
+    })
+    expect(inbound[0]).toMatchObject({
+      kind: 'gif',
+      giphyId: 'abc123',
+      renditionUrl: 'https://media.example/gif.gif',
+    })
+  })
+
   it('emits DM_PUSH_UNAVAILABLE when open socket closes', async () => {
     const errors: string[] = []
     const session = new FanDmSession({

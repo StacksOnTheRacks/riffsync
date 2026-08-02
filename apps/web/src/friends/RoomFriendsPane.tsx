@@ -3,6 +3,7 @@ import { FanAvatarThumb } from '../components/FanAvatarThumb'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { cognitoSub } from '../auth/jwtDecode'
 import type { FriendEntry, FriendRequestEntry } from './friendsApi'
+import { FriendsDmCompose, FriendsDmMessageBody } from './FriendsDmCompose'
 import { requireFanAccessToken } from './requireFanAccessToken'
 import type { RoomFriendsPaneState } from './useRoomFriendsPane'
 
@@ -84,7 +85,7 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
                   >
                     <div className="riffsync-room-chat-log__entry">
                       <div className="riffsync-room-chat-log__bubble">
-                        <div className="riffsync-room-chat-log__body">{message.body}</div>
+                        <FriendsDmMessageBody message={message} />
                       </div>
                     </div>
                   </li>
@@ -101,22 +102,15 @@ export function RoomFriendsPane({ pane, visible }: RoomFriendsPaneProps) {
                 {jumpToLatestLabel}
               </button>
             ) : null}
-            <div className="riffsync-room-friends-dm-compose">
-              <input
-                type="text"
-                maxLength={2000}
-                value={pane.dmDraft}
-                placeholder="Say something…"
-                aria-label="Direct message"
-                onChange={(e) => pane.setDmDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void pane.sendDm()
-                }}
+            {fanToken ? (
+              <FriendsDmCompose
+                accessToken={fanToken}
+                draft={pane.dmDraft}
+                setDraft={pane.setDmDraft}
+                sendDm={pane.sendDm}
+                sendDmGif={pane.sendDmGif}
               />
-              <button type="button" className="gen-button" onClick={() => void pane.sendDm()}>
-                Send
-              </button>
-            </div>
+            ) : null}
             {pane.dmComposeError ? (
               <p className="riffsync-room-friends-dm-err" role="status" aria-live="polite">
                 {pane.dmComposeError}

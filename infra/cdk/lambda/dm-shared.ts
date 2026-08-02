@@ -14,6 +14,8 @@ export const DM_SEND_LIMIT_PER_MINUTE = 20;
 export const DM_HISTORY_DEFAULT_LIMIT = 50;
 export const DM_HISTORY_MAX_LIMIT = 100;
 export const DM_BODY_MAX_LEN = 2000;
+const DM_GIF_TITLE_MAX_LEN = 200;
+const DM_GIF_DIMENSION_MAX = 4096;
 export const FAN_CONNECTIONS_FAN_SUB_INDEX = 'FanSubIndex';
 
 export type DmDenyCode =
@@ -43,18 +45,52 @@ export type DirectMessageItem = {
   sk: string;
   messageId: string;
   senderSub: string;
-  kind: 'text';
+  kind: 'text' | 'gif';
   body: string;
   sentAt: number;
+  giphyId?: string;
+  renditionUrl?: string;
+  title?: string;
+  width?: number;
+  height?: number;
 };
 
-export type DirectMessageWire = {
+export type DirectMessageTextWire = {
   messageId: string;
   senderSub: string;
   kind: 'text';
   body: string;
   sentAt: number;
 };
+
+export type DirectMessageGifWire = {
+  messageId: string;
+  senderSub: string;
+  kind: 'gif';
+  body: string;
+  giphyId: string;
+  renditionUrl: string;
+  title?: string;
+  width?: number;
+  height?: number;
+  sentAt: number;
+};
+
+export type DirectMessageWire = DirectMessageTextWire | DirectMessageGifWire;
+
+export type DmSendBody =
+  | { ok: true; messageId: string; kind: 'text'; body: string }
+  | {
+      ok: true;
+      messageId: string;
+      kind: 'gif';
+      body: string;
+      giphyId: string;
+      renditionUrl: string;
+      title?: string;
+      width?: number;
+      height?: number;
+    };
 
 export type DmHistoryCursor = {
   sentAt: number;
@@ -153,16 +189,53 @@ export function parseDirectMessageItem(raw: Record<string, unknown> | undefined)
   const sk = typeof raw.sk === 'string' ? raw.sk : '';
   const messageId = typeof raw.messageId === 'string' ? raw.messageId : '';
   const senderSub = typeof raw.senderSub === 'string' ? raw.senderSub : '';
-  const kind = raw.kind === 'text' ? 'text' : null;
+  const kind = raw.kind === 'text' || raw.kind === 'gif' ? raw.kind : null;
   const body = typeof raw.body === 'string' ? raw.body : '';
   const sentAt = typeof raw.sentAt === 'number' && Number.isFinite(raw.sentAt) ? raw.sentAt : NaN;
-  if (!pairKey || !sk || !messageId || !senderSub || !kind || !body || !Number.isFinite(sentAt)) {
+  if (!pairKey || !sk || !messageId || !senderSub || !kind || !Number.isFinite(sentAt)) {
     return null;
   }
-  return { pairKey, sk, messageId, senderSub, kind, body, sentAt };
+  if (kind === 'text') {
+    if (!body) return null;
+    return { pairKey, sk, messageId, senderSub, kind, body, sentAt };
+  }
+  const giphyId = typeof raw.giphyId === 'string' ? raw.giphyId.trim() : '';
+  const renditionUrl = typeof raw.renditionUrl === 'string' ? raw.renditionUrl.trim() : '';
+  if (!giphyId || !renditionUrl) return null;
+  const title = parseOptionalDmGifTitle(raw.title);
+  const width = parseOptionalDmGifDimension(raw.width);
+  const height = parseOptionalDmGifDimension(raw.height);
+  return {
+    pairKey,
+    sk,
+    messageId,
+    senderSub,
+    kind,
+    body,
+    sentAt,
+    giphyId,
+    renditionUrl,
+    ...(title !== undefined ? { title } : {}),
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
+  };
 }
 
 export function toDirectMessageWire(item: DirectMessageItem): DirectMessageWire {
+  if (item.kind === 'gif') {
+    return {
+      messageId: item.messageId,
+      senderSub: item.senderSub,
+      kind: 'gif',
+      body: item.body,
+      giphyId: item.giphyId!,
+      renditionUrl: item.renditionUrl!,
+      ...(item.title !== undefined ? { title: item.title } : {}),
+      ...(item.width !== undefined ? { width: item.width } : {}),
+      ...(item.height !== undefined ? { height: item.height } : {}),
+      sentAt: item.sentAt,
+    };
+  }
   return {
     messageId: item.messageId,
     senderSub: item.senderSub,
@@ -170,6 +243,20 @@ export function toDirectMessageWire(item: DirectMessageItem): DirectMessageWire 
     body: item.body,
     sentAt: item.sentAt,
   };
+}
+
+function parseOptionalDmGifTitle(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > DM_GIF_TITLE_MAX_LEN) return undefined;
+  return trimmed;
+}
+
+function parseOptionalDmGifDimension(raw: unknown): number | undefined {
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw <= 0 || raw > DM_GIF_DIMENSION_MAX) {
+    return undefined;
+  }
+  return raw;
 }
 
 export function dmReadRateLimitKey(fanSub: string, bucketMs: number): { pk: string; sk: string } {
@@ -236,7 +323,7 @@ export async function enforceDmSendRateLimit(
 }
 
 export function parseDmSendBody(raw: string | undefined):
-  | { ok: true; messageId: string; kind: 'text'; body: string }
+  | DmSendBody
   | { ok: false; code: 'invalid_dm_body' } {
   if (!raw || raw.trim() === '') {
     return { ok: false, code: 'invalid_dm_body' };
@@ -252,12 +339,40 @@ export function parseDmSendBody(raw: string | undefined):
   }
   const record = parsed as Record<string, unknown>;
   const messageId = typeof record.messageId === 'string' ? record.messageId.trim() : '';
-  const kind = record.kind === 'text' ? 'text' : null;
-  const body = typeof record.body === 'string' ? record.body.trim() : '';
-  if (!messageId || !kind || !body || body.length > DM_BODY_MAX_LEN) {
+  const kind = record.kind === 'text' || record.kind === 'gif' ? record.kind : null;
+  if (!messageId || !kind) {
     return { ok: false, code: 'invalid_dm_body' };
   }
-  return { ok: true, messageId, kind, body };
+  if (kind === 'text') {
+    const body = typeof record.body === 'string' ? record.body.trim() : '';
+    if (!body || body.length > DM_BODY_MAX_LEN) {
+      return { ok: false, code: 'invalid_dm_body' };
+    }
+    return { ok: true, messageId, kind, body };
+  }
+  const giphyId = typeof record.giphyId === 'string' ? record.giphyId.trim() : '';
+  const renditionUrl = typeof record.renditionUrl === 'string' ? record.renditionUrl.trim() : '';
+  if (!giphyId || !renditionUrl) {
+    return { ok: false, code: 'invalid_dm_body' };
+  }
+  const title = parseOptionalDmGifTitle(record.title);
+  const width = parseOptionalDmGifDimension(record.width);
+  const height = parseOptionalDmGifDimension(record.height);
+  const body =
+    typeof record.body === 'string' && record.body.trim().length <= DM_BODY_MAX_LEN
+      ? record.body.trim()
+      : title ?? '';
+  return {
+    ok: true,
+    messageId,
+    kind,
+    body,
+    giphyId,
+    renditionUrl,
+    ...(title !== undefined ? { title } : {}),
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
+  };
 }
 
 export async function friendshipActiveForCaller(

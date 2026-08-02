@@ -59,6 +59,7 @@ function buildPaneState(overrides: Partial<RoomFriendsPaneState> = {}): RoomFrie
     cancelRemove: vi.fn(),
     executeRemove: vi.fn(),
     sendDm: vi.fn(),
+    sendDmGif: vi.fn(),
     ...overrides,
   }
 }

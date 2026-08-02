@@ -1,13 +1,28 @@
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import { FAN_AUTH_REQUIRED_CLIENT, requireFanAccessToken } from './requireFanAccessToken'
 
-export type DmMessage = {
+export type DmTextMessage = {
   messageId: string
   senderSub: string
   kind: 'text'
   body: string
   sentAt: number
 }
+
+export type DmGifMessage = {
+  messageId: string
+  senderSub: string
+  kind: 'gif'
+  body: string
+  giphyId: string
+  renditionUrl: string
+  title?: string
+  width?: number
+  height?: number
+  sentAt: number
+}
+
+export type DmMessage = DmTextMessage | DmGifMessage
 
 export type DmHistoryPage = {
   messages: DmMessage[]
@@ -21,13 +36,26 @@ export type DmApiFailure = {
   error?: string
 }
 
-export type DmSendRequest = {
+export type DmTextSendRequest = {
   messageId: string
   kind: 'text'
   body: string
 }
 
-export type DmSendResponse = {
+export type DmGifSendRequest = {
+  messageId: string
+  kind: 'gif'
+  body?: string
+  giphyId: string
+  renditionUrl: string
+  title?: string
+  width?: number
+  height?: number
+}
+
+export type DmSendRequest = DmTextSendRequest | DmGifSendRequest
+
+export type DmTextSendResponse = {
   pairKey: string
   messageId: string
   senderSub: string
@@ -36,7 +64,56 @@ export type DmSendResponse = {
   sentAt: number
 }
 
+export type DmGifSendResponse = {
+  pairKey: string
+  messageId: string
+  senderSub: string
+  kind: 'gif'
+  body: string
+  giphyId: string
+  renditionUrl: string
+  title?: string
+  width?: number
+  height?: number
+  sentAt: number
+}
+
+export type DmSendResponse = DmTextSendResponse | DmGifSendResponse
+
 export type DmSendResult = { ok: true; message: DmSendResponse } | DmApiFailure
+
+function parseDmMessage(entry: unknown): DmMessage | null {
+  if (typeof entry !== 'object' || entry === null) return null
+  const record = entry as Record<string, unknown>
+  const messageId = typeof record.messageId === 'string' ? record.messageId : ''
+  const senderSub = typeof record.senderSub === 'string' ? record.senderSub : ''
+  const kind = record.kind === 'text' || record.kind === 'gif' ? record.kind : null
+  const body = typeof record.body === 'string' ? record.body : ''
+  const sentAt = typeof record.sentAt === 'number' && Number.isFinite(record.sentAt) ? record.sentAt : NaN
+  if (!messageId || !senderSub || !kind || !Number.isFinite(sentAt)) return null
+  if (kind === 'text') {
+    if (!body) return null
+    return { messageId, senderSub, kind, body, sentAt }
+  }
+  const giphyId = typeof record.giphyId === 'string' ? record.giphyId : ''
+  const renditionUrl = typeof record.renditionUrl === 'string' ? record.renditionUrl : ''
+  if (!giphyId || !renditionUrl) return null
+  const title = typeof record.title === 'string' && record.title.trim() !== '' ? record.title : undefined
+  const width = typeof record.width === 'number' && Number.isFinite(record.width) ? record.width : undefined
+  const height = typeof record.height === 'number' && Number.isFinite(record.height) ? record.height : undefined
+  return {
+    messageId,
+    senderSub,
+    kind,
+    body,
+    giphyId,
+    renditionUrl,
+    ...(title !== undefined ? { title } : {}),
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
+    sentAt,
+  }
+}
 
 async function parseDmFailure(res: Response): Promise<DmApiFailure> {
   let code: string | undefined
@@ -118,14 +195,7 @@ export async function fetchDmMessages(
 
   const json = (await res.json()) as { messages?: unknown; nextCursor?: unknown }
   const messages = Array.isArray(json.messages)
-    ? json.messages.filter(
-        (entry): entry is DmMessage =>
-          typeof entry === 'object' &&
-          entry !== null &&
-          typeof (entry as DmMessage).messageId === 'string' &&
-          typeof (entry as DmMessage).senderSub === 'string' &&
-          (entry as DmMessage).kind === 'text',
-      )
+    ? json.messages.map(parseDmMessage).filter((entry): entry is DmMessage => Boolean(entry))
     : []
   const nextCursor = typeof json.nextCursor === 'string' ? json.nextCursor : null
   return { ok: true, page: { messages, nextCursor } }

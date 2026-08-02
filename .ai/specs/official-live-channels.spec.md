@@ -30,7 +30,7 @@ RiffSync hosts **official Live channels**: durable, hostless watch surfaces at *
 | **Chat** | Same **RoomChat** plane as watch-party rooms: same TTL, rate limits, GIF/reaction rules. |
 | **Members** | Signed-in fans may **send** chat, react, and type (existing fan JWT gates). |
 | **Anonymous** | May **watch** and **read** chat; compose shows existing **Sign In to Chat** posture; cannot send, react, or type. |
-| **People / Friends / A/V** | v1 may omit participant A/V toggles and keep chrome chat-primary. Friends/DM remain available only where fan JWT chrome already allows (optional; not required for Live acceptance). |
+| **People / Friends / Profile / A/V** | Live chrome includes People, Friends, and Profile tabs for signed-in fan workflows. Participant A/V toggles remain omitted and there is no Room admin panel. |
 
 ### Catalog category `live`
 

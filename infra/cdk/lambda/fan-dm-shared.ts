@@ -10,7 +10,7 @@ import { FAN_CONNECTIONS_FAN_SUB_INDEX } from './dm-shared';
 
 const encoder = new TextEncoder();
 
-export type DmMessagePushEnvelope = {
+export type DmMessageTextPushEnvelope = {
   type: 'dm_message';
   schemaVersion: 1;
   pairKey: string;
@@ -22,6 +22,26 @@ export type DmMessagePushEnvelope = {
   displayName?: string;
   avatarUrl?: string;
 };
+
+export type DmMessageGifPushEnvelope = {
+  type: 'dm_message';
+  schemaVersion: 1;
+  pairKey: string;
+  messageId: string;
+  senderSub: string;
+  kind: 'gif';
+  body: string;
+  giphyId: string;
+  renditionUrl: string;
+  title?: string;
+  width?: number;
+  height?: number;
+  sentAt: number;
+  displayName?: string;
+  avatarUrl?: string;
+};
+
+export type DmMessagePushEnvelope = DmMessageTextPushEnvelope | DmMessageGifPushEnvelope;
 
 export type DmUnreadPushEnvelope = {
   type: 'dm_unread';
@@ -109,12 +129,37 @@ export function buildDmMessagePushEnvelope(input: {
   pairKey: string;
   messageId: string;
   senderSub: string;
+  kind?: 'text' | 'gif';
   body: string;
+  giphyId?: string;
+  renditionUrl?: string;
+  title?: string;
+  width?: number;
+  height?: number;
   sentAt: number;
   senderProfile?: Record<string, unknown>;
 }): DmMessagePushEnvelope {
   const displayName = displayNameFromStoredProfile(input.senderProfile);
   const avatarUrl = avatarUrlFromStoredProfile(input.senderProfile);
+  if (input.kind === 'gif') {
+    return {
+      type: 'dm_message',
+      schemaVersion: 1,
+      pairKey: input.pairKey,
+      messageId: input.messageId,
+      senderSub: input.senderSub,
+      kind: 'gif',
+      body: input.body,
+      giphyId: input.giphyId ?? '',
+      renditionUrl: input.renditionUrl ?? '',
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.width !== undefined ? { width: input.width } : {}),
+      ...(input.height !== undefined ? { height: input.height } : {}),
+      sentAt: input.sentAt,
+      ...(displayName ? { displayName } : {}),
+      ...(avatarUrl ? { avatarUrl } : {}),
+    };
+  }
   return {
     type: 'dm_message',
     schemaVersion: 1,
@@ -151,7 +196,13 @@ export async function pushDmMessageToRecipient(input: {
   senderSub: string;
   pairKey: string;
   messageId: string;
+  kind?: 'text' | 'gif';
   body: string;
+  giphyId?: string;
+  renditionUrl?: string;
+  title?: string;
+  width?: number;
+  height?: number;
   sentAt: number;
 }): Promise<void> {
   const connectionIds = await queryFanConnectionIdsForFanSub(
@@ -170,7 +221,13 @@ export async function pushDmMessageToRecipient(input: {
     pairKey: input.pairKey,
     messageId: input.messageId,
     senderSub: input.senderSub,
+    ...(input.kind !== undefined ? { kind: input.kind } : {}),
     body: input.body,
+    ...(input.giphyId !== undefined ? { giphyId: input.giphyId } : {}),
+    ...(input.renditionUrl !== undefined ? { renditionUrl: input.renditionUrl } : {}),
+    ...(input.title !== undefined ? { title: input.title } : {}),
+    ...(input.width !== undefined ? { width: input.width } : {}),
+    ...(input.height !== undefined ? { height: input.height } : {}),
     sentAt: input.sentAt,
     senderProfile,
   });

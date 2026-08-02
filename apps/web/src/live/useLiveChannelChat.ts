@@ -9,9 +9,10 @@ import {
 import { mergeChatHistory } from '../room/chatHistoryMerge'
 import { createChatMessageId } from '../room/chatMessageId'
 import { buildChatSystemLine } from '../room/chatSystemLine'
+import { TYPING_INDICATOR_TTL_MS, type RemoteTypingEntry } from '../room/chatTypingIndicators'
 import type { ChatLine } from '../room/roomPageTypes'
 import { useChatSession } from '../room/useChatSession'
-import type { ChatPresenceMember, TypingEvent } from '../room/sessions/ChatSession'
+import type { ChatPresenceMember } from '../room/sessions/ChatSession'
 
 /**
  * Hostless Live chat plane. Remount (or change `roomId` via a keyed parent) to clear
@@ -44,7 +45,7 @@ export function useLiveChannelChat(options: {
 
   const [chatDraft, setChatDraft] = useState('')
   const [presenceMembers, setPresenceMembers] = useState<ChatPresenceMember[]>([])
-  const [remoteTyping, setRemoteTyping] = useState<TypingEvent[]>([])
+  const [remoteTyping, setRemoteTyping] = useState<RemoteTypingEntry[]>([])
 
   useEffect(() => {
     const unsubs = [
@@ -89,7 +90,16 @@ export function useLiveChannelChat(options: {
         if (event.sessionId === sessionId) return
         setRemoteTyping((prev) => {
           const without = prev.filter((e) => e.sessionId !== event.sessionId)
-          return event.action === 'start' ? [...without, event] : without
+          return event.action === 'start'
+            ? [
+                ...without,
+                {
+                  sessionId: event.sessionId,
+                  displayName: event.displayName,
+                  expiresAt: Date.now() + TYPING_INDICATOR_TTL_MS,
+                },
+              ]
+            : without
         })
       }),
     ]
@@ -175,6 +185,7 @@ export function useLiveChannelChat(options: {
     toggleChatReaction,
     chatMemberLabels,
     remoteTyping,
+    presenceMembers,
     presenceCount: presenceMembers.length,
   }
 }

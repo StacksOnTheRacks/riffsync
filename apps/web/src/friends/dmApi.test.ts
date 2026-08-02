@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { postDmMessage } from './dmApi'
+import { fetchDmMessages, postDmMessage } from './dmApi'
 
 const getFanAccessToken = vi.fn<() => string | null>()
 
@@ -68,6 +68,42 @@ describe('postDmMessage', () => {
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.code).toBe('friendship_not_active')
+    }
+  })
+
+  it('keeps gif messages from history responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          messages: [
+            {
+              messageId: 'gif-1',
+              senderSub: 'a',
+              kind: 'gif',
+              body: 'dance',
+              giphyId: 'abc123',
+              renditionUrl: 'https://media.example/gif.gif',
+              title: 'Dance',
+              sentAt: 101,
+            },
+          ],
+          nextCursor: null,
+        }),
+      })),
+    )
+
+    const result = await fetchDmMessages('token', 'a#b')
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.page.messages[0]).toMatchObject({
+        kind: 'gif',
+        giphyId: 'abc123',
+        renditionUrl: 'https://media.example/gif.gif',
+      })
     }
   })
 })

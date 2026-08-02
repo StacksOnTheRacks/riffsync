@@ -55,6 +55,7 @@ vi.mock('../../friends/useRoomFriendsPane', () => ({
     cancelRemove: () => undefined,
     executeRemove: () => undefined,
     sendDm: () => undefined,
+    sendDmGif: () => undefined,
   }),
 }))
 

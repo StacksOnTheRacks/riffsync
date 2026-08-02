@@ -50,6 +50,7 @@ const mockUseRoomFriendsPane = vi.fn(() => ({
   cancelRemove: vi.fn(),
   executeRemove: vi.fn(),
   sendDm: vi.fn(),
+  sendDmGif: vi.fn(),
 }))
 
 vi.mock('../friends/useRoomFriendsPane', () => ({
@@ -252,6 +253,7 @@ describe('RoomPageSidebar friends tab (#364)', () => {
       cancelRemove: vi.fn(),
       executeRemove: vi.fn(),
       sendDm: vi.fn(),
+      sendDmGif: vi.fn(),
     })
 
     renderSidebar()
@@ -278,6 +280,20 @@ describe('RoomPageSidebar friends tab (#364)', () => {
     expect(mockRoomFriendsPane).toHaveBeenCalledWith(
       expect.objectContaining({ visible: false }),
     )
+  })
+
+  it('renders live tabs without Room or participant A/V controls', () => {
+    renderSidebar({ variant: 'live' })
+
+    const labels = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).map((node) =>
+      node.textContent?.replace(/\s+/g, ' ').trim(),
+    )
+    expect(labels[0]).toBe('Chat')
+    expect(labels[1]).toBe('People (2)')
+    expect(labels[2]).toMatch(/^Friends/)
+    expect(labels[3]).toBe('Profile')
+    expect(labels).not.toContain('Room')
+    expect(container.querySelector('.riffsync-room-av-toggle')).toBeNull()
   })
 })
 

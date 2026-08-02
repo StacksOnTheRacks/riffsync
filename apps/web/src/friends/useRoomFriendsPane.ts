@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { GiphySearchResult } from '../api/giphySearchApi'
 import { cognitoSub } from '../auth/jwtDecode'
 import type { DmDrawerError } from './dmDrawerCodes'
 import { ensureDmThread, fetchDmMessages, markDmRead, type DmMessage } from './dmApi'
@@ -49,6 +50,7 @@ export type RoomFriendsPaneState = {
   cancelRemove: () => void
   executeRemove: () => void
   sendDm: () => void
+  sendDmGif: (result: GiphySearchResult) => void
 }
 
 const DM_PUSH_FALLBACK_POLL_MS = 5_000
@@ -72,16 +74,35 @@ function mergeInboundMessage(existing: DmMessage[], inbound: InboundDmMessage): 
   if (existing.some((m) => m.messageId === inbound.messageId)) {
     return existing
   }
+  const nextMessage: DmMessage =
+    inbound.kind === 'gif'
+      ? {
+          messageId: inbound.messageId,
+          senderSub: inbound.senderSub,
+          kind: 'gif',
+          body: inbound.body,
+          giphyId: inbound.giphyId!,
+          renditionUrl: inbound.renditionUrl!,
+          ...(inbound.title !== undefined ? { title: inbound.title } : {}),
+          ...(inbound.width !== undefined ? { width: inbound.width } : {}),
+          ...(inbound.height !== undefined ? { height: inbound.height } : {}),
+          sentAt: inbound.sentAt,
+        }
+      : {
+          messageId: inbound.messageId,
+          senderSub: inbound.senderSub,
+          kind: 'text',
+          body: inbound.body,
+          sentAt: inbound.sentAt,
+        }
   return sortDmMessages([
     ...existing,
-    {
-      messageId: inbound.messageId,
-      senderSub: inbound.senderSub,
-      kind: 'text',
-      body: inbound.body,
-      sentAt: inbound.sentAt,
-    },
+    nextMessage,
   ])
+}
+
+function createDmMessageId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `dm-${Date.now()}`
 }
 
 async function markPeerMessagesRead(
@@ -355,10 +376,7 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
     const body = dmDraft.trim()
     if (!body) return
     setDmComposeError(null)
-    const messageId =
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `dm-${Date.now()}`
+    const messageId = createDmMessageId()
     const session = getSharedFanDmSession()
     const sent = await session.sendMessage(openPeer.pairKey, {
       messageId,
@@ -383,6 +401,49 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
     }
   }, [fanToken, openPeer, dmClosed, dmDraft, refreshRoster])
 
+  const sendDmGif = useCallback(
+    async (result: GiphySearchResult) => {
+      if (!fanToken || !openPeer || dmClosed) return
+      setDmComposeError(null)
+      const session = getSharedFanDmSession()
+      const sent = await session.sendMessage(openPeer.pairKey, {
+        messageId: createDmMessageId(),
+        kind: 'gif',
+        body: result.title?.trim() || '',
+        giphyId: result.giphyId,
+        renditionUrl: result.renditionUrl,
+        ...(result.title !== undefined && result.title.trim() !== '' ? { title: result.title.trim() } : {}),
+        ...(result.width !== undefined ? { width: result.width } : {}),
+        ...(result.height !== undefined ? { height: result.height } : {}),
+      })
+      if (sent) {
+        setDmMessages((current) =>
+          mergeInboundMessage(current, {
+            type: 'dm_message',
+            schemaVersion: 1,
+            pairKey: openPeer.pairKey,
+            messageId: sent.messageId,
+            senderSub: sent.senderSub,
+            kind: sent.kind,
+            body: sent.body,
+            ...(sent.kind === 'gif'
+              ? {
+                  giphyId: sent.giphyId,
+                  renditionUrl: sent.renditionUrl,
+                  ...(sent.title !== undefined ? { title: sent.title } : {}),
+                  ...(sent.width !== undefined ? { width: sent.width } : {}),
+                  ...(sent.height !== undefined ? { height: sent.height } : {}),
+                }
+              : {}),
+            sentAt: sent.sentAt,
+          }),
+        )
+        void refreshRoster()
+      }
+    },
+    [dmClosed, fanToken, openPeer, refreshRoster],
+  )
+
   return {
     loading,
     loadError,
@@ -406,5 +467,6 @@ export function useRoomFriendsPane(friendsTabActive: boolean, enabled: boolean):
     cancelRemove,
     executeRemove,
     sendDm,
+    sendDmGif,
   }
 }
