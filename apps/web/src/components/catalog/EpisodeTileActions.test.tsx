@@ -66,8 +66,27 @@ describe('EpisodeTileActions', () => {
     })
   }
 
-  it('links Watch Solo to /watch/:id for playable YouTube rows even when embedAllows is false', () => {
+  it('opens YouTube in a new tab for Watch Solo when embedAllows is false', () => {
     renderActions(episode({ embedAllows: false }))
+
+    const watchSolo = container.querySelector('button.gen-button--ghost') as HTMLButtonElement | null
+    expect(watchSolo).not.toBeNull()
+    expect(watchSolo?.disabled).toBe(false)
+    expect(container.querySelector('a.gen-button--ghost')).toBeNull()
+
+    act(() => {
+      watchSolo?.click()
+    })
+
+    expect(window.open).toHaveBeenCalledWith(
+      'https://www.youtube.com/watch?v=NXGXtm6gcxk',
+      '_blank',
+      'noopener,noreferrer',
+    )
+  })
+
+  it('links Watch Solo to /watch/:id for embeddable YouTube rows', () => {
+    renderActions(episode({ embedAllows: true }))
 
     const watchSolo = container.querySelector('a.gen-button--ghost') as HTMLAnchorElement | null
     expect(watchSolo?.getAttribute('href')).toBe('/watch/032-mitchell')

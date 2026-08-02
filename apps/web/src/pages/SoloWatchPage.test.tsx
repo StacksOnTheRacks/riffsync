@@ -161,6 +161,51 @@ describe('SoloWatchPage', () => {
     expect(container.querySelector('iframe[src^="https://example"]')).toBeNull()
   })
 
+  it('redirects non-embeddable YouTube-host rows straight to YouTube', () => {
+    const replace = vi.fn()
+    const originalLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...originalLocation, replace },
+    })
+
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({ embedAllows: false }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    expect(replace).toHaveBeenCalledWith('https://www.youtube.com/watch?v=NXGXtm6gcxk')
+    expect(container.textContent).toContain('Opening on YouTube')
+    expect(container.textContent).not.toContain('embedAllows')
+    expect(container.querySelector('[data-testid="solo-youtube-player"]')).toBeNull()
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    })
+  })
+
+  it('keeps party-capture embed-blocked copy when embedAllows is false', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({ embedAllows: false }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage('/watch/032-mitchell?partyCapture=1')
+
+    expect(container.textContent).toContain('This episode is not available for in-app playback.')
+    expect(container.querySelector('a[href="https://www.youtube.com/watch?v=NXGXtm6gcxk"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="solo-youtube-player"]')).toBeNull()
+  })
+
   it('uses party-capture layout shell for Custom-host rows', () => {
     useCatalogEpisodeQuery.mockReturnValue({
       data: episode({

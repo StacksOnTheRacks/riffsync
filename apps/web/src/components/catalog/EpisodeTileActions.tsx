@@ -1,10 +1,21 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { CatalogEpisode } from '../../catalog/catalogTypes'
 import { episodeIsPlayableInApp } from '../../catalog/catalogPlayback'
+import {
+  episodeAllowsInAppEmbed,
+  openCatalogYoutubeWatch,
+  resolveCatalogYoutubeWatchUrl,
+} from '../../catalog/catalogYoutubePlayback'
 import { catalogToRoomPlayback, createRoom } from '../../api/roomsApi'
 import { getFanAccessToken } from '../../auth/fanTokens'
 import { startFanHostedUiSignIn } from '../../auth/fanHostedUiPkce'
 import { PENDING_PARTY_EPISODE_KEY } from '../../catalog/pendingPartyStorage'
+
+function resolveExternalSoloWatchUrl(episode: CatalogEpisode): string | null {
+  if (episode.playbackHost === 'custom') return null
+  if (episodeAllowsInAppEmbed(episode)) return null
+  return resolveCatalogYoutubeWatchUrl(episode)
+}
 
 export function EpisodeTileActions({
   episode,
@@ -19,6 +30,7 @@ export function EpisodeTileActions({
   const token = getFanAccessToken()
   const returnPath = `${location.pathname}${location.search}` || '/'
   const playable = episodeIsPlayableInApp(episode)
+  const externalSoloWatchUrl = playable ? resolveExternalSoloWatchUrl(episode) : null
 
   const startParty = async () => {
     if (!token || !playable) return
@@ -49,9 +61,19 @@ export function EpisodeTileActions({
       }
     >
       {playable ? (
-        <Link to={`/watch/${episode.id}`} className="gen-button gen-button--ghost">
-          Watch Solo
-        </Link>
+        externalSoloWatchUrl ? (
+          <button
+            type="button"
+            className="gen-button gen-button--ghost"
+            onClick={() => openCatalogYoutubeWatch(externalSoloWatchUrl)}
+          >
+            Watch Solo
+          </button>
+        ) : (
+          <Link to={`/watch/${episode.id}`} className="gen-button gen-button--ghost">
+            Watch Solo
+          </Link>
+        )
       ) : (
         <button type="button" className="gen-button gen-button--ghost" disabled>
           Watch Solo

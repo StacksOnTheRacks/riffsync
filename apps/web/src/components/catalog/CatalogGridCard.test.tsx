@@ -122,11 +122,12 @@ describe('CatalogGridCard', () => {
     expect(container.textContent).not.toContain('In-app YouTube embed is not available')
   })
 
-  it('keeps Watch Solo enabled via internal link when embedAllows is false on YouTube-host rows', () => {
+  it('keeps Watch Solo enabled and opens YouTube when embedAllows is false on YouTube-host rows', () => {
     renderCard(episode({ embedAllows: false }))
 
-    const watchSolo = container.querySelector('a.gen-button--ghost') as HTMLAnchorElement | null
-    expect(watchSolo?.getAttribute('href')).toBe('/watch/032-mitchell')
-    expect(container.querySelector('button.gen-button--ghost')).toBeNull()
+    const watchSolo = container.querySelector('button.gen-button--ghost') as HTMLButtonElement | null
+    expect(watchSolo).not.toBeNull()
+    expect(watchSolo?.disabled).toBe(false)
+    expect(container.querySelector('a.gen-button--ghost')).toBeNull()
   })
 })

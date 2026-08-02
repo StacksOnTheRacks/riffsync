@@ -5,6 +5,10 @@ import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { PartyCaptureMediaPicker } from '../components/watch/PartyCaptureMediaPicker'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { EPISODE_UNAVAILABLE_MESSAGE, formatCatalogUserError } from '../catalog/catalogLoadError'
+import {
+  episodeAllowsInAppEmbed,
+  resolveCatalogYoutubeWatchUrl,
+} from '../catalog/catalogYoutubePlayback'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { getLivePathForEpisodeId } from '../live/liveChannels'
 
@@ -45,6 +49,14 @@ export function SoloWatchPage() {
 
   const { data: episode, isPending, isError, error, refetch } = useCatalogEpisodeQuery(catalogEpisodeId)
 
+  const externalYoutubeUrl =
+    !partyCapture &&
+    episode &&
+    episode.playbackHost !== 'custom' &&
+    !episodeAllowsInAppEmbed(episode)
+      ? resolveCatalogYoutubeWatchUrl(episode)
+      : null
+
   useEffect(() => {
     if (!partyCapture) {
       return
@@ -70,6 +82,19 @@ export function SoloWatchPage() {
       document.title = prev
     }
   }, [catalogEpisodeId, episode, isError, isPending, partyCapture])
+
+  useEffect(() => {
+    if (!externalYoutubeUrl) return
+    window.location.replace(externalYoutubeUrl)
+  }, [externalYoutubeUrl])
+
+  if (externalYoutubeUrl) {
+    return (
+      <div className="container riffsync-solo-watch">
+        <p role="status">Opening on YouTube…</p>
+      </div>
+    )
+  }
 
   if (isPending && !episode) {
     if (partyCapture) {
@@ -161,7 +186,7 @@ export function SoloWatchPage() {
   const hasCustomPlaybackUrl =
     playbackHost === 'custom' && customPlaybackUrl.startsWith('https://')
   const vid = episode.youtubeVideoId
-  const canEmbed = episode.embedAllows !== false
+  const canEmbed = episodeAllowsInAppEmbed(episode)
   const backdropImageUrl = episode.backdropImageUrl?.trim()
   const pageRoot =
     backdropImageUrl
@@ -209,8 +234,7 @@ export function SoloWatchPage() {
           )}
           {vid && !canEmbed && (
             <p role="alert">
-              This episode is not available for in-app playback (<code>embedAllows</code>). Open on YouTube if you have a
-              watch URL.
+              This episode is not available for in-app playback. Open on YouTube if you have a watch URL.
               {episode.youtubeWatchUrl && (
                 <>
                   {' '}
