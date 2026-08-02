@@ -4500,6 +4500,10 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   overflow: hidden;
 }
 
+.riffsync-live-page__chat .riffsync-room-page__chat {
+  padding-block: 0;
+}
+
 .riffsync-live-page__chat-bar {
   display: flex;
   align-items: baseline;
