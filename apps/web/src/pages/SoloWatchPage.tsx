@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { SoloCustomIframePlayer } from '../components/watch/SoloCustomIframePlayer'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
+import { PartyCaptureMediaPicker } from '../components/watch/PartyCaptureMediaPicker'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { EPISODE_UNAVAILABLE_MESSAGE, formatCatalogUserError } from '../catalog/catalogLoadError'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
@@ -173,7 +174,10 @@ export function SoloWatchPage() {
   return (
     <div className={pageRoot}>
       {partyCapture ? (
-        <PartyCaptureBanner key={catalogEpisodeId ?? 'episode'} />
+        <>
+          <PartyCaptureBanner key={catalogEpisodeId ?? 'episode'} />
+          <PartyCaptureMediaPicker currentEpisodeId={catalogEpisodeId} />
+        </>
       ) : null}
       {backdropImageUrl ? (
         <div

@@ -3545,6 +3545,148 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   background: rgb(255 255 255 / 0.2);
 }
 
+.riffsync-party-capture-picker {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  color: rgb(238 244 255);
+}
+
+.riffsync-party-capture-picker--collapsed {
+  min-height: 0.6rem;
+}
+
+.riffsync-party-capture-picker__hover-strip {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 0.6rem;
+  background: linear-gradient(180deg, rgb(120 170 230 / 0.55), rgb(30 58 95 / 0));
+  cursor: default;
+}
+
+.riffsync-party-capture-picker__panel {
+  position: relative;
+  z-index: 2;
+  max-height: 16rem;
+  overflow: hidden;
+  background: rgb(9 18 31 / 0.94);
+  border-bottom: 1px solid rgb(120 170 230 / 0.28);
+  box-shadow: 0 0.65rem 1.25rem rgb(0 0 0 / 0.28);
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease;
+}
+
+.riffsync-party-capture-picker--collapsed .riffsync-party-capture-picker__panel {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.75rem);
+}
+
+.riffsync-party-capture-picker__inner {
+  width: min(74rem, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0.7rem 0;
+  display: grid;
+  grid-template-columns: minmax(10rem, 1.1fr) minmax(10rem, 0.9fr) minmax(16rem, 1.6fr) auto;
+  align-items: end;
+  gap: 0.65rem 0.9rem;
+}
+
+.riffsync-party-capture-picker__copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.riffsync-party-capture-picker__copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+
+.riffsync-party-capture-picker__eyebrow,
+.riffsync-party-capture-picker__field span {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(180 203 234);
+}
+
+.riffsync-party-capture-picker__field {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.riffsync-party-capture-picker__field input,
+.riffsync-party-capture-picker__field select {
+  width: 100%;
+  min-height: 2.15rem;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.1);
+  color: rgb(250 253 255);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.riffsync-party-capture-picker__field input {
+  padding: 0.35rem 0.55rem;
+}
+
+.riffsync-party-capture-picker__field select {
+  padding: 0.35rem 0.45rem;
+}
+
+.riffsync-party-capture-picker__field input::placeholder {
+  color: rgb(213 226 245 / 0.6);
+}
+
+.riffsync-party-capture-picker__field select option {
+  color: rgb(9 18 31);
+}
+
+.riffsync-party-capture-picker__field input:focus,
+.riffsync-party-capture-picker__field select:focus {
+  border-color: rgb(154 203 255 / 0.85);
+  outline: 2px solid rgb(154 203 255 / 0.32);
+  outline-offset: 1px;
+}
+
+.riffsync-party-capture-picker__status {
+  min-width: 7rem;
+  min-height: 2.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: rgb(213 226 245 / 0.78);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.riffsync-party-capture-picker__status button {
+  padding: 0.35rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.12);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.riffsync-party-capture-picker__status button:hover,
+.riffsync-party-capture-picker__status button:focus {
+  background: rgb(255 255 255 / 0.2);
+}
+
 @keyframes riffsyncPartyCaptureBannerFadeOut {
   from {
     opacity: 1;
@@ -3574,6 +3716,23 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 @media (prefers-reduced-motion: reduce) {
   .riffsync-party-capture-banner--timed {
     animation: none;
+  }
+
+  .riffsync-party-capture-picker__panel {
+    transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .riffsync-party-capture-picker__inner {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .riffsync-party-capture-picker__status {
+    justify-content: flex-start;
+    min-height: 0;
+    text-align: left;
   }
 }
 

@@ -208,7 +208,7 @@ Follow repository **Node.js** and **TypeScript** versions from **`apps/web/packa
 
 - Staff admin UI: create YouTube-host and Custom-host episodes; edit host toggle retains opposite URL in form; reload edit shows persisted host + URLs from **`GET /v1/admin/catalog/episodes/:id`**.
 - Solo watch: Custom-host **`/watch/:id`** shows generic HTTPS iframe; missing URL shows blocked copy; known non-embeddable origin shows escape link (**#393**).
-- Party capture: **`/watch/:id?partyCapture=1`** with Custom host stretches iframe in capture layout; document title and banner unchanged (**#393**).
+- Party capture: **`/watch/:id?partyCapture=1`** with Custom host stretches iframe in capture layout; document title and banner unchanged (**#393**). The capture tab also owns a compact top media picker for switching the same tab to another playable catalog title via the existing host-source URL rules.
 - In-room host: Custom-host room shows **Open Source Tab** / **Share Source Tab** before capture; after **Share Source Tab**, guests receive WebRTC capture and host sees preview **`<video>`** (**#394**).
 - CSP smoke (**#395**): after CloudFront deploy, open Custom-host **`/watch/:id`** and **`?partyCapture=1`** — iframe loads staff embeddable HTTPS origin; browser devtools show no **`frame-src`** CSP violations; YouTube-host watch still frames YouTube.
 

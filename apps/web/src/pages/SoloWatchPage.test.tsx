@@ -9,9 +9,11 @@ import type { CatalogEpisode } from '../catalog/catalogTypes'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const useCatalogEpisodeQuery = vi.fn()
+const useCatalogListQuery = vi.fn()
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: (...args: unknown[]) => useCatalogEpisodeQuery(...args),
+  useCatalogListQuery: (...args: unknown[]) => useCatalogListQuery(...args),
 }))
 
 vi.mock('../components/watch/SoloYouTubePlayer', () => ({
@@ -52,6 +54,14 @@ describe('SoloWatchPage', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     useCatalogEpisodeQuery.mockReset()
+    useCatalogListQuery.mockReset()
+    useCatalogListQuery.mockReturnValue({
+      data: [episode()],
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
   })
 
   afterEach(() => {
@@ -168,6 +178,35 @@ describe('SoloWatchPage', () => {
     expect(container.querySelector('.riffsync-solo-watch-page--party-capture')).not.toBeNull()
     expect(container.querySelector('.riffsync-solo-watch__player-shell')).not.toBeNull()
     expect(container.querySelector('iframe')).not.toBeNull()
+  })
+
+  it('does not render the media picker outside party-capture mode', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({ embedAllows: true }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    expect(container.querySelector('.riffsync-party-capture-picker')).toBeNull()
+  })
+
+  it('renders the media picker in party-capture mode', () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({ embedAllows: true }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage('/watch/032-mitchell?partyCapture=1')
+
+    expect(container.querySelector('.riffsync-party-capture-picker')).not.toBeNull()
+    expect(container.textContent).toContain('Switch title')
   })
 
   it('shows embed-blocked copy when Custom iframe reports error', () => {
