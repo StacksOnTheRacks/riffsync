@@ -126,11 +126,10 @@ describe('LiveChannelPage', () => {
       expect(container.querySelector('[data-testid="yt-player"]')?.textContent).toBe('abcdefghijk')
     })
     expect(container.textContent).toContain('MST3K Forever-A-Thon')
-    expect(container.textContent).toContain('2 watching')
+    expect(container.textContent).toContain('People (2)')
+    expect(container.textContent).not.toContain('Room')
     expect(container.textContent).toContain('Sign In to Chat')
-    expect(container.querySelector('.riffsync-live-page__chat')?.classList.contains('riffsync-room-page__chat')).toBe(
-      true,
-    )
+    expect(container.querySelector('.riffsync-live-page__chat .riffsync-room-page__chat')).not.toBeNull()
   })
 
   it('hydrates signed-in fan display name before sending live chat identity', async () => {
