@@ -3373,7 +3373,8 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   margin-top: 1.15rem;
 }
 
-.riffsync-lobby-live {
+.riffsync-lobby-live,
+.riffsync-lobby-parties {
   padding: 0;
   margin: 0;
 }
