@@ -3366,15 +3366,16 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 }
 
 /* Lobby (slim rows) */
-.riffsync-lobby-page__lede {
-  margin-bottom: 0;
-  max-width: 42rem;
-  line-height: 1.45;
+.riffsync-lobby-columns {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 1.15rem;
 }
 
 .riffsync-lobby-live {
   padding: 0;
-  margin: 1.15rem 0 0;
+  margin: 0;
 }
 
 .riffsync-lobby-section-title {
@@ -3449,6 +3450,13 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 
 .riffsync-lobby-list__connections {
   color: rgb(220 228 238 / 0.88);
+}
+
+@media (min-width: 960px) {
+  .riffsync-lobby-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
 }
 
 /* Host broadcast control strip (optional layout) */

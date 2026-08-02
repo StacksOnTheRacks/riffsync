@@ -84,6 +84,7 @@ describe('LobbyPage', () => {
           catalogEpisodeId: 'ep-1',
           displayTitle: 'Night of the Living Bread',
           hostDisplayName: 'CosmicCrow123',
+          playbackExpectation: 'free',
           liveConnectionCount: 2,
           lastActivityAt: Date.now() - 60_000,
         },
@@ -97,6 +98,8 @@ describe('LobbyPage', () => {
 
     expect(container.textContent).toContain('Hosted by CosmicCrow123')
     expect(container.textContent).toContain('Night of the Living Bread')
+    expect(container.textContent).toContain('Watch parties')
+    expect(container.textContent).not.toContain('Likely ad-supported')
   })
 
   it('renders official live channels above lobby rooms', async () => {
@@ -108,6 +111,7 @@ describe('LobbyPage', () => {
     })
 
     expect(container.textContent).toContain('Live now')
+    expect(container.textContent).toContain('Watch parties')
     expect(container.textContent).toContain('MST3K Forever-A-Thon')
     expect(container.querySelector('a[href="/live/mst3k-forever-a-thon"]')?.textContent).toBe(
       'MST3K Forever-A-Thon',

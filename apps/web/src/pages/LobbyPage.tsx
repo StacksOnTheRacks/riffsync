@@ -3,9 +3,8 @@ import { Link } from 'react-router-dom'
 import type { LiveChannelSnapshot } from '../api/liveApi'
 import { fetchLiveChannels } from '../api/liveApi'
 import type { LobbyResponse } from '../api/roomsApi'
-import { fetchLobby, roomPlaybackForBadge } from '../api/roomsApi'
+import { fetchLobby } from '../api/roomsApi'
 import { ensureGuestSession } from '../session/guestSession'
-import { PlaybackExpectationBadge } from '../components/watch/PlaybackExpectationBadge'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 
 function formatLobbyActivity(lastActivityAt: number | undefined): string {
@@ -68,72 +67,71 @@ export function LobbyPage() {
   return (
     <div className="container riffsync-lobby-page">
       <h1>Lobby</h1>
-      <p className="riffsync-lobby-page__lede">
-        Join a public room from the list below. To host, sign in and start a room from the{' '}
-        <Link to="/catalog">catalog</Link>.
-      </p>
-      {liveChannels.length > 0 ? (
+      <div className="riffsync-lobby-columns">
         <section className="riffsync-lobby-live" aria-labelledby="riffsync-lobby-live-heading">
           <h2 id="riffsync-lobby-live-heading" className="riffsync-lobby-section-title">
             Live now
           </h2>
-          <ul className="riffsync-lobby-list">
-            {liveChannels.map((channel) => (
-              <li key={channel.slug} className="riffsync-lobby-list__item riffsync-lobby-list__item--live">
-                <div className="riffsync-lobby-list__body">
-                  <h3 className="riffsync-lobby-list__title">
-                    <span className="riffsync-lobby-list__live-dot" aria-label="Live" />
-                    <Link to={channel.path}>{channel.title}</Link>
-                  </h3>
-                  <p className="riffsync-lobby-list__host riffsync-muted">
-                    {channel.tagline?.trim() || 'Watch live on RiffSync with room chat.'}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      {!data ? (
-        <p>Loading lobby…</p>
-      ) : rooms.length === 0 ? (
-        <p>There are no public rooms right now.</p>
-      ) : (
-        <ul className="riffsync-lobby-list">
-          {rooms.map((row) => {
-            const headline = row.displayTitle ?? row.catalogEpisodeId
-            const badge = roomPlaybackForBadge(row.playbackExpectation)
-            const activity = formatLobbyActivity(row.lastActivityAt)
-            const live = row.liveConnectionCount ?? 0
-            return (
-              <li key={row.roomId} className="riffsync-lobby-list__item">
-                <div className="riffsync-lobby-list__body">
-                  <h2 className="riffsync-lobby-list__title">
-                    <Link to={`/room/${encodeURIComponent(row.roomId)}`}>{headline}</Link>
-                  </h2>
-                  <p className="riffsync-lobby-list__host riffsync-muted">
-                    Hosted by {row.hostDisplayName}
-                  </p>
-                  <div className="riffsync-lobby-list__stats">
-                    {activity ? (
-                      <span className="riffsync-lobby-list__activity riffsync-muted">{activity}</span>
-                    ) : null}
-                    <span className="riffsync-lobby-list__connections" title="Open WebSocket tabs or devices">
-                      {live} live {live === 1 ? 'connection' : 'connections'}
-                    </span>
-                    <PlaybackExpectationBadge expectation={badge} />
+          {liveChannels.length > 0 ? (
+            <ul className="riffsync-lobby-list">
+              {liveChannels.map((channel) => (
+                <li key={channel.slug} className="riffsync-lobby-list__item riffsync-lobby-list__item--live">
+                  <div className="riffsync-lobby-list__body">
+                    <h3 className="riffsync-lobby-list__title">
+                      <span className="riffsync-lobby-list__live-dot" aria-label="Live" />
+                      <Link to={channel.path}>{channel.title}</Link>
+                    </h3>
+                    <p className="riffsync-lobby-list__host riffsync-muted">
+                      {channel.tagline?.trim() || 'Watch live on RiffSync with room chat.'}
+                    </p>
                   </div>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-      <p>
-        <Link to="/catalog">Browse catalog</Link>
-        {' · '}
-        <Link to="/">Home</Link>
-      </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="riffsync-muted">No live channels right now.</p>
+          )}
+        </section>
+
+        <section className="riffsync-lobby-parties" aria-labelledby="riffsync-lobby-parties-heading">
+          <h2 id="riffsync-lobby-parties-heading" className="riffsync-lobby-section-title">
+            Watch parties
+          </h2>
+          {!data ? (
+            <p>Loading lobby…</p>
+          ) : rooms.length === 0 ? (
+            <p>There are no public rooms right now.</p>
+          ) : (
+            <ul className="riffsync-lobby-list">
+              {rooms.map((row) => {
+                const headline = row.displayTitle ?? row.catalogEpisodeId
+                const activity = formatLobbyActivity(row.lastActivityAt)
+                const live = row.liveConnectionCount ?? 0
+                return (
+                  <li key={row.roomId} className="riffsync-lobby-list__item">
+                    <div className="riffsync-lobby-list__body">
+                      <h3 className="riffsync-lobby-list__title">
+                        <Link to={`/room/${encodeURIComponent(row.roomId)}`}>{headline}</Link>
+                      </h3>
+                      <p className="riffsync-lobby-list__host riffsync-muted">
+                        Hosted by {row.hostDisplayName}
+                      </p>
+                      <div className="riffsync-lobby-list__stats">
+                        {activity ? (
+                          <span className="riffsync-lobby-list__activity riffsync-muted">{activity}</span>
+                        ) : null}
+                        <span className="riffsync-lobby-list__connections" title="Open WebSocket tabs or devices">
+                          {live} live {live === 1 ? 'connection' : 'connections'}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   )
 }
