@@ -265,7 +265,10 @@ jobs:
           API_STACK_NAME: RiffSyncApi-prod
           FAN_AUTH_STACK_NAME: RiffSyncFanAuth-prod
           STAFF_AUTH_STACK_NAME: RiffSyncStaffAuth-prod
-          PROD_CAST_RECEIVER_APP_ID: 77E78672
+          # Quoted: an unquoted 77E78672 parses as YAML float scientific notation
+          # (77 x 10^78672), overflowing to Infinity and shipping "Infinity" as the
+          # Cast receiver application id in the production bundle.
+          PROD_CAST_RECEIVER_APP_ID: "77E78672"
         run: |
           set -euo pipefail
           SITE_URL="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \

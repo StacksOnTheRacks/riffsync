@@ -214,9 +214,23 @@ function validateCastSessionApplicationId(
   throw new Error('Cast session application id mismatch after start')
 }
 
+// Google Cast receiver application ids are 8-character hex strings (e.g. "77E78672").
+// Validating the shape catches build-time corruption (for example an unquoted YAML
+// scientific-notation literal like `77E78672` overflowing to `Infinity`) before it is
+// ever handed to CastContext.setOptions, where a garbage-but-truthy id would silently
+// report zero compatible Cast devices instead of a clear configuration error.
+const CAST_RECEIVER_APPLICATION_ID_PATTERN = /^[0-9A-F]{8}$/i
+
 export function getCastReceiverApplicationId(): string | null {
   const configured = import.meta.env.VITE_CAST_RECEIVER_APP_ID?.trim()
-  return configured || null
+  if (!configured) return null
+  if (!CAST_RECEIVER_APPLICATION_ID_PATTERN.test(configured)) {
+    console.error('[RiffSync Cast] configured receiver application id is not a valid Cast application id', {
+      configured,
+    })
+    return null
+  }
+  return configured
 }
 
 export async function prepareDefaultCastSenderClient(): Promise<boolean> {

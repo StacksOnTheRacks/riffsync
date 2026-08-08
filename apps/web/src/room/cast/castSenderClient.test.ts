@@ -36,7 +36,7 @@ type CastSenderTestWindow = Window & {
 
 function installCastFramework({
   includeAutoJoinPolicy = true,
-  sessionApplicationId = 'receiver-app-id',
+  sessionApplicationId = '77E78672',
 }: {
   includeAutoJoinPolicy?: boolean
   sessionApplicationId?: string | null
@@ -96,13 +96,13 @@ describe('prepareDefaultCastSenderClient', () => {
   })
 
   it('configures CastContext for availability without requesting a session', async () => {
-    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { context } = installCastFramework()
 
     await expect(prepareDefaultCastSenderClient()).resolves.toBe(true)
 
     expect(context.setOptions).toHaveBeenCalledWith({
-      receiverApplicationId: 'receiver-app-id',
+      receiverApplicationId: '77E78672',
       autoJoinPolicy: 'origin_scoped',
     })
     expect(context.requestSession).not.toHaveBeenCalled()
@@ -114,8 +114,28 @@ describe('prepareDefaultCastSenderClient', () => {
     await expect(prepareDefaultCastSenderClient()).resolves.toBe(false)
   })
 
+  it('returns false when the receiver application id is not a valid Cast application id', async () => {
+    // Regression coverage for a real production incident: an unquoted `77E78672`
+    // in deploy-prod.yml's workflow YAML parsed as scientific-notation float,
+    // overflowed to Infinity, and shipped the literal string "Infinity" as the
+    // Cast receiver application id in the production bundle.
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'Infinity')
+    const { context } = installCastFramework()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await expect(prepareDefaultCastSenderClient()).resolves.toBe(false)
+    expect(context.setOptions).not.toHaveBeenCalled()
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[RiffSync Cast] configured receiver application id is not a valid Cast application id',
+      { configured: 'Infinity' },
+    )
+
+    consoleErrorSpy.mockRestore()
+  })
+
   it('returns false when CastContext configuration fails', async () => {
-    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { context } = installCastFramework({ includeAutoJoinPolicy: false })
 
     await expect(prepareDefaultCastSenderClient()).resolves.toBe(false)
@@ -131,7 +151,7 @@ describe('createDefaultCastSenderClient', () => {
   })
 
   it('reuses the CastContext configured during availability probing without calling setOptions again', async () => {
-    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { context } = installCastFramework()
 
     await expect(prepareDefaultCastSenderClient()).resolves.toBe(true)
@@ -145,7 +165,7 @@ describe('createDefaultCastSenderClient', () => {
   })
 
   it('requests the Cast session synchronously for the user gesture', async () => {
-    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { context } = installCastFramework()
 
     const promise = createDefaultCastSenderClient().requestSession()
@@ -164,8 +184,32 @@ describe('createDefaultCastSenderClient', () => {
     expect(context.setOptions).not.toHaveBeenCalled()
   })
 
+  it('fails before requesting a session when the receiver application id is not a valid Cast application id', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'Infinity')
+    const { context } = installCastFramework()
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    expect(() => createDefaultCastSenderClient().requestSession()).toThrow(
+      'Cast receiver application id is not configured',
+    )
+    expect(context.requestSession).not.toHaveBeenCalled()
+    expect(context.setOptions).not.toHaveBeenCalled()
+
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('accepts a lowercase hex receiver application id', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77e78672')
+    const { context } = installCastFramework({ sessionApplicationId: '77e78672' })
+
+    await createDefaultCastSenderClient().requestSession()
+
+    expect(context.requestSession).toHaveBeenCalled()
+  })
+
   it('fails when Cast start completes without an active session', async () => {
-    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { context, currentSession } = installCastFramework()
     currentSession.value = null
 
@@ -176,7 +220,7 @@ describe('createDefaultCastSenderClient', () => {
   })
 
   it('rejects a resolved session for a different receiver application id', async () => {
-    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { context, session } = installCastFramework({ sessionApplicationId: 'default-media-receiver' })
 
     await expect(createDefaultCastSenderClient().requestSession()).rejects.toThrow(
@@ -187,7 +231,7 @@ describe('createDefaultCastSenderClient', () => {
   })
 
   it('rejects a resolved session when the receiver application id cannot be read', async () => {
-    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { session } = installCastFramework({ sessionApplicationId: null })
 
     await expect(createDefaultCastSenderClient().requestSession()).rejects.toThrow(
