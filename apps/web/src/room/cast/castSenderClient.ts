@@ -202,8 +202,15 @@ function validateCastSessionApplicationId(
   if (actualApplicationId === receiverApplicationId) return
 
   if (!actualApplicationId) {
+    console.error('[RiffSync Cast] session application id unavailable after start', {
+      expectedApplicationId: receiverApplicationId,
+    })
     throw new Error('Cast session application id unavailable after start')
   }
+  console.error('[RiffSync Cast] session application id mismatch after start', {
+    expectedApplicationId: receiverApplicationId,
+    actualApplicationId,
+  })
   throw new Error('Cast session application id mismatch after start')
 }
 
@@ -252,6 +259,7 @@ export function createDefaultCastSenderClient(): CastSenderClient {
             if (!session) {
               settled = true
               context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
+              console.error('[RiffSync Cast] context.getCurrentSession() returned null after requestSession resolved')
               reject(new Error('Cast session unavailable after start'))
               return
             }
@@ -265,13 +273,18 @@ export function createDefaultCastSenderClient(): CastSenderClient {
             }
             settled = true
             context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
+            console.info('[RiffSync Cast] requestSession resolved', {
+              receiverApplicationId,
+              sessionAppId: readCastSessionApplicationId(session),
+            })
             resolve(wrapCastSession(session, context, framework))
           })
-          .catch((error: unknown) => {
+          .catch((rawReason: unknown) => {
             if (settled) return
             settled = true
             context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
-            reject(error instanceof Error ? error : new Error('Cast session request failed'))
+            console.error('[RiffSync Cast] requestSession rejected', rawReason)
+            reject(new Error('Cast session request failed', { cause: rawReason }))
           })
       })
     },

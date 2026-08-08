@@ -196,7 +196,9 @@ export function createCastStartController({
       })
 
       launchTimer = setTimeout(() => {
-        launchAbortReject?.(new Error('Cast launch timed out'))
+        const timeoutError = new Error('Cast launch timed out')
+        console.error('[RiffSync Cast] startCast launch timed out waiting for requestSession', timeoutError)
+        launchAbortReject?.(timeoutError)
       }, launchTimeoutMs)
 
       try {
@@ -218,8 +220,9 @@ export function createCastStartController({
           type: 'presentation_snapshot',
           snapshot,
         })
-      } catch {
+      } catch (error) {
         clearLaunchTimer()
+        console.error('[RiffSync Cast] startCast failed', error)
         if (lifecycle !== 'launching') return
         await failStart()
       }
