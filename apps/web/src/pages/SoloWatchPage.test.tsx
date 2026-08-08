@@ -16,10 +16,42 @@ vi.mock('../catalog/catalogQueries', () => ({
   useCatalogListQuery: (...args: unknown[]) => useCatalogListQuery(...args),
 }))
 
+const youtubePlayerFail = vi.hoisted(() => ({ value: false }))
+
 vi.mock('../components/watch/SoloYouTubePlayer', () => ({
-  SoloYouTubePlayer: ({ videoId, titleHint }: { videoId: string; titleHint: string }) => (
-    <div data-testid="solo-youtube-player" data-video-id={videoId} data-title={titleHint} />
-  ),
+  SoloYouTubePlayer: ({
+    videoId,
+    titleHint,
+    watchUrl,
+  }: {
+    videoId: string
+    titleHint: string
+    watchUrl?: string | null
+  }) =>
+    youtubePlayerFail.value ? (
+      <div className="riffsync-solo-player" data-testid="solo-youtube-player-error">
+        <div className="riffsync-solo-player__chrome" aria-live="polite">
+          <p role="alert">
+            This video link is broken.
+            {watchUrl ? (
+              <>
+                {' '}
+                <a href={watchUrl} rel="noreferrer" target="_blank">
+                  Open on YouTube
+                </a>
+              </>
+            ) : null}
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div
+        data-testid="solo-youtube-player"
+        data-video-id={videoId}
+        data-title={titleHint}
+        data-watch-url={watchUrl ?? ''}
+      />
+    ),
 }))
 
 function episode(overrides: Partial<CatalogEpisode> = {}): CatalogEpisode {
@@ -53,6 +85,7 @@ describe('SoloWatchPage', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    youtubePlayerFail.value = false
     useCatalogEpisodeQuery.mockReset()
     useCatalogListQuery.mockReset()
     useCatalogListQuery.mockReturnValue({
@@ -275,5 +308,27 @@ describe('SoloWatchPage', () => {
 
     expect(container.textContent).toContain('This page could not be embedded in RiffSync.')
     expect(container.querySelector('a[href="https://example.test/movie"]')).not.toBeNull()
+  })
+
+  it('keeps Solo page shell when the YouTube embed reports a broken link', () => {
+    youtubePlayerFail.value = true
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({ embedAllows: true }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    expect(container.querySelector('.riffsync-solo-watch-page')).not.toBeNull()
+    expect(container.querySelector('.riffsync-solo-watch__player-shell')).not.toBeNull()
+    expect(container.querySelector('[data-testid="solo-youtube-player-error"]')).not.toBeNull()
+    expect(container.textContent).toContain('This video link is broken.')
+    expect(
+      container.querySelector('a[href="https://www.youtube.com/watch?v=NXGXtm6gcxk"]')?.textContent,
+    ).toBe('Open on YouTube')
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('Mitchell')
   })
 })

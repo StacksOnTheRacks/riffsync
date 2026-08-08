@@ -175,6 +175,7 @@ function LiveChannelReady(props: {
             videoId={channel.youtubeVideoId}
             titleHint={channel.title}
             autoPlay
+            watchUrl={channel.youtubeWatchUrl}
           />
         ) : (
           <p className="riffsync-live-page__status" role="status">

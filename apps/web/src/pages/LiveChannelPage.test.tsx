@@ -36,10 +36,37 @@ vi.mock('../session/guestSession', () => ({
   setGuestDisplayName: (displayName: string) => setGuestDisplayName(displayName),
 }))
 
+const youtubePlayerFail = vi.hoisted(() => ({ value: false }))
+
 vi.mock('../components/watch/SoloYouTubePlayer', () => ({
-  SoloYouTubePlayer: ({ videoId }: { videoId: string }) => (
-    <div data-testid="yt-player">{videoId}</div>
-  ),
+  SoloYouTubePlayer: ({
+    videoId,
+    watchUrl,
+  }: {
+    videoId: string
+    watchUrl?: string | null
+  }) =>
+    youtubePlayerFail.value ? (
+      <div className="riffsync-solo-player" data-testid="yt-player-error">
+        <div className="riffsync-solo-player__chrome" aria-live="polite">
+          <p role="alert">
+            This video link is broken.
+            {watchUrl ? (
+              <>
+                {' '}
+                <a href={watchUrl} rel="noreferrer" target="_blank">
+                  Open on YouTube
+                </a>
+              </>
+            ) : null}
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div data-testid="yt-player" data-watch-url={watchUrl ?? ''}>
+        {videoId}
+      </div>
+    ),
 }))
 
 vi.mock('../room/ChatComposeMediaPicker', () => ({
@@ -70,6 +97,7 @@ describe('LiveChannelPage', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    youtubePlayerFail.value = false
     fetchLiveChannel.mockReset()
     fetchFanProfile.mockReset()
     useFanSession.mockReset()
@@ -184,5 +212,41 @@ describe('LiveChannelPage', () => {
       expect(fetchLiveChannel).toHaveBeenCalledWith('not-a-channel')
       expect(container.textContent).toContain('Live channel not found')
     })
+  })
+
+  it('keeps chat chrome when the YouTube embed reports a broken link', async () => {
+    youtubePlayerFail.value = true
+    fetchLiveChannel.mockResolvedValue({
+      slug: 'mst3k-forever-a-thon',
+      path: '/live/mst3k-forever-a-thon',
+      roomId: 'live-mst3k-forever-a-thon',
+      catalogEpisodeId: 'mst3k-forever-a-thon',
+      enabled: true,
+      title: 'MST3K Forever-A-Thon',
+      tagline: '24/7',
+      posterImageUrl: null,
+      backdropImageUrl: null,
+      youtubeVideoId: 'retiredLiveId',
+      youtubeWatchUrl: 'https://www.youtube.com/watch?v=retiredLiveId',
+      embedAllows: true,
+      playbackHost: 'youtube',
+    })
+
+    await act(async () => {
+      renderLive(root, '/live/mst3k-forever-a-thon', queryClient)
+    })
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('[data-testid="yt-player-error"]')).not.toBeNull()
+    })
+
+    expect(container.textContent).toContain('This video link is broken.')
+    expect(
+      container.querySelector('a[href="https://www.youtube.com/watch?v=retiredLiveId"]')?.textContent,
+    ).toBe('Open on YouTube')
+    expect(container.textContent).toContain('People (2)')
+    expect(container.textContent).toContain('Sign In to Chat')
+    expect(container.querySelector('.riffsync-live-page__chat .riffsync-room-page__chat')).not.toBeNull()
+    expect(container.querySelector('.riffsync-live-page__layout')).not.toBeNull()
   })
 })

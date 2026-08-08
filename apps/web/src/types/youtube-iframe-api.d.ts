@@ -4,7 +4,10 @@ export {}
 declare global {
   interface Window {
     YT?: {
-      Player: new (elementId: string, options: YtPlayerOptions) => YtPlayer
+      Player: new (
+        elementIdOrElement: string | HTMLElement,
+        options: YtPlayerOptions,
+      ) => YtPlayer
     }
     onYouTubeIframeAPIReady?: () => void
   }
