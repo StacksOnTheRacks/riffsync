@@ -2,9 +2,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CastPresentationSnapshot } from '../../room/cast/castChannelProtocol'
 import { RIFFSYNC_CAST_NAMESPACE } from '../../room/cast/castChannelProtocol'
-import { startCastReceiverSession, sendCastReceiverRendered } from './castReceiverSession'
+import {
+  sendCastReceiverRenderFailed,
+  sendCastReceiverRendered,
+  startCastReceiverSession,
+} from './castReceiverSession'
 
-type ReceiverMessageHandler = (event: { data?: unknown }) => void
+type ReceiverMessageHandler = (event: { data?: unknown; senderId?: string }) => void
 
 type CastReceiverTestWindow = Window & {
   cast?: {
@@ -67,8 +71,8 @@ function installReceiverFramework() {
 
   return {
     context,
-    emitMessage: (data: unknown) => {
-      messageHandler?.({ data })
+    emitMessage: (data: unknown, senderId = 'sender-1') => {
+      messageHandler?.({ data, senderId })
     },
   }
 }
@@ -131,17 +135,35 @@ describe('startCastReceiverSession', () => {
 
   it('sendCastReceiverRendered emits receiver_rendered with snapshotId and render flags', async () => {
     const receiver = await startReceiver()
+    receiver.emitMessage({ type: 'presentation_snapshot', snapshot }, 'sender-42')
 
     sendCastReceiverRendered(receiver.context, 'snap-receiver-1')
 
     expect(receiver.context.sendCustomMessage).toHaveBeenCalledWith(
       RIFFSYNC_CAST_NAMESPACE,
+      'sender-42',
       JSON.stringify({
         type: 'receiver_rendered',
         schemaVersion: 1,
         snapshotId: 'snap-receiver-1',
         stagePrimaryRendered: true,
         chatOverlayRendered: true,
+      }),
+    )
+  })
+
+  it('sendCastReceiverRenderFailed emits render_failed to the active sender', async () => {
+    const receiver = await startReceiver()
+    receiver.emitMessage({ type: 'presentation_snapshot', snapshot }, 'sender-42')
+
+    sendCastReceiverRenderFailed(receiver.context, 'transport_disconnected')
+
+    expect(receiver.context.sendCustomMessage).toHaveBeenCalledWith(
+      RIFFSYNC_CAST_NAMESPACE,
+      'sender-42',
+      JSON.stringify({
+        type: 'render_failed',
+        reason: 'transport_disconnected',
       }),
     )
   })

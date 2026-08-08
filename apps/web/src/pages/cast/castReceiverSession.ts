@@ -32,12 +32,13 @@ type CastReceiverContextInstance = {
   start: (options?: CastReceiverOptions) => void
   addCustomMessageListener: (
     namespace: string,
-    handler: (event: { data?: unknown }) => void,
+    handler: (event: { data?: unknown; senderId?: string }) => void,
   ) => void
-  sendCustomMessage: (namespace: string, message: unknown) => void
+  sendCustomMessage: (namespace: string, senderId: string | undefined, message: unknown) => void
 }
 
 let activeReceiverContext: CastReceiverContextInstance | null = null
+let activeReceiverSenderId: string | undefined
 
 function parseSenderMessage(raw: unknown): CastSenderOutboundMessage | null {
   if (!raw || typeof raw !== 'object') return null
@@ -99,8 +100,10 @@ export async function startCastReceiverSession(
 
   const context = framework.CastReceiverContext.getInstance()
   activeReceiverContext = context
+  activeReceiverSenderId = undefined
 
   context.addCustomMessageListener(RIFFSYNC_CAST_NAMESPACE, (event) => {
+    activeReceiverSenderId = typeof event.senderId === 'string' ? event.senderId : undefined
     if (!event.data) return
     try {
       const raw = typeof event.data === 'string' ? JSON.parse(event.data) as unknown : event.data
@@ -135,6 +138,7 @@ export async function startCastReceiverSession(
 export function sendCastReceiverRendered(context: CastReceiverContextInstance, snapshotId: string): void {
   context.sendCustomMessage(
     RIFFSYNC_CAST_NAMESPACE,
+    activeReceiverSenderId,
     JSON.stringify({
       type: 'receiver_rendered',
       schemaVersion: 1,
@@ -151,6 +155,7 @@ export function sendCastReceiverRenderFailed(
 ): void {
   context.sendCustomMessage(
     RIFFSYNC_CAST_NAMESPACE,
+    activeReceiverSenderId,
     JSON.stringify({ type: 'render_failed', reason }),
   )
 }
