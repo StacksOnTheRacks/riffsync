@@ -142,13 +142,13 @@ describe('startCastReceiverSession', () => {
     expect(receiver.context.sendCustomMessage).toHaveBeenCalledWith(
       RIFFSYNC_CAST_NAMESPACE,
       'sender-42',
-      JSON.stringify({
+      {
         type: 'receiver_rendered',
         schemaVersion: 1,
         snapshotId: 'snap-receiver-1',
         stagePrimaryRendered: true,
         chatOverlayRendered: true,
-      }),
+      },
     )
   })
 
@@ -161,10 +161,10 @@ describe('startCastReceiverSession', () => {
     expect(receiver.context.sendCustomMessage).toHaveBeenCalledWith(
       RIFFSYNC_CAST_NAMESPACE,
       'sender-42',
-      JSON.stringify({
+      {
         type: 'render_failed',
         reason: 'transport_disconnected',
-      }),
+      },
     )
   })
 })

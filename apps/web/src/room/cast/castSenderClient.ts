@@ -57,8 +57,8 @@ type CastContextInstance = {
 
 type CastSessionInstance = {
   sendMessage: (namespace: string, message: unknown) => Promise<void>
-  addMessageListener: (namespace: string, handler: (namespace: string, message: string) => void) => void
-  removeMessageListener: (namespace: string, handler: (namespace: string, message: string) => void) => void
+  addMessageListener: (namespace: string, handler: (namespace: string, message: unknown) => void) => void
+  removeMessageListener: (namespace: string, handler: (namespace: string, message: unknown) => void) => void
   endSession: (stopCasting?: boolean) => void
   getSessionObj?: () => { appId?: string }
   getApplicationMetadata?: () => { applicationId?: string }
@@ -144,9 +144,9 @@ function wrapCastSession(
   const sessionEndedListeners = new Set<() => void>()
   let activeRoute = true
 
-  const frameworkListener = (_namespace: string, message: string) => {
+  const frameworkListener = (_namespace: string, message: unknown) => {
     try {
-      const parsed = JSON.parse(message) as unknown
+      const parsed = typeof message === 'string' ? JSON.parse(message) as unknown : message
       for (const listener of listeners) listener(parsed)
     } catch {
       /* Ignore malformed receiver messages. */

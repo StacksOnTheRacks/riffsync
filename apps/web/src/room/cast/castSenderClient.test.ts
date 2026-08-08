@@ -208,6 +208,25 @@ describe('createDefaultCastSenderClient', () => {
     expect(context.requestSession).toHaveBeenCalled()
   })
 
+  it('delivers receiver messages sent as object payloads', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
+    const { session } = installCastFramework()
+    const handle = await createDefaultCastSenderClient().requestSession()
+    const handler = vi.fn()
+    handle.addMessageListener(handler)
+
+    const frameworkListener = session.addMessageListener.mock.calls[0]?.[1]
+    frameworkListener?.('urn:x-cast:com.riffsync.presentation', {
+      type: 'render_failed',
+      reason: 'transport_disconnected',
+    })
+
+    expect(handler).toHaveBeenCalledWith({
+      type: 'render_failed',
+      reason: 'transport_disconnected',
+    })
+  })
+
   it('fails when Cast start completes without an active session', async () => {
     vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { context, currentSession } = installCastFramework()

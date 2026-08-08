@@ -177,6 +177,7 @@ describe('createCastStartController', () => {
 
   it('maps render confirmation timeout to start_failed', async () => {
     vi.useFakeTimers()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const session = createMockSession({})
     const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 50 })
 
@@ -186,6 +187,11 @@ describe('createCastStartController', () => {
 
     expect(controller.getState().lifecycle).toBe('start_failed')
     expect(session.end).toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalledWith('[RiffSync Cast] receiver render confirmation timed out', {
+      snapshotId: snapshot.snapshotId,
+      lifecycle: 'session_pending_render',
+    })
+    consoleError.mockRestore()
     vi.useRealTimers()
   })
 

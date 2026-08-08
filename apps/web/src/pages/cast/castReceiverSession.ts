@@ -139,13 +139,13 @@ export function sendCastReceiverRendered(context: CastReceiverContextInstance, s
   context.sendCustomMessage(
     RIFFSYNC_CAST_NAMESPACE,
     activeReceiverSenderId,
-    JSON.stringify({
+    {
       type: 'receiver_rendered',
       schemaVersion: 1,
       snapshotId,
       stagePrimaryRendered: true,
       chatOverlayRendered: true,
-    }),
+    },
   )
 }
 
@@ -156,7 +156,7 @@ export function sendCastReceiverRenderFailed(
   context.sendCustomMessage(
     RIFFSYNC_CAST_NAMESPACE,
     activeReceiverSenderId,
-    JSON.stringify({ type: 'render_failed', reason }),
+    { type: 'render_failed', reason },
   )
 }
 

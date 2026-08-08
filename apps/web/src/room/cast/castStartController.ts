@@ -217,6 +217,10 @@ export function createCastStartController({
         attachSession(nextSession)
 
         confirmationTimer = setTimeout(() => {
+          console.error('[RiffSync Cast] receiver render confirmation timed out', {
+            snapshotId: pendingSnapshotId,
+            lifecycle,
+          })
           void failStart()
         }, confirmationTimeoutMs)
 
