@@ -65,9 +65,38 @@ describe('CastReceiverPresentation', () => {
     expect(container.querySelector('iframe')?.getAttribute('src')).toContain('abc123')
   })
 
-  it('shows empty chat overlay copy when chat messages are absent', () => {
+  it('keeps empty chat overlay quiet when chat messages are absent', () => {
     renderPresentation(youtubeSnapshot, [])
-    expect(container.textContent).toContain(CAST_RECEIVER_COPY.emptyChat)
+    expect(container.querySelector('[data-testid="cast-receiver-chat-overlay"]')).not.toBeNull()
+    expect(container.querySelector('.riffsync-cast-receiver__chat-log')).not.toBeNull()
+    expect(container.textContent).not.toContain('Chat will appear here.')
+  })
+
+  it('renders multiple chat lines and scrolls the TV overlay to the latest message', () => {
+    const scrollHeightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollHeight')
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get: () => 432,
+    })
+
+    try {
+      renderPresentation(youtubeSnapshot, [
+        { id: 'm1', kind: 'text', text: 'Fan: first', senderLabel: 'Fan' },
+        { id: 'm2', kind: 'text', text: 'Guest: second', senderLabel: 'Guest' },
+      ])
+
+      const chatLog = container.querySelector('.riffsync-cast-receiver__chat-log') as HTMLUListElement | null
+      expect(chatLog).not.toBeNull()
+      expect(chatLog?.textContent).toContain('Fan: first')
+      expect(chatLog?.textContent).toContain('Guest: second')
+      expect(chatLog?.scrollTop).toBe(432)
+    } finally {
+      if (scrollHeightDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollHeight', scrollHeightDescriptor)
+      } else {
+        delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight
+      }
+    }
   })
 
   it('maps waiting stage labels to receiver room-video copy', () => {

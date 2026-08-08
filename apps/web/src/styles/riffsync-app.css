@@ -2842,7 +2842,7 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   width: clamp(22rem, 34vw, 42rem);
   max-width: 40%;
   max-height: 45%;
-  min-height: 8rem;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -2867,27 +2867,28 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   }
 }
 
-.riffsync-cast-receiver__chat-empty {
-  margin: 0;
-  padding: 0.75rem;
-  font-size: 0.92rem;
-  line-height: 1.35;
-  color: rgb(255 255 255 / 0.72);
-  font-style: italic;
-}
-
 .riffsync-cast-receiver__chat-log {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   list-style: none;
+  min-height: 0;
   margin: 0;
   padding: 0.75rem;
   overflow-y: auto;
-  flex: 1;
+  overflow-x: hidden;
+}
+
+.riffsync-cast-receiver__chat-log > :first-child {
+  margin-top: auto;
 }
 
 .riffsync-cast-receiver__chat-line {
   margin: 0 0 0.45rem;
   font-size: 0.92rem;
-  line-height: 1.35;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .riffsync-cast-receiver__chat-line--system {
@@ -3621,15 +3622,15 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 }
 
 .riffsync-party-capture-picker--collapsed {
-  min-height: 0.6rem;
+  min-height: 1px;
 }
 
 .riffsync-party-capture-picker__hover-strip {
   position: absolute;
   inset: 0 0 auto;
   z-index: 1;
-  height: 0.6rem;
-  background: linear-gradient(180deg, rgb(120 170 230 / 0.55), rgb(30 58 95 / 0));
+  height: 0.9rem;
+  background: transparent;
   cursor: default;
 }
 

@@ -8,12 +8,19 @@ type CastReceiverChatOverlayProps = {
 }
 
 export function CastReceiverChatOverlay({ messages }: CastReceiverChatOverlayProps) {
+  const chatLogRef = useRef<HTMLUListElement | null>(null)
   const overlayMessages: ChatOverlayMessage[] = messages.map((line) => ({
     id: line.id,
     kind: line.kind,
     text: line.text,
     senderLabel: line.senderLabel,
   }))
+
+  useEffect(() => {
+    const chatLog = chatLogRef.current
+    if (!chatLog) return
+    chatLog.scrollTop = chatLog.scrollHeight
+  }, [messages])
 
   return (
     <section
@@ -22,9 +29,9 @@ export function CastReceiverChatOverlay({ messages }: CastReceiverChatOverlayPro
       data-testid="cast-receiver-chat-overlay"
     >
       <ChatOverlayMessageList
+        ref={chatLogRef}
         variant="cast"
         messages={overlayMessages}
-        emptyMessage={CAST_RECEIVER_COPY.emptyChat}
       />
     </section>
   )

@@ -4,7 +4,6 @@ export const CAST_RECEIVER_COPY = {
   waitingForPresentation: 'Waiting for party presentation...',
   waitingForRoomVideo: 'Waiting for room video...',
   playbackNeedsAttention: 'Playback needs attention on the sender.',
-  emptyChat: 'Chat will appear here.',
 } as const
 
 export function resolveCastReceiverStagePlaceholder(

@@ -6,7 +6,7 @@ import type { CatalogEpisode } from '../../catalog/catalogTypes'
 import { getPublicOrigin } from '../../config/publicOrigin'
 import { resolveHostSourceTabUrl } from '../../room/hostSourceTab'
 
-const AUTO_HIDE_MS = 60_000
+const AUTO_HIDE_MS = 5_000
 const LEAVE_HIDE_MS = 700
 const EMPTY_CATALOG_ENTRIES: CatalogEpisode[] = []
 
@@ -26,7 +26,7 @@ export function PartyCaptureMediaPicker({
 }: PartyCaptureMediaPickerProps) {
   const { data, isPending, isError, refetch } = useCatalogListQuery()
   const [titleQuery, setTitleQuery] = useState('')
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
   const autoHideTimerRef = useRef<number | undefined>(undefined)
   const leaveHideTimerRef = useRef<number | undefined>(undefined)
 
@@ -50,19 +50,23 @@ export function PartyCaptureMediaPicker({
   }, [currentEntry, filteredEntries])
 
   useEffect(() => {
-    autoHideTimerRef.current = window.setTimeout(() => {
-      setExpanded(false)
-    }, AUTO_HIDE_MS)
+    if (expanded) {
+      autoHideTimerRef.current = window.setTimeout(() => {
+        setExpanded(false)
+      }, AUTO_HIDE_MS)
+    }
 
     return () => {
       if (autoHideTimerRef.current !== undefined) {
         window.clearTimeout(autoHideTimerRef.current)
+        autoHideTimerRef.current = undefined
       }
       if (leaveHideTimerRef.current !== undefined) {
         window.clearTimeout(leaveHideTimerRef.current)
+        leaveHideTimerRef.current = undefined
       }
     }
-  }, [])
+  }, [expanded])
 
   const showPicker = () => {
     if (leaveHideTimerRef.current !== undefined) {

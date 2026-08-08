@@ -111,10 +111,10 @@ describe('PartyCaptureMediaPicker', () => {
     })
   }
 
-  it('starts expanded with the current title selected', () => {
+  it('starts collapsed with the current title selected', () => {
     renderPicker()
 
-    expect(container.querySelector('.riffsync-party-capture-picker--expanded')).not.toBeNull()
+    expect(container.querySelector('.riffsync-party-capture-picker--collapsed')).not.toBeNull()
     expect(container.textContent).toContain('Now playing')
     expect(container.textContent).toContain('Mitchell')
     expect((container.querySelector('select') as HTMLSelectElement).value).toBe('032-mitchell')
@@ -133,13 +133,8 @@ describe('PartyCaptureMediaPicker', () => {
     expect(options).toEqual(['32. Mitchell', '101. Cave Dwellers'])
   })
 
-  it('auto-hides and reopens from the hover strip', () => {
+  it('reopens from the hover strip and auto-hides quickly', () => {
     renderPicker()
-
-    act(() => {
-      vi.advanceTimersByTime(60_000)
-    })
-    expect(container.querySelector('.riffsync-party-capture-picker--collapsed')).not.toBeNull()
 
     act(() => {
       container.querySelector('.riffsync-party-capture-picker')?.dispatchEvent(
@@ -147,6 +142,11 @@ describe('PartyCaptureMediaPicker', () => {
       )
     })
     expect(container.querySelector('.riffsync-party-capture-picker--expanded')).not.toBeNull()
+
+    act(() => {
+      vi.advanceTimersByTime(5_000)
+    })
+    expect(container.querySelector('.riffsync-party-capture-picker--collapsed')).not.toBeNull()
   })
 
   it('navigates this tab to a selected party-capture watch URL', () => {
