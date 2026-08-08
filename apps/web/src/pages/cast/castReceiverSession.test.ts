@@ -20,7 +20,10 @@ type CastReceiverTestWindow = Window & {
           sendCustomMessage: ReturnType<typeof vi.fn>
         }
       }
-      CastReceiverOptions: new () => Record<string, never>
+      CastReceiverOptions: new () => {
+        customNamespaces?: Record<string, string>
+        disableIdleTimeout?: boolean
+      }
       system: {
         MessageType: {
           JSON: string
@@ -59,7 +62,8 @@ function installReceiverFramework() {
         getInstance: () => context,
       },
       CastReceiverOptions: class {
-        [key: string]: never
+        customNamespaces?: Record<string, string>
+        disableIdleTimeout?: boolean
       },
       system: {
         MessageType: {
@@ -102,6 +106,16 @@ describe('startCastReceiverSession', () => {
     delete (window as CastReceiverTestWindow).cast
   })
 
+  it('disables CAF idle timeout so custom playback is not closed after ~5 minutes', async () => {
+    const receiver = await startReceiver()
+
+    expect(receiver.context.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        disableIdleTimeout: true,
+      }),
+    )
+  })
+
   it('accepts presentation snapshots delivered as Cast object payloads', async () => {
     const receiver = await startReceiver()
 
@@ -114,6 +128,7 @@ describe('startCastReceiverSession', () => {
         customNamespaces: {
           [RIFFSYNC_CAST_NAMESPACE]: 'json',
         },
+        disableIdleTimeout: true,
       }),
     )
     expect(receiver.context.addCustomMessageListener.mock.invocationCallOrder[0]).toBeLessThan(

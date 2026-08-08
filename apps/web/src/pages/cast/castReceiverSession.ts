@@ -26,6 +26,8 @@ type CastReceiverFrameworkWindow = Window & {
 
 type CastReceiverOptions = {
   customNamespaces?: Record<string, string>
+  /** Keep custom/non-media receivers alive past CAF's ~5 minute idle timeout. */
+  disableIdleTimeout?: boolean
 }
 
 type CastReceiverContextInstance = {
@@ -125,6 +127,9 @@ export async function startCastReceiverSession(
   options.customNamespaces = {
     [RIFFSYNC_CAST_NAMESPACE]: framework.system.MessageType.JSON,
   }
+  // Custom HTML / WebRTC playback never loads CAF media, so the default idle
+  // timeout would close the receiver after ~5 minutes.
+  options.disableIdleTimeout = true
 
   context.start(options)
 
