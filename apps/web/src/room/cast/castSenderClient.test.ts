@@ -130,16 +130,16 @@ describe('createDefaultCastSenderClient', () => {
     delete (window as CastSenderTestWindow).cast
   })
 
-  it('configures CastContext with the Base API auto-join policy', async () => {
+  it('reuses the CastContext configured during availability probing without calling setOptions again', async () => {
     vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
     const { context } = installCastFramework()
 
+    await expect(prepareDefaultCastSenderClient()).resolves.toBe(true)
+    expect(context.setOptions).toHaveBeenCalledTimes(1)
+
     await createDefaultCastSenderClient().requestSession()
 
-    expect(context.setOptions).toHaveBeenCalledWith({
-      receiverApplicationId: 'receiver-app-id',
-      autoJoinPolicy: 'origin_scoped',
-    })
+    expect(context.setOptions).toHaveBeenCalledTimes(1)
     expect(context.requestSession).toHaveBeenCalled()
     expect(context.getCurrentSession).toHaveBeenCalled()
   })
@@ -154,14 +154,14 @@ describe('createDefaultCastSenderClient', () => {
     await promise
   })
 
-  it('fails before requesting a session when the Cast Base API policy is unavailable', async () => {
-    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', 'receiver-app-id')
-    const { context } = installCastFramework({ includeAutoJoinPolicy: false })
+  it('fails before requesting a session when the receiver application id is not configured', async () => {
+    const { context } = installCastFramework()
 
     expect(() => createDefaultCastSenderClient().requestSession()).toThrow(
-      'Cast auto join policy unavailable',
+      'Cast receiver application id is not configured',
     )
     expect(context.requestSession).not.toHaveBeenCalled()
+    expect(context.setOptions).not.toHaveBeenCalled()
   })
 
   it('fails when Cast start completes without an active session', async () => {
