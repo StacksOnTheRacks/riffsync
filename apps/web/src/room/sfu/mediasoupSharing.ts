@@ -312,6 +312,7 @@ export async function connectSfuUnifiedSession(options: {
   token: string
   tokenRole: 'producer' | 'consumer'
   getIceServers: () => Promise<RTCIceServer[]>
+  iceTransportPolicy?: RTCIceTransportPolicy
   onRemoteStream: (stream: MediaStream | null) => void
   onConsumerTrack?: (event: SfuConsumerTrackEvent) => void
   onSignalingProducerLifecycle?: (event: SignalingProducerLifecycleEvent) => void
@@ -324,6 +325,7 @@ export async function connectSfuUnifiedSession(options: {
     token,
     tokenRole,
     getIceServers,
+    iceTransportPolicy,
     onRemoteStream,
     onConsumerTrack,
     onSignalingProducerLifecycle,
@@ -524,6 +526,7 @@ export async function connectSfuUnifiedSession(options: {
       iceCandidates: created.iceCandidates as IceCandidate[],
       dtlsParameters: created.dtlsParameters as DtlsParameters,
       iceServers: sessionIceServers,
+      iceTransportPolicy,
     })
 
     const unwatchConnection = watchTransportConnectionUntilUnhealthy(transport, () => {
@@ -707,6 +710,7 @@ export async function connectSfuUnifiedSession(options: {
         iceCandidates: created.iceCandidates as IceCandidate[],
         dtlsParameters: created.dtlsParameters as DtlsParameters,
         iceServers,
+        iceTransportPolicy,
       })
 
       unwatchFns.push(

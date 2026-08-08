@@ -4,7 +4,12 @@ import {
   CastReceiverPresentation,
 } from './CastReceiverPresentation'
 import { canConfirmCastReceiverRender } from './castReceiverRenderConfirmation'
-import { startCastReceiverLiveStream, type CastReceiverLiveStreamSession } from './castReceiverLiveStream'
+import {
+  castReceiverLiveStreamFailureReasonFromError,
+  startCastReceiverLiveStream,
+  type CastReceiverLiveStreamFailureReason,
+  type CastReceiverLiveStreamSession,
+} from './castReceiverLiveStream'
 import {
   getActiveCastReceiverContext,
   sendCastReceiverRenderFailed,
@@ -57,17 +62,21 @@ export function CastReceiverPage() {
 
     let cancelled = false
     let liveSession: CastReceiverLiveStreamSession | null = null
+    let failureSent = false
     const snapshotId = snapshot.snapshotId
+    const sendLiveStreamFailure = (reason: CastReceiverLiveStreamFailureReason) => {
+      if (cancelled || failureSent) return
+      failureSent = true
+      const context = getActiveCastReceiverContext()
+      if (context) sendCastReceiverRenderFailed(context, reason)
+    }
 
     void startCastReceiverLiveStream({
       livePlayback: snapshot.stagePrimary.livePlayback,
       onRemoteStream: (stream) => {
         if (!cancelled) setLiveStreamState({ snapshotId, stream })
       },
-      onPlaybackUnavailable: () => {
-        const context = getActiveCastReceiverContext()
-        if (context) sendCastReceiverRenderFailed(context, 'receiver_live_stream_unavailable')
-      },
+      onPlaybackUnavailable: sendLiveStreamFailure,
     })
       .then((session) => {
         if (cancelled) {
@@ -76,9 +85,8 @@ export function CastReceiverPage() {
         }
         liveSession = session
       })
-      .catch(() => {
-        const context = getActiveCastReceiverContext()
-        if (context) sendCastReceiverRenderFailed(context, 'receiver_live_stream_failed')
+      .catch((error) => {
+        sendLiveStreamFailure(castReceiverLiveStreamFailureReasonFromError(error))
       })
 
     return () => {

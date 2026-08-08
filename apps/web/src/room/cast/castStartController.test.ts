@@ -267,16 +267,22 @@ describe('createCastStartController', () => {
   })
 
   it('maps receiver render failure during startup to start_failed', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const session = createMockSession({})
     const controller = createCastStartController({ client: createMockClient(session), confirmationTimeoutMs: 1000, launchTimeoutMs: 1000 })
 
     await controller.startCast(snapshot)
-    session.emitReceiverMessage({ type: 'render_failed', reason: 'receiver_render_error' })
+    session.emitReceiverMessage({ type: 'render_failed', reason: 'transport_disconnected' })
     await Promise.resolve()
     await Promise.resolve()
 
     expect(controller.getState().lifecycle).toBe('start_failed')
     expect(session.end).toHaveBeenCalledTimes(1)
+    expect(consoleError).toHaveBeenCalledWith('[RiffSync Cast] render_failed', {
+      reason: 'transport_disconnected',
+      lifecycle: 'session_pending_render',
+    })
+    consoleError.mockRestore()
   })
 
   it('clears startup cleanup resources after receiver render failure', async () => {

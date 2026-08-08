@@ -121,6 +121,10 @@ export function createCastStartController({
     }
 
     if (message.type === 'render_failed') {
+      console.error('[RiffSync Cast] render_failed', {
+        reason: message.reason,
+        lifecycle,
+      })
       if (lifecycle === 'session_pending_render') {
         void failStart()
         return
