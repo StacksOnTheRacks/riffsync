@@ -258,7 +258,12 @@ export function SoloWatchPage() {
       ) : null}
       {playbackHost === 'youtube' && vid && canEmbed ? (
         <div className="riffsync-solo-watch__player-shell">
-          <SoloYouTubePlayer videoId={vid} titleHint={episode.title} autoPlay={false} />
+          <SoloYouTubePlayer
+            videoId={vid}
+            titleHint={episode.title}
+            autoPlay={false}
+            watchUrl={episode.youtubeWatchUrl}
+          />
         </div>
       ) : null}
     </div>
