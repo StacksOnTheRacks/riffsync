@@ -7,6 +7,15 @@ import { RIFFSYNC_AV_TOGGLE_STATUS_ID } from './drawerErrorPresentation'
 import { PARTICIPANT_AV_DISABLED_COPY } from './participantAvErrorCopy'
 import { createParticipantAvController } from './sfu/participantAvSession'
 
+const defaultTvProps = {
+  showAvControls: true,
+  castAvailability: 'available' as const,
+  castStartLifecycle: 'idle' as const,
+  onCastToTvClick: vi.fn(),
+  onLinkTvClick: vi.fn(),
+  linkTvActive: false,
+}
+
 describe('ParticipantAvToggles', () => {
   let container: HTMLDivElement
   let root: Root
@@ -35,6 +44,7 @@ describe('ParticipantAvToggles', () => {
           controller={controller}
           avDisabled={opts.avDisabled ?? false}
           onLocalToggleAnnounce={vi.fn()}
+          {...defaultTvProps}
         />,
       )
     })
@@ -44,8 +54,10 @@ describe('ParticipantAvToggles', () => {
   it('renders camera and microphone controls for signed-in session chrome', () => {
     renderToggles()
     expect(container.querySelector('.riffsync-room-av-toggle')).not.toBeNull()
-    expect(container.textContent).toContain('Camera')
-    expect(container.textContent).toContain('Microphone')
+    expect(container.querySelector('button[aria-label="Camera"]')).not.toBeNull()
+    expect(container.querySelector('button[aria-label="Microphone"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="room-av-cast-button"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="room-av-link-tv-button"]')).not.toBeNull()
   })
 
   it('does not render when parent omits toggles for guests (signed-in guard)', () => {
@@ -57,6 +69,7 @@ describe('ParticipantAvToggles', () => {
             controller={createParticipantAvController({ canPublish: () => false })}
             avDisabled={false}
             onLocalToggleAnnounce={vi.fn()}
+            {...defaultTvProps}
           />
         ) : null,
       )
@@ -107,6 +120,7 @@ describe('ParticipantAvToggles', () => {
           controller={controller}
           avDisabled={false}
           onLocalToggleAnnounce={vi.fn()}
+          {...defaultTvProps}
         />,
       )
     })
@@ -150,6 +164,7 @@ describe('ParticipantAvToggles', () => {
           controller={controller}
           avDisabled={false}
           onLocalToggleAnnounce={onLocalToggleAnnounce}
+          {...defaultTvProps}
         />,
       )
     })
@@ -196,11 +211,11 @@ describe('ParticipantAvToggles', () => {
           controller={controller}
           avDisabled={false}
           onLocalToggleAnnounce={onLocalToggleAnnounce}
+          {...defaultTvProps}
         />,
       )
     })
-    const buttons = container.querySelectorAll('button.riffsync-room-av-toggle')
-    const mic = buttons[1] as HTMLButtonElement
+    const mic = container.querySelector('button[aria-label="Microphone"]') as HTMLButtonElement
     await act(async () => {
       mic.click()
       await Promise.resolve()
@@ -239,11 +254,13 @@ describe('ParticipantAvToggles', () => {
           controller={controller}
           avDisabled={false}
           onLocalToggleAnnounce={vi.fn()}
+          {...defaultTvProps}
         />,
       )
     })
-    const buttons = container.querySelectorAll('button.riffsync-room-av-toggle')
-    expect(buttons[0]?.getAttribute('aria-pressed')).toBe('true')
-    expect(buttons[1]?.getAttribute('aria-pressed')).toBe('false')
+    const camera = container.querySelector('button[aria-label="Camera"]')
+    const mic = container.querySelector('button[aria-label="Microphone"]')
+    expect(camera?.getAttribute('aria-pressed')).toBe('true')
+    expect(mic?.getAttribute('aria-pressed')).toBe('false')
   })
 })
