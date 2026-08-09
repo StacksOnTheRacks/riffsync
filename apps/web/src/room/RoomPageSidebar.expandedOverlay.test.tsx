@@ -113,6 +113,8 @@ function buildSidebarProps(overrides: Partial<Parameters<typeof RoomPageSidebar>
     onLinkTvSubmitCode: async () => {},
     onStopLinkTv: vi.fn(),
     linkTvButtonRef: { current: null },
+    theaterShareQuality: 'balanced' as const,
+    onTheaterShareQualityChange: vi.fn(),
     ...overrides,
   }
 }

@@ -1,16 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useCatalogListQuery } from '../catalog/catalogQueries'
 import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
-import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
-import { getPublicOrigin } from '../config/publicOrigin'
-import { resolveHostSourceTabUrl } from './hostSourceTab'
 
 const EMPTY_CATALOG_ENTRIES: CatalogEpisode[] = []
 
 export type HostRoomMediaSwitcherProps = {
   currentEpisodeId: string
   onSelectEpisode: (episodeId: string) => Promise<void>
+  /** After a successful room PATCH, open/navigate the shared host source tab. */
+  onOpenSourceTab: (episode: CatalogEpisode) => void
 }
 
 function formatOptionLabel(ep: CatalogEpisode): string {
@@ -20,13 +19,13 @@ function formatOptionLabel(ep: CatalogEpisode): string {
   return ep.title
 }
 
-/** Host-only media switcher for the room playback panel (never mounted on the capture tab). */
+/** Compact host-only title select for the room playback panel (never on the capture tab). */
 export function HostRoomMediaSwitcher({
   currentEpisodeId,
   onSelectEpisode,
+  onOpenSourceTab,
 }: HostRoomMediaSwitcherProps) {
   const { data, isPending, isError, refetch } = useCatalogListQuery()
-  const [titleQuery, setTitleQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,20 +33,16 @@ export function HostRoomMediaSwitcher({
     () => catalogEntriesPlayableInApp(data ?? EMPTY_CATALOG_ENTRIES),
     [data],
   )
-  const filteredEntries = useMemo(
-    () => filterCatalogEntries(playableEntries, { titleQuery, catalogs: [] }),
-    [playableEntries, titleQuery],
-  )
   const currentEntry = useMemo(
     () => playableEntries.find((ep) => ep.id === currentEpisodeId),
     [currentEpisodeId, playableEntries],
   )
   const optionEntries = useMemo(() => {
-    if (!currentEntry || filteredEntries.some((ep) => ep.id === currentEntry.id)) {
-      return filteredEntries
+    if (!currentEntry || playableEntries.some((ep) => ep.id === currentEntry.id)) {
+      return playableEntries
     }
-    return [currentEntry, ...filteredEntries]
-  }, [currentEntry, filteredEntries])
+    return [currentEntry, ...playableEntries]
+  }, [currentEntry, playableEntries])
 
   const selectEpisode = async (selectedId: string) => {
     if (!selectedId || selectedId === currentEpisodeId) return
@@ -56,14 +51,7 @@ export function HostRoomMediaSwitcher({
     try {
       await onSelectEpisode(selectedId)
       const selected = playableEntries.find((ep) => ep.id === selectedId)
-      if (selected) {
-        const url = resolveHostSourceTabUrl({
-          catalogEp: selected,
-          catalogEpisodeId: selected.id,
-          origin: getPublicOrigin(),
-        })
-        window.open(url, '_blank', 'noopener,noreferrer')
-      }
+      if (selected) onOpenSourceTab(selected)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not switch title')
     } finally {
@@ -73,25 +61,12 @@ export function HostRoomMediaSwitcher({
 
   return (
     <div className="riffsync-host-media-switcher" data-testid="host-room-media-switcher">
-      <div className="riffsync-host-media-switcher__copy">
-        <span className="riffsync-muted">Now playing</span>
-        <strong>{currentEntry?.title ?? 'Current title'}</strong>
-      </div>
       <label className="riffsync-host-media-switcher__field">
-        <span>Filter titles</span>
-        <input
-          type="search"
-          value={titleQuery}
-          placeholder="Search catalog"
-          disabled={(isPending && !data) || busy}
-          onChange={(e) => setTitleQuery(e.currentTarget.value)}
-        />
-      </label>
-      <label className="riffsync-host-media-switcher__field">
-        <span>Switch title</span>
+        <span>Title</span>
         <select
           value={currentEpisodeId}
           disabled={busy || optionEntries.length === 0}
+          aria-label="Switch title"
           onChange={(e) => void selectEpisode(e.currentTarget.value)}
         >
           {optionEntries.map((ep) => (

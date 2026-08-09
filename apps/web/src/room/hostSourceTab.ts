@@ -34,3 +34,19 @@ export function resolveHostSourceTabUrl(args: HostSourceTabArgs): string {
   const origin = args.origin.replace(/\/+$/, '')
   return `${origin}/watch/${encodeURIComponent(args.catalogEpisodeId)}?partyCapture=1`
 }
+
+/** Stable browsing-context name so Open Source Tab / title switches reuse one window. */
+export const HOST_SOURCE_TAB_WINDOW_NAME = 'riffsync-host-source'
+
+type OpenWindowFn = (url: string, target?: string, features?: string) => Window | null
+
+/**
+ * Open the host source media URL, or navigate an existing named source tab.
+ * Must not use `noopener` — the named target needs a reusable browsing context.
+ */
+export function openOrNavigateHostSourceTab(
+  url: string,
+  openFn: OpenWindowFn = (...args) => window.open(...args),
+): Window | null {
+  return openFn(url, HOST_SOURCE_TAB_WINDOW_NAME)
+}

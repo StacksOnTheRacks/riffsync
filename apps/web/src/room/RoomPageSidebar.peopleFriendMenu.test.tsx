@@ -144,6 +144,8 @@ function buildSidebarProps(peopleShown: PresenceMember[]) {
     onLinkTvSubmitCode: async () => {},
     onStopLinkTv: vi.fn(),
     linkTvButtonRef: { current: null },
+    theaterShareQuality: 'balanced' as const,
+    onTheaterShareQualityChange: vi.fn(),
   }
 }
 
