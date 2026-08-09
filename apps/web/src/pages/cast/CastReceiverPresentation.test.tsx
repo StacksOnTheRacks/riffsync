@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CastReceiverPresentation } from './CastReceiverPresentation'
 import { CAST_RECEIVER_COPY } from './castReceiverCopy'
 import type { CastPresentationSnapshot } from '../../room/cast/castChannelProtocol'
+import { TV_CHAT_LINE_TTL_MS } from '../../tv/TvClientShell'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -197,9 +198,28 @@ describe('CastReceiverPresentation', () => {
       const videoRect = video.getBoundingClientRect()
 
       expect(overlayRect.width).toBeLessThanOrEqual(stageRect.width * 0.4 + 1)
-      expect(overlayRect.height).toBeLessThanOrEqual(stageRect.height * 0.45 + 1)
+      expect(overlayRect.height).toBeLessThanOrEqual(stageRect.height * 0.9 + 1)
       expect(videoRect.width).toBeLessThanOrEqual(stageRect.width + 1)
       expect(videoRect.height).toBeLessThanOrEqual(stageRect.height + 1)
     },
   )
+
+  it('fades TV chat lines after the client TTL and does not revive them on re-push', () => {
+    vi.useFakeTimers()
+    try {
+      const line = { id: 'ttl-1', kind: 'text' as const, text: 'Fan: temporary', senderLabel: 'Fan' }
+      renderPresentation(youtubeSnapshot, [line])
+      expect(container.textContent).toContain('Fan: temporary')
+
+      act(() => {
+        vi.advanceTimersByTime(TV_CHAT_LINE_TTL_MS)
+      })
+      expect(container.textContent).not.toContain('Fan: temporary')
+
+      renderPresentation(youtubeSnapshot, [line])
+      expect(container.textContent).not.toContain('Fan: temporary')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

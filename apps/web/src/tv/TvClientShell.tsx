@@ -1,10 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CastChatOverlayLine, CastPresentationSnapshot } from '../room/cast/castChannelProtocol'
 import { ChatOverlayMessageList, type ChatOverlayMessage } from '../room/ChatOverlayMessageList'
 import {
   CAST_RECEIVER_COPY,
   resolveCastReceiverStagePlaceholder,
 } from '../pages/cast/castReceiverCopy'
+
+/** How long a chat line stays on the TV surface after first sight. */
+export const TV_CHAT_LINE_TTL_MS = 10_000
+/** Final window where the line fades out before removal. */
+export const TV_CHAT_LINE_FADE_MS = 800
 
 export type TvClientShellProps = {
   mode: 'waiting' | 'linked'
@@ -17,18 +22,58 @@ export type TvClientShellProps = {
 
 function TvChatOverlay({ messages }: { messages: CastChatOverlayLine[] }) {
   const chatLogRef = useRef<HTMLUListElement | null>(null)
-  const overlayMessages: ChatOverlayMessage[] = messages.map((line) => ({
-    id: line.id,
-    kind: line.kind,
-    text: line.text,
-    senderLabel: line.senderLabel,
-  }))
+  const [firstSeenAtById, setFirstSeenAtById] = useState<Readonly<Record<string, number>>>({})
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  // Adjust first-seen stamps while rendering when new message ids arrive.
+  // Stamps are kept for the session so a later re-push cannot revive an expired line.
+  let resolvedFirstSeenAtById = firstSeenAtById
+  let firstSeenChanged = false
+  for (const line of messages) {
+    if (resolvedFirstSeenAtById[line.id] === undefined) {
+      if (!firstSeenChanged) {
+        resolvedFirstSeenAtById = { ...firstSeenAtById }
+        firstSeenChanged = true
+      }
+      resolvedFirstSeenAtById = {
+        ...resolvedFirstSeenAtById,
+        [line.id]: nowMs,
+      }
+    }
+  }
+  if (firstSeenChanged) {
+    setFirstSeenAtById(resolvedFirstSeenAtById)
+  }
+
+  const overlayMessages: ChatOverlayMessage[] = useMemo(() => {
+    const visible: ChatOverlayMessage[] = []
+    for (const line of messages) {
+      const firstSeenAt = resolvedFirstSeenAtById[line.id] ?? nowMs
+      const ageMs = nowMs - firstSeenAt
+      if (ageMs >= TV_CHAT_LINE_TTL_MS) continue
+      visible.push({
+        id: line.id,
+        kind: line.kind,
+        text: line.text,
+        senderLabel: line.senderLabel,
+        fading: ageMs >= TV_CHAT_LINE_TTL_MS - TV_CHAT_LINE_FADE_MS,
+      })
+    }
+    return visible
+  }, [messages, nowMs, resolvedFirstSeenAtById])
 
   useEffect(() => {
     const chatLog = chatLogRef.current
     if (!chatLog) return
     chatLog.scrollTop = chatLog.scrollHeight
-  }, [messages])
+  }, [overlayMessages])
 
   return (
     <section

@@ -10,6 +10,7 @@ export type ChatOverlayMessage = {
   avatarUrl?: string
   isMine?: boolean
   isContinued?: boolean
+  fading?: boolean
   gif?: {
     src: string
     alt: string
@@ -48,14 +49,20 @@ export const ChatOverlayMessageList = forwardRef<HTMLUListElement, ChatOverlayMe
     if (variant === 'cast') {
       return (
         <ul ref={ref} className="riffsync-cast-receiver__chat-log">
-          {messages.map((line) => (
-            <li
-              key={line.id}
-              className={`riffsync-cast-receiver__chat-line riffsync-cast-receiver__chat-line--${line.kind}`}
-            >
-              {line.text}
-            </li>
-          ))}
+          {messages.map((line) => {
+            const lineClassName = [
+              'riffsync-cast-receiver__chat-line',
+              `riffsync-cast-receiver__chat-line--${line.kind}`,
+              line.fading ? 'riffsync-cast-receiver__chat-line--fading' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
+            return (
+              <li key={line.id} className={lineClassName}>
+                {line.text}
+              </li>
+            )
+          })}
         </ul>
       )
     }
