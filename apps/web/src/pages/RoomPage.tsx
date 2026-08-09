@@ -42,7 +42,6 @@ import { CastActiveStagePanel } from '../room/cast/CastActiveStagePanel'
 import { useLinkTvSession } from '../room/useLinkTvSession'
 import type { BuildCastPresentationSnapshotInput } from '../room/cast/buildCastPresentationSnapshot'
 import type { TheaterShareQualityPreset } from '../room/theaterShareQuality'
-import type { CatalogEpisode } from '../catalog/catalogTypes'
 
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
@@ -204,25 +203,6 @@ export function RoomPage() {
     captureStreamRef,
     qualityPreset: theaterShareQuality,
   })
-
-  const selectCatalogEpisode = useCallback(
-    async (episodeId: string) => {
-      if (!room || !fanToken || !isPublisher) return
-      const res = await patchRoom(fanToken, roomId, { catalogEpisodeId: episodeId })
-      setRoom({
-        ...room,
-        version: res.version,
-        catalogEpisodeId: res.catalogEpisodeId,
-        youtubeVideoId: res.youtubeVideoId,
-        playbackHost: res.playbackHost,
-        customPlaybackUrl: res.customPlaybackUrl,
-        visibility: res.visibility,
-        lastActivityAt: res.lastActivityAt,
-        displayTitle: res.displayTitle ?? room.displayTitle,
-      })
-    },
-    [fanToken, isPublisher, room, roomId, setRoom],
-  )
 
   const profile = useRoomProfileTab({
     fanToken,
@@ -422,15 +402,6 @@ export function RoomPage() {
     window.setTimeout(() => setShareHint(null), 4000)
   }
 
-  const openSourceTabForEpisode = useCallback((episode: CatalogEpisode) => {
-    const url = resolveHostSourceTabUrl({
-      catalogEp: episode,
-      catalogEpisodeId: episode.id,
-      origin: getPublicOrigin(),
-    })
-    openOrNavigateHostSourceTab(url)
-  }, [])
-
   const openCapturePlayerTab = () => {
     if (!room) return
     const url = resolveHostSourceTabUrl({
@@ -629,9 +600,6 @@ export function RoomPage() {
                           })
                         : false
                     }
-                    catalogEpisodeId={room.catalogEpisodeId}
-                    onSelectCatalogEpisode={selectCatalogEpisode}
-                    onOpenSourceTabForEpisode={openSourceTabForEpisode}
                   />
                 )
               }
