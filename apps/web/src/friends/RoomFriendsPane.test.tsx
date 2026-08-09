@@ -79,8 +79,14 @@ describe('RoomFriendsPane (#364)', () => {
     })
 
     expect(container.textContent).toContain('Buddy')
-    expect(container.textContent).toContain('Online in a watch party')
+    const onlineBadge = container.querySelector('.riffsync-room-friends-online-badge')
+    expect(onlineBadge?.textContent).toContain('Online')
+    expect(onlineBadge?.getAttribute('aria-label')).toBe('Online in a watch party')
     expect(container.querySelector('.riffsync-room-friends-unread-dot')).not.toBeNull()
+    const remove = container.querySelector('.riffsync-room-friends-remove') as HTMLButtonElement | null
+    expect(remove).not.toBeNull()
+    expect(remove?.classList.contains('gen-button')).toBe(false)
+    expect(remove?.getAttribute('aria-label')).toBe('Remove Buddy')
   })
 
   it('renders empty friends copy when roster has no friends', () => {

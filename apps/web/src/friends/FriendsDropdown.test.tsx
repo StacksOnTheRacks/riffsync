@@ -106,7 +106,12 @@ describe('FriendsDropdown (#363)', () => {
 
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     expect(container.textContent).toContain('Buddy')
-    expect(container.textContent).toContain('Online in a watch party')
+    const onlineBadge = container.querySelector('.riffsync-room-friends-online-badge')
+    expect(onlineBadge?.textContent).toContain('Online')
+    expect(onlineBadge?.getAttribute('aria-label')).toBe('Online in a watch party')
+    expect(container.querySelector('.riffsync-room-friends-remove')?.classList.contains('gen-button')).toBe(
+      false,
+    )
     expect(container.querySelector('.riffsync-friends-dropdown')).not.toBeNull()
 
     act(() => {

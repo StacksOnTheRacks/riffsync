@@ -255,28 +255,33 @@ function FriendRow({
           }}
         >
           <span className="riffsync-room-friends-row-name">{friend.displayName}</span>
+          {friend.online ? (
+            <span
+              className="riffsync-room-friends-online-badge"
+              aria-label="Online in a watch party"
+            >
+              <span className="riffsync-room-friends-online-dot" aria-hidden />
+              Online
+            </span>
+          ) : null}
           {friend.hasUnread ? (
             <span className="riffsync-room-friends-unread-dot" aria-label="Unread messages" />
           ) : null}
         </button>
-        {friend.online ? (
-          <span className="riffsync-room-friends-online riffsync-muted">
-            <span className="riffsync-room-friends-online-dot" aria-hidden />
-            Online in a watch party
-          </span>
-        ) : null}
       </div>
-      <button
-        ref={removeButtonRef}
-        type="button"
-        className="riffsync-room-friends-remove gen-button"
-        aria-label={`Remove ${friend.displayName}`}
-        onClick={() => {
-          if (removeButtonRef.current) onRemove(removeButtonRef.current)
-        }}
-      >
-        Remove
-      </button>
+      <div className="riffsync-room-friends-row-actions">
+        <button
+          ref={removeButtonRef}
+          type="button"
+          className="riffsync-room-friends-remove"
+          aria-label={`Remove ${friend.displayName}`}
+          onClick={() => {
+            if (removeButtonRef.current) onRemove(removeButtonRef.current)
+          }}
+        >
+          Remove
+        </button>
+      </div>
     </li>
   )
 }

@@ -2077,6 +2077,46 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   font-size: 0.75rem;
 }
 
+.riffsync-room-friends-online-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin-left: 0.35rem;
+  padding: 0.12rem 0.42rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  color: rgb(120 190 130);
+  border: 1px solid rgb(120 190 130 / 0.35);
+  vertical-align: middle;
+}
+
+.riffsync-room-friends-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 1.65rem;
+  padding: 0.12rem 0.42rem;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--primary-color);
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.riffsync-room-friends-remove:hover,
+.riffsync-room-friends-remove:focus-visible {
+  background: rgb(255 255 255 / 0.08);
+}
+
 .riffsync-room-friends-online-dot {
   width: 0.4rem;
   height: 0.4rem;
