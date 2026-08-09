@@ -1,10 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CastChatOverlayLine, CastPresentationSnapshot } from '../room/cast/castChannelProtocol'
 import { ChatOverlayMessageList, type ChatOverlayMessage } from '../room/ChatOverlayMessageList'
 import {
   CAST_RECEIVER_COPY,
   resolveCastReceiverStagePlaceholder,
 } from '../pages/cast/castReceiverCopy'
+
+/** How long a chat line stays on the TV surface after first sight. */
+export const TV_CHAT_LINE_TTL_MS = 10_000
+/** Final window where the line fades out before removal. */
+export const TV_CHAT_LINE_FADE_MS = 800
 
 export type TvClientShellProps = {
   mode: 'waiting' | 'linked'
@@ -17,18 +22,44 @@ export type TvClientShellProps = {
 
 function TvChatOverlay({ messages }: { messages: CastChatOverlayLine[] }) {
   const chatLogRef = useRef<HTMLUListElement | null>(null)
-  const overlayMessages: ChatOverlayMessage[] = messages.map((line) => ({
-    id: line.id,
-    kind: line.kind,
-    text: line.text,
-    senderLabel: line.senderLabel,
-  }))
+  const firstSeenAtByIdRef = useRef<Map<string, number>>(new Map())
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now())
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const overlayMessages: ChatOverlayMessage[] = useMemo(() => {
+    const firstSeen = firstSeenAtByIdRef.current
+    return messages
+      .map((line) => {
+        let firstSeenAt = firstSeen.get(line.id)
+        if (firstSeenAt === undefined) {
+          firstSeenAt = nowMs
+          firstSeen.set(line.id, firstSeenAt)
+        }
+        const ageMs = nowMs - firstSeenAt
+        // Keep the first-seen stamp for the session so a later re-push cannot revive the line.
+        if (ageMs >= TV_CHAT_LINE_TTL_MS) return null
+        return {
+          id: line.id,
+          kind: line.kind,
+          text: line.text,
+          senderLabel: line.senderLabel,
+          fading: ageMs >= TV_CHAT_LINE_TTL_MS - TV_CHAT_LINE_FADE_MS,
+        } satisfies ChatOverlayMessage
+      })
+      .filter((line): line is ChatOverlayMessage => line !== null)
+  }, [messages, nowMs])
 
   useEffect(() => {
     const chatLog = chatLogRef.current
     if (!chatLog) return
     chatLog.scrollTop = chatLog.scrollHeight
-  }, [messages])
+  }, [overlayMessages])
 
   return (
     <section
