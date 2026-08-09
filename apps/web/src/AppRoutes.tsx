@@ -50,6 +50,9 @@ export function AppRoutes() {
         <Route path="/catalog/mst3k/season/:seasonNumber" element={<CatalogSubcategoryPage />} />
         <Route path="/catalog/mst3k/era/:eraSlug" element={<CatalogSubcategoryPage />} />
         <Route path="/catalog/mst3k/shorts" element={<CatalogSubcategoryPage />} />
+        <Route path="/catalog/rifftrax" element={<CatalogSubcategoryPage />} />
+        <Route path="/catalog/rifftrax/movies" element={<CatalogSubcategoryPage />} />
+        <Route path="/catalog/rifftrax/shorts" element={<CatalogSubcategoryPage />} />
         <Route path="/catalog/community" element={<CatalogSubcategoryPage />} />
         <Route path="/catalog/riff-ready" element={<Navigate to="/catalog/riff-material" replace />} />
         <Route path="/catalog/riff-material" element={<CatalogSubcategoryPage />} />

@@ -77,6 +77,19 @@ const catalogFixtures: CatalogEpisode[] = [
     title: 'Riff Material Classic',
     catalog: 'riff_material',
   }),
+  episode({
+    id: 'ep-rifftrax-movie',
+    experimentNumber: 700,
+    title: 'RiffTrax Feature',
+    catalog: 'rifftrax',
+  }),
+  episode({
+    id: 'ep-rifftrax-short',
+    experimentNumber: 701,
+    title: 'RiffTrax Short Feature',
+    catalog: 'rifftrax',
+    labels: ['Short'],
+  }),
   episode({ id: 'ep-movie-night', experimentNumber: 1500, title: 'Movie Night Pick', catalog: 'movie_night' }),
   episode({ id: 'ep-other', experimentNumber: 999, title: 'Other Experiment', catalog: 'other' }),
 ]
@@ -125,7 +138,7 @@ describe('CatalogSubcategoryPage', () => {
   }
 
   it.each(
-    CATALOG_SUBCATEGORIES.filter((entry) => entry.slug !== 'mst3k').map(
+    CATALOG_SUBCATEGORIES.filter((entry) => entry.slug !== 'mst3k' && entry.slug !== 'rifftrax').map(
       (entry) => [entry.path, entry.label, entry.subtitle] as const,
     ),
   )(
@@ -233,6 +246,39 @@ describe('CatalogSubcategoryPage', () => {
       (link) => link.textContent?.trim(),
     )
     expect(titles).toEqual(['Robot Rumpus'])
+  })
+
+  it.each(['/catalog/rifftrax', '/catalog/rifftrax/movies'] as const)(
+    'locks RiffTrax Movies route %s to rows without the Short label',
+    (path) => {
+      renderSubcategoryPage(path)
+
+      expect(container.querySelector('h1')?.textContent).toBe('RiffTrax')
+      expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+        'RiffTrax Movies',
+      )
+      expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
+
+      const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+        (link) => link.textContent?.trim(),
+      )
+      expect(titles).toEqual(['RiffTrax Feature'])
+    },
+  )
+
+  it('locks the RiffTrax Shorts route to rows labeled Short', () => {
+    renderSubcategoryPage('/catalog/rifftrax/shorts')
+
+    expect(container.querySelector('h1')?.textContent).toBe('RiffTrax')
+    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+      'RiffTrax Shorts',
+    )
+    expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
+
+    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
+      (link) => link.textContent?.trim(),
+    )
+    expect(titles).toEqual(['RiffTrax Short Feature'])
   })
 
   it('combines Era and Season pill filters with AND semantics', () => {

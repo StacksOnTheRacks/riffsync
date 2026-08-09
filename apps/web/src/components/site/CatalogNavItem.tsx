@@ -6,6 +6,8 @@ import {
   MST3K_ERA_NAV_LINKS,
   MST3K_SEASON_NAV_LINKS,
   MST3K_SHORTS_NAV_LINK,
+  RIFFTRAX_MOVIES_NAV_LINK,
+  RIFFTRAX_SHORTS_NAV_LINK,
 } from '../../catalog/catalogBrowseIa'
 
 function onDisclosureKeyDown({
@@ -100,7 +102,10 @@ function NestedDisclosureItem({
 
 function CatalogSubcategoryLinks() {
   const mst3kSubcategory = CATALOG_SUBCATEGORIES.find((entry) => entry.slug === 'mst3k')
-  const leafSubcategories = CATALOG_SUBCATEGORIES.filter((entry) => entry.slug !== 'mst3k')
+  const rifftraxSubcategory = CATALOG_SUBCATEGORIES.find((entry) => entry.slug === 'rifftrax')
+  const leafSubcategories = CATALOG_SUBCATEGORIES.filter(
+    (entry) => entry.slug !== 'mst3k' && entry.slug !== 'rifftrax',
+  )
 
   return (
     <>
@@ -131,6 +136,24 @@ function CatalogSubcategoryLinks() {
           <li className="menu-item">
             <NavLink to={MST3K_SHORTS_NAV_LINK.href} end>
               {MST3K_SHORTS_NAV_LINK.label}
+            </NavLink>
+          </li>
+        </NestedDisclosureItem>
+      ) : null}
+      {rifftraxSubcategory ? (
+        <NestedDisclosureItem
+          label={rifftraxSubcategory.label}
+          linkTo={rifftraxSubcategory.path}
+          ariaLabel="Show RiffTrax catalog filters"
+        >
+          <li className="menu-item">
+            <NavLink to={RIFFTRAX_MOVIES_NAV_LINK.href} end>
+              {RIFFTRAX_MOVIES_NAV_LINK.label}
+            </NavLink>
+          </li>
+          <li className="menu-item">
+            <NavLink to={RIFFTRAX_SHORTS_NAV_LINK.href} end>
+              {RIFFTRAX_SHORTS_NAV_LINK.label}
             </NavLink>
           </li>
         </NestedDisclosureItem>

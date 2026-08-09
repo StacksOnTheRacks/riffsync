@@ -111,6 +111,7 @@ describe('filterCatalogEntries', () => {
   })
 
   it('excludes other and movie_night from public catalog category chips', () => {
+    expect(PUBLIC_CATALOG_CATEGORIES).toContain('rifftrax')
     expect(PUBLIC_CATALOG_CATEGORIES).toContain('riff_material')
     expect(PUBLIC_CATALOG_CATEGORIES).not.toContain('other')
     expect(PUBLIC_CATALOG_CATEGORIES).not.toContain('movie_night')

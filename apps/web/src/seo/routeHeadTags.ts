@@ -16,12 +16,17 @@ const STATIC_ROUTE_COPY = {
   '/catalog': {
     title: 'RiffSync Catalog - Browse the Library',
     description:
-      'Browse RiffSync episodes across MST3K, Community, and Riff Material. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
+      'Browse RiffSync episodes across MST3K, RiffTrax, Community, and Riff Material. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
   },
   '/catalog/mst3k': {
     title: 'MST3K - RiffSync Catalog',
     description:
       'Browse Mystery Science Theater 3000 episodes on RiffSync — Joel, Mike, Jonah, and Emily catalogs with lawful YouTube embeds. Unofficial fan project.',
+  },
+  '/catalog/rifftrax': {
+    title: 'RiffTrax - RiffSync Catalog',
+    description:
+      'Browse RiffTrax movies on RiffSync with lawful YouTube embeds. Pick a title and start a watch party. Unofficial fan project.',
   },
   '/catalog/community': {
     title: 'Community - RiffSync Catalog',

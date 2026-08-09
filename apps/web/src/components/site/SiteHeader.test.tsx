@@ -8,6 +8,8 @@ import {
   MST3K_ERA_NAV_LINKS,
   MST3K_SEASON_NAV_LINKS,
   MST3K_SHORTS_NAV_LINK,
+  RIFFTRAX_MOVIES_NAV_LINK,
+  RIFFTRAX_SHORTS_NAV_LINK,
 } from '../../catalog/catalogBrowseIa'
 import { SiteHeader } from './SiteHeader'
 
@@ -165,6 +167,8 @@ describe('SiteHeader fan session nav', () => {
       ...MST3K_SEASON_NAV_LINKS.map(({ href }) => href),
       ...MST3K_ERA_NAV_LINKS.map(({ href }) => href),
       MST3K_SHORTS_NAV_LINK.href,
+      RIFFTRAX_MOVIES_NAV_LINK.href,
+      RIFFTRAX_SHORTS_NAV_LINK.href,
     ]
 
     expect(container.querySelectorAll('.riffsync-catalog-nav > .sub-menu a')).toHaveLength(

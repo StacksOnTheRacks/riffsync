@@ -3,6 +3,7 @@ export const STATIC_INDEXABLE_ROUTES = [
   '/',
   '/catalog',
   '/catalog/mst3k',
+  '/catalog/rifftrax',
   '/catalog/community',
   '/catalog/riff-material',
   '/download',
