@@ -22,7 +22,7 @@ export type TvClientShellProps = {
 
 function TvChatOverlay({ messages }: { messages: CastChatOverlayLine[] }) {
   const chatLogRef = useRef<HTMLUListElement | null>(null)
-  const firstSeenAtByIdRef = useRef<Map<string, number>>(new Map())
+  const [firstSeenAtById, setFirstSeenAtById] = useState<Readonly<Record<string, number>>>({})
   const [nowMs, setNowMs] = useState(() => Date.now())
 
   useEffect(() => {
@@ -32,17 +32,31 @@ function TvChatOverlay({ messages }: { messages: CastChatOverlayLine[] }) {
     return () => window.clearInterval(timer)
   }, [])
 
+  // Adjust first-seen stamps while rendering when new message ids arrive.
+  // Stamps are kept for the session so a later re-push cannot revive an expired line.
+  let resolvedFirstSeenAtById = firstSeenAtById
+  let firstSeenChanged = false
+  for (const line of messages) {
+    if (resolvedFirstSeenAtById[line.id] === undefined) {
+      if (!firstSeenChanged) {
+        resolvedFirstSeenAtById = { ...firstSeenAtById }
+        firstSeenChanged = true
+      }
+      resolvedFirstSeenAtById = {
+        ...resolvedFirstSeenAtById,
+        [line.id]: nowMs,
+      }
+    }
+  }
+  if (firstSeenChanged) {
+    setFirstSeenAtById(resolvedFirstSeenAtById)
+  }
+
   const overlayMessages: ChatOverlayMessage[] = useMemo(() => {
-    const firstSeen = firstSeenAtByIdRef.current
     const visible: ChatOverlayMessage[] = []
     for (const line of messages) {
-      let firstSeenAt = firstSeen.get(line.id)
-      if (firstSeenAt === undefined) {
-        firstSeenAt = nowMs
-        firstSeen.set(line.id, firstSeenAt)
-      }
+      const firstSeenAt = resolvedFirstSeenAtById[line.id] ?? nowMs
       const ageMs = nowMs - firstSeenAt
-      // Keep the first-seen stamp for the session so a later re-push cannot revive the line.
       if (ageMs >= TV_CHAT_LINE_TTL_MS) continue
       visible.push({
         id: line.id,
@@ -53,7 +67,7 @@ function TvChatOverlay({ messages }: { messages: CastChatOverlayLine[] }) {
       })
     }
     return visible
-  }, [messages, nowMs])
+  }, [messages, nowMs, resolvedFirstSeenAtById])
 
   useEffect(() => {
     const chatLog = chatLogRef.current
