@@ -62,6 +62,7 @@ vi.mock('../config/fetchRtcIceServers', () => ({
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: () => ({ data: undefined }),
+  useCatalogListQuery: () => ({ data: [], isPending: false, isError: false, refetch: vi.fn() }),
 }))
 
 const fanTokenState = vi.hoisted(() => ({ value: null as string | null }))
@@ -103,6 +104,18 @@ vi.mock('../room/cast/useCastStartSession', () => ({
     stopCast,
     castToTvButtonRef: { current: null },
     stopCastButtonRef: { current: null },
+  }),
+}))
+
+vi.mock('../room/useLinkTvSession', () => ({
+  useLinkTvSession: () => ({
+    linkPanelOpen: false,
+    openLinkPanel: vi.fn(),
+    closeLinkPanel: vi.fn(),
+    linkActive: false,
+    claimCode: vi.fn(),
+    stopLink: vi.fn(),
+    tvClientSessionId: null,
   }),
 }))
 
@@ -518,9 +531,8 @@ describe('RoomPage Cast active participation (#275)', () => {
     renderRoom()
     await waitForSidebarTabs()
 
-    expect(container.querySelector('.riffsync-room-av-toggle')).not.toBeNull()
-    expect(container.textContent).toContain('Camera')
-    expect(container.textContent).toContain('Microphone')
+    expect(container.querySelector('.riffsync-room-av-toggle[aria-label="Camera"]')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-av-toggle[aria-label="Microphone"]')).not.toBeNull()
   })
 
   it('invokes local stopCast without tearing down room sessions', async () => {

@@ -106,7 +106,7 @@ export async function startCastReceiverLiveStream(options: {
     token: token.token,
     tokenRole: token.role,
     getIceServers: fetchRtcIceServers,
-    iceTransportPolicy: 'relay',
+    // Match guest ICE policy; do not force TURN relay on TV-only.
     onRemoteStream: options.onRemoteStream,
     onMediaError: (code) => {
       lastFailureReason = mapCastReceiverSfuErrorToReason(code)

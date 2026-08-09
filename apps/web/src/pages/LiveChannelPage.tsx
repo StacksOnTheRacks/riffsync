@@ -225,7 +225,6 @@ function LiveChannelReady(props: {
         participantProducerBySessionId={LIVE_EMPTY_MAP}
         speakingBySessionId={LIVE_EMPTY_MAP}
         isPublisher={false}
-        experimentalFeatures={false}
         shareHint={null}
         onCopyShare={() => {}}
         onOpenRenameModal={() => {}}
@@ -251,6 +250,13 @@ function LiveChannelReady(props: {
         castStartLifecycle="idle"
         onCastToTvClick={() => {}}
         castToTvButtonRef={castToTvButtonRef}
+        linkTvPanelOpen={false}
+        linkTvActive={false}
+        onLinkTvClick={() => {}}
+        onLinkTvClose={() => {}}
+        onLinkTvSubmitCode={async () => {}}
+        onStopLinkTv={() => {}}
+        linkTvButtonRef={castToTvButtonRef}
       />
     </div>
   )

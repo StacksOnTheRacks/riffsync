@@ -39,6 +39,7 @@ vi.mock('../config/fetchRtcIceServers', () => ({
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: () => ({ data: undefined }),
+  useCatalogListQuery: () => ({ data: [], isPending: false, isError: false, refetch: vi.fn() }),
 }))
 
 vi.mock('../auth/fanTokens', async (importOriginal) => {
@@ -78,6 +79,18 @@ vi.mock('../room/cast/useCastStartSession', () => ({
     stopCast,
     castToTvButtonRef,
     stopCastButtonRef,
+  }),
+}))
+
+vi.mock('../room/useLinkTvSession', () => ({
+  useLinkTvSession: () => ({
+    linkPanelOpen: false,
+    openLinkPanel: vi.fn(),
+    closeLinkPanel: vi.fn(),
+    linkActive: false,
+    claimCode: vi.fn(),
+    stopLink: vi.fn(),
+    tvClientSessionId: null,
   }),
 }))
 
@@ -247,11 +260,13 @@ describe('RoomPage Cast active stage', () => {
     expect(stopCast).toHaveBeenCalledTimes(1)
   })
 
-  it('does not show Cast to TV in the Room sidebar while casting', async () => {
+  it('shows Stop Cast on the A/V bar while casting', async () => {
     castStartLifecycle.value = 'casting'
     await openRoomTab()
 
-    expect(container.textContent).not.toContain('Cast to TV')
+    expect(container.querySelector('[data-testid="room-av-cast-button"]')?.getAttribute('aria-label')).toBe(
+      'Stop Cast',
+    )
   })
 
   it('keeps Stop Cast retryable while stop failure is local and active', async () => {

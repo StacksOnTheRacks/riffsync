@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import { stopMediaStreamTracks } from './roomMediaLifecycle'
+import {
+  theaterShareVideoConstraints,
+  type TheaterShareQualityPreset,
+} from './theaterShareQuality'
 import { webrtcLog } from './webrtcDebug'
 
 export function useHostScreenCapture(options: {
@@ -9,15 +13,21 @@ export function useHostScreenCapture(options: {
   captureStream: MediaStream | null
   setCaptureStream: Dispatch<SetStateAction<MediaStream | null>>
   captureStreamRef: RefObject<MediaStream | null>
+  qualityPreset?: TheaterShareQualityPreset
 }): {
   captureErr: string | null
   startCapture: () => Promise<void>
   stopCapture: () => void
 } {
-  const { roomId, sendJson, unpublishHostScreen, setCaptureStream } = options
+  const { roomId, sendJson, unpublishHostScreen, setCaptureStream, qualityPreset = 'balanced' } = options
   const [captureErr, setCaptureErr] = useState<string | null>(null)
   const shareGenerationRef = useRef(0)
   const sendJsonRef = useRef(sendJson)
+  const qualityPresetRef = useRef(qualityPreset)
+
+  useEffect(() => {
+    qualityPresetRef.current = qualityPreset
+  }, [qualityPreset])
 
   useEffect(() => {
     sendJsonRef.current = sendJson
@@ -73,6 +83,7 @@ export function useHostScreenCapture(options: {
       const captureController =
         typeof CaptureControllerCtor === 'function' ? new CaptureControllerCtor() : undefined
 
+      const quality = theaterShareVideoConstraints(qualityPresetRef.current)
       const captureOptions: Parameters<MediaDevices['getDisplayMedia']>[0] & {
         selfBrowserSurface?: 'include' | 'exclude'
         surfaceSwitching?: 'include' | 'exclude'
@@ -81,6 +92,7 @@ export function useHostScreenCapture(options: {
         video: {
           displaySurface: 'browser',
           preferCurrentTab: true,
+          ...quality,
         } as MediaTrackConstraints & {
           preferCurrentTab?: boolean
           displaySurface?: string

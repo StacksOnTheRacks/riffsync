@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { SoloCustomIframePlayer } from '../components/watch/SoloCustomIframePlayer'
 import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
-import { PartyCaptureMediaPicker } from '../components/watch/PartyCaptureMediaPicker'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { EPISODE_UNAVAILABLE_MESSAGE, formatCatalogUserError } from '../catalog/catalogLoadError'
 import {
@@ -11,36 +10,6 @@ import {
 } from '../catalog/catalogYoutubePlayback'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
 import { getLivePathForEpisodeId } from '../live/liveChannels'
-
-const PARTY_CAPTURE_ANIMATION = 'riffsyncPartyCaptureBannerFadeOut'
-
-/** Banner for `/watch/:id?partyCapture=1`; keyed by episode so opening another capture tab resets state. */
-function PartyCaptureBanner() {
-  const [closed, setClosed] = useState(false)
-
-  if (closed) return null
-
-  return (
-    <div
-      className="riffsync-party-capture-banner riffsync-party-capture-banner--timed"
-      role="status"
-      onAnimationEnd={(e) => {
-        if (e.animationName === PARTY_CAPTURE_ANIMATION) setClosed(true)
-      }}
-    >
-      <div className="riffsync-party-capture-banner__inner">
-        <p>
-          This tab is meant to be shared with your watch party. Go back to the party tab, start sharing, then{' '}
-          <strong>choose this tab</strong> in your browser&apos;s share dialog. Chat stays on the party tab.
-        </p>
-        <button type="button" onClick={() => setClosed(true)}>
-          Dismiss
-        </button>
-      </div>
-    </div>
-  )
-}
-
 
 export function SoloWatchPage() {
   const { catalogEpisodeId } = useParams<{ catalogEpisodeId: string }>()
@@ -198,12 +167,6 @@ export function SoloWatchPage() {
 
   return (
     <div className={pageRoot}>
-      {partyCapture ? (
-        <>
-          <PartyCaptureBanner key={catalogEpisodeId ?? 'episode'} />
-          <PartyCaptureMediaPicker currentEpisodeId={catalogEpisodeId} />
-        </>
-      ) : null}
       {backdropImageUrl ? (
         <div
           className="riffsync-solo-watch-page__backdrop"

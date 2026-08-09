@@ -103,7 +103,7 @@ Staff **`/admin/catalog`** form gains a **Playback host** selector per episode: 
 | --- | --- |
 | **YouTube-host** | Existing **`SoloYouTubePlayer`** / YouTube iframe path when **`playbackHost` is `youtube`** and YouTube embed rules allow in-app playback. |
 | **Custom-host** | Same page shell; **generic HTTPS iframe** replaces YouTube player, pointing at **`customPlaybackUrl`**. |
-| **Party capture** | URL remains **`{origin}/watch/{catalogEpisodeId}?partyCapture=1`**; inner player swaps to generic iframe for Custom. **Tab-sharing workflow unchanged** — host shares this RiffSync tab via browser picker + WebRTC. |
+| **Party capture** | URL remains **`{origin}/watch/{catalogEpisodeId}?partyCapture=1`**; inner player swaps to generic iframe for Custom. Capture tab is **chrome-free** (no media picker / capture banner). Media switch and share-quality controls live on the room host **`RoomPlaybackPanel`**. Host shares this RiffSync tab via browser picker + WebRTC. |
 | **Guests** | Unchanged — watch host screen share; no direct Custom URL chrome. |
 | **Iframe failure** | Honest blocked/error state; no special X-Frame-Options fallback UI beyond staff embeddable-URL policy. |
 | **Custom blocked copy** | Missing URL: **`Playback unavailable — no custom playback URL is linked for this catalog entry.`** (`role="status"`). Embed/load failure: **`This page could not be embedded in RiffSync. Open the movie page in a new tab.`** with **`customPlaybackUrl`** link (`target="_blank"`, `rel="noreferrer"`). |
@@ -433,7 +433,7 @@ Optional Chromecast support is a local room presentation layer for Cast-capable 
 
 | Concern | Contract |
 | --- | --- |
-| **Availability** | Show **Cast to TV** only in **normal room view** when sender support is detected and the existing experimental room feature opt-in is enabled. Cast entry is hidden or inert in expanded view. Until Cast is repaired and release-ready, non-experimental sessions hide or cannot activate the Cast entry point. Missing support or a disabled experimental opt-in must not block normal playback, chat, expanded view, host controls, participant A/V, or room participation. |
+| **Availability** | Show icon-only **Cast** and **Link TV** in the sidebar footer A/V strip (with Camera / Microphone when signed in). Cast requires sender SDK + `VITE_CAST_RECEIVER_APP_ID`; Link TV does not. Not gated by experimental room features. Missing Cast support must not block Link TV, playback, chat, expanded view, host controls, or participant A/V. |
 | **Start point** | Cast starts from the standard stage/sidebar room layout only. The sender does not need to enter expanded view before starting Cast. |
 | **Receiver presentation** | The custom RiffSync Cast receiver must render the expanded-view composition model: stage primary/video plus bottom-right chat overlay. During an active Theater share, stage primary is the live `host_screen` stream, not placeholder text. The Cast presentation does **not** include the sidebar tab strip; **People**, **Room**, and **Profile** remain sender-side room surfaces. Native media-only or YouTube-only Cast does not satisfy this presentation contract. |
 | **Sender active state** | After receiver render confirmation, the sender's normal stage replaces the regular video/playback surface with **`Now Casting`** and a stop affordance. The regular in-page video surface does not remain visible while local Cast is active. **`requestSession()`** resolution alone must not show **`Now Casting`**. |
@@ -494,11 +494,11 @@ The Cast availability slice exposes availability only after the normal room shel
 
 | Concern | Contract |
 | --- | --- |
-| **Primary placement** | Place **Cast to TV** in the normal-view **Room** sidebar action group near existing room actions such as **Copy Party Link** and **Leave Party**. It is a viewer-local room action, not a host-authoritative control. |
+| **Primary placement** | Place **Cast** and **Link TV** in the A/V control bar next to Camera / Microphone. Link TV opens an instructions + pairing-code panel. It is a viewer-local room action, not a host-authoritative control. |
 | **Host control separation** | Do **not** place Cast availability in **`HostControlBar`** or gate it on **`JWT.sub === hostSub`**. Room admins and guests follow the same local sender-support rule. |
 | **Expanded view** | Do not render a Cast start action in expanded view. If normal-view state changes while expanded, the expanded toggle and overlay remain unchanged; the viewer exits expanded view before using Cast. |
-| **Required ready state** | Render **Cast to TV** only when the existing experimental room feature opt-in is enabled, the Cast sender SDK reports availability, and the sender can configure **`CastContext`** with **`VITE_CAST_RECEIVER_APP_ID`** and **`chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`** for the custom receiver. |
-| **Unsupported or non-experimental default** | When sender support is absent, unknown, blocked by platform policy, missing receiver app id, unable to configure **`CastContext`**, still checking, or the room is not in the experimental opt-in, omit **Cast to TV**. Normal playback, chat, expanded view, host controls, and participant A/V remain unchanged. |
+| **Required ready state** | Enable **Cast** when the Cast sender SDK reports availability and the sender can configure **`CastContext`** with **`VITE_CAST_RECEIVER_APP_ID`** and **`chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED`** for the custom receiver. |
+| **Unsupported Cast default** | When sender support is absent, unknown, blocked by platform policy, missing receiver app id, unable to configure **`CastContext`**, or still checking, omit or disable **Cast** and keep **Link TV**. Normal playback, chat, expanded view, host controls, and participant A/V remain unchanged. |
 | **Explainable unavailable state** | If an implementation briefly renders or evaluates the Cast affordance and then learns Cast is unavailable, show a local status line at the Cast surface with copy **Cast is not available in this browser or device.** Do not use the chat drawer banner, video-relay status, room error, global announcer, or host feedback surfaces. |
 | **Stage impact** | #272 does not replace the stage, hide the player, or show **`Now Casting`**. The regular **`RoomPlaybackPanel`** remains the active playback surface until a later start-Cast slice confirms a Cast session. |
 

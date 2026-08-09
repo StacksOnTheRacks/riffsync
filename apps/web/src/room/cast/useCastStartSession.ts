@@ -6,6 +6,7 @@ import {
   type BuildCastPresentationSnapshotInput,
 } from './buildCastPresentationSnapshot'
 import type { CastStartLifecycle } from './castChannelProtocol'
+import { createTvClientSessionId } from '../../tv/tvClientIds'
 import { createCastStartController, type CastStartController } from './castStartController'
 import { createDefaultCastSenderClient, type CastSenderClientFactory } from './castSenderClient'
 
@@ -73,8 +74,9 @@ export function useCastStartSession({
     createCastStartController({ client: createSenderClient() }),
   )
   const [castStartLifecycle, setCastStartLifecycle] = useState<CastStartLifecycle>('idle')
+  const tvClientSessionIdRef = useRef<string | null>(null)
 
-  const snapshotInput = useMemo<BuildCastPresentationSnapshotInput>(
+  const snapshotInput = useMemo<Omit<BuildCastPresentationSnapshotInput, 'tvClientSessionId'>>(
     () => ({
       roomMode,
       livePlayback:
@@ -103,7 +105,11 @@ export function useCastStartSession({
   )
 
   const buildSnapshot = useCallback(
-    () => buildCastPresentationSnapshot(snapshotInput),
+    () =>
+      buildCastPresentationSnapshot({
+        ...snapshotInput,
+        tvClientSessionId: tvClientSessionIdRef.current,
+      }),
     [snapshotInput],
   )
 
@@ -145,8 +151,12 @@ export function useCastStartSession({
       castToTvButtonRef.current !== null &&
       castToTvButtonRef.current === document.activeElement
 
-    await controller.startCast(buildSnapshot())
-  }, [buildSnapshot, controller, enabled, expandedViewActive])
+    tvClientSessionIdRef.current = createTvClientSessionId()
+    await controller.startCast(buildCastPresentationSnapshot({
+      ...snapshotInput,
+      tvClientSessionId: tvClientSessionIdRef.current,
+    }))
+  }, [controller, enabled, expandedViewActive, snapshotInput])
 
   useEffect(() => {
     if (castStartLifecycle !== 'start_failed') return

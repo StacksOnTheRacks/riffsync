@@ -41,6 +41,7 @@ vi.mock('../config/fetchRtcIceServers', () => ({
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: () => ({ data: undefined }),
+  useCatalogListQuery: () => ({ data: [], isPending: false, isError: false, refetch: vi.fn() }),
 }))
 
 vi.mock('../auth/fanTokens', async (importOriginal) => {
@@ -80,6 +81,18 @@ vi.mock('../room/cast/useCastStartSession', () => ({
     stopCast,
     castToTvButtonRef,
     stopCastButtonRef,
+  }),
+}))
+
+vi.mock('../room/useLinkTvSession', () => ({
+  useLinkTvSession: () => ({
+    linkPanelOpen: false,
+    openLinkPanel: vi.fn(),
+    closeLinkPanel: vi.fn(),
+    linkActive: false,
+    claimCode: vi.fn(),
+    stopLink: vi.fn(),
+    tvClientSessionId: null,
   }),
 }))
 
@@ -244,7 +257,7 @@ describe('RoomPage Cast stop restoration', () => {
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
     expect(container.textContent).toContain(CAST_SESSION_ENDED_MESSAGE)
-    expect(container.textContent).toContain('Cast to TV')
+    expect(container.querySelector('[data-testid="room-av-cast-button"]')).not.toBeNull()
   })
 
   it('restores playback and local status after receiver playback is blocked', async () => {
@@ -254,6 +267,6 @@ describe('RoomPage Cast stop restoration', () => {
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
     expect(container.textContent).toContain(CAST_PLAYBACK_BLOCKED_MESSAGE)
-    expect(container.textContent).toContain('Cast to TV')
+    expect(container.querySelector('[data-testid="room-av-cast-button"]')).not.toBeNull()
   })
 })

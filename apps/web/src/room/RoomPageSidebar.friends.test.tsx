@@ -134,7 +134,6 @@ function buildSidebarProps(overrides: Partial<Parameters<typeof RoomPageSidebar>
     participantProducerBySessionId: new Map(),
     speakingBySessionId: new Map(),
     isPublisher: false,
-    experimentalFeatures: true,
     shareHint: null,
     onCopyShare: vi.fn(),
     onOpenRenameModal: vi.fn(),
@@ -160,6 +159,13 @@ function buildSidebarProps(overrides: Partial<Parameters<typeof RoomPageSidebar>
     castStartLifecycle: 'idle' as const,
     onCastToTvClick: vi.fn(),
     castToTvButtonRef: { current: null },
+    linkTvPanelOpen: false,
+    linkTvActive: false,
+    onLinkTvClick: vi.fn(),
+    onLinkTvClose: vi.fn(),
+    onLinkTvSubmitCode: async () => {},
+    onStopLinkTv: vi.fn(),
+    linkTvButtonRef: { current: null },
     ...overrides,
   }
 }

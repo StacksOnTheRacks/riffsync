@@ -46,6 +46,7 @@ vi.mock('../config/fetchRtcIceServers', () => ({
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: () => ({ data: undefined }),
+  useCatalogListQuery: () => ({ data: [], isPending: false, isError: false, refetch: vi.fn() }),
 }))
 
 const fanTokenState = vi.hoisted(() => ({ value: null as string | null }))
@@ -87,6 +88,18 @@ vi.mock('../room/cast/useCastStartSession', () => ({
     stopCast,
     castToTvButtonRef: { current: null },
     stopCastButtonRef: { current: null },
+  }),
+}))
+
+vi.mock('../room/useLinkTvSession', () => ({
+  useLinkTvSession: () => ({
+    linkPanelOpen: false,
+    openLinkPanel: vi.fn(),
+    closeLinkPanel: vi.fn(),
+    linkActive: false,
+    claimCode: vi.fn(),
+    stopLink: vi.fn(),
+    tvClientSessionId: null,
   }),
 }))
 
