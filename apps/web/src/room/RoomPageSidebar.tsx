@@ -203,6 +203,31 @@ export function RoomPageSidebar({
           </p>
         ) : null}
 
+        {showParticipantAvControls ? (
+          <div className="riffsync-room-page__sidebar-av" data-testid="room-sidebar-av">
+            <ParticipantAvToggles
+              controller={fanToken ? participantAvController : null}
+              avDisabled={avDisabled}
+              onLocalToggleAnnounce={announceRoomA11y}
+              showAvControls={Boolean(fanToken)}
+              castAvailability={castAvailability}
+              castStartLifecycle={castStartLifecycle}
+              onCastToTvClick={onCastToTvClick}
+              castToTvButtonRef={castToTvButtonRef}
+              onLinkTvClick={onLinkTvClick}
+              linkTvActive={linkTvActive}
+              linkTvButtonRef={linkTvButtonRef}
+            />
+            <LinkTvPanel
+              open={linkTvPanelOpen}
+              onClose={onLinkTvClose}
+              onSubmitCode={onLinkTvSubmitCode}
+              linked={linkTvActive}
+              onStopLink={onStopLinkTv}
+            />
+          </div>
+        ) : null}
+
         {presentation === 'sidebar' ? (
         <div className="riffsync-room-page__chat-toolbar">
           <div className="riffsync-room-page__tabs">
@@ -517,30 +542,6 @@ export function RoomPageSidebar({
         ) : null}
 
         <div className="riffsync-room-page__sidebar-footer">
-          {showParticipantAvControls ? (
-            <>
-              <ParticipantAvToggles
-                controller={fanToken ? participantAvController : null}
-                avDisabled={avDisabled}
-                onLocalToggleAnnounce={announceRoomA11y}
-                showAvControls={Boolean(fanToken)}
-                castAvailability={castAvailability}
-                castStartLifecycle={castStartLifecycle}
-                onCastToTvClick={onCastToTvClick}
-                castToTvButtonRef={castToTvButtonRef}
-                onLinkTvClick={onLinkTvClick}
-                linkTvActive={linkTvActive}
-                linkTvButtonRef={linkTvButtonRef}
-              />
-              <LinkTvPanel
-                open={linkTvPanelOpen}
-                onClose={onLinkTvClose}
-                onSubmitCode={onLinkTvSubmitCode}
-                linked={linkTvActive}
-                onStopLink={onStopLinkTv}
-              />
-            </>
-          ) : null}
           {activeSidebarTab === 'chat' ? (
             <div className="riffsync-room-chat-compose-holder">
               {showJumpToLatest ? (
