@@ -34,25 +34,25 @@ function TvChatOverlay({ messages }: { messages: CastChatOverlayLine[] }) {
 
   const overlayMessages: ChatOverlayMessage[] = useMemo(() => {
     const firstSeen = firstSeenAtByIdRef.current
-    return messages
-      .map((line) => {
-        let firstSeenAt = firstSeen.get(line.id)
-        if (firstSeenAt === undefined) {
-          firstSeenAt = nowMs
-          firstSeen.set(line.id, firstSeenAt)
-        }
-        const ageMs = nowMs - firstSeenAt
-        // Keep the first-seen stamp for the session so a later re-push cannot revive the line.
-        if (ageMs >= TV_CHAT_LINE_TTL_MS) return null
-        return {
-          id: line.id,
-          kind: line.kind,
-          text: line.text,
-          senderLabel: line.senderLabel,
-          fading: ageMs >= TV_CHAT_LINE_TTL_MS - TV_CHAT_LINE_FADE_MS,
-        } satisfies ChatOverlayMessage
+    const visible: ChatOverlayMessage[] = []
+    for (const line of messages) {
+      let firstSeenAt = firstSeen.get(line.id)
+      if (firstSeenAt === undefined) {
+        firstSeenAt = nowMs
+        firstSeen.set(line.id, firstSeenAt)
+      }
+      const ageMs = nowMs - firstSeenAt
+      // Keep the first-seen stamp for the session so a later re-push cannot revive the line.
+      if (ageMs >= TV_CHAT_LINE_TTL_MS) continue
+      visible.push({
+        id: line.id,
+        kind: line.kind,
+        text: line.text,
+        senderLabel: line.senderLabel,
+        fading: ageMs >= TV_CHAT_LINE_TTL_MS - TV_CHAT_LINE_FADE_MS,
       })
-      .filter((line): line is ChatOverlayMessage => line !== null)
+    }
+    return visible
   }, [messages, nowMs])
 
   useEffect(() => {
