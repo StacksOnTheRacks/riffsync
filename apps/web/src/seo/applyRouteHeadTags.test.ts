@@ -24,7 +24,7 @@ describe('applyRouteHeadTags', () => {
 
     expect(document.title).toBe('RiffSync Catalog - Browse the Library')
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
-      'Browse RiffSync episodes across MST3K, Community, and Riff Material. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
+      'Browse RiffSync episodes across MST3K, RiffTrax, Community, and Riff Material. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
     )
     expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
       'https://riffsync.tv/catalog',

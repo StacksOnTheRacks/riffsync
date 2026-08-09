@@ -1,7 +1,10 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useCatalogListQuery } from '../catalog/catalogQueries'
-import { getCatalogBrowseViewByPath } from '../catalog/catalogBrowseIa'
+import {
+  filterRifftraxCatalogEntriesByRouteFilter,
+  getCatalogBrowseViewByPath,
+} from '../catalog/catalogBrowseIa'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
 import { CatalogFilterBar } from '../components/catalog/CatalogFilterBar'
 import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagFilterBar'
@@ -29,6 +32,8 @@ export function CatalogSubcategoryPage() {
   const [titleQuery, setTitleQuery] = useState('')
   const [selectedTagPills, setSelectedTagPills] = useState<SelectedMst3kTagPills>(EMPTY_MST3K_TAG_PILLS)
   const isMst3kRoute = subcategory?.slug === 'mst3k'
+  const isRifftraxRoute = subcategory?.slug === 'rifftrax'
+  const usesRouteFilter = isMst3kRoute || isRifftraxRoute
   const showMst3kTagPills = browseView?.mst3kRouteFilter?.kind === 'all'
 
   useResumePendingPartyRoom(data, navigate)
@@ -45,16 +50,21 @@ export function CatalogSubcategoryPage() {
         : [],
     [playableEntries, subcategory],
   )
-  const routeCatalogEntries = useMemo(
-    () =>
-      isMst3kRoute
-        ? filterMst3kCatalogEntriesByRouteFilter(
-            baseCatalogEntries,
-            browseView?.mst3kRouteFilter,
-          )
-        : baseCatalogEntries,
-    [baseCatalogEntries, browseView, isMst3kRoute],
-  )
+  const routeCatalogEntries = useMemo(() => {
+    if (isMst3kRoute) {
+      return filterMst3kCatalogEntriesByRouteFilter(
+        baseCatalogEntries,
+        browseView?.mst3kRouteFilter,
+      )
+    }
+    if (isRifftraxRoute) {
+      return filterRifftraxCatalogEntriesByRouteFilter(
+        baseCatalogEntries,
+        browseView?.rifftraxRouteFilter,
+      )
+    }
+    return baseCatalogEntries
+  }, [baseCatalogEntries, browseView, isMst3kRoute, isRifftraxRoute])
   const filteredEntries = useMemo(
     () =>
       subcategory
@@ -64,7 +74,12 @@ export function CatalogSubcategoryPage() {
               catalogs: [subcategory.catalog],
               selectedTagPills: showMst3kTagPills ? selectedTagPills : EMPTY_MST3K_TAG_PILLS,
             })
-          : filterCatalogEntries(playableEntries, { titleQuery, catalogs: [subcategory.catalog] })
+          : usesRouteFilter
+            ? filterCatalogEntries(routeCatalogEntries, {
+                titleQuery,
+                catalogs: [subcategory.catalog],
+              })
+            : filterCatalogEntries(playableEntries, { titleQuery, catalogs: [subcategory.catalog] })
         : [],
     [
       routeCatalogEntries,
@@ -72,6 +87,7 @@ export function CatalogSubcategoryPage() {
       titleQuery,
       subcategory,
       isMst3kRoute,
+      usesRouteFilter,
       selectedTagPills,
       showMst3kTagPills,
     ],
@@ -80,7 +96,7 @@ export function CatalogSubcategoryPage() {
   const filterBarDisabled = isPending && !data
   const hasActiveTagPills =
     showMst3kTagPills && (selectedTagPills.Era.length > 0 || selectedTagPills.Season.length > 0)
-  const isFilterNoMatch = isMst3kRoute
+  const isFilterNoMatch = usesRouteFilter
     ? routeCatalogEntries.length > 0 && filteredEntries.length === 0
     : playableEntries.length > 0 && filteredEntries.length === 0
 

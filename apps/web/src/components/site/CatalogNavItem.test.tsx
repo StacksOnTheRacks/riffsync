@@ -8,6 +8,8 @@ import {
   MST3K_ERA_NAV_LINKS,
   MST3K_SEASON_NAV_LINKS,
   MST3K_SHORTS_NAV_LINK,
+  RIFFTRAX_MOVIES_NAV_LINK,
+  RIFFTRAX_SHORTS_NAV_LINK,
 } from '../../catalog/catalogBrowseIa'
 import { CatalogNavItem } from './CatalogNavItem'
 
@@ -88,6 +90,8 @@ describe('CatalogNavItem', () => {
         ...MST3K_SEASON_NAV_LINKS.map((entry) => entry.href),
         ...MST3K_ERA_NAV_LINKS.map((entry) => entry.href),
         MST3K_SHORTS_NAV_LINK.href,
+        RIFFTRAX_MOVIES_NAV_LINK.href,
+        RIFFTRAX_SHORTS_NAV_LINK.href,
       ]),
     )
     expect(subcategoryLabels(submenu!)).toEqual(
@@ -98,6 +102,8 @@ describe('CatalogNavItem', () => {
         'Joel',
         'Emily',
         'Shorts',
+        'RiffTrax',
+        'Movies',
         'Community',
         'Riff Material',
       ]),
@@ -170,6 +176,8 @@ describe('CatalogNavItem', () => {
         ...MST3K_SEASON_NAV_LINKS.map((entry) => entry.href),
         ...MST3K_ERA_NAV_LINKS.map((entry) => entry.href),
         MST3K_SHORTS_NAV_LINK.href,
+        RIFFTRAX_MOVIES_NAV_LINK.href,
+        RIFFTRAX_SHORTS_NAV_LINK.href,
       ]),
     )
 
