@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   claimTvPairing,
   pushTvPairingPresentation,
+  releaseTvPairing,
 } from '../api/tvPairingApi'
 import { createTvClientSessionId } from '../tv/tvClientIds'
 import { emitTvDebugEvent } from '../tv/tvDebugEvents'
@@ -34,6 +35,18 @@ type LinkPairing = {
   tvClientSessionId: string
 }
 
+async function releasePairingBestEffort(pairing: LinkPairing | null): Promise<void> {
+  if (!pairing) return
+  try {
+    await releaseTvPairing({
+      pairingId: pairing.pairingId,
+      claimToken: pairing.claimToken,
+    })
+  } catch {
+    /* Best-effort; TV TTL / next poll still ends the session. */
+  }
+}
+
 export function useLinkTvSession({
   enabled,
   roomId,
@@ -51,19 +64,24 @@ export function useLinkTvSession({
     setPrevEnabled(enabled)
     if (!enabled && (linkActive || pairing || tvClientSessionId)) {
       const id = pairing?.tvClientSessionId ?? tvClientSessionId
+      const current = pairing
       setPairing(null)
       setLinkActive(false)
       setTvClientSessionId(null)
+      void releasePairingBestEffort(current)
       if (id) emitTvDebugEvent('tv_teardown', { tvClientSessionId: id, failureClass: undefined })
     }
   }
 
   const stopLink = useCallback(() => {
     const id = pairing?.tvClientSessionId ?? tvClientSessionId
+    const current = pairing
     setPairing(null)
     setLinkActive(false)
     setTvClientSessionId(null)
-    if (id) emitTvDebugEvent('tv_teardown', { tvClientSessionId: id, failureClass: undefined })
+    void releasePairingBestEffort(current).finally(() => {
+      if (id) emitTvDebugEvent('tv_teardown', { tvClientSessionId: id, failureClass: undefined })
+    })
   }, [pairing, tvClientSessionId])
 
   useEffect(() => {

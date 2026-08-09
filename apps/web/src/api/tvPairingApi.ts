@@ -15,7 +15,7 @@ export type TvPairingLivePlayback = {
 }
 
 export type TvPairingPollResponse = {
-  status: 'waiting' | 'linked' | 'expired'
+  status: 'waiting' | 'linked' | 'expired' | 'released'
   tvClientSessionId?: string
   livePlayback?: TvPairingLivePlayback
   snapshot?: CastPresentationSnapshot
@@ -101,4 +101,19 @@ export async function pushTvPairingPresentation(input: {
     },
   )
   if (!res.ok) throw new Error(`TV pairing presentation update failed (${res.status})`)
+}
+
+export async function releaseTvPairing(input: {
+  pairingId: string
+  claimToken: string
+}): Promise<void> {
+  const res = await fetch(
+    `${apiBase()}/v1/tv/pairing/${encodeURIComponent(input.pairingId)}/release`,
+    {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ claimToken: input.claimToken }),
+    },
+  )
+  if (!res.ok) throw new Error(`TV pairing release failed (${res.status})`)
 }
