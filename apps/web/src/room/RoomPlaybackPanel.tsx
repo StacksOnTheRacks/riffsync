@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom'
 import type { TheaterPlaybackSnapshot } from './sessions/TheaterPlayback'
 import { RIFFSYNC_THEATER_AUDIO_STATUS_ID, RIFFSYNC_VIDEO_RELAY_STATUS_ID } from './drawerErrorPresentation'
+import { HostRoomMediaSwitcher } from './HostRoomMediaSwitcher'
+import {
+  TheaterShareQualityControls,
+  type TheaterShareQualityPreset,
+} from './theaterShareQuality'
 
 type RoomPlaybackPanelProps = {
   isPublisher: boolean
@@ -20,6 +25,10 @@ type RoomPlaybackPanelProps = {
   startCapture: () => Promise<void>
   openCapturePlayerTab: () => void
   hostSourceOpensOnYoutube?: boolean
+  catalogEpisodeId?: string
+  onSelectCatalogEpisode?: (episodeId: string) => Promise<void>
+  theaterShareQuality?: TheaterShareQualityPreset
+  onTheaterShareQualityChange?: (preset: TheaterShareQualityPreset) => void
 }
 
 function HostShareIntro({
@@ -89,10 +98,26 @@ export function RoomPlaybackPanel({
   startCapture,
   openCapturePlayerTab,
   hostSourceOpensOnYoutube = false,
+  catalogEpisodeId,
+  onSelectCatalogEpisode,
+  theaterShareQuality = 'balanced',
+  onTheaterShareQualityChange,
 }: RoomPlaybackPanelProps) {
   if (isPublisher) {
     return (
       <section className="riffsync-room-page__playback" aria-label="Your shared stream preview">
+        {catalogEpisodeId && onSelectCatalogEpisode ? (
+          <HostRoomMediaSwitcher
+            currentEpisodeId={catalogEpisodeId}
+            onSelectEpisode={onSelectCatalogEpisode}
+          />
+        ) : null}
+        {onTheaterShareQualityChange ? (
+          <TheaterShareQualityControls
+            value={theaterShareQuality}
+            onChange={onTheaterShareQualityChange}
+          />
+        ) : null}
         {captureStream && theaterPlaybackSnapshot.hostCapturePlayHint ? (
           <p className="riffsync-room-page__guest-actions">
             <button type="button" className="gen-button" onClick={() => void playHostCapturePreview()}>

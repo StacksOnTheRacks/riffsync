@@ -140,7 +140,11 @@ export async function startCastReceiverSession(
   }
 }
 
-export function sendCastReceiverRendered(context: CastReceiverContextInstance, snapshotId: string): void {
+export function sendCastReceiverRendered(
+  context: CastReceiverContextInstance,
+  snapshotId: string,
+  tvClientSessionId?: string,
+): void {
   context.sendCustomMessage(
     RIFFSYNC_CAST_NAMESPACE,
     activeReceiverSenderId,
@@ -150,6 +154,7 @@ export function sendCastReceiverRendered(context: CastReceiverContextInstance, s
       snapshotId,
       stagePrimaryRendered: true,
       chatOverlayRendered: true,
+      ...(tvClientSessionId ? { tvClientSessionId } : {}),
     },
   )
 }
@@ -157,11 +162,16 @@ export function sendCastReceiverRendered(context: CastReceiverContextInstance, s
 export function sendCastReceiverRenderFailed(
   context: CastReceiverContextInstance,
   reason?: string,
+  tvClientSessionId?: string,
 ): void {
   context.sendCustomMessage(
     RIFFSYNC_CAST_NAMESPACE,
     activeReceiverSenderId,
-    { type: 'render_failed', reason },
+    {
+      type: 'render_failed',
+      reason,
+      ...(tvClientSessionId ? { tvClientSessionId } : {}),
+    },
   )
 }
 

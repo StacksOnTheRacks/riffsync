@@ -57,12 +57,13 @@ describe('CastReceiverPresentation', () => {
     expect(container.textContent).toContain(CAST_RECEIVER_COPY.waitingForPresentation)
   })
 
-  it('renders stage-primary video and chat overlay from sender snapshot', () => {
+  it('renders stage-primary and chat overlay; idle YouTube is not an unsynced iframe', () => {
     renderPresentation(youtubeSnapshot)
     expect(container.querySelector('[data-testid="cast-receiver-stage-primary"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="cast-receiver-chat-overlay"]')).not.toBeNull()
     expect(container.textContent).toContain('Fan: hello')
-    expect(container.querySelector('iframe')?.getAttribute('src')).toContain('abc123')
+    expect(container.querySelector('iframe')).toBeNull()
+    expect(container.textContent).toContain(CAST_RECEIVER_COPY.waitingForRoomVideo)
   })
 
   it('keeps empty chat overlay quiet when chat messages are absent', () => {
@@ -164,24 +165,41 @@ describe('CastReceiverPresentation', () => {
     ({ width, height }) => {
       container.style.width = `${width}px`
       container.style.height = `${height}px`
-      renderPresentation(youtubeSnapshot)
+      const liveStream = new MediaStream()
+      renderPresentation(
+        {
+          snapshotId: 'snap-live-layout',
+          roomMode: 'theater',
+          playbackPath: 'tv_client_stream',
+          stagePrimary: {
+            kind: 'live_stream',
+            label: 'Party video',
+            livePlayback: { roomId: 'room-1', sessionId: 'session-1' },
+          },
+          chatOverlay: {
+            messages: [{ id: 'm1', kind: 'text', text: 'Fan: hello', senderLabel: 'Fan' }],
+          },
+        },
+        undefined,
+        liveStream,
+      )
 
       const stage = container.querySelector('.riffsync-cast-receiver__stage') as HTMLElement
       const overlay = container.querySelector('.riffsync-cast-receiver__chat-overlay') as HTMLElement
-      const iframe = container.querySelector('.riffsync-cast-receiver__youtube') as HTMLElement
+      const video = container.querySelector('.riffsync-cast-receiver__live-video') as HTMLElement
 
       expect(stage).not.toBeNull()
       expect(overlay).not.toBeNull()
-      expect(iframe).not.toBeNull()
+      expect(video).not.toBeNull()
 
       const stageRect = stage.getBoundingClientRect()
       const overlayRect = overlay.getBoundingClientRect()
-      const iframeRect = iframe.getBoundingClientRect()
+      const videoRect = video.getBoundingClientRect()
 
       expect(overlayRect.width).toBeLessThanOrEqual(stageRect.width * 0.4 + 1)
       expect(overlayRect.height).toBeLessThanOrEqual(stageRect.height * 0.45 + 1)
-      expect(iframeRect.width).toBeLessThanOrEqual(stageRect.width + 1)
-      expect(iframeRect.height).toBeLessThanOrEqual(stageRect.height + 1)
+      expect(videoRect.width).toBeLessThanOrEqual(stageRect.width + 1)
+      expect(videoRect.height).toBeLessThanOrEqual(stageRect.height + 1)
     },
   )
 })

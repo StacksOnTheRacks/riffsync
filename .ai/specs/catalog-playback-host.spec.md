@@ -118,18 +118,20 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 | **Iframe attrs** | **`src={customPlaybackUrl}`**, **`title={episode.title}`**, **`allow="autoplay; fullscreen; encrypted-media"`**. **No **`sandbox`** attribute** (partner players need full script/same-origin behavior; see **`operations/security.md`**). **No** per-iframe **`referrerpolicy`** — inherit CloudFront **`strict-origin-when-cross-origin`**. |
 | **Blocked states** | Missing URL and embed failure copy per **`error_state.md`** and **`presentation.md`** *Decisions (M37 — solo watch Custom iframe — #393)*. |
 | **`hostSourceTab.ts`** | Extend catalog pick with **`playbackHost`**. Custom → always **`{origin}/watch/{id}?partyCapture=1`**; **`hostSourceOpensOnYoutube`** false. |
+| **Chrome-free capture** | **`?partyCapture=1`** is player-only: no media picker and no capture banner on the shared tab (pixels must stay free of host-only chrome for guests and TV). |
 
 ### In-room host source-tab flow (`RoomPlaybackPanel`, issue **#394**)
 
 | Concern | Contract |
 | --- | --- |
-| **Host surface** | **`RoomPlaybackPanel`** publisher branch inside **`riffsync-room-page__player-shell`** shows the same **Open Source Tab** / **Share Source Tab** controls for Custom as for YouTube. |
+| **Host surface** | **`RoomPlaybackPanel`** publisher branch shows **Open Source Tab** / **Share Source Tab**, plus host **media switcher** and **share quality** controls (never on the capture tab). |
 | **Custom render** | Do **not** render **`SoloCustomIframePlayer`** inside the room. Custom playback belongs to the opened `/watch/:id?partyCapture=1` source tab. |
 | **Capture precedence** | When host **`captureStream`** is active, show capture preview **`<video>`**. When inactive, show source-tab share controls. |
 | **Playback source** | Room snapshot mirrors **`playbackHost`**, **`customPlaybackUrl`** (**#392**) for durable room state and retarget diffing. The host source tab resolves to `/watch/:id?partyCapture=1`; that watch route loads the catalog playback URL. |
 | **Snapshot diff** | **`pickRoomSnapshotMediaFields`** and **`useRoomMediaEngine`** diff key include **`playbackHost`** and **`customPlaybackUrl`** so episode retarget refreshes durable media state without session remount. |
 | **Guest branch** | Unchanged SFU **`host_screen`** **`<video>`** — no Custom URL chrome. |
 | **TheaterPlayback** | WebRTC audio/video binding only. Custom iframe playback is owned by the `/watch/:id?partyCapture=1` source tab, not **`RoomPlaybackPanel`** or **`setYoutubeMountElement`**. |
+| **Cast MVP** | TV / Cast continue **`host_screen`** SFU consume for Theater share; Custom iframe on TV remains out of scope. |
 
 ### Public catalog browse and card actions (`catalogPlayback.ts`, issue **#396**)
 

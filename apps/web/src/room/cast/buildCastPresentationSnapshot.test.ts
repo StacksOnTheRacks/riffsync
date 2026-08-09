@@ -34,6 +34,7 @@ describe('buildCastPresentationSnapshot', () => {
       youtubeVideoId: 'abc123',
       label: 'Party video',
     })
+    expect(snapshot.playbackPath).toBe('tv_client_idle_youtube_embed')
     expect(snapshot.chatOverlay.messages[0]?.text).toBe('Fan: hello')
   })
 
@@ -49,6 +50,7 @@ describe('buildCastPresentationSnapshot', () => {
     })
 
     expect(snapshot.stagePrimary.kind).toBe('live_video_placeholder')
+    expect(snapshot.playbackPath).toBe('tv_client_placeholder')
   })
 
   it('uses live stream metadata when cast playback can consume the host screen', () => {
@@ -65,6 +67,7 @@ describe('buildCastPresentationSnapshot', () => {
       },
       chat: [],
       chatMemberLabels: new Map(),
+      tvClientSessionId: 'tv-client-1',
     })
 
     expect(snapshot.stagePrimary).toEqual({
@@ -76,5 +79,24 @@ describe('buildCastPresentationSnapshot', () => {
         apiBaseUrl: 'https://api.test.example',
       },
     })
+    expect(snapshot.playbackPath).toBe('tv_client_stream')
+    expect(snapshot.tvClientSessionId).toBe('tv-client-1')
+  })
+
+  it('marks active Theater share as tv_client_stream even when youtubeVideoId exists', () => {
+    const snapshot = buildCastPresentationSnapshot({
+      roomMode: 'theater',
+      youtubeVideoId: 'yt123456789',
+      isPublisher: true,
+      hasHostCaptureStream: true,
+      hasGuestRelayStream: false,
+      livePlayback: { roomId: 'room-1', sessionId: 'sess-1' },
+      chat: [],
+      chatMemberLabels: new Map(),
+      tvClientSessionId: 'tv-client-1',
+    })
+
+    expect(snapshot.stagePrimary.kind).toBe('live_stream')
+    expect(snapshot.playbackPath).toBe('tv_client_stream')
   })
 })

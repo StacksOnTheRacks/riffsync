@@ -8,6 +8,7 @@ import { LiveChannelPage } from './pages/LiveChannelPage'
 import { AccountPage } from './pages/AccountPage'
 import { RoomPage } from './pages/RoomPage'
 import { CastReceiverPage } from './pages/cast/CastReceiverPage'
+import { TvClientPage } from './pages/tv/TvClientPage'
 import { SoloWatchPage } from './pages/SoloWatchPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
@@ -31,6 +32,7 @@ export function AppRoutes() {
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/admin/auth/callback" element={<StaffAuthCallbackPage />} />
       <Route path="/cast/receiver" element={<CastReceiverPage />} />
+      <Route path="/tv" element={<TvClientPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin" element={<StaffAdminGate />}>
         <Route element={<AdminLayout />}>

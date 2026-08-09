@@ -76,7 +76,7 @@ describe('startCastReceiverLiveStream', () => {
     vi.mocked(connectSfuUnifiedSession).mockResolvedValue(createSession())
   })
 
-  it('forces relay ICE on the Cast receiver SFU session', async () => {
+  it('uses guest-equivalent ICE (no TV-only forced relay) on the Cast receiver SFU session', async () => {
     await startCastReceiverLiveStream({
       livePlayback,
       onRemoteStream: vi.fn(),
@@ -88,9 +88,12 @@ describe('startCastReceiverLiveStream', () => {
         wsBaseUrl: 'wss://signal.riffsync.test',
         token: 'token-1',
         tokenRole: 'consumer',
-        iceTransportPolicy: 'relay',
       }),
     )
+    const connectOptions = vi.mocked(connectSfuUnifiedSession).mock.calls[0]?.[0] as {
+      iceTransportPolicy?: string
+    }
+    expect(connectOptions.iceTransportPolicy).toBeUndefined()
   })
 
   it('maps media errors to structured receiver failure reasons', async () => {

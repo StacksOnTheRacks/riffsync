@@ -1,4 +1,5 @@
 import type { RoomMode } from '../../api/roomsApi'
+import type { TvPlaybackPath } from '../../tv/tvClientIds'
 import type { ChatLine } from '../roomPageTypes'
 import { formatChatSystemText } from '../chatSystemLine'
 import { isEmojiOnlyChatMessage } from '../chatEmojiDisplay'
@@ -14,6 +15,16 @@ export type BuildCastPresentationSnapshotInput = {
   livePlayback?: CastLivePlaybackConfig | null
   chat: ChatLine[]
   chatMemberLabels: Map<string, string>
+  tvClientSessionId?: string | null
+}
+
+function resolvePlaybackPath(
+  stagePrimary: CastPresentationSnapshot['stagePrimary'],
+): TvPlaybackPath {
+  if (stagePrimary.kind === 'live_stream') return 'tv_client_stream'
+  if (stagePrimary.kind === 'youtube_embed') return 'tv_client_idle_youtube_embed'
+  if (stagePrimary.kind === 'video_chat_grid') return 'tv_client_video_chat'
+  return 'tv_client_placeholder'
 }
 
 function resolveStagePrimary(input: BuildCastPresentationSnapshotInput): CastPresentationSnapshot['stagePrimary'] {
@@ -93,10 +104,15 @@ export function buildCastPresentationSnapshot(
     .map((line) => toOverlayLine(line, input.chatMemberLabels))
     .filter((line): line is CastChatOverlayLine => line !== null)
 
+  const stagePrimary = resolveStagePrimary(input)
+  const tvClientSessionId = input.tvClientSessionId?.trim()
+
   return {
     snapshotId: options?.snapshotId ?? createCastSnapshotId(),
     roomMode: input.roomMode,
-    stagePrimary: resolveStagePrimary(input),
+    ...(tvClientSessionId ? { tvClientSessionId } : {}),
+    playbackPath: resolvePlaybackPath(stagePrimary),
+    stagePrimary,
     chatOverlay: { messages },
   }
 }

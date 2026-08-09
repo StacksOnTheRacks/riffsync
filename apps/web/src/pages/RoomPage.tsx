@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RoomMode } from '../api/roomsApi'
 import { fetchFanProfile } from '../api/fanProfileApi'
 import { patchRoom } from '../api/roomsApi'
@@ -23,7 +23,6 @@ import { StageParticipantLayout } from '../room/stage/StageParticipantLayout'
 import { enteredVideoChatMode } from '../room/roomMediaLifecycle'
 import { useRoomChrome } from '../room/useRoomChrome'
 import { useRoomSnapshot } from '../room/useRoomSnapshot'
-import { detectExperimentalRoomFeatures } from '../room/experimentalRoomFeatures'
 import { useRoomMediaEngine } from '../room/useRoomMediaEngine'
 import { useHostScreenCapture } from '../room/useHostScreenCapture'
 import { useRoomProfileTab } from '../room/useRoomProfileTab'
@@ -36,12 +35,13 @@ import { hostSourceOpensOnYoutube, resolveHostSourceTabUrl } from '../room/hostS
 import { useCastAvailability } from '../room/cast/useCastAvailability'
 import { useCastStartSession } from '../room/cast/useCastStartSession'
 import { CastActiveStagePanel } from '../room/cast/CastActiveStagePanel'
+import { useLinkTvSession } from '../room/useLinkTvSession'
+import type { BuildCastPresentationSnapshotInput } from '../room/cast/buildCastPresentationSnapshot'
+import type { TheaterShareQualityPreset } from '../room/theaterShareQuality'
 
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
   const roomId = roomIdParam ? decodeURIComponent(roomIdParam) : ''
-
-  const [experimentalFeatures] = useState(() => detectExperimentalRoomFeatures())
 
   const guestInitial = ensureGuestSession('room')
   const [sessionId] = useState(guestInitial.sessionId)
@@ -188,6 +188,8 @@ export function RoomPage() {
     setRoom,
   })
 
+  const [theaterShareQuality, setTheaterShareQuality] =
+    useState<TheaterShareQualityPreset>('balanced')
   const { captureErr, startCapture, stopCapture } = useHostScreenCapture({
     roomId,
     sendJson,
@@ -195,7 +197,27 @@ export function RoomPage() {
     captureStream,
     setCaptureStream,
     captureStreamRef,
+    qualityPreset: theaterShareQuality,
   })
+
+  const selectCatalogEpisode = useCallback(
+    async (episodeId: string) => {
+      if (!room || !fanToken || !isPublisher) return
+      const res = await patchRoom(fanToken, roomId, { catalogEpisodeId: episodeId })
+      setRoom({
+        ...room,
+        version: res.version,
+        catalogEpisodeId: res.catalogEpisodeId,
+        youtubeVideoId: res.youtubeVideoId,
+        playbackHost: res.playbackHost,
+        customPlaybackUrl: res.customPlaybackUrl,
+        visibility: res.visibility,
+        lastActivityAt: res.lastActivityAt,
+        displayTitle: res.displayTitle ?? room.displayTitle,
+      })
+    },
+    [fanToken, isPublisher, room, roomId, setRoom],
+  )
 
   const profile = useRoomProfileTab({
     fanToken,
@@ -260,10 +282,10 @@ export function RoomPage() {
       : roomSidebarTab
   const viewportWide = useViewportWide()
   const expandToggleRef = useRef<HTMLButtonElement>(null)
-  const castAvailability = useCastAvailability(Boolean(room) && experimentalFeatures)
+  const castAvailability = useCastAvailability(Boolean(room))
   const { castStartLifecycle, startCast, stopCast, castToTvButtonRef, stopCastButtonRef } =
     useCastStartSession({
-      enabled: Boolean(room) && experimentalFeatures && castAvailability === 'available',
+      enabled: Boolean(room) && castAvailability === 'available',
       expandedViewActive: expandedView && viewportWide,
       roomMode,
       roomId: canonicalRoomId,
@@ -277,12 +299,58 @@ export function RoomPage() {
       chatMemberLabels,
       stageFocusRestoreRef: expandToggleRef,
     })
+  const linkSnapshotInput = useMemo<BuildCastPresentationSnapshotInput>(
+    () => ({
+      roomMode,
+      livePlayback:
+        (Boolean(captureStream) || Boolean(guestRemote)) && canonicalRoomId && sessionId
+          ? { roomId: canonicalRoomId, sessionId, apiBaseUrl }
+          : null,
+      youtubeVideoId,
+      isPublisher,
+      hasHostCaptureStream: Boolean(captureStream),
+      hasGuestRelayStream: Boolean(guestRemote),
+      chat,
+      chatMemberLabels,
+    }),
+    [
+      roomMode,
+      captureStream,
+      guestRemote,
+      canonicalRoomId,
+      sessionId,
+      apiBaseUrl,
+      youtubeVideoId,
+      isPublisher,
+      chat,
+      chatMemberLabels,
+    ],
+  )
+  const {
+    linkPanelOpen,
+    openLinkPanel,
+    closeLinkPanel,
+    linkActive,
+    claimCode,
+    stopLink,
+  } = useLinkTvSession({
+    enabled: Boolean(room),
+    roomId: canonicalRoomId,
+    sessionId,
+    apiBaseUrl,
+    snapshotInput: linkSnapshotInput,
+  })
+  const linkTvButtonRef = useRef<HTMLButtonElement | null>(null)
   const castStageActive =
     castStartLifecycle === 'casting' || castStartLifecycle === 'stopping' || castStartLifecycle === 'stop_failed'
   const expandedViewActive = expandedView && viewportWide && !castStageActive
   const onCastToTvClick = useCallback(() => {
+    if (castStageActive) {
+      stopCast()
+      return
+    }
     void startCast()
-  }, [startCast])
+  }, [castStageActive, startCast, stopCast])
   const onStopCastClick = useCallback(() => {
     stopCast()
   }, [stopCast])
@@ -419,7 +487,6 @@ export function RoomPage() {
     participantProducerBySessionId,
     speakingBySessionId,
     isPublisher,
-    experimentalFeatures,
     shareHint,
     onCopyShare: () => void copyShare(),
     onOpenRenameModal: openRenameModal,
@@ -445,6 +512,13 @@ export function RoomPage() {
     castStartLifecycle,
     onCastToTvClick,
     castToTvButtonRef,
+    linkTvPanelOpen: linkPanelOpen,
+    linkTvActive: linkActive,
+    onLinkTvClick: openLinkPanel,
+    onLinkTvClose: closeLinkPanel,
+    onLinkTvSubmitCode: claimCode,
+    onStopLinkTv: stopLink,
+    linkTvButtonRef,
   }
 
   return (
@@ -539,6 +613,10 @@ export function RoomPage() {
                           })
                         : false
                     }
+                    catalogEpisodeId={room.catalogEpisodeId}
+                    onSelectCatalogEpisode={selectCatalogEpisode}
+                    theaterShareQuality={theaterShareQuality}
+                    onTheaterShareQualityChange={setTheaterShareQuality}
                   />
                 )
               }

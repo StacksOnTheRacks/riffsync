@@ -25,9 +25,9 @@ import {
   RIFFSYNC_CHAT_COMPOSE_STATUS_ID,
   RIFFSYNC_CHAT_DRAWER_STATUS_ID,
 } from './drawerErrorPresentation'
-import { CastStartRoomActions } from './cast/CastStartRoomActions'
 import type { CastAvailabilityState } from './cast/castAvailabilityTypes'
 import type { CastStartLifecycle } from './cast/castChannelProtocol'
+import { LinkTvPanel } from './LinkTvPanel'
 import { RoomVisibilityControl } from './RoomVisibilityControl'
 import type { RoomVisibility } from './hostRoomControls'
 
@@ -65,7 +65,6 @@ type RoomPageSidebarProps = {
   participantProducerBySessionId: Map<string, ParticipantProducerSnapshot>
   speakingBySessionId: Map<string, boolean>
   isPublisher: boolean
-  experimentalFeatures: boolean
   shareHint: string | null
   onCopyShare: () => void
   onOpenRenameModal: () => void
@@ -91,6 +90,13 @@ type RoomPageSidebarProps = {
   castStartLifecycle: CastStartLifecycle
   onCastToTvClick: () => void
   castToTvButtonRef: RefObject<HTMLButtonElement | null>
+  linkTvPanelOpen: boolean
+  linkTvActive: boolean
+  onLinkTvClick: () => void
+  onLinkTvClose: () => void
+  onLinkTvSubmitCode: (code: string) => Promise<void>
+  onStopLinkTv: () => void
+  linkTvButtonRef: RefObject<HTMLButtonElement | null>
 }
 
 export function RoomPageSidebar({
@@ -127,7 +133,6 @@ export function RoomPageSidebar({
   participantProducerBySessionId,
   speakingBySessionId,
   isPublisher,
-  experimentalFeatures,
   shareHint,
   onCopyShare,
   onOpenRenameModal,
@@ -153,6 +158,13 @@ export function RoomPageSidebar({
   castStartLifecycle,
   onCastToTvClick,
   castToTvButtonRef,
+  linkTvPanelOpen,
+  linkTvActive,
+  onLinkTvClick,
+  onLinkTvClose,
+  onLinkTvSubmitCode,
+  onStopLinkTv,
+  linkTvButtonRef,
 }: RoomPageSidebarProps) {
   const peopleFriends = usePeopleRosterFriends(fanToken, activeSidebarTab)
   const roomFriends = useRoomFriendsPane(activeSidebarTab === 'friends', Boolean(fanToken))
@@ -415,14 +427,6 @@ export function RoomPageSidebar({
                 Hosting Guide
               </Link>
             ) : null}
-            {experimentalFeatures ? (
-              <CastStartRoomActions
-                castAvailability={castAvailability}
-                castStartLifecycle={castStartLifecycle}
-                onCastToTvClick={onCastToTvClick}
-                castToTvButtonRef={castToTvButtonRef}
-              />
-            ) : null}
             <Link className="gen-button gen-button-wide" to="/">
               Leave Party
             </Link>
@@ -501,12 +505,29 @@ export function RoomPageSidebar({
         ) : null}
 
         <div className="riffsync-room-page__sidebar-footer">
-          {showParticipantAvControls && fanToken ? (
-            <ParticipantAvToggles
-              controller={participantAvController}
-              avDisabled={avDisabled}
-              onLocalToggleAnnounce={announceRoomA11y}
-            />
+          {showParticipantAvControls ? (
+            <>
+              <ParticipantAvToggles
+                controller={fanToken ? participantAvController : null}
+                avDisabled={avDisabled}
+                onLocalToggleAnnounce={announceRoomA11y}
+                showAvControls={Boolean(fanToken)}
+                castAvailability={castAvailability}
+                castStartLifecycle={castStartLifecycle}
+                onCastToTvClick={onCastToTvClick}
+                castToTvButtonRef={castToTvButtonRef}
+                onLinkTvClick={onLinkTvClick}
+                linkTvActive={linkTvActive}
+                linkTvButtonRef={linkTvButtonRef}
+              />
+              <LinkTvPanel
+                open={linkTvPanelOpen}
+                onClose={onLinkTvClose}
+                onSubmitCode={onLinkTvSubmitCode}
+                linked={linkTvActive}
+                onStopLink={onStopLinkTv}
+              />
+            </>
           ) : null}
           {activeSidebarTab === 'chat' ? (
             <div className="riffsync-room-chat-compose-holder">

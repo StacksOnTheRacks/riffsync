@@ -95,6 +95,7 @@ Local watch-party media **must** exercise the same SFU + coturn topology as **`R
 | **Limit-hit behavior** | **Hard-fail** publish toggle with visible client error when SFU session caps or instance capacity block a new publisher — **no** auto-degrade (audio-only, drop newest video) in MVP. |
 | **Hosted staging SFU** | **None** — no billable staging media stack. PR harness uses **CI ephemeral** SFU + TURN; operator soak uses **production** media (manual checklist) or **local disposable** profile. |
 | **Topology** | **SFU-only:** SPA + **`RiffSyncApi-prod`** + **`RiffSyncTurn`** S3 bundle in prod; local/CI use disposable SFU + coturn with identical signaling/producer semantics. **No** mesh WebRTC path. |
+| **TV / Cast living-room quality** | TV clients consume the same **`host_screen`** plane as guests (guest-equivalent ICE; no TV-only forced TURN relay). If Chromecast or linked TVs still chop after chrome-free capture + host share-quality presets, treat singleton **`RiffSyncTurn`** CPU/uplink/TURN relay capacity as a first-class suspect and upsize or split TURN before changing product UX. |
 
 SFU runtime guardrails (**`SFU_MAX_WEBRTC_TRANSPORTS_PER_SESSION`**, **`SFU_MAX_CONSUMERS_PER_SESSION`**, RTC port range) must align with the per-room publisher ceiling when wired through EC2 user-data.
 

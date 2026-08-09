@@ -2615,10 +2615,10 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  flex: 1 1 calc(50% - 0.2rem);
-  min-width: 0;
+  flex: 1 1 calc(25% - 0.3rem);
+  min-width: 2.5rem;
   min-height: 2.25rem;
-  padding: 0.35rem 0.5rem;
+  padding: 0.35rem 0.45rem;
   font-size: 0.75rem;
   line-height: 1.2;
 }
@@ -2639,13 +2639,139 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 }
 
 .riffsync-room-av-toggle__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+  border: 0;
 }
 
 .riffsync-room-av__err {
   margin: 0;
   font-size: 0.75rem;
   line-height: 1.35;
+  color: #ffb4b4;
+}
+
+.riffsync-link-tv-panel {
+  margin: 0.35rem 0.5rem 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 0.5rem;
+  background: rgb(8 12 18 / 0.92);
+}
+
+.riffsync-link-tv-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.riffsync-link-tv-panel__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.riffsync-link-tv-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.riffsync-link-tv-panel__instructions,
+.riffsync-link-tv-panel__hint,
+.riffsync-link-tv-panel__status {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.riffsync-link-tv-panel__label {
+  font-size: 0.8rem;
+}
+
+.riffsync-link-tv-panel__input {
+  width: 100%;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 1.1rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.riffsync-link-tv-panel__error {
+  margin: 0;
+  color: #ffb4b4;
+  font-size: 0.8rem;
+}
+
+.riffsync-host-media-switcher,
+.riffsync-theater-quality {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 0.45rem;
+  background: rgb(255 255 255 / 0.04);
+}
+
+.riffsync-host-media-switcher__copy,
+.riffsync-host-media-switcher__field,
+.riffsync-theater-quality__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+}
+
+.riffsync-host-media-switcher__status,
+.riffsync-theater-quality__hint {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.riffsync-tv-client__pairing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 100vh;
+  padding: 2rem;
+  text-align: center;
+}
+
+.riffsync-tv-client__brand {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.riffsync-tv-client__pairing-lede,
+.riffsync-tv-client__pairing-hint {
+  margin: 0;
+  max-width: 28rem;
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  color: rgb(255 255 255 / 0.78);
+}
+
+.riffsync-tv-client__pairing-code {
+  margin: 0.5rem 0;
+  font-size: clamp(2.5rem, 10vw, 5rem);
+  font-weight: 700;
+  letter-spacing: 0.28em;
+}
+
+.riffsync-tv-client__pairing-error {
+  margin: 0;
   color: #ffb4b4;
 }
 

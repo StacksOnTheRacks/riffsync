@@ -36,6 +36,7 @@ vi.mock('../config/fetchRtcIceServers', () => ({
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: () => ({ data: undefined }),
+  useCatalogListQuery: () => ({ data: [], isPending: false, isError: false, refetch: vi.fn() }),
 }))
 
 vi.mock('../auth/fanTokens', async (importOriginal) => {
@@ -72,7 +73,21 @@ vi.mock('../room/cast/useCastStartSession', () => ({
   useCastStartSession: () => ({
     castStartLifecycle: castStartLifecycle.value,
     startCast,
+    stopCast: vi.fn(),
+    stopCastButtonRef: { current: null },
     castToTvButtonRef: { current: null },
+  }),
+}))
+
+vi.mock('../room/useLinkTvSession', () => ({
+  useLinkTvSession: () => ({
+    linkPanelOpen: false,
+    openLinkPanel: vi.fn(),
+    closeLinkPanel: vi.fn(),
+    linkActive: false,
+    claimCode: vi.fn(),
+    stopLink: vi.fn(),
+    tvClientSessionId: null,
   }),
 }))
 
@@ -222,6 +237,6 @@ describe('RoomPage Cast start', () => {
 
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
     expect(status?.textContent).toBe(CAST_START_REJECTED_MESSAGE)
-    expect(container.textContent).toContain('Cast to TV')
+    expect(container.querySelector('[data-testid="room-av-cast-button"]')).not.toBeNull()
   })
 })

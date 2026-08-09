@@ -272,7 +272,7 @@ describe('SoloWatchPage', () => {
     expect(container.querySelector('.riffsync-party-capture-picker')).toBeNull()
   })
 
-  it('renders the media picker in party-capture mode', () => {
+  it('keeps party-capture chrome-free (no media picker or banner on shared pixels)', () => {
     useCatalogEpisodeQuery.mockReturnValue({
       data: episode({ embedAllows: true }),
       isPending: false,
@@ -283,8 +283,9 @@ describe('SoloWatchPage', () => {
 
     renderWatchPage('/watch/032-mitchell?partyCapture=1')
 
-    expect(container.querySelector('.riffsync-party-capture-picker')).not.toBeNull()
-    expect(container.textContent).toContain('Switch title')
+    expect(container.querySelector('.riffsync-party-capture-picker')).toBeNull()
+    expect(container.querySelector('.riffsync-party-capture-banner')).toBeNull()
+    expect(container.textContent).not.toContain('Switch title')
   })
 
   it('shows embed-blocked copy when Custom iframe reports error', () => {

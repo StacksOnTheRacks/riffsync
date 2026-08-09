@@ -360,6 +360,18 @@ export class ApiCatalogStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    const tvPairingTable = new dynamodb.Table(this, 'TvPairingTable', {
+      partitionKey: { name: 'pairingId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      timeToLiveAttribute: 'expiresAt',
+    });
+    tvPairingTable.addGlobalSecondaryIndex({
+      indexName: 'code-index',
+      partitionKey: { name: 'code', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     this.fanAvatarsBucket = new s3.Bucket(this, 'FanAvatarsBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -744,6 +756,20 @@ export class ApiCatalogStack extends cdk.Stack {
     this.connectionsTable.grantReadData(webrtcSfuTokenFn);
     this.roomPresenceTable.grantReadData(webrtcSfuTokenFn);
     this.roomsTable.grantReadData(webrtcSfuTokenFn);
+
+    const tvPairingFn = new lambdaNodejs.NodejsFunction(this, 'TvPairingFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(15),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/tv-pairing.ts'),
+      handler: 'handler',
+      environment: {
+        TV_PAIRING_TABLE_NAME: tvPairingTable.tableName,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+    tvPairingTable.grantReadWriteData(tvPairingFn);
 
     const fanProfileGetFn = new lambdaNodejs.NodejsFunction(this, 'FanProfileGetFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -1505,6 +1531,28 @@ export class ApiCatalogStack extends cdk.Stack {
       path: '/v1/webrtc/sfu-token',
       methods: [apigwv2.HttpMethod.POST],
       integration: webrtcSfuTokenIntegration,
+    });
+
+    const tvPairingIntegration = new integrations.HttpLambdaIntegration('TvPairingInt', tvPairingFn);
+    this.httpApi.addRoutes({
+      path: '/v1/tv/pairing',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: tvPairingIntegration,
+    });
+    this.httpApi.addRoutes({
+      path: '/v1/tv/pairing/claim',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: tvPairingIntegration,
+    });
+    this.httpApi.addRoutes({
+      path: '/v1/tv/pairing/{pairingId}',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: tvPairingIntegration,
+    });
+    this.httpApi.addRoutes({
+      path: '/v1/tv/pairing/{pairingId}/presentation',
+      methods: [apigwv2.HttpMethod.PUT],
+      integration: tvPairingIntegration,
     });
 
     this.httpApi.addRoutes({

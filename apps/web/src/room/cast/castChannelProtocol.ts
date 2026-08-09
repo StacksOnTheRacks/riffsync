@@ -1,4 +1,5 @@
 import type { RoomMode } from '../../api/roomsApi'
+import type { TvPlaybackPath } from '../../tv/tvClientIds'
 
 export const RIFFSYNC_CAST_NAMESPACE = 'urn:x-cast:com.riffsync.presentation'
 export const CAST_RECEIVER_RENDERED_SCHEMA_VERSION = 1
@@ -32,6 +33,10 @@ export type CastChatOverlayLine = {
 export type CastPresentationSnapshot = {
   snapshotId: string
   roomMode: RoomMode
+  /** Correlates sender Cast/Link session with TV client events. */
+  tvClientSessionId?: string
+  /** Path selection for tests and TV diagnostics. */
+  playbackPath?: TvPlaybackPath
   stagePrimary: {
     kind: CastStagePrimaryKind
     youtubeVideoId?: string
@@ -53,11 +58,12 @@ export type CastReceiverRenderedAcknowledgement = {
   snapshotId: string
   stagePrimaryRendered: boolean
   chatOverlayRendered: boolean
+  tvClientSessionId?: string
 }
 
 export type CastReceiverOutboundMessage =
   | CastReceiverRenderedAcknowledgement
-  | { type: 'render_failed'; reason?: string }
+  | { type: 'render_failed'; reason?: string; tvClientSessionId?: string }
 
 let castSnapshotIdCounter = 0
 
@@ -72,6 +78,7 @@ export function resetCastSnapshotIdCounterForTests(): void {
 
 export function buildReceiverRenderedAcknowledgement(
   snapshotId: string,
+  tvClientSessionId?: string,
 ): CastReceiverRenderedAcknowledgement {
   return {
     type: 'receiver_rendered',
@@ -79,6 +86,7 @@ export function buildReceiverRenderedAcknowledgement(
     snapshotId,
     stagePrimaryRendered: true,
     chatOverlayRendered: true,
+    ...(tvClientSessionId ? { tvClientSessionId } : {}),
   }
 }
 
@@ -106,7 +114,12 @@ export function parseCastReceiverOutboundMessage(
   const type = (raw as { type?: unknown }).type
   if (type === 'render_failed') {
     const reason = (raw as { reason?: unknown }).reason
-    return { type: 'render_failed', reason: typeof reason === 'string' ? reason : undefined }
+    const tvClientSessionId = (raw as { tvClientSessionId?: unknown }).tvClientSessionId
+    return {
+      type: 'render_failed',
+      reason: typeof reason === 'string' ? reason : undefined,
+      ...(typeof tvClientSessionId === 'string' ? { tvClientSessionId } : {}),
+    }
   }
 
   if (type === 'receiver_rendered') {
@@ -114,6 +127,7 @@ export function parseCastReceiverOutboundMessage(
     const snapshotId = (raw as { snapshotId?: unknown }).snapshotId
     const stagePrimaryRendered = (raw as { stagePrimaryRendered?: unknown }).stagePrimaryRendered
     const chatOverlayRendered = (raw as { chatOverlayRendered?: unknown }).chatOverlayRendered
+    const tvClientSessionId = (raw as { tvClientSessionId?: unknown }).tvClientSessionId
     return {
       type: 'receiver_rendered',
       schemaVersion:
@@ -123,6 +137,7 @@ export function parseCastReceiverOutboundMessage(
       snapshotId: typeof snapshotId === 'string' ? snapshotId : '',
       stagePrimaryRendered: stagePrimaryRendered === true ? true : (false as true),
       chatOverlayRendered: chatOverlayRendered === true ? true : (false as true),
+      ...(typeof tvClientSessionId === 'string' ? { tvClientSessionId } : {}),
     }
   }
 
