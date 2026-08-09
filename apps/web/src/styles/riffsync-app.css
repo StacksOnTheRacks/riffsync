@@ -2710,18 +2710,6 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   font-size: 0.8rem;
 }
 
-.riffsync-host-media-switcher {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.35rem 0.75rem;
-  margin: 0 0 0.45rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-
 .riffsync-theater-quality {
   display: flex;
   flex-direction: column;
@@ -2733,24 +2721,21 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   background: rgb(255 255 255 / 0.04);
 }
 
-.riffsync-host-media-switcher__field,
 .riffsync-theater-quality__label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  margin: 0;
   font-size: 0.8rem;
-  min-width: min(100%, 16rem);
-  flex: 1 1 12rem;
+  line-height: 1.2;
 }
 
-.riffsync-host-media-switcher__field select {
+.riffsync-theater-quality__select {
   width: 100%;
+  margin: 0;
 }
 
-.riffsync-host-media-switcher__status,
 .riffsync-theater-quality__hint {
   margin: 0;
   font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 .riffsync-tv-client__pairing {

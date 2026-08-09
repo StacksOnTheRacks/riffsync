@@ -124,7 +124,7 @@ Schema authority: **`data/catalog/catalog.schema.json`** with **`if`/`then`** fo
 
 | Concern | Contract |
 | --- | --- |
-| **Host surface** | **`RoomPlaybackPanel`** publisher branch shows **Open Source Tab** / **Share Source Tab** plus a compact title **`<select>`** (never on the capture tab). Share-quality controls live on the host **Room** sidebar tab. Source-tab open/navigate uses named window **`riffsync-host-source`**. |
+| **Host surface** | **`RoomPlaybackPanel`** publisher branch shows **Open Source Tab** / **Share Source Tab** (never on the capture tab). Share-quality controls live on the host **Room** sidebar tab. Source-tab open/navigate uses named window **`riffsync-host-source`**. |
 | **Custom render** | Do **not** render **`SoloCustomIframePlayer`** inside the room. Custom playback belongs to the opened `/watch/:id?partyCapture=1` source tab. |
 | **Capture precedence** | When host **`captureStream`** is active, show capture preview **`<video>`**. When inactive, show source-tab share controls. |
 | **Playback source** | Room snapshot mirrors **`playbackHost`**, **`customPlaybackUrl`** (**#392**) for durable room state and retarget diffing. The host source tab resolves to `/watch/:id?partyCapture=1`; that watch route loads the catalog playback URL. |
