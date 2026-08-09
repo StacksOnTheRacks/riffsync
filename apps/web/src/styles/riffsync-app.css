@@ -1859,8 +1859,17 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   z-index: 1;
 }
 
-.riffsync-room-page__chat--overlay .riffsync-room-page__sidebar-footer {
+.riffsync-room-page__chat--overlay .riffsync-room-page__sidebar-footer,
+.riffsync-room-page__chat--overlay .riffsync-room-page__sidebar-av {
   background: rgb(5 8 11 / 0.32);
+}
+
+.riffsync-room-page__sidebar-av {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(5 8 11 / 0.55);
 }
 
 @media (max-width: 991px) {
@@ -2963,13 +2972,12 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 
 .riffsync-cast-receiver__chat-overlay {
   position: absolute;
+  top: 24px;
   right: 24px;
   bottom: 24px;
   z-index: 2;
   width: clamp(22rem, 34vw, 42rem);
   max-width: 40%;
-  height: 90%;
-  max-height: 90%;
   min-height: 0;
   overflow: hidden;
   display: flex;
@@ -2979,6 +2987,7 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 
 @media (min-width: 1920px) {
   .riffsync-cast-receiver__chat-overlay {
+    top: 32px;
     right: 32px;
     bottom: 32px;
   }
@@ -2986,6 +2995,7 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 
 @media (min-width: 3840px) {
   .riffsync-cast-receiver__chat-overlay {
+    top: 64px;
     right: 64px;
     bottom: 64px;
   }

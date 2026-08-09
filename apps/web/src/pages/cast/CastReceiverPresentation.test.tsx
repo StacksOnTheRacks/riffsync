@@ -198,7 +198,10 @@ describe('CastReceiverPresentation', () => {
       const videoRect = video.getBoundingClientRect()
 
       expect(overlayRect.width).toBeLessThanOrEqual(stageRect.width * 0.4 + 1)
-      expect(overlayRect.height).toBeLessThanOrEqual(stageRect.height * 0.9 + 1)
+      // Overlay uses top/bottom safe insets (not a short mid-screen band).
+      expect(overlayRect.height).toBeLessThanOrEqual(stageRect.height + 1)
+      expect(overlayRect.top).toBeGreaterThanOrEqual(stageRect.top)
+      expect(overlayRect.bottom).toBeLessThanOrEqual(stageRect.bottom + 1)
       expect(videoRect.width).toBeLessThanOrEqual(stageRect.width + 1)
       expect(videoRect.height).toBeLessThanOrEqual(stageRect.height + 1)
     },

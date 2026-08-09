@@ -13,7 +13,7 @@ Primary navigation aligned with **`docs/architecture.frontend.md`**.
 | **`/catalog/riff-material`** | Public subcategory browse — **Riff Material** titles (public label; slug **`riff-ready`**) in the shared subcategory shell (header + **Cheesy Flicks Ready to Riff** subtitle + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
 | **`/catalog/movie-night`** | Public subcategory browse — Movie Night titles in the shared subcategory shell (header + **Pull the Family Together for a Movie Night** subtitle + search/sort + card grid). Same host/party start path from a title card as **`/catalog`**. |
 | **`/watch/:catalogId`** *(optional)* | Prefer **redirect** to **`/room/:...`** so playback logic stays unified; if retained briefly, must not fork drift-prone parallel-sync assumptions. |
-| **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch), **Room** tab lobby visibility toggle (**Show in lobby** / **Link only**). **Signed-in fans:** participant camera/mic toggles above compose. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
+| **`/room/:roomId`** | **Admin (`JWT.sub === hostSub`):** picker + embed + broadcast, host control bar (room mode, AV kill switch), **Room** tab lobby visibility toggle (**Show in lobby** / **Link only**). **Signed-in fans:** participant camera/mic toggles at the top of the sidebar. **Guests:** Lazy **`sessionId`**, inbound **`MediaStream`**, **Now watching**, chat, subscribe-only participant AV — **no camera/mic toggle chrome** (**`authorization.md`**). |
 | **`/lobby`** | Public rooms from **`GET` lobby API** → navigate to **`/room/:id`**. |
 | **`/live/:slug`** | Official **hostless** Live channel: resolve **`catalog: live`** episode by **`id === slug`** → YouTube iframe for every viewer + room WebSocket chat on derived system **`roomId`** (`live-{id}`). No Share Source Tab / host controls. Anonymous: watch + read chat. Signed-in fan: watch + send chat. Lazy **`sessionId`** on join (same guest mint posture as rooms). |
 | **`/admin/login`** | **Unlisted** operator gate (bookmark or direct URL only; no links from catalog or room chrome). Primary action starts **staff** Cognito Hosted UI + PKCE; copy makes clear this is **operators only**, not fan Facebook sign-in. |
@@ -115,7 +115,7 @@ When the host starts screen-share and guests receive authoritative **`share_stat
 
 ### Signed-in fan flows
 
-1. **Enable camera/mic:** Toggle above compose (rendered on any sidebar tab when fan JWT present). Request device permission → mint SFU producer token → publish. Default **off** on join; **off** again after disconnect/refresh (manual re-enable).
+1. **Enable camera/mic:** Toggle at the top of the sidebar (rendered on any sidebar tab when fan JWT present). Request device permission → mint SFU producer token → publish. Default **off** on join; **off** again after disconnect/refresh (manual re-enable).
 2. **Disable camera/mic:** Toggle off tears down local producer; strip/grid updates for remote viewers and removes local **You** tile when camera off.
 3. **Host kill switch active:** Toggles visible but **disabled** with explanation; no publish until host re-enables AV.
 
@@ -294,7 +294,7 @@ Friends/DM flows require an authenticated **fan** session. Anonymous guests and 
 | Admin UI delivery shape? | **Gated `/admin/*` routes** in the existing **`apps/web` SPA** (one build, one origin); not a separate admin SPA deploy target. |
 | Fan + staff sessions in one browser? | **Coexist independently**; staff sign-out clears staff tokens only. |
 | Discoverability of `/admin/login`? | **Unlisted** — bookmark/direct URL only; no public SPA links from fan surfaces. |
-| Participant AV toggle visibility across sidebar tabs? | **Always visible** above compose on **Chat**, **People**, **Room**, **Profile**, and **Friends** (when present) when fan JWT present; **hidden** for anonymous guests. |
+| Participant AV toggle visibility across sidebar tabs? | **Always visible** at the top of the sidebar on **Chat**, **People**, **Room**, **Profile**, and **Friends** (when present) when fan JWT present; **hidden** for anonymous guests. |
 | Local self-preview in row/grid? | **Yes** — **You** tile when local camera on. |
 | Non-host room mode indicator? | **Layout only** — no read-only mode badge in MVP. |
 | Narrow viewport participant video? | **Horizontal scroll row** below movie/grid primary region. |
