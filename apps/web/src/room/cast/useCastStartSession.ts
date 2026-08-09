@@ -76,7 +76,7 @@ export function useCastStartSession({
   const [castStartLifecycle, setCastStartLifecycle] = useState<CastStartLifecycle>('idle')
   const tvClientSessionIdRef = useRef<string | null>(null)
 
-  const snapshotInput = useMemo<BuildCastPresentationSnapshotInput>(
+  const snapshotInput = useMemo<Omit<BuildCastPresentationSnapshotInput, 'tvClientSessionId'>>(
     () => ({
       roomMode,
       livePlayback:
@@ -89,7 +89,6 @@ export function useCastStartSession({
       hasGuestRelayStream,
       chat,
       chatMemberLabels,
-      tvClientSessionId: tvClientSessionIdRef.current,
     }),
     [
       roomMode,
@@ -102,12 +101,15 @@ export function useCastStartSession({
       hasGuestRelayStream,
       chat,
       chatMemberLabels,
-      castStartLifecycle,
     ],
   )
 
   const buildSnapshot = useCallback(
-    () => buildCastPresentationSnapshot(snapshotInput),
+    () =>
+      buildCastPresentationSnapshot({
+        ...snapshotInput,
+        tvClientSessionId: tvClientSessionIdRef.current,
+      }),
     [snapshotInput],
   )
 

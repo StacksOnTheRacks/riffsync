@@ -2,10 +2,8 @@ import { Link } from 'react-router-dom'
 import type { TheaterPlaybackSnapshot } from './sessions/TheaterPlayback'
 import { RIFFSYNC_THEATER_AUDIO_STATUS_ID, RIFFSYNC_VIDEO_RELAY_STATUS_ID } from './drawerErrorPresentation'
 import { HostRoomMediaSwitcher } from './HostRoomMediaSwitcher'
-import {
-  TheaterShareQualityControls,
-  type TheaterShareQualityPreset,
-} from './theaterShareQuality'
+import { TheaterShareQualityControls } from './TheaterShareQualityControls'
+import type { TheaterShareQualityPreset } from './theaterShareQuality'
 
 type RoomPlaybackPanelProps = {
   isPublisher: boolean

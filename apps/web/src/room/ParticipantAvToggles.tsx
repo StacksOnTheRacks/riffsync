@@ -16,6 +16,14 @@ import {
 } from './cast/castStartStatusCopy'
 import { CAST_UNAVAILABLE_MESSAGE, RIFFSYNC_CAST_AVAILABILITY_STATUS_ID } from './cast/castAvailabilityTypes'
 
+const PARTICIPANT_AV_EMPTY_STATE = {
+  cameraEnabled: false,
+  micEnabled: false,
+  canPublish: false,
+  busy: false,
+  error: null,
+} as const
+
 export type ParticipantAvTogglesProps = {
   controller: ParticipantAvController | null
   avDisabled: boolean
@@ -125,12 +133,16 @@ export function ParticipantAvToggles({
 }: ParticipantAvTogglesProps) {
   const killSwitchId = useId()
   const [state, setState] = useState(() =>
-    controller ? controller.getState() : { cameraEnabled: false, micEnabled: false, canPublish: false, busy: false, error: null },
+    controller ? controller.getState() : PARTICIPANT_AV_EMPTY_STATE,
   )
+  const [trackedController, setTrackedController] = useState(controller)
+  if (controller !== trackedController) {
+    setTrackedController(controller)
+    setState(controller ? controller.getState() : PARTICIPANT_AV_EMPTY_STATE)
+  }
 
   useEffect(() => {
     if (!controller) return
-    setState(controller.getState())
     return controller.subscribe(() => setState(controller.getState()))
   }, [controller])
 

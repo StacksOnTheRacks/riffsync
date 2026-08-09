@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   claimTvPairing,
   pushTvPairingPresentation,
@@ -28,6 +28,12 @@ export type UseLinkTvSessionResult = {
   tvClientSessionId: string | null
 }
 
+type LinkPairing = {
+  pairingId: string
+  claimToken: string
+  tvClientSessionId: string
+}
+
 export function useLinkTvSession({
   enabled,
   roomId,
@@ -38,25 +44,31 @@ export function useLinkTvSession({
   const [linkPanelOpen, setLinkPanelOpen] = useState(false)
   const [linkActive, setLinkActive] = useState(false)
   const [tvClientSessionId, setTvClientSessionId] = useState<string | null>(null)
-  const pairingRef = useRef<{ pairingId: string; claimToken: string; tvClientSessionId: string } | null>(
-    null,
-  )
+  const [pairing, setPairing] = useState<LinkPairing | null>(null)
+  const [prevEnabled, setPrevEnabled] = useState(enabled)
+
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled)
+    if (!enabled && (linkActive || pairing || tvClientSessionId)) {
+      const id = pairing?.tvClientSessionId ?? tvClientSessionId
+      setPairing(null)
+      setLinkActive(false)
+      setTvClientSessionId(null)
+      if (id) emitTvDebugEvent('tv_teardown', { tvClientSessionId: id, failureClass: undefined })
+    }
+  }
 
   const stopLink = useCallback(() => {
-    const id = pairingRef.current?.tvClientSessionId
-    pairingRef.current = null
+    const id = pairing?.tvClientSessionId ?? tvClientSessionId
+    setPairing(null)
     setLinkActive(false)
     setTvClientSessionId(null)
     if (id) emitTvDebugEvent('tv_teardown', { tvClientSessionId: id, failureClass: undefined })
-  }, [])
+  }, [pairing, tvClientSessionId])
 
   useEffect(() => {
-    if (!enabled) stopLink()
-  }, [enabled, stopLink])
-
-  useEffect(() => {
-    if (!linkActive || !pairingRef.current) return
-    const { pairingId, claimToken, tvClientSessionId: session } = pairingRef.current
+    if (!linkActive || !pairing) return
+    const { pairingId, claimToken, tvClientSessionId: session } = pairing
     const snapshot = buildCastPresentationSnapshot({
       ...snapshotInput,
       tvClientSessionId: session,
@@ -77,7 +89,7 @@ export function useLinkTvSession({
       .catch(() => {
         /* Best-effort presentation push; next chat/state change retries. */
       })
-  }, [linkActive, snapshotInput])
+  }, [linkActive, pairing, snapshotInput])
 
   const claimCode = useCallback(
     async (code: string) => {
@@ -90,11 +102,11 @@ export function useLinkTvSession({
         apiBaseUrl,
         tvClientSessionId: nextTvClientSessionId,
       })
-      pairingRef.current = {
+      setPairing({
         pairingId: claimed.pairingId,
         claimToken: claimed.claimToken,
         tvClientSessionId: claimed.tvClientSessionId,
-      }
+      })
       setTvClientSessionId(claimed.tvClientSessionId)
       setLinkActive(true)
       emitTvDebugEvent('tv_pairing_linked', { tvClientSessionId: claimed.tvClientSessionId })
