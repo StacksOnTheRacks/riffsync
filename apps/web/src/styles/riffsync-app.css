@@ -3014,14 +3014,22 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 }
 
 .riffsync-cast-receiver__chat-line {
-  margin: 0 0 0.45rem;
-  font-size: 0.92rem;
+  align-self: flex-end;
+  max-width: 100%;
+  margin: 0 0 0.5rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 1.05rem;
   line-height: 1.45;
   text-align: right;
   color: #e6edf3;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.75);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
   overflow-wrap: anywhere;
   word-break: break-word;
+  background: rgb(7 10 14 / 0.42);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.28);
+  backdrop-filter: blur(6px);
   opacity: 1;
   transition: opacity 0.8s ease;
 }
@@ -3031,7 +3039,7 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 }
 
 .riffsync-cast-receiver__chat-line--system {
-  color: rgb(255 255 255 / 0.62);
+  color: rgb(255 255 255 / 0.72);
   font-style: italic;
 }
 
