@@ -31,13 +31,18 @@ import { RoomPageSidebar } from '../room/RoomPageSidebar'
 import { RoomRenameModal } from '../room/RoomRenameModal'
 import { RIFFSYNC_SFU_CONFIG_ALERT_ID } from '../room/drawerErrorPresentation'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
-import { hostSourceOpensOnYoutube, resolveHostSourceTabUrl } from '../room/hostSourceTab'
+import {
+  hostSourceOpensOnYoutube,
+  openOrNavigateHostSourceTab,
+  resolveHostSourceTabUrl,
+} from '../room/hostSourceTab'
 import { useCastAvailability } from '../room/cast/useCastAvailability'
 import { useCastStartSession } from '../room/cast/useCastStartSession'
 import { CastActiveStagePanel } from '../room/cast/CastActiveStagePanel'
 import { useLinkTvSession } from '../room/useLinkTvSession'
 import type { BuildCastPresentationSnapshotInput } from '../room/cast/buildCastPresentationSnapshot'
 import type { TheaterShareQualityPreset } from '../room/theaterShareQuality'
+import type { CatalogEpisode } from '../catalog/catalogTypes'
 
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
@@ -417,6 +422,15 @@ export function RoomPage() {
     window.setTimeout(() => setShareHint(null), 4000)
   }
 
+  const openSourceTabForEpisode = useCallback((episode: CatalogEpisode) => {
+    const url = resolveHostSourceTabUrl({
+      catalogEp: episode,
+      catalogEpisodeId: episode.id,
+      origin: getPublicOrigin(),
+    })
+    openOrNavigateHostSourceTab(url)
+  }, [])
+
   const openCapturePlayerTab = () => {
     if (!room) return
     const url = resolveHostSourceTabUrl({
@@ -424,7 +438,7 @@ export function RoomPage() {
       catalogEpisodeId: room.catalogEpisodeId,
       origin: getPublicOrigin(),
     })
-    window.open(url, '_blank', 'noopener,noreferrer')
+    openOrNavigateHostSourceTab(url)
   }
 
   if (!roomId) {
@@ -519,6 +533,8 @@ export function RoomPage() {
     onLinkTvSubmitCode: claimCode,
     onStopLinkTv: stopLink,
     linkTvButtonRef,
+    theaterShareQuality,
+    onTheaterShareQualityChange: setTheaterShareQuality,
   }
 
   return (
@@ -615,8 +631,7 @@ export function RoomPage() {
                     }
                     catalogEpisodeId={room.catalogEpisodeId}
                     onSelectCatalogEpisode={selectCatalogEpisode}
-                    theaterShareQuality={theaterShareQuality}
-                    onTheaterShareQualityChange={setTheaterShareQuality}
+                    onOpenSourceTabForEpisode={openSourceTabForEpisode}
                   />
                 )
               }

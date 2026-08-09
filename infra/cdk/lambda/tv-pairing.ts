@@ -19,7 +19,7 @@ type PairingItem = {
   pairingId: string
   pollToken: string
   claimToken?: string
-  status: 'waiting' | 'linked'
+  status: 'waiting' | 'linked' | 'released'
   expiresAt: number
   createdAt: number
   roomId?: string
@@ -59,12 +59,13 @@ function mintToken(): string {
 function routeKind(
   method: string,
   rawPath: string,
-): 'create' | 'poll' | 'claim' | 'presentation' | 'unknown' {
+): 'create' | 'poll' | 'claim' | 'presentation' | 'release' | 'unknown' {
   const path = rawPath.replace(/\/+$/, '') || '/'
   if (method === 'POST' && path.endsWith('/v1/tv/pairing')) return 'create'
   if (method === 'POST' && path.endsWith('/v1/tv/pairing/claim')) return 'claim'
   if (method === 'GET' && /\/v1\/tv\/pairing\/[^/]+$/.test(path)) return 'poll'
   if (method === 'PUT' && /\/v1\/tv\/pairing\/[^/]+\/presentation$/.test(path)) return 'presentation'
+  if (method === 'POST' && /\/v1\/tv\/pairing\/[^/]+\/release$/.test(path)) return 'release'
   return 'unknown'
 }
 
@@ -139,6 +140,10 @@ async function pollPairing(
   const now = Math.floor(Date.now() / 1000)
   if (item.expiresAt <= now) return json(200, { status: 'expired' })
 
+  if (item.status === 'released') {
+    return json(200, { status: 'released' })
+  }
+
   if (item.status !== 'linked') {
     return json(200, { status: 'waiting' })
   }
@@ -205,6 +210,7 @@ async function claimPairing(table: string, body: Record<string, unknown>): Promi
   const now = Math.floor(Date.now() / 1000)
   if (item.expiresAt <= now) return json(410, { error: 'TV code expired' })
   if (item.status === 'linked') return json(409, { error: 'TV code already linked' })
+  if (item.status === 'released') return json(410, { error: 'TV code was released' })
 
   const claimToken = mintToken()
   try {
@@ -290,6 +296,48 @@ async function pushPresentation(
   return json(204, {})
 }
 
+async function releasePairing(
+  table: string,
+  pairingId: string,
+  body: Record<string, unknown>,
+): Promise<APIGatewayProxyResultV2> {
+  const claimToken = typeof body.claimToken === 'string' ? body.claimToken : ''
+  if (!claimToken) return json(400, { error: 'claimToken is required' })
+
+  const out = await doc.send(
+    new GetCommand({
+      TableName: table,
+      Key: { pairingId },
+    }),
+  )
+  const item = out.Item as PairingItem | undefined
+  if (!item) return json(404, { error: 'Pairing not found' })
+  if (item.claimToken !== claimToken) return json(403, { error: 'Invalid claim token' })
+
+  if (item.status === 'released') return json(204, {})
+  if (item.status !== 'linked') return json(409, { error: 'Pairing is not linked' })
+
+  const now = Math.floor(Date.now() / 1000)
+  await doc.send(
+    new UpdateCommand({
+      TableName: table,
+      Key: { pairingId },
+      ConditionExpression: '#status = :linked AND claimToken = :claimToken',
+      UpdateExpression:
+        'SET #status = :released, expiresAt = :expiresAt REMOVE snapshotJson, chatOverlayJson, roomId, sessionId, apiBaseUrl',
+      ExpressionAttributeNames: { '#status': 'status' },
+      ExpressionAttributeValues: {
+        ':linked': 'linked',
+        ':released': 'released',
+        ':claimToken': claimToken,
+        // Keep the row briefly so the TV poll can observe released before TTL cleanup.
+        ':expiresAt': now + 60,
+      },
+    }),
+  )
+  return json(204, {})
+}
+
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   const table = tableName()
   if (!table) return json(500, { error: 'Missing TV_PAIRING_TABLE_NAME' })
@@ -323,6 +371,14 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     const body = parseBody(event.body)
     if (!body) return json(400, { error: 'Invalid JSON body' })
     return pushPresentation(table, pairingId, body)
+  }
+
+  if (kind === 'release') {
+    const pairingId = event.pathParameters?.pairingId
+    if (!pairingId) return json(400, { error: 'Missing pairingId' })
+    const body = parseBody(event.body)
+    if (!body) return json(400, { error: 'Invalid JSON body' })
+    return releasePairing(table, pairingId, body)
   }
 
   return json(404, { error: 'Not found' })

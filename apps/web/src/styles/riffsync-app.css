@@ -2710,25 +2710,41 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   font-size: 0.8rem;
 }
 
-.riffsync-host-media-switcher,
+.riffsync-host-media-switcher {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 0.45rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
 .riffsync-theater-quality {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  margin: 0 0 0.55rem;
+  margin: 0.55rem 0;
   padding: 0.55rem 0.65rem;
   border: 1px solid rgb(255 255 255 / 0.12);
   border-radius: 0.45rem;
   background: rgb(255 255 255 / 0.04);
 }
 
-.riffsync-host-media-switcher__copy,
 .riffsync-host-media-switcher__field,
 .riffsync-theater-quality__label {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
   font-size: 0.8rem;
+  min-width: min(100%, 16rem);
+  flex: 1 1 12rem;
+}
+
+.riffsync-host-media-switcher__field select {
+  width: 100%;
 }
 
 .riffsync-host-media-switcher__status,

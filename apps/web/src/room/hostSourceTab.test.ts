@@ -1,6 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
-import { hostSourceOpensOnYoutube, resolveHostSourceTabUrl } from './hostSourceTab'
+import {
+  HOST_SOURCE_TAB_WINDOW_NAME,
+  hostSourceOpensOnYoutube,
+  openOrNavigateHostSourceTab,
+  resolveHostSourceTabUrl,
+} from './hostSourceTab'
 
 function episode(overrides: Partial<CatalogEpisode> = {}): CatalogEpisode {
   return {
@@ -80,5 +85,27 @@ describe('resolveHostSourceTabUrl', () => {
 
     expect(resolveHostSourceTabUrl(args)).toBe('https://riffsync.tv/watch/032-mitchell?partyCapture=1')
     expect(hostSourceOpensOnYoutube(args)).toBe(false)
+  })
+})
+
+describe('openOrNavigateHostSourceTab', () => {
+  it('opens with the stable host source window name (no noopener)', () => {
+    const opened = {} as Window
+    const openFn = vi.fn(() => opened)
+    expect(openOrNavigateHostSourceTab('https://riffsync.tv/watch/1?partyCapture=1', openFn)).toBe(
+      opened,
+    )
+    expect(openFn).toHaveBeenCalledWith(
+      'https://riffsync.tv/watch/1?partyCapture=1',
+      HOST_SOURCE_TAB_WINDOW_NAME,
+    )
+  })
+
+  it('reuses the named browsing context on later navigations', () => {
+    const openFn = vi.fn(() => ({ closed: false }) as Window)
+    openOrNavigateHostSourceTab('https://riffsync.tv/watch/a?partyCapture=1', openFn)
+    openOrNavigateHostSourceTab('https://riffsync.tv/watch/b?partyCapture=1', openFn)
+    expect(openFn).toHaveBeenNthCalledWith(1, 'https://riffsync.tv/watch/a?partyCapture=1', HOST_SOURCE_TAB_WINDOW_NAME)
+    expect(openFn).toHaveBeenNthCalledWith(2, 'https://riffsync.tv/watch/b?partyCapture=1', HOST_SOURCE_TAB_WINDOW_NAME)
   })
 })

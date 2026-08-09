@@ -11,7 +11,13 @@ import { emitTvDebugEvent } from '../../tv/tvDebugEvents'
 
 const POLL_MS = 2000
 
+function clearLiveSession(liveSessionRef: { current: CastReceiverLiveStreamSession | null }) {
+  liveSessionRef.current?.close()
+  liveSessionRef.current = null
+}
+
 export function TvClientPage() {
+  const [bootKey, setBootKey] = useState(0)
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [pairingError, setPairingError] = useState<string | null>(null)
   const [linked, setLinked] = useState(false)
@@ -27,6 +33,9 @@ export function TvClientPage() {
     let pollTimer: ReturnType<typeof setInterval> | null = null
     let pairingId = ''
     let pollToken = ''
+
+    tvClientSessionIdRef.current = null
+    firstFrameLoggedRef.current = false
 
     emitTvDebugEvent('tv_boot', {})
 
@@ -45,6 +54,19 @@ export function TvClientPage() {
               if (cancelled) return
               if (poll.status === 'expired') {
                 setPairingError('Code expired. Refresh this page for a new code.')
+                return
+              }
+              if (poll.status === 'released') {
+                const endedId = tvClientSessionIdRef.current
+                clearLiveSession(liveSessionRef)
+                setLiveStream(null)
+                setSnapshot(null)
+                setChatMessages([])
+                setLinked(false)
+                emitTvDebugEvent('tv_teardown', {
+                  tvClientSessionId: endedId ?? undefined,
+                })
+                setBootKey((key) => key + 1)
                 return
               }
               if (poll.status !== 'linked') return
@@ -123,13 +145,9 @@ export function TvClientPage() {
     return () => {
       cancelled = true
       if (pollTimer) clearInterval(pollTimer)
-      liveSessionRef.current?.close()
-      liveSessionRef.current = null
-      emitTvDebugEvent('tv_teardown', {
-        tvClientSessionId: tvClientSessionIdRef.current ?? undefined,
-      })
+      clearLiveSession(liveSessionRef)
     }
-  }, [])
+  }, [bootKey])
 
   useLayoutEffect(() => {
     if (!linked || !snapshot) return

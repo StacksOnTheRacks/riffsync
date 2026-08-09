@@ -1554,6 +1554,11 @@ export class ApiCatalogStack extends cdk.Stack {
       methods: [apigwv2.HttpMethod.PUT],
       integration: tvPairingIntegration,
     });
+    this.httpApi.addRoutes({
+      path: '/v1/tv/pairing/{pairingId}/release',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: tvPairingIntegration,
+    });
 
     this.httpApi.addRoutes({
       path: '/v1/fans/me',

@@ -30,6 +30,8 @@ import type { CastStartLifecycle } from './cast/castChannelProtocol'
 import { LinkTvPanel } from './LinkTvPanel'
 import { RoomVisibilityControl } from './RoomVisibilityControl'
 import type { RoomVisibility } from './hostRoomControls'
+import { TheaterShareQualityControls } from './TheaterShareQualityControls'
+import type { TheaterShareQualityPreset } from './theaterShareQuality'
 
 type RoomPageSidebarProps = {
   variant?: 'party' | 'live'
@@ -97,6 +99,8 @@ type RoomPageSidebarProps = {
   onLinkTvSubmitCode: (code: string) => Promise<void>
   onStopLinkTv: () => void
   linkTvButtonRef: RefObject<HTMLButtonElement | null>
+  theaterShareQuality?: TheaterShareQualityPreset
+  onTheaterShareQualityChange?: (preset: TheaterShareQualityPreset) => void
 }
 
 export function RoomPageSidebar({
@@ -165,6 +169,8 @@ export function RoomPageSidebar({
   onLinkTvSubmitCode,
   onStopLinkTv,
   linkTvButtonRef,
+  theaterShareQuality = 'balanced',
+  onTheaterShareQualityChange,
 }: RoomPageSidebarProps) {
   const peopleFriends = usePeopleRosterFriends(fanToken, activeSidebarTab)
   const roomFriends = useRoomFriendsPane(activeSidebarTab === 'friends', Boolean(fanToken))
@@ -415,6 +421,12 @@ export function RoomPageSidebar({
                 busy={visibilityBusy}
                 error={visibilityErr}
                 onSelectVisibility={onSelectRoomVisibility}
+              />
+            ) : null}
+            {isPublisher && onTheaterShareQualityChange ? (
+              <TheaterShareQualityControls
+                value={theaterShareQuality}
+                onChange={onTheaterShareQualityChange}
               />
             ) : null}
             {isPublisher ? (
