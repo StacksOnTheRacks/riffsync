@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "RiffSync Host",
+  "version": "0.1.0",
+  "description": "Host control panel for RiffSync room hosts. Does not capture media.",
+  "permissions": ["sidePanel"],
+  "action": {
+    "default_title": "Open host control panel"
+  },
+  "side_panel": {
+    "default_path": "host-control-panel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
