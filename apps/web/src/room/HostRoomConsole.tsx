@@ -88,6 +88,9 @@ export function HostRoomConsole({
         >
           Hosting Guide
         </Link>
+        <Link className="gen-button gen-button-wide" to="/">
+          Leave Party
+        </Link>
       </div>
     )
   }
@@ -274,6 +277,10 @@ export function HostRoomConsole({
           </ul>
         )}
       </section>
+
+      <Link className="gen-button gen-button-wide" to="/">
+        Leave Party
+      </Link>
     </div>
   )
 }

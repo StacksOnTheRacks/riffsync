@@ -2832,7 +2832,9 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   min-height: 0;
   overflow-y: auto;
   padding: 0.65rem;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  justify-content: flex-start;
+  align-content: flex-start;
 }
 
 /*
@@ -2847,6 +2849,7 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   text-align: center;
   text-decoration: none;
   box-sizing: border-box;
+  flex: 0 0 auto;
 }
 
 .riffsync-room-page__profile-share-quality {
@@ -2859,6 +2862,7 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 0 0 auto;
 }
 
 .riffsync-room-host-icons__row {
@@ -2898,8 +2902,17 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 .riffsync-host-console {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  min-height: 0;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.riffsync-host-console--no-ext {
+  gap: 0.5rem;
+}
+
+.riffsync-host-console__now {
+  flex: 0 0 auto;
 }
 
 .riffsync-host-console__now-label {
@@ -2953,7 +2966,10 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  min-height: 0;
+  flex: 0 0 auto;
+  /* Template sets `section { padding: 130px 0 }` globally — kill it in the Room tab console. */
+  padding: 0;
+  margin: 0;
 }
 
 .riffsync-host-console__heading {
@@ -2987,6 +3003,7 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   padding: 0.25rem 0.2rem;
   border: 1px solid rgb(255 255 255 / 0.12);
   border-radius: 0.25rem;
+  flex: 0 0 auto;
 }
 
 .riffsync-host-console__queue-row--composer {
@@ -3046,6 +3063,7 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   flex-direction: column;
   gap: 0.35rem;
   align-items: flex-start;
+  flex: 0 0 auto;
 }
 
 .riffsync-room-page__visibility {

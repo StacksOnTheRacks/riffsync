@@ -468,10 +468,11 @@ export function RoomPageSidebar({
             {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
             {isPublisher && hostConsole ? (
               <HostRoomConsole {...hostConsole} />
-            ) : null}
-            <Link className="gen-button gen-button-wide" to="/">
-              Leave Party
-            </Link>
+            ) : (
+              <Link className="gen-button gen-button-wide" to="/">
+                Leave Party
+              </Link>
+            )}
           </div>
         ) : null}
 
