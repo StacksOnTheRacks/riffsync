@@ -42,13 +42,41 @@ export function useHostExtensionPresence(enabled: boolean) {
   }, [enabled])
 
   useEffect(() => {
-    void refresh()
-    if (!enabled) return
-    const id = window.setInterval(() => {
-      void refresh()
-    }, 4000)
-    return () => window.clearInterval(id)
-  }, [enabled, refresh])
+    if (!enabled) {
+      const idle = window.setTimeout(() => {
+        setPresent(false)
+        setChecking(false)
+        setMediaState(emptyState)
+      }, 0)
+      return () => window.clearTimeout(idle)
+    }
+
+    let cancelled = false
+    const tick = () => {
+      void (async () => {
+        setChecking(true)
+        const ok = await pingHostExtension()
+        if (cancelled) return
+        setPresent(ok)
+        if (ok) {
+          const state = await getHostMediaTabState()
+          if (cancelled) return
+          setMediaState(state ?? emptyState)
+        } else {
+          setMediaState(emptyState)
+        }
+        setChecking(false)
+      })()
+    }
+
+    const initial = window.setTimeout(tick, 0)
+    const id = window.setInterval(tick, 4000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(initial)
+      window.clearInterval(id)
+    }
+  }, [enabled])
 
   const openMediaTab = useCallback(async (url: string) => {
     const state = await openHostMediaTab(url)

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import {
   appendNextUpItem,
@@ -15,16 +15,12 @@ export function useHostNextUpQueue(roomId: string | undefined) {
   const [items, setItems] = useState<HostNextUpItem[]>(() =>
     roomId ? loadHostNextUpQueue(roomId) : [],
   )
-  const itemsRef = useRef(items)
-  itemsRef.current = items
+  const [loadedRoomId, setLoadedRoomId] = useState(roomId)
 
-  useEffect(() => {
-    if (!roomId) {
-      setItems([])
-      return
-    }
-    setItems(loadHostNextUpQueue(roomId))
-  }, [roomId])
+  if (roomId !== loadedRoomId) {
+    setLoadedRoomId(roomId)
+    setItems(roomId ? loadHostNextUpQueue(roomId) : [])
+  }
 
   useEffect(() => {
     if (!roomId) return
@@ -56,9 +52,13 @@ export function useHostNextUpQueue(roomId: string | undefined) {
   }, [])
 
   const shiftNext = useCallback((): HostNextUpItem | null => {
-    const result = shiftNextUpItem(itemsRef.current)
-    setItems(result.remaining)
-    return result.next
+    let shifted: HostNextUpItem | null = null
+    setItems((prev) => {
+      const result = shiftNextUpItem(prev)
+      shifted = result.next
+      return result.remaining
+    })
+    return shifted
   }, [])
 
   return {

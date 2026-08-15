@@ -419,6 +419,8 @@ export function RoomPage() {
     window.setTimeout(() => setShareHint(null), 4000)
   }
 
+  const openHostMediaTab = hostExtension.openMediaTab
+
   const openCapturePlayerTab = () => {
     if (!room) return
     const url = resolveHostSourceTabUrl({
@@ -427,7 +429,7 @@ export function RoomPage() {
       origin: getPublicOrigin(),
     })
     if (hostExtension.present) {
-      void hostExtension.openMediaTab(url).then((state) => {
+      void openHostMediaTab(url).then((state) => {
         if (!state?.ok && state && !state.mediaTabOpen) {
           setHostConsoleErr('Could not open the media tab. Stay on the room tab and try again.')
         } else {
@@ -443,14 +445,14 @@ export function RoomPage() {
     setHostConsoleBusy(true)
     setHostConsoleErr(null)
     try {
-      const state = await hostExtension.openMediaTab(url)
+      const state = await openHostMediaTab(url)
       if (!state?.mediaTabOpen) {
         setHostConsoleErr('Could not open the media tab. Stay on the room tab and try again.')
       }
     } finally {
       setHostConsoleBusy(false)
     }
-  }, [hostExtension.openMediaTab])
+  }, [openHostMediaTab])
 
   const shiftNextUp = nextUp.shiftNext
 

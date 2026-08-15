@@ -49,13 +49,13 @@ export function HostRoomConsole({
   const [urlError, setUrlError] = useState<string | null>(null)
   const [catalogQuery, setCatalogQuery] = useState('')
   const catalogQueryResult = useCatalogListQuery()
-  const catalogEntries = catalogQueryResult.data ?? []
 
   const filteredCatalog = useMemo(() => {
+    const catalogEntries = catalogQueryResult.data ?? []
     const q = catalogQuery.trim().toLowerCase()
     if (!q) return catalogEntries
     return catalogEntries.filter((ep) => ep.title.toLowerCase().includes(q))
-  }, [catalogEntries, catalogQuery])
+  }, [catalogQueryResult.data, catalogQuery])
 
   const statusLabel = captureActive ? 'Now Playing' : 'Ready'
   const canFastForward = nextUpItems.length > 0 && !transportBusy
