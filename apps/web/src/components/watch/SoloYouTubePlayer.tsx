@@ -123,9 +123,12 @@ function SoloYouTubePlayerInner({
   const hostRef = useRef<HTMLDivElement | null>(null)
   const playerRef = useRef<YtPlayerInstance | null>(null)
   const onControlsChangeRef = useRef(onControlsChange)
-  onControlsChangeRef.current = onControlsChange
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorDetail, setErrorDetail] = useState<string | null>(null)
+
+  useEffect(() => {
+    onControlsChangeRef.current = onControlsChange
+  }, [onControlsChange])
 
   const destroyPlayer = useCallback(() => {
     onControlsChangeRef.current?.(null)
