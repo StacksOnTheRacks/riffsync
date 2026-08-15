@@ -23,8 +23,8 @@ function createDeps() {
     posted,
     pageWindow,
     refreshFanTokensIfStale: vi.fn(async () => {}),
-    getFanAccessToken: vi.fn(() => 'fan-access'),
-    getFanRefreshToken: vi.fn(() => 'refresh-should-not-be-posted'),
+    getFanAccessToken: vi.fn<() => string | null>(() => 'fan-access'),
+    getFanRefreshToken: vi.fn<() => string | null>(() => 'refresh-should-not-be-posted'),
     postMessage: vi.fn((message: unknown) => {
       posted.push(message)
     }),
