@@ -63,6 +63,8 @@ describe('media tab state', () => {
     const reported = await reportHostingMediaTab(tracker, ROOM_URL)
     assert.equal(reported.mediaTabOpen, true)
     assert.equal(reported.bound, true)
+    assert.equal(reported.mediaPlaybackControllable, true)
+    assert.equal(reported.mediaTabUrl, MEDIA_URL_A)
   })
 
   it('reuses a live media tab with update, not a second create, and reports open', async () => {
@@ -159,5 +161,19 @@ describe('media tab state', () => {
     const unboundReport = await reportHostingMediaTab(tracker, 'https://riffsync.tv/watch/x')
     assert.equal(unboundReport.bound, false)
     assert.equal(unboundReport.mediaTabOpen, false)
+  })
+
+  it('marks direct YouTube media tabs as not playback-controllable', async () => {
+    const mock = createMockTabs()
+    const tracker = createMediaTabTracker(mock.api)
+    const youtubeUrl = 'https://www.youtube.com/watch?v=NXGXtm6gcxk'
+
+    const result = await openOrNavigateHostMediaTab(tracker, ROOM_URL, youtubeUrl)
+    assert.equal(result.ok, true)
+    assert.equal(result.mediaPlaybackControllable, false)
+
+    const reported = await reportHostingMediaTab(tracker, ROOM_URL)
+    assert.equal(reported.mediaTabOpen, true)
+    assert.equal(reported.mediaPlaybackControllable, false)
   })
 })

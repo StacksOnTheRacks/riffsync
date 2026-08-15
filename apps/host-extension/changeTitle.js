@@ -109,10 +109,13 @@ export function titleChangeErrorMessage(result) {
       return 'This page origin is not allowed for host sign-in.'
     }
     if (result.error === 'timeout') {
-      return 'Host sign-in timed out. Keep the party tab open and try again.'
+      return 'Host sign-in timed out. Keep the party tab focused, stay signed in as host, reload the party page, and try again.'
     }
     if (result.error === 'content_script_missing') {
-      return 'Host bridge is not available on this tab. Reload the party page.'
+      return 'Host bridge is not available on this tab. Reload the party page after loading the extension.'
+    }
+    if (result.error === 'unsupported') {
+      return 'Host bridge did not answer on the party tab. Reload riffsync.tv (latest deploy required) and stay signed in as host.'
     }
     return 'Host sign-in is not available on this page.'
   }

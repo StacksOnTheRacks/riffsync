@@ -5,12 +5,16 @@ import {
 import { fetchPublicCatalog, selectCatalogRow } from './catalogApi.js'
 import { titleChangeErrorMessage } from './changeTitle.js'
 import { PUBLIC_API_BASE_URL } from './config.js'
+import { mediaPlaybackControlErrorMessage } from './mediaPlayback.js'
 import { nowPlayingLabel } from './nowPlaying.js'
 import { fetchRoomNowPlaying } from './roomsApi.js'
 
 const bindEl = document.getElementById('bind-status')
 const mediaEl = document.getElementById('media-tab-status')
 const openButton = document.getElementById('open-media-tab')
+const playButton = document.getElementById('media-play')
+const pauseButton = document.getElementById('media-pause')
+const playbackHintEl = document.getElementById('playback-hint')
 const errorEl = document.getElementById('error-status')
 const libraryStatusEl = document.getElementById('library-status')
 const libraryListEl = document.getElementById('library-list')
@@ -22,13 +26,23 @@ const titleErrorEl = document.getElementById('title-error')
 
 let libraryEntries = []
 let librarySelection = { id: null, row: null }
-let sessionState = { bound: false, roomId: null, origin: null, mediaTabOpen: false }
+let sessionState = {
+  bound: false,
+  roomId: null,
+  origin: null,
+  mediaTabOpen: false,
+  mediaPlaybackControllable: false,
+}
 let nowPlayingRoomId = null
 let nowPlayingRoom = null
 
 function syncActionButtons() {
   const bound = Boolean(sessionState.bound)
+  const controllable = Boolean(sessionState.mediaPlaybackControllable)
   openButton.disabled = !bound
+  playButton.disabled = !controllable
+  pauseButton.disabled = !controllable
+  playbackHintEl.hidden = !sessionState.mediaTabOpen || controllable
   applyTitleButton.disabled = !bound || !librarySelection.id
 }
 
@@ -38,6 +52,7 @@ function render(state) {
     roomId: state?.roomId ?? null,
     origin: state?.origin ?? null,
     mediaTabOpen: Boolean(state?.mediaTabOpen),
+    mediaPlaybackControllable: Boolean(state?.mediaPlaybackControllable),
   }
   bindEl.textContent = sessionState.bound
     ? `Bound to room ${sessionState.roomId}`
@@ -46,6 +61,23 @@ function render(state) {
   syncActionButtons()
   errorEl.textContent = ''
 }
+
+async function sendPlayback(action) {
+  errorEl.textContent = ''
+  const result = await chrome.runtime.sendMessage({ type: 'mediaPlayback', action })
+  render(result)
+  if (!result?.ok) {
+    errorEl.textContent = mediaPlaybackControlErrorMessage(result)
+  }
+}
+
+playButton.addEventListener('click', () => {
+  void sendPlayback('play')
+})
+
+pauseButton.addEventListener('click', () => {
+  void sendPlayback('pause')
+})
 
 function setNowPlayingStatus(text, { retryHidden = true } = {}) {
   nowPlayingEl.textContent = text

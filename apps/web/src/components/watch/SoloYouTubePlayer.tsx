@@ -7,6 +7,7 @@ export const YOUTUBE_EMBED_BROKEN_MESSAGE = 'This video link is broken.'
 
 type YtPlayerInstance = {
   playVideo(): void
+  pauseVideo(): void
   destroy(): void
 }
 
@@ -102,6 +103,13 @@ type SoloYouTubePlayerProps = {
   autoPlay?: boolean
   /** Optional watch URL for the Open on YouTube escape hatch when the embed fails. */
   watchUrl?: string | null
+  /** Party-capture host bridge registers play/pause while the YT player is ready. */
+  onControlsChange?: (controls: SoloYouTubePlayerControls | null) => void
+}
+
+export type SoloYouTubePlayerControls = {
+  play(): void
+  pause(): void
 }
 
 function SoloYouTubePlayerInner({
@@ -109,14 +117,18 @@ function SoloYouTubePlayerInner({
   titleHint,
   autoPlay = true,
   watchUrl,
+  onControlsChange,
 }: SoloYouTubePlayerProps) {
   const domId = useId().replace(/:/g, '')
   const hostRef = useRef<HTMLDivElement | null>(null)
   const playerRef = useRef<YtPlayerInstance | null>(null)
+  const onControlsChangeRef = useRef(onControlsChange)
+  onControlsChangeRef.current = onControlsChange
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorDetail, setErrorDetail] = useState<string | null>(null)
 
   const destroyPlayer = useCallback(() => {
+    onControlsChangeRef.current?.(null)
     safeDestroyPlayer(playerRef.current)
     playerRef.current = null
   }, [])
@@ -171,9 +183,14 @@ function SoloYouTubePlayerInner({
             onReady: (e) => {
               if (cancelled) return
               setStatus('ready')
+              const target = e.target
+              onControlsChangeRef.current?.({
+                play: () => target.playVideo(),
+                pause: () => target.pauseVideo(),
+              })
               if (autoPlay) {
                 try {
-                  e.target.playVideo()
+                  target.playVideo()
                 } catch {
                   // Autoplay may be blocked; native controls remain available when ready.
                 }

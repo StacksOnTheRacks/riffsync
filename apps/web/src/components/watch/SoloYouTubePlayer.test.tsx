@@ -10,7 +10,9 @@ import {
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 type PlayerHandlers = {
-  onReady?: (e: { target: { playVideo: () => void; destroy: () => void } }) => void
+  onReady?: (e: {
+    target: { playVideo: () => void; pauseVideo: () => void; destroy: () => void }
+  }) => void
   onError?: (e: { data: number }) => void
 }
 
@@ -31,6 +33,7 @@ describe('SoloYouTubePlayer', () => {
 
     const FakePlayer = class {
       playVideo = vi.fn()
+      pauseVideo = vi.fn()
       destroy = vi.fn()
 
       constructor(_host: string | HTMLElement, options: { events?: PlayerHandlers }) {
@@ -39,6 +42,7 @@ describe('SoloYouTubePlayer', () => {
         }
         lastHandlers = options.events
         this.playVideo = vi.fn()
+        this.pauseVideo = vi.fn()
         this.destroy = vi.fn(() => {
           destroyImpl?.()
         })
@@ -135,6 +139,7 @@ describe('SoloYouTubePlayer', () => {
       lastHandlers?.onReady?.({
         target: {
           playVideo: vi.fn(),
+          pauseVideo: vi.fn(),
           destroy: vi.fn(),
         },
       })

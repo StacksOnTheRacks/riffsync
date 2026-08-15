@@ -1,7 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { SoloCustomIframePlayer } from '../components/watch/SoloCustomIframePlayer'
-import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
+import {
+  SoloYouTubePlayer,
+  type SoloYouTubePlayerControls,
+} from '../components/watch/SoloYouTubePlayer'
 import { useCatalogEpisodeQuery } from '../catalog/catalogQueries'
 import { EPISODE_UNAVAILABLE_MESSAGE, formatCatalogUserError } from '../catalog/catalogLoadError'
 import {
@@ -9,12 +12,17 @@ import {
   resolveCatalogYoutubeWatchUrl,
 } from '../catalog/catalogYoutubePlayback'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
+import {
+  mountHostMediaControlBridge,
+  type HostMediaPlayerControls,
+} from '../hostBridge/hostMediaControlBridge'
 import { getLivePathForEpisodeId } from '../live/liveChannels'
 
 export function SoloWatchPage() {
   const { catalogEpisodeId } = useParams<{ catalogEpisodeId: string }>()
   const [searchParams] = useSearchParams()
   const partyCapture = searchParams.get('partyCapture') === '1'
+  const playerControlsRef = useRef<HostMediaPlayerControls | null>(null)
 
   const { data: episode, isPending, isError, error, refetch } = useCatalogEpisodeQuery(catalogEpisodeId)
 
@@ -25,6 +33,18 @@ export function SoloWatchPage() {
     !episodeAllowsInAppEmbed(episode)
       ? resolveCatalogYoutubeWatchUrl(episode)
       : null
+
+  useEffect(() => {
+    if (!partyCapture) {
+      playerControlsRef.current = null
+      return
+    }
+    return mountHostMediaControlBridge(() => playerControlsRef.current)
+  }, [partyCapture])
+
+  const onYouTubeControlsChange = (controls: SoloYouTubePlayerControls | null) => {
+    playerControlsRef.current = controls
+  }
 
   useEffect(() => {
     if (!partyCapture) {
@@ -226,6 +246,7 @@ export function SoloWatchPage() {
             titleHint={episode.title}
             autoPlay={false}
             watchUrl={episode.youtubeWatchUrl}
+            onControlsChange={partyCapture ? onYouTubeControlsChange : undefined}
           />
         </div>
       ) : null}

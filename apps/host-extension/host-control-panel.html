@@ -102,6 +102,14 @@
         color: #f0b4b4;
         min-height: 1.2em;
       }
+      .hint {
+        color: #9a9a9a;
+        font-size: 0.9rem;
+      }
+      .playback-controls {
+        display: flex;
+        gap: 0.5rem;
+      }
     </style>
   </head>
   <body>
@@ -118,22 +126,33 @@
     <p>
       <button id="open-media-tab" type="button" disabled>Open media tab</button>
     </p>
+    <p class="playback-controls">
+      <button id="media-play" type="button" disabled>Play</button>
+      <button id="media-pause" type="button" disabled>Pause</button>
+    </p>
+    <p id="playback-hint" class="hint" hidden>
+      Play/pause is available when the media tab is a RiffSync party-capture embed.
+    </p>
     <p id="error-status" class="error"></p>
     <h2>Now playing</h2>
     <p id="now-playing-status">Checking room...</p>
     <p>
       <button id="now-playing-retry" type="button" hidden>Retry</button>
     </p>
-    <p>
-      <button id="apply-title" type="button" disabled>Change room title</button>
-    </p>
-    <p id="title-error" class="error"></p>
     <h2>Library</h2>
+    <p class="hint">
+      Select a title below, then change the room title. Stay signed in as the
+      room host on the party tab.
+    </p>
     <p id="library-status">Loading catalog library...</p>
     <ul id="library-list" class="library-list" hidden></ul>
     <p>
       <button id="library-retry" type="button" hidden>Retry</button>
     </p>
+    <p>
+      <button id="apply-title" type="button" disabled>Change room title</button>
+    </p>
+    <p id="title-error" class="error"></p>
     <script type="module" src="host-control-panel.js"></script>
   </body>
 </html>

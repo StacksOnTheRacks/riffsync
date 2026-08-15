@@ -110,6 +110,10 @@ describe('titleChangeErrorMessage', () => {
     assert.match(titleChangeErrorMessage({ reason: 'unbound' }), /Not on a room tab/)
     assert.match(titleChangeErrorMessage({ reason: 'auth', error: 'not_signed_in' }), /Sign in/)
     assert.match(titleChangeErrorMessage({ reason: 'auth', error: 'timeout' }), /timed out/)
+    assert.match(
+      titleChangeErrorMessage({ reason: 'auth', error: 'unsupported' }),
+      /Host bridge did not answer/,
+    )
     assert.match(titleChangeErrorMessage({ status: 403 }), /not the host/)
     assert.match(titleChangeErrorMessage({ status: 409 }), /Retry/)
     assert.match(

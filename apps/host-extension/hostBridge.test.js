@@ -15,9 +15,15 @@ describe('host bridge envelope', () => {
     assert.equal(
       isHostBridgeEnvelope({
         ...request,
-        type: 'HOST_JWT_RESPONSE',
+        type: 'HOST_MEDIA_PLAY',
+      }),
+      true,
+    )
+    assert.equal(
+      isHostBridgeEnvelope({
+        ...request,
+        type: 'HOST_MEDIA_CONTROL_RESPONSE',
         ok: true,
-        accessToken: 'fan-access',
       }),
       true,
     )

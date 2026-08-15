@@ -10,5 +10,9 @@ export function shouldForwardPageBridgeMessage(event, requestId, pageWindow = gl
   if (!isAllowedHostBridgeOrigin(event.origin)) return false
   if (!isHostBridgeEnvelope(event.data)) return false
   if (event.data.requestId !== requestId) return false
-  return event.data.type === 'HOST_JWT_RESPONSE' || event.data.type === 'HOST_BRIDGE_PONG'
+  return (
+    event.data.type === 'HOST_JWT_RESPONSE' ||
+    event.data.type === 'HOST_BRIDGE_PONG' ||
+    event.data.type === 'HOST_MEDIA_CONTROL_RESPONSE'
+  )
 }

@@ -49,7 +49,7 @@ describe('requestHostAccessToken', () => {
       sendMessage: () => new Promise(() => {}),
     })
     assert.deepEqual(result, { ok: false, error: 'timeout' })
-    assert.equal(JWT_REQUEST_TIMEOUT_MS, 5000)
+    assert.equal(JWT_REQUEST_TIMEOUT_MS, 8000)
   })
 
   it('does not persist tokens to chrome.storage or handle refresh tokens', () => {

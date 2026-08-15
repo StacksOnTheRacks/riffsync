@@ -106,6 +106,9 @@ Walk this once after unpacked load.
    catalog title** (same host-source URL rules as the SPA **Open Source
    Tab**) without mutating the room. The new or reused tab is created or
    updated with `active: false`, so the party tab stays focused.
+   **Play** / **Pause** control the party-capture YouTube embed in that
+   media tab. They stay disabled for direct YouTube tabs and when the
+   media tab is closed.
 6. Check **Now playing** (anonymous `GET /v1/rooms/{roomId}`). Retry if the
    public API origin is wrong or the room is missing.
 7. Under **Library**, browse the full public catalog (**B1**). Select another

@@ -2,6 +2,7 @@ import { applyTitleChange } from './changeTitle.js'
 import { PUBLIC_API_BASE_URL } from './config.js'
 import { createEphemeralJwtCache, requestHostAccessToken } from './hostJwt.js'
 import { resolveHostSourceTabUrl } from './hostSourceTabUrl.js'
+import { requestMediaPlaybackControl } from './mediaControl.js'
 import {
   createMediaTabTracker,
   openOrNavigateHostMediaTab,
@@ -67,6 +68,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         currentState().then((state) => {
           sendResponse({ ...state, ok: false })
           broadcastState(state)
+        })
+      })
+    return true
+  }
+
+  if (message?.type === 'mediaPlayback') {
+    currentState()
+      .then(async (state) => {
+        const result = await requestMediaPlaybackControl({
+          mediaTabId: state.mediaTabId,
+          mediaTabUrl: state.mediaTabUrl,
+          action: message.action,
+          sendMessage: sendMessageToTab,
+        })
+        sendResponse({ ...state, ...result })
+      })
+      .catch((error) => {
+        console.error(error)
+        currentState().then((state) => {
+          sendResponse({ ...state, ok: false, reason: 'unsupported' })
         })
       })
     return true

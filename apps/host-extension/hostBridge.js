@@ -6,6 +6,9 @@ export const HOST_BRIDGE_TYPES = new Set([
   'HOST_JWT_RESPONSE',
   'HOST_BRIDGE_PING',
   'HOST_BRIDGE_PONG',
+  'HOST_MEDIA_PLAY',
+  'HOST_MEDIA_PAUSE',
+  'HOST_MEDIA_CONTROL_RESPONSE',
 ])
 
 export const HOST_BRIDGE_ERRORS = new Set([
@@ -13,6 +16,8 @@ export const HOST_BRIDGE_ERRORS = new Set([
   'refresh_failed',
   'forbidden_origin',
   'unsupported',
+  'player_unavailable',
+  'command_failed',
 ])
 
 export function isHostBridgeEnvelope(value) {

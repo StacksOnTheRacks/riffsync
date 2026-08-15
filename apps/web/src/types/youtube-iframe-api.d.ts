@@ -15,6 +15,7 @@ declare global {
 
 type YtPlayer = {
   playVideo(): void
+  pauseVideo(): void
   destroy(): void
 }
 

@@ -1,6 +1,7 @@
 import { createHostBridgeRequest, isHostBridgeEnvelope } from './hostBridge.js'
 
-export const JWT_REQUEST_TIMEOUT_MS = 5000
+/** Must stay above content-script page wait so a late SPA reply is not raced by the SW. */
+export const JWT_REQUEST_TIMEOUT_MS = 8000
 
 export function createEphemeralJwtCache() {
   let accessToken = null
