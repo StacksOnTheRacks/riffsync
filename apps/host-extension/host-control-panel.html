@@ -20,17 +20,55 @@
         margin: 0 0 0.75rem;
         font-size: 1.15rem;
       }
-      p {
-        margin: 0;
+      p,
+      dl {
+        margin: 0 0 0.75rem;
         color: #c8c8c8;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.25rem 0.75rem;
+      }
+      dt {
+        color: #9a9a9a;
+      }
+      dd {
+        margin: 0;
+        color: #f4f4f4;
+      }
+      button {
+        font: inherit;
+        padding: 0.45rem 0.75rem;
+        border: 1px solid #555;
+        border-radius: 4px;
+        background: #2a2a2a;
+        color: #f4f4f4;
+      }
+      button:disabled {
+        opacity: 0.5;
+      }
+      .error {
+        color: #f0b4b4;
+        min-height: 1.2em;
       }
     </style>
   </head>
   <body>
     <h1>Host control panel</h1>
     <p>
-      Placeholder shell. This extension does not capture media and does not
-      supply host_screen.
+      This extension does not capture media and does not supply host_screen.
     </p>
+    <dl>
+      <dt>Room</dt>
+      <dd id="bind-status">Checking bind...</dd>
+      <dt>Media tab</dt>
+      <dd id="media-tab-status">Not open</dd>
+    </dl>
+    <p>
+      <button id="open-media-tab" type="button" disabled>Open media tab</button>
+    </p>
+    <p id="error-status" class="error"></p>
+    <script type="module" src="host-control-panel.js"></script>
   </body>
 </html>
