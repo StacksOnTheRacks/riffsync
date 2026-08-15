@@ -28,10 +28,13 @@ import {
 import type { CastAvailabilityState } from './cast/castAvailabilityTypes'
 import type { CastStartLifecycle } from './cast/castChannelProtocol'
 import { LinkTvPanel } from './LinkTvPanel'
-import { RoomVisibilityControl } from './RoomVisibilityControl'
 import type { RoomVisibility } from './hostRoomControls'
 import { TheaterShareQualityControls } from './TheaterShareQualityControls'
 import type { TheaterShareQualityPreset } from './theaterShareQuality'
+import { RoomHostIconRow } from './RoomHostIconRow'
+import { HostRoomConsole } from './HostRoomConsole'
+import type { HostNextUpItem } from './hostNextUpQueue'
+import type { CatalogEpisode } from '../catalog/catalogTypes'
 
 type RoomPageSidebarProps = {
   variant?: 'party' | 'live'
@@ -101,6 +104,26 @@ type RoomPageSidebarProps = {
   linkTvButtonRef: RefObject<HTMLButtonElement | null>
   theaterShareQuality?: TheaterShareQualityPreset
   onTheaterShareQualityChange?: (preset: TheaterShareQualityPreset) => void
+  /** Host Room-tab console (extension-aware). Optional so Live / tests stay light. */
+  hostConsole?: {
+    extensionPresent: boolean
+    mediaTabOpen: boolean
+    mediaPlaybackControllable: boolean
+    captureActive: boolean
+    nowPlayingTitle: string
+    nextUpItems: HostNextUpItem[]
+    onAddCatalog: (episode: CatalogEpisode) => void
+    onAddUrl: (url: string) => boolean
+    onRemoveNextUp: (id: string) => void
+    onOpenMediaTab: () => void
+    onStartBroadcast: () => void
+    onStopBroadcast: () => void
+    onPlay: () => void
+    onPause: () => void
+    onFastForward: () => void
+    transportBusy?: boolean
+    consoleError?: string | null
+  } | null
 }
 
 export function RoomPageSidebar({
@@ -171,6 +194,7 @@ export function RoomPageSidebar({
   linkTvButtonRef,
   theaterShareQuality = 'balanced',
   onTheaterShareQualityChange,
+  hostConsole = null,
 }: RoomPageSidebarProps) {
   const peopleFriends = usePeopleRosterFriends(fanToken, activeSidebarTab)
   const roomFriends = useRoomFriendsPane(activeSidebarTab === 'friends', Boolean(fanToken))
@@ -432,42 +456,22 @@ export function RoomPageSidebar({
 
         {showRoomTab && activeSidebarTab === 'room' ? (
           <div className="riffsync-room-page__tab-panel riffsync-room-page__room-panel">
-            <button type="button" className="gen-button gen-button-wide" onClick={onCopyShare}>
-              Copy Party Link
-            </button>
-            {isPublisher ? (
-              <button type="button" className="gen-button gen-button-wide" onClick={onOpenRenameModal}>
-                Rename Party
-              </button>
-            ) : null}
-            {isPublisher ? (
-              <RoomVisibilityControl
-                visibility={roomVisibility}
-                busy={visibilityBusy}
-                error={visibilityErr}
-                onSelectVisibility={onSelectRoomVisibility}
-              />
-            ) : null}
-            {isPublisher && onTheaterShareQualityChange ? (
-              <TheaterShareQualityControls
-                value={theaterShareQuality}
-                onChange={onTheaterShareQualityChange}
-              />
-            ) : null}
-            {isPublisher ? (
-              <Link
-                className="gen-button gen-button-wide"
-                to="/how-to-host-a-watchparty"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Hosting Guide
-              </Link>
+            <RoomHostIconRow
+              isPublisher={isPublisher}
+              onCopyShare={onCopyShare}
+              onOpenRenameModal={onOpenRenameModal}
+              roomVisibility={roomVisibility}
+              visibilityBusy={visibilityBusy}
+              visibilityErr={visibilityErr}
+              onSelectRoomVisibility={onSelectRoomVisibility}
+            />
+            {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
+            {isPublisher && hostConsole ? (
+              <HostRoomConsole {...hostConsole} />
             ) : null}
             <Link className="gen-button gen-button-wide" to="/">
               Leave Party
             </Link>
-            {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
           </div>
         ) : null}
 
@@ -538,6 +542,14 @@ export function RoomPageSidebar({
             >
               {profileSaving ? 'Saving…' : 'Save'}
             </button>
+            {isPublisher && onTheaterShareQualityChange ? (
+              <div className="riffsync-room-page__profile-share-quality">
+                <TheaterShareQualityControls
+                  value={theaterShareQuality}
+                  onChange={onTheaterShareQualityChange}
+                />
+              </div>
+            ) : null}
           </div>
         ) : null}
 

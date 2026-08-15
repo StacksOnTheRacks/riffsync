@@ -75,6 +75,37 @@ export function HowToHostWatchPartyPage() {
         </section>
 
         <section>
+          <h2 id="host-extension">Install the Host extension</h2>
+          <p>
+            The <strong>Room</strong> tab is the host control panel. Opening and retargeting the media
+            tab in the background (without leaving the party) needs the unpacked{' '}
+            <strong>RiffSync Host</strong> Chrome extension. Without it, the Room tab still works for
+            copy link, rename, visibility, and the stage Open / Share Source Tab flow.
+          </p>
+          <ol>
+            <li>
+              Use <strong>Chrome</strong> on desktop (Developer mode).
+            </li>
+            <li>
+              Open <code>chrome://extensions</code>, turn on <strong>Developer mode</strong>, then{' '}
+              <strong>Load unpacked</strong>.
+            </li>
+            <li>
+              Select the <code>apps/host-extension/</code> folder from the RiffSync repo (the folder that
+              contains <code>manifest.json</code>).
+            </li>
+            <li>
+              Reload your party page. Open the <strong>Room</strong> tab — you should see Open Media
+              Source Tab, Next Up, and Catalog instead of Install Host Extension.
+            </li>
+          </ol>
+          <p>
+            There is no Chrome Web Store listing yet. Installed PWAs work: host UI lives in the page, not
+            in a Chrome side panel.
+          </p>
+        </section>
+
+        <section>
           <h2>FAQ</h2>
 
           <h3>I hear double audio or an echo while hosting</h3>

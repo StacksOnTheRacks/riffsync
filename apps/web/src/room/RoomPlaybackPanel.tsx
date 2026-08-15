@@ -20,13 +20,25 @@ type RoomPlaybackPanelProps = {
   startCapture: () => Promise<void>
   openCapturePlayerTab: () => void
   hostSourceOpensOnYoutube?: boolean
+  /** When true, Room tab owns open/broadcast; hide duplicate stage CTAs. */
+  hideHostShareCtas?: boolean
 }
 
 function HostShareIntro({
   hostSourceOpensOnYoutube,
+  hideHostShareCtas,
 }: {
   hostSourceOpensOnYoutube: boolean
+  hideHostShareCtas: boolean
 }) {
+  if (hideHostShareCtas) {
+    return (
+      <p className="riffsync-room-page__host-preview-intro">
+        This is your presentation screen. Use the <strong>Room</strong> tab to open the media source and
+        start broadcasting. Whatever appears here is what your guests see in the theater.
+      </p>
+    )
+  }
   return (
     <>
       <p className="riffsync-room-page__host-preview-intro">
@@ -89,6 +101,7 @@ export function RoomPlaybackPanel({
   startCapture,
   openCapturePlayerTab,
   hostSourceOpensOnYoutube = false,
+  hideHostShareCtas = false,
 }: RoomPlaybackPanelProps) {
   if (isPublisher) {
     return (
@@ -113,8 +126,13 @@ export function RoomPlaybackPanel({
             />
           ) : (
             <div className="riffsync-room-page__host-preview-placeholder">
-              <HostShareIntro hostSourceOpensOnYoutube={hostSourceOpensOnYoutube} />
-              <HostShareButtons openCapturePlayerTab={openCapturePlayerTab} startCapture={startCapture} />
+              <HostShareIntro
+                hostSourceOpensOnYoutube={hostSourceOpensOnYoutube}
+                hideHostShareCtas={hideHostShareCtas}
+              />
+              {hideHostShareCtas ? null : (
+                <HostShareButtons openCapturePlayerTab={openCapturePlayerTab} startCapture={startCapture} />
+              )}
             </div>
           )}
         </div>

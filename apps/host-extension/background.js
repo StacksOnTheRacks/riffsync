@@ -23,19 +23,20 @@ function sendMessageToTab(tabId, message) {
   })
 }
 
-chrome.sidePanel
-  .setPanelBehavior({ openPanelOnActionClick: true })
-  .catch((error) => {
-    console.error(error)
-  })
-
-async function getActiveTab() {
+/**
+ * Prefer the tab that sent the message (Room-tab content script).
+ * Fall back to the last-focused active tab for any legacy callers.
+ */
+async function resolvePartyTab(sender) {
+  if (sender?.tab?.id != null) {
+    return sender.tab
+  }
   const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true })
   return tabs[0] ?? null
 }
 
-async function currentState() {
-  const tab = await getActiveTab()
+async function currentState(sender) {
+  const tab = await resolvePartyTab(sender)
   return reportHostingMediaTab(tracker, tab?.url)
 }
 
@@ -43,29 +44,29 @@ function broadcastState(state) {
   chrome.runtime.sendMessage({ type: 'hostSessionState', ...state }).catch(() => {})
 }
 
-async function refreshAndBroadcast() {
-  const state = await currentState()
+async function refreshAndBroadcast(sender) {
+  const state = await currentState(sender)
   broadcastState(state)
   return state
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'getState') {
-    currentState().then(sendResponse)
+    currentState(sender).then(sendResponse)
     return true
   }
 
   if (message?.type === 'openOrNavigate') {
-    getActiveTab()
+    resolvePartyTab(sender)
       .then((tab) => openOrNavigateHostMediaTab(tracker, tab?.url, message.url))
       .then(async (result) => {
-        const state = await currentState()
+        const state = await currentState(sender)
         sendResponse({ ...state, ok: result.ok })
         broadcastState(state)
       })
       .catch((error) => {
         console.error(error)
-        currentState().then((state) => {
+        currentState(sender).then((state) => {
           sendResponse({ ...state, ok: false })
           broadcastState(state)
         })
@@ -74,7 +75,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === 'mediaPlayback') {
-    currentState()
+    currentState(sender)
       .then(async (state) => {
         const result = await requestMediaPlaybackControl({
           mediaTabId: state.mediaTabId,
@@ -86,7 +87,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       })
       .catch((error) => {
         console.error(error)
-        currentState().then((state) => {
+        currentState(sender).then((state) => {
           sendResponse({ ...state, ok: false, reason: 'unsupported' })
         })
       })
@@ -94,7 +95,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === 'changeTitle') {
-    getActiveTab()
+    resolvePartyTab(sender)
       .then(async (tab) => {
         const result = await applyTitleChange({
           activeTabUrl: tab?.url,
@@ -108,13 +109,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           resolveUrl: resolveHostSourceTabUrl,
           navigate: async ({ url }) => openOrNavigateHostMediaTab(tracker, tab?.url, url),
         })
-        const state = await currentState()
+        const state = await currentState(sender)
         sendResponse({ ...state, ...result })
         broadcastState(state)
       })
       .catch((error) => {
         console.error(error)
-        currentState().then((state) => {
+        currentState(sender).then((state) => {
           sendResponse({ ...state, ok: false, reason: 'network' })
           broadcastState(state)
         })
@@ -127,19 +128,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   tracker.handleTabRemoved(tabId)
-  refreshAndBroadcast()
+  refreshAndBroadcast(null)
 })
 
 chrome.tabs.onActivated.addListener(() => {
-  refreshAndBroadcast()
+  refreshAndBroadcast(null)
 })
 
 chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
   if (changeInfo.url) {
-    refreshAndBroadcast()
+    refreshAndBroadcast(null)
   }
 })
 
 chrome.windows.onFocusChanged.addListener(() => {
-  refreshAndBroadcast()
+  refreshAndBroadcast(null)
 })

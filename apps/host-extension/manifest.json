@@ -1,15 +1,13 @@
 {
   "manifest_version": 3,
   "name": "RiffSync Host",
-  "version": "0.1.0",
-  "description": "Host control panel for RiffSync room hosts. Does not capture media.",
-  "permissions": ["sidePanel", "tabs"],
+  "version": "0.2.0",
+  "description": "Background media-tab helper for RiffSync room hosts. Host UI lives in the Room tab. Does not capture media.",
+  "permissions": ["tabs"],
   "host_permissions": ["https://hu8u08y3a5.execute-api.us-east-1.amazonaws.com/*"],
   "action": {
-    "default_title": "Open host control panel"
-  },
-  "side_panel": {
-    "default_path": "host-control-panel.html"
+    "default_title": "RiffSync Host — use the Room tab in your party",
+    "default_popup": "action-popup.html"
   },
   "background": {
     "service_worker": "background.js",
