@@ -1,6 +1,9 @@
 import { fetchPublicCatalog, selectCatalogRow } from './catalogApi.js'
+import { titleChangeErrorMessage } from './changeTitle.js'
 import { PUBLIC_API_BASE_URL } from './config.js'
 import { resolveHostSourceTabUrl } from './hostSourceTabUrl.js'
+import { nowPlayingLabel } from './nowPlaying.js'
+import { fetchRoomNowPlaying } from './roomsApi.js'
 
 const HOST_SOURCE_FIXTURE = {
   catalogEp: {
@@ -20,21 +23,79 @@ const errorEl = document.getElementById('error-status')
 const libraryStatusEl = document.getElementById('library-status')
 const libraryListEl = document.getElementById('library-list')
 const libraryRetryButton = document.getElementById('library-retry')
+const nowPlayingEl = document.getElementById('now-playing-status')
+const nowPlayingRetryButton = document.getElementById('now-playing-retry')
+const applyTitleButton = document.getElementById('apply-title')
+const titleErrorEl = document.getElementById('title-error')
 
 let libraryEntries = []
 let librarySelection = { id: null, row: null }
+let sessionState = { bound: false, roomId: null, origin: null, mediaTabOpen: false }
+let nowPlayingRoomId = null
+let nowPlayingRoom = null
+
+function syncActionButtons() {
+  const bound = Boolean(sessionState.bound)
+  openButton.disabled = !bound
+  applyTitleButton.disabled = !bound || !librarySelection.id
+}
 
 function render(state) {
-  const bound = Boolean(state?.bound)
-  bindEl.textContent = bound ? `Bound to room ${state.roomId}` : 'Not bound to a room'
-  mediaEl.textContent = bound && state.mediaTabOpen ? 'Open' : 'Not open'
-  openButton.disabled = !bound
+  sessionState = {
+    bound: Boolean(state?.bound),
+    roomId: state?.roomId ?? null,
+    origin: state?.origin ?? null,
+    mediaTabOpen: Boolean(state?.mediaTabOpen),
+  }
+  bindEl.textContent = sessionState.bound
+    ? `Bound to room ${sessionState.roomId}`
+    : 'Not bound to a room'
+  mediaEl.textContent = sessionState.bound && sessionState.mediaTabOpen ? 'Open' : 'Not open'
+  syncActionButtons()
   errorEl.textContent = ''
+}
+
+function setNowPlayingStatus(text, { retryHidden = true } = {}) {
+  nowPlayingEl.textContent = text
+  nowPlayingRetryButton.hidden = retryHidden
+}
+
+async function loadNowPlaying(roomId) {
+  if (!roomId) {
+    nowPlayingRoomId = null
+    nowPlayingRoom = null
+    setNowPlayingStatus('Open a RiffSync room tab to see now playing.')
+    return
+  }
+
+  nowPlayingRoomId = roomId
+  nowPlayingRoom = null
+  setNowPlayingStatus('Loading now playing...')
+  const result = await fetchRoomNowPlaying(PUBLIC_API_BASE_URL, roomId)
+  if (nowPlayingRoomId !== roomId) return
+
+  if (result.status === 'ok') {
+    nowPlayingRoom = result.room
+    setNowPlayingStatus(nowPlayingLabel(result.room, libraryEntries) || 'Now playing unavailable')
+    return
+  }
+  if (result.status === 'missing') {
+    setNowPlayingStatus('Room not found.')
+    return
+  }
+  setNowPlayingStatus('Could not load now playing.', { retryHidden: false })
+}
+
+function refreshNowPlayingForBind(state) {
+  const roomId = state?.bound ? state.roomId : null
+  if (roomId === nowPlayingRoomId && roomId) return
+  loadNowPlaying(roomId)
 }
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === 'hostSessionState') {
     render(message)
+    refreshNowPlayingForBind(message)
   }
 })
 
@@ -109,6 +170,9 @@ function renderLibraryResult(result) {
     renderLibraryList()
     setLibraryStatus('', { listHidden: false, retryHidden: true })
     libraryStatusEl.hidden = true
+    if (nowPlayingRoom) {
+      setNowPlayingStatus(nowPlayingLabel(nowPlayingRoom, libraryEntries) || 'Now playing unavailable')
+    }
     return
   }
 
@@ -139,15 +203,50 @@ libraryListEl.addEventListener('click', (event) => {
   if (!row) return
   librarySelection = selectCatalogRow(libraryEntries, row.dataset.id)
   renderLibraryList()
+  syncActionButtons()
 })
 
 libraryRetryButton.addEventListener('click', () => {
   loadLibrary()
 })
 
-chrome.runtime.sendMessage({ type: 'getState' }).then(render).catch((error) => {
+nowPlayingRetryButton.addEventListener('click', () => {
+  loadNowPlaying(sessionState.bound ? sessionState.roomId : null)
+})
+
+applyTitleButton.addEventListener('click', async () => {
+  titleErrorEl.textContent = ''
+  if (!sessionState.bound) {
+    titleErrorEl.textContent = titleChangeErrorMessage({ reason: 'unbound' })
+    return
+  }
+  if (!librarySelection.id || !librarySelection.row) {
+    titleErrorEl.textContent = titleChangeErrorMessage({ reason: 'missing_selection' })
+    return
+  }
+
+  applyTitleButton.disabled = true
+  const result = await chrome.runtime.sendMessage({
+    type: 'changeTitle',
+    catalogEpisodeId: librarySelection.id,
+    catalogRow: librarySelection.row,
+  })
+  render(result)
+  if (result?.ok) {
+    await loadNowPlaying(result.roomId || sessionState.roomId)
+  } else {
+    titleErrorEl.textContent = titleChangeErrorMessage(result)
+  }
+  syncActionButtons()
+})
+
+chrome.runtime.sendMessage({ type: 'getState' }).then((state) => {
+  render(state)
+  refreshNowPlayingForBind(state)
+}).catch((error) => {
   console.error(error)
   render({ bound: false, mediaTabOpen: false })
+  loadNowPlaying(null)
 })
 
 loadLibrary()

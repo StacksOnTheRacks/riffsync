@@ -1,10 +1,26 @@
+import { applyTitleChange } from './changeTitle.js'
+import { PUBLIC_API_BASE_URL } from './config.js'
+import { createEphemeralJwtCache, requestHostAccessToken } from './hostJwt.js'
+import { resolveHostSourceTabUrl } from './hostSourceTabUrl.js'
 import {
   createMediaTabTracker,
   openOrNavigateHostMediaTab,
   reportHostingMediaTab,
 } from './mediaTab.js'
+import { patchRoomCatalogEpisode } from './roomsApi.js'
 
 const tracker = createMediaTabTracker(chrome.tabs)
+const jwtCache = createEphemeralJwtCache()
+
+function sendMessageToTab(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      const err = chrome.runtime.lastError
+      if (err) reject(new Error(err.message))
+      else resolve(response)
+    })
+  })
+}
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
@@ -50,6 +66,35 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         console.error(error)
         currentState().then((state) => {
           sendResponse({ ...state, ok: false })
+          broadcastState(state)
+        })
+      })
+    return true
+  }
+
+  if (message?.type === 'changeTitle') {
+    getActiveTab()
+      .then(async (tab) => {
+        const result = await applyTitleChange({
+          activeTabUrl: tab?.url,
+          partyTabId: tab?.id,
+          catalogEpisodeId: message.catalogEpisodeId,
+          catalogRow: message.catalogRow,
+          jwtCache,
+          requestJwt: ({ tabId }) =>
+            requestHostAccessToken({ tabId, sendMessage: sendMessageToTab }),
+          patchRoom: (args) => patchRoomCatalogEpisode(PUBLIC_API_BASE_URL, args),
+          resolveUrl: resolveHostSourceTabUrl,
+          navigate: async ({ url }) => openOrNavigateHostMediaTab(tracker, tab?.url, url),
+        })
+        const state = await currentState()
+        sendResponse({ ...state, ...result })
+        broadcastState(state)
+      })
+      .catch((error) => {
+        console.error(error)
+        currentState().then((state) => {
+          sendResponse({ ...state, ok: false, reason: 'network' })
           broadcastState(state)
         })
       })

@@ -14,5 +14,12 @@
   "background": {
     "service_worker": "background.js",
     "type": "module"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://riffsync.tv/*", "http://localhost:5173/*"],
+      "js": ["host-bridge-content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

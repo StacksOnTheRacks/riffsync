@@ -9,7 +9,10 @@ import { FanDmSessionKeepAlive } from './friends/FanDmSessionKeepAlive'
 import { GoogleAnalytics } from './components/GoogleAnalytics'
 import { ScrollToTop } from './components/ScrollToTop'
 import { AppRoutes } from './AppRoutes.tsx'
+import { mountHostJwtBridge } from './hostBridge/hostJwtBridge'
 import { PublicRouteHeadTags } from './seo/PublicRouteHeadTags'
+
+mountHostJwtBridge()
 
 const queryClient = new QueryClient({
   defaultOptions: {
