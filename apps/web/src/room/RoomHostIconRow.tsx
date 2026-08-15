@@ -28,7 +28,7 @@ export function RoomHostIconRow({
       <div className="riffsync-room-host-icons__row" role="group" aria-label="Room actions">
         <button
           type="button"
-          className="riffsync-room-host-icons__btn"
+          className="gen-button riffsync-room-host-icons__btn"
           aria-label="Copy party link"
           title="Copy party link"
           onClick={onCopyShare}
@@ -38,7 +38,7 @@ export function RoomHostIconRow({
         {isPublisher ? (
           <button
             type="button"
-            className={`riffsync-room-host-icons__btn${visibilityOpen ? ' riffsync-room-host-icons__btn--on' : ''}`}
+            className={`gen-button riffsync-room-host-icons__btn${visibilityOpen ? ' riffsync-room-host-icons__btn--on' : ''}`}
             aria-label="Lobby visibility"
             title="Lobby visibility"
             aria-expanded={visibilityOpen}
@@ -51,7 +51,7 @@ export function RoomHostIconRow({
         {isPublisher ? (
           <button
             type="button"
-            className="riffsync-room-host-icons__btn"
+            className="gen-button riffsync-room-host-icons__btn"
             aria-label="Rename party"
             title="Rename party"
             onClick={onOpenRenameModal}
@@ -79,7 +79,13 @@ export function RoomHostIconRow({
 
 function ShareNodesIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="riffsync-room-host-icons__svg">
+    <svg
+      viewBox="0 0 24 24"
+      width={18}
+      height={18}
+      aria-hidden="true"
+      className="riffsync-room-host-icons__svg"
+    >
       <circle cx="6" cy="12" r="2.25" fill="currentColor" />
       <circle cx="18" cy="6" r="2.25" fill="currentColor" />
       <circle cx="18" cy="18" r="2.25" fill="currentColor" />
@@ -96,7 +102,13 @@ function ShareNodesIcon() {
 
 function EyeIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="riffsync-room-host-icons__svg">
+    <svg
+      viewBox="0 0 24 24"
+      width={18}
+      height={18}
+      aria-hidden="true"
+      className="riffsync-room-host-icons__svg"
+    >
       <path
         d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
         fill="none"
@@ -111,7 +123,13 @@ function EyeIcon() {
 
 function TitleIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="riffsync-room-host-icons__svg">
+    <svg
+      viewBox="0 0 24 24"
+      width={18}
+      height={18}
+      aria-hidden="true"
+      className="riffsync-room-host-icons__svg"
+    >
       <rect
         x="4"
         y="4"

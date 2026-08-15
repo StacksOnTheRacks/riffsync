@@ -441,29 +441,34 @@ export function RoomPage() {
     openOrNavigateHostSourceTab(url)
   }
 
-  const openHostMediaViaExtension = useCallback(async (url: string) => {
+  const openHostMediaViaExtension = useCallback(async (url: string): Promise<boolean> => {
     setHostConsoleBusy(true)
     setHostConsoleErr(null)
     try {
       const state = await openHostMediaTab(url)
       if (!state?.mediaTabOpen) {
         setHostConsoleErr('Could not open the media tab. Stay on the room tab and try again.')
+        return false
       }
+      return true
     } finally {
       setHostConsoleBusy(false)
     }
   }, [openHostMediaTab])
 
-  const shiftNextUp = nextUp.shiftNext
+  const peekNextUp = nextUp.peekNext
+  const removeNextUp = nextUp.removeItem
 
   const skipNextUpItem = useCallback(async () => {
     if (!room || !fanToken || !isPublisher) return
-    const item = shiftNextUp()
+    // Peek only — prune after PATCH + media navigate succeed so failures leave the queue intact.
+    const item = peekNextUp()
     if (!item) return
     setHostConsoleErr(null)
     try {
       if (item.kind === 'url') {
-        await openHostMediaViaExtension(item.url)
+        const opened = await openHostMediaViaExtension(item.url)
+        if (opened) removeNextUp(item.id)
         return
       }
       setHostConsoleBusy(true)
@@ -476,7 +481,8 @@ export function RoomPage() {
         origin: getPublicOrigin(),
       })
       setHostConsoleBusy(false)
-      await openHostMediaViaExtension(url)
+      const opened = await openHostMediaViaExtension(url)
+      if (opened) removeNextUp(item.id)
     } catch (e) {
       setHostConsoleErr(e instanceof Error ? e.message : 'Could not play next title.')
       setHostConsoleBusy(false)
@@ -485,7 +491,8 @@ export function RoomPage() {
     room,
     fanToken,
     isPublisher,
-    shiftNextUp,
+    peekNextUp,
+    removeNextUp,
     catalogById,
     catalogEp,
     roomId,

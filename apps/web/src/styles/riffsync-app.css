@@ -2875,13 +2875,18 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.75rem;
+  min-height: 2.25rem;
   border: 0;
   border-radius: 0.35rem;
   background: var(--gen-button-bg, #c4161c);
-  color: #0b0b0b;
+  color: var(--white-color, #fff);
   cursor: pointer;
   padding: 0.35rem;
+  /* Override template gen-button padding/line-height for icon-only tiles. */
+  font-size: inherit;
+  line-height: 1;
+  text-transform: none;
+  width: auto;
 }
 
 .riffsync-room-host-icons__btn--on {
@@ -2890,9 +2895,10 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
 }
 
 .riffsync-room-host-icons__svg {
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 18px;
+  height: 18px;
   display: block;
+  flex-shrink: 0;
 }
 
 .riffsync-room-host-icons__visibility {

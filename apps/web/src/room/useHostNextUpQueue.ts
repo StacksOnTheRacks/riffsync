@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import {
   appendNextUpItem,
@@ -16,6 +16,11 @@ export function useHostNextUpQueue(roomId: string | undefined) {
     roomId ? loadHostNextUpQueue(roomId) : [],
   )
   const [loadedRoomId, setLoadedRoomId] = useState(roomId)
+  const itemsRef = useRef(items)
+
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
 
   if (roomId !== loadedRoomId) {
     setLoadedRoomId(roomId)
@@ -28,37 +33,55 @@ export function useHostNextUpQueue(roomId: string | undefined) {
   }, [roomId, items])
 
   const addCatalogEpisode = useCallback((episode: Pick<CatalogEpisode, 'id' | 'title' | 'posterImageUrl'>) => {
-    setItems((prev) =>
-      appendNextUpItem(
+    setItems((prev) => {
+      const next = appendNextUpItem(
         prev,
         createCatalogNextUpItem({
           catalogEpisodeId: episode.id,
           title: episode.title,
           posterImageUrl: episode.posterImageUrl,
         }),
-      ),
-    )
+      )
+      itemsRef.current = next
+      return next
+    })
   }, [])
 
   const addUrl = useCallback((url: string): boolean => {
     const item = createUrlNextUpItem(url)
     if (!item) return false
-    setItems((prev) => appendNextUpItem(prev, item))
+    setItems((prev) => {
+      const next = appendNextUpItem(prev, item)
+      itemsRef.current = next
+      return next
+    })
     return true
   }, [])
 
   const removeItem = useCallback((id: string) => {
-    setItems((prev) => removeNextUpItem(prev, id))
+    setItems((prev) => {
+      const next = removeNextUpItem(prev, id)
+      itemsRef.current = next
+      return next
+    })
   }, [])
 
+  /** Read the FIFO head without mutating the queue. */
+  const peekNext = useCallback((): HostNextUpItem | null => {
+    return itemsRef.current[0] ?? null
+  }, [])
+
+  /**
+   * Shift the FIFO head synchronously (React 19-safe).
+   * Prefer peek + removeItem after a successful side effect for Fast Forward.
+   */
   const shiftNext = useCallback((): HostNextUpItem | null => {
-    let shifted: HostNextUpItem | null = null
-    setItems((prev) => {
-      const result = shiftNextUpItem(prev)
-      shifted = result.next
-      return result.remaining
-    })
-    return shifted
+    const result = shiftNextUpItem(itemsRef.current)
+    if (result.next) {
+      itemsRef.current = result.remaining
+      setItems(result.remaining)
+    }
+    return result.next
   }, [])
 
   return {
@@ -66,6 +89,7 @@ export function useHostNextUpQueue(roomId: string | undefined) {
     addCatalogEpisode,
     addUrl,
     removeItem,
+    peekNext,
     shiftNext,
   }
 }
