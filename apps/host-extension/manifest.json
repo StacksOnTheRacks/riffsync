@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Host control panel for RiffSync room hosts. Does not capture media.",
   "permissions": ["sidePanel", "tabs"],
+  "host_permissions": ["https://xxxx.execute-api.us-east-1.amazonaws.com/*"],
   "action": {
     "default_title": "Open host control panel"
   },
