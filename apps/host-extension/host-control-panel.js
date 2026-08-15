@@ -1,3 +1,5 @@
+import { fetchPublicCatalog, selectCatalogRow } from './catalogApi.js'
+import { PUBLIC_API_BASE_URL } from './config.js'
 import { resolveHostSourceTabUrl } from './hostSourceTabUrl.js'
 
 const HOST_SOURCE_FIXTURE = {
@@ -15,6 +17,12 @@ const bindEl = document.getElementById('bind-status')
 const mediaEl = document.getElementById('media-tab-status')
 const openButton = document.getElementById('open-media-tab')
 const errorEl = document.getElementById('error-status')
+const libraryStatusEl = document.getElementById('library-status')
+const libraryListEl = document.getElementById('library-list')
+const libraryRetryButton = document.getElementById('library-retry')
+
+let libraryEntries = []
+let librarySelection = { id: null, row: null }
 
 function render(state) {
   const bound = Boolean(state?.bound)
@@ -49,7 +57,97 @@ openButton.addEventListener('click', async () => {
   }
 })
 
+function setLibraryStatus(text, { listHidden = true, retryHidden = true } = {}) {
+  libraryStatusEl.textContent = text
+  libraryStatusEl.hidden = false
+  libraryListEl.hidden = listHidden
+  libraryRetryButton.hidden = retryHidden
+}
+
+function renderLibraryList() {
+  libraryListEl.replaceChildren()
+  for (const entry of libraryEntries) {
+    const item = document.createElement('li')
+    const row = document.createElement('button')
+    row.type = 'button'
+    row.className = 'library-row'
+    row.dataset.id = entry.id
+    row.setAttribute('aria-selected', entry.id === librarySelection.id ? 'true' : 'false')
+
+    if (entry.posterImageUrl) {
+      const poster = document.createElement('img')
+      poster.className = 'library-poster'
+      poster.src = entry.posterImageUrl
+      poster.alt = ''
+      row.append(poster)
+    }
+
+    const meta = document.createElement('span')
+    meta.className = 'library-meta'
+    const title = document.createElement('span')
+    title.className = 'library-title'
+    title.textContent = entry.title
+    meta.append(title)
+    if (Number.isFinite(entry.experimentNumber)) {
+      const experiment = document.createElement('span')
+      experiment.className = 'library-experiment'
+      experiment.textContent = String(entry.experimentNumber)
+      meta.append(experiment)
+    }
+    row.append(meta)
+    item.append(row)
+    libraryListEl.append(item)
+  }
+}
+
+function renderLibraryResult(result) {
+  if (result.status === 'ok') {
+    libraryEntries = result.entries
+    if (librarySelection.id) {
+      librarySelection = selectCatalogRow(libraryEntries, librarySelection.id)
+    }
+    renderLibraryList()
+    setLibraryStatus('', { listHidden: false, retryHidden: true })
+    libraryStatusEl.hidden = true
+    return
+  }
+
+  libraryEntries = []
+  libraryListEl.replaceChildren()
+  if (result.status === 'empty') {
+    setLibraryStatus('No titles in the catalog library.', {
+      listHidden: true,
+      retryHidden: true,
+    })
+    return
+  }
+
+  setLibraryStatus(result.message || 'Could not load the catalog library.', {
+    listHidden: true,
+    retryHidden: false,
+  })
+}
+
+async function loadLibrary() {
+  setLibraryStatus('Loading catalog library...', { listHidden: true, retryHidden: true })
+  const result = await fetchPublicCatalog(PUBLIC_API_BASE_URL)
+  renderLibraryResult(result)
+}
+
+libraryListEl.addEventListener('click', (event) => {
+  const row = event.target.closest('[data-id]')
+  if (!row) return
+  librarySelection = selectCatalogRow(libraryEntries, row.dataset.id)
+  renderLibraryList()
+})
+
+libraryRetryButton.addEventListener('click', () => {
+  loadLibrary()
+})
+
 chrome.runtime.sendMessage({ type: 'getState' }).then(render).catch((error) => {
   console.error(error)
   render({ bound: false, mediaTabOpen: false })
 })
+
+loadLibrary()

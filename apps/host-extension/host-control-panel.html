@@ -48,6 +48,56 @@
       button:disabled {
         opacity: 0.5;
       }
+      h2 {
+        margin: 1.25rem 0 0.5rem;
+        font-size: 1rem;
+      }
+      .library-list {
+        list-style: none;
+        margin: 0 0 0.75rem;
+        padding: 0;
+        max-height: 18rem;
+        overflow: auto;
+        border: 1px solid #333;
+        border-radius: 4px;
+      }
+      .library-row {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
+        width: 100%;
+        text-align: left;
+        padding: 0.45rem 0.6rem;
+        border: 0;
+        border-bottom: 1px solid #2a2a2a;
+        border-radius: 0;
+        background: transparent;
+      }
+      .library-list li:last-child .library-row {
+        border-bottom: 0;
+      }
+      .library-row[aria-selected='true'] {
+        background: #2a3a4a;
+      }
+      .library-poster {
+        width: 2.25rem;
+        height: 3.15rem;
+        object-fit: cover;
+        background: #222;
+        flex: 0 0 auto;
+      }
+      .library-meta {
+        min-width: 0;
+      }
+      .library-title {
+        display: block;
+        color: #f4f4f4;
+      }
+      .library-experiment {
+        display: block;
+        color: #9a9a9a;
+        font-size: 0.85rem;
+      }
       .error {
         color: #f0b4b4;
         min-height: 1.2em;
@@ -69,6 +119,12 @@
       <button id="open-media-tab" type="button" disabled>Open media tab</button>
     </p>
     <p id="error-status" class="error"></p>
+    <h2>Library</h2>
+    <p id="library-status">Loading catalog library...</p>
+    <ul id="library-list" class="library-list" hidden></ul>
+    <p>
+      <button id="library-retry" type="button" hidden>Retry</button>
+    </p>
     <script type="module" src="host-control-panel.js"></script>
   </body>
 </html>

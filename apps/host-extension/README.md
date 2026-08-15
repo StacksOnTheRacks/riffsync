@@ -13,16 +13,32 @@ panel**.
 
 ```text
 apps/host-extension/
-  manifest.json              # MV3; permissions: sidePanel, tabs
+  manifest.json              # MV3; sidePanel, tabs; host_permissions for public API
   background.js              # host control panel on action; media tab session
   host-control-panel.html    # host control panel UI
-  host-control-panel.js      # bind status, media-tab open/not, open trigger
+  host-control-panel.js      # bind, media-tab, catalog library browse/select
+  config.js                  # PUBLIC_API_BASE_URL (match SPA API origin)
+  publicApiBaseUrl.js        # HTTPS origin helper (trim, strip trailing slash)
+  catalogApi.js              # anonymous GET /v1/catalog + normalize
   hostSourceTabUrl.js        # pure host-source URL resolver (SPA parity)
   roomBind.js                # C1 /room/:roomId bind on allowed SPA origins
   mediaTab.js                # inactive create/update + one tracked media tabId
   package.json               # documented test command
   README.md
 ```
+
+## Public API origin
+
+Set `PUBLIC_API_BASE_URL` in `config.js` to the same HTTPS origin as the SPA
+env `VITE_PUBLIC_API_BASE_URL` for the target environment (trailing slash is
+stripped). Update `manifest.json` `host_permissions` to that same origin with
+path `/*` (for example `https://{api-id}.execute-api.{region}.amazonaws.com/*`).
+
+Do not add SPA origins, YouTube, `https://*/*`, or capture permissions. The
+placeholder default matches the example execute-api shape; replace both values
+before using a real environment. The panel loads the public catalog with
+anonymous `GET {base}/v1/catalog` under that host permission (no JWT, no CORS
+allowlist change for `chrome-extension://`).
 
 ## Test
 
@@ -49,8 +65,9 @@ absolute host-source URL and opens or reuses one media tab with `active: false`
 so the party tab stays focused. The panel reports **Open** vs **Not open** for
 the current hosting session.
 
-Follow-on library, title, and JWT work (#429–#430) lands in this package
-without relocating it.
+The host control panel **Library** section loads the public catalog and stores
+a selected title in panel-local state. Title change PATCH and JWT work stay in
+#430.
 
 ## Related
 
