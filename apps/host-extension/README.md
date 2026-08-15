@@ -13,14 +13,44 @@ panel**.
 
 ```text
 apps/host-extension/
-  manifest.json              # MV3; permissions: sidePanel only
-  background.js              # opens host control panel on toolbar action
-  host-control-panel.html    # host control panel UI shell
+  manifest.json              # MV3; permissions: sidePanel, tabs
+  background.js              # host control panel on action; media tab session
+  host-control-panel.html    # host control panel UI
+  host-control-panel.js      # bind status, media-tab open/not, open trigger
+  hostSourceTabUrl.js        # pure host-source URL resolver (SPA parity)
+  roomBind.js                # C1 /room/:roomId bind on allowed SPA origins
+  mediaTab.js                # inactive create/update + one tracked media tabId
+  package.json               # documented test command
   README.md
 ```
 
-Follow-on media-tab, library, title, and JWT work (#428–#430) lands in this
-package without relocating it.
+## Test
+
+From this directory:
+
+```bash
+npm test
+```
+
+From the riffsync repo root:
+
+```bash
+npm test --prefix apps/host-extension
+```
+
+That runs `node --test` on this package only. Helpers are local to
+`apps/host-extension` and do not import `apps/web`.
+
+## Host media tab
+
+With the active tab on `/room/:roomId` at `https://riffsync.tv` or
+`http://localhost:5173`, **Open media tab** resolves a fixture catalog row to an
+absolute host-source URL and opens or reuses one media tab with `active: false`
+so the party tab stays focused. The panel reports **Open** vs **Not open** for
+the current hosting session.
+
+Follow-on library, title, and JWT work (#429–#430) lands in this package
+without relocating it.
 
 ## Related
 
