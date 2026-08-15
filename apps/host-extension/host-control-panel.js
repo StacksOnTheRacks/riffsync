@@ -1,20 +1,12 @@
+import {
+  boundHostSourceTabErrorMessage,
+  resolveBoundHostSourceTabUrl,
+} from './boundHostSourceTabUrl.js'
 import { fetchPublicCatalog, selectCatalogRow } from './catalogApi.js'
 import { titleChangeErrorMessage } from './changeTitle.js'
 import { PUBLIC_API_BASE_URL } from './config.js'
-import { resolveHostSourceTabUrl } from './hostSourceTabUrl.js'
 import { nowPlayingLabel } from './nowPlaying.js'
 import { fetchRoomNowPlaying } from './roomsApi.js'
-
-const HOST_SOURCE_FIXTURE = {
-  catalogEp: {
-    id: '032-mitchell',
-    embedAllows: true,
-    youtubeWatchUrl: 'https://www.youtube.com/watch?v=NXGXtm6gcxk',
-    youtubeVideoId: 'NXGXtm6gcxk',
-    playbackHost: 'youtube',
-  },
-  catalogEpisodeId: '032-mitchell',
-}
 
 const bindEl = document.getElementById('bind-status')
 const mediaEl = document.getElementById('media-tab-status')
@@ -65,25 +57,26 @@ async function loadNowPlaying(roomId) {
     nowPlayingRoomId = null
     nowPlayingRoom = null
     setNowPlayingStatus('Open a RiffSync room tab to see now playing.')
-    return
+    return { status: 'unbound' }
   }
 
   nowPlayingRoomId = roomId
   nowPlayingRoom = null
   setNowPlayingStatus('Loading now playing...')
   const result = await fetchRoomNowPlaying(PUBLIC_API_BASE_URL, roomId)
-  if (nowPlayingRoomId !== roomId) return
+  if (nowPlayingRoomId !== roomId) return { status: 'stale' }
 
   if (result.status === 'ok') {
     nowPlayingRoom = result.room
     setNowPlayingStatus(nowPlayingLabel(result.room, libraryEntries) || 'Now playing unavailable')
-    return
+    return result
   }
   if (result.status === 'missing') {
     setNowPlayingStatus('Room not found.')
-    return
+    return result
   }
   setNowPlayingStatus('Could not load now playing.', { retryHidden: false })
+  return result
 }
 
 function refreshNowPlayingForBind(state) {
@@ -104,17 +97,34 @@ openButton.addEventListener('click', async () => {
   const state = await chrome.runtime.sendMessage({ type: 'getState' })
   if (!state?.bound || !state.origin) {
     render({ bound: false, mediaTabOpen: false })
+    errorEl.textContent = boundHostSourceTabErrorMessage({ reason: 'unbound' })
     return
   }
 
-  const url = resolveHostSourceTabUrl({
-    ...HOST_SOURCE_FIXTURE,
+  let room = nowPlayingRoom
+  if (!room || nowPlayingRoomId !== state.roomId) {
+    const fetchResult = await loadNowPlaying(state.roomId)
+    if (fetchResult?.status !== 'ok') {
+      errorEl.textContent = boundHostSourceTabErrorMessage({ reason: 'room_fetch_failed' })
+      return
+    }
+    room = nowPlayingRoom
+  }
+
+  const resolved = resolveBoundHostSourceTabUrl({
+    room,
     origin: state.origin,
+    libraryEntries,
   })
-  const result = await chrome.runtime.sendMessage({ type: 'openOrNavigate', url })
+  if (!resolved.ok) {
+    errorEl.textContent = boundHostSourceTabErrorMessage(resolved)
+    return
+  }
+
+  const result = await chrome.runtime.sendMessage({ type: 'openOrNavigate', url: resolved.url })
   render(result)
   if (!result?.ok && !result?.bound) {
-    errorEl.textContent = 'Open refused: active tab is not a room on an allowed origin.'
+    errorEl.textContent = boundHostSourceTabErrorMessage({ reason: 'unbound' })
   }
 })
 

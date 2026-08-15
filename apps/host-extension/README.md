@@ -67,8 +67,10 @@ slash). Update `manifest.json` `host_permissions` to that same origin with
 path `/*` (for example
 `https://{api-id}.execute-api.{region}.amazonaws.com/*`).
 
-The placeholder default matches the example execute-api shape. Replace both
-`config.js` and `host_permissions` before using a real environment.
+The placeholder default in older checkouts matched the example execute-api
+shape. This package ships the prod `HttpApiUrl` origin used by riffsync.tv;
+keep `config.js` and `host_permissions` in sync when targeting another
+environment.
 
 Do not add SPA origins, YouTube, `https://*/*`, or capture permissions.
 Allowed SPA origins for the JWT bridge are listed only under
@@ -100,9 +102,10 @@ Walk this once after unpacked load.
    `Not bound to a room`, the active tab is not `/room/:roomId` on an allowed
    origin.
 5. Check **Media tab**: `Open` or `Not open`. Optional: **Open media tab**
-   opens or reuses the tracked media tab for a fixture catalog row without
-   mutating the room. The new or reused tab is created or updated with
-   `active: false`, so the party tab stays focused.
+   opens or reuses the tracked media tab for the **bound room's current
+   catalog title** (same host-source URL rules as the SPA **Open Source
+   Tab**) without mutating the room. The new or reused tab is created or
+   updated with `active: false`, so the party tab stays focused.
 6. Check **Now playing** (anonymous `GET /v1/rooms/{roomId}`). Retry if the
    public API origin is wrong or the room is missing.
 7. Under **Library**, browse the full public catalog (**B1**). Select another
@@ -157,6 +160,7 @@ apps/host-extension/
   catalogApi.js              # anonymous GET /v1/catalog + normalize
   roomsApi.js                # anonymous GET /v1/rooms/{id}; host PATCH catalogEpisodeId
   hostSourceTabUrl.js        # pure host-source URL resolver (SPA parity)
+  boundHostSourceTabUrl.js   # resolve media URL from bound room + library
   roomBind.js                # C1 /room/:roomId bind on allowed SPA origins
   mediaTab.js                # inactive create/update + one tracked media tabId
   hostBridge.js              # riffsync-host-bridge v1 envelope
