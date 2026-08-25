@@ -376,6 +376,38 @@ export function buildRiffSyncOperationsDashboard(
         ),
       ],
     }),
+    new cloudwatch.TextWidget({
+      markdown: '**Product funnels** — success counters from **`RiffSync/Product`** EMF (room create, guest join, broadcast start, Live channel view).',
+      width: 24,
+      height: 2,
+    }),
+    new cloudwatch.GraphWidget({
+      title: 'Product funnels — RiffSync/Product requests (success)',
+      width: 24,
+      height: 6,
+      left: [
+        emfSearchMetric(
+          'RiffSync/Product,Environment,Route,Outcome',
+          `Environment="${env}" Route="RoomCreate" Outcome="success"`,
+          'RoomCreate',
+        ),
+        emfSearchMetric(
+          'RiffSync/Product,Environment,Route,Outcome',
+          `Environment="${env}" Route="GuestRoomJoin" Outcome="success"`,
+          'GuestRoomJoin',
+        ),
+        emfSearchMetric(
+          'RiffSync/Product,Environment,Route,Outcome',
+          `Environment="${env}" Route="BroadcastStarted" Outcome="success"`,
+          'BroadcastStarted',
+        ),
+        emfSearchMetric(
+          'RiffSync/Product,Environment,Route,Outcome',
+          `Environment="${env}" Route="LiveChannelView" Outcome="success"`,
+          'LiveChannelView',
+        ),
+      ],
+    }),
   );
 
   return dashboard;
