@@ -1168,12 +1168,14 @@ describe('SfuMediaSession GA4 host_broadcast_start', () => {
     })
 
     const publishStream = vi.fn().mockResolvedValue(undefined)
-    attachMockSessionHandle(session, {
-      detachConsumerClass: vi.fn(),
-      unpublishProducerClass: vi.fn(),
-    })
     ;(
-      session as unknown as { sessionHandle: { publishStream: typeof publishStream; ready: Promise<void> } }
+      session as unknown as {
+        sessionHandle: {
+          publishStream: typeof publishStream
+          ready: Promise<void>
+          unpublishProducerClass: ReturnType<typeof vi.fn>
+        }
+      }
     ).sessionHandle = {
       publishStream,
       ready: Promise.resolve(),

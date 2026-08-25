@@ -517,9 +517,9 @@ describe('ChatSession lifecycle FSM', () => {
 describe('ChatSession GA4 room_join', () => {
   class MockWebSocket {
     static instances: MockWebSocket[] = []
+    static CONNECTING = 0
     static OPEN = 1
     readyState = MockWebSocket.CONNECTING
-    static CONNECTING = 0
     private listeners = new Map<string, Array<(ev?: unknown) => void>>()
 
     constructor(url: string) {
