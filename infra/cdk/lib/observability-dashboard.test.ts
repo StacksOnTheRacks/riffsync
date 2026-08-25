@@ -48,6 +48,11 @@ describe('observability dashboard', () => {
     expect(serialized).toContain('RiffSync/Realtime');
     expect(serialized).toContain('RiffSync/Media');
     expect(serialized).toContain('RiffSync/Reconcile');
+    expect(serialized).toContain('RiffSync/Product');
+    expect(serialized).toContain('RoomCreate');
+    expect(serialized).toContain('GuestRoomJoin');
+    expect(serialized).toContain('BroadcastStarted');
+    expect(serialized).toContain('LiveChannelView');
     expect(serialized).toContain('riffsync-sfu-high-cpu');
     expect(serialized).not.toContain('i-sfu123');
     expect(serialized).toContain('AWS/DynamoDB');

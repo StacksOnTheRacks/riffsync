@@ -226,7 +226,7 @@ One account, **one CloudFormation stack** **`RiffSyncTurn`** ([`lib/media-server
 
 ### CloudWatch operations dashboard
 
-Stack **`RiffSyncObservability-prod`** creates dashboard **`RiffSync-prod-operations`**: HTTP + WebSocket API Gateway volume/errors, critical Lambda errors/throttles/duration, DynamoDB throttles on Connections/Rooms/RoomPresence/RoomChat, **`RiffSync/Realtime`** chat EMF, **`RiffSync/Media`** **`SfuTokenDenied`**, SFU/TURN EC2 CPU and network, and **`RiffSync/Reconcile`** background metrics.
+Stack **`RiffSyncObservability-prod`** creates dashboard **`RiffSync-prod-operations`**: HTTP + WebSocket API Gateway volume/errors, critical Lambda errors/throttles/duration, DynamoDB throttles on Connections/Rooms/RoomPresence/RoomChat, **`RiffSync/Realtime`** chat EMF, **`RiffSync/Media`** **`SfuTokenDenied`**, SFU/TURN EC2 CPU and network, **`RiffSync/Reconcile`** background metrics, and a **Product funnels** widget group for **`RiffSync/Product`** success counters (**`RoomCreate`**, **`GuestRoomJoin`**, **`BroadcastStarted`**, **`LiveChannelView`**).
 
 **Deploy (after API + media stacks exist):**
 
