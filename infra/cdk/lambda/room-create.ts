@@ -6,6 +6,7 @@ import {
   PutCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { validateCatalogRowForRoomSeed } from './catalog-room-playback-gate';
+import { emitProductEmf } from './riffsync-observability';
 import {
   initialDisplayTitleFromCatalog,
   lobbySortKey,
@@ -125,6 +126,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       ConditionExpression: 'attribute_not_exists(roomId)',
     }),
   );
+
+  emitProductEmf('RoomCreate', 'success');
 
   return {
     statusCode: 201,
