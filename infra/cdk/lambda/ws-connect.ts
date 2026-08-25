@@ -2,6 +2,7 @@ import type { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { verifyAccessToken } from './cognito-jwt';
+import { emitProductEmf } from './riffsync-observability';
 import { maintainPublicLobbyOnHostConnect } from './room-lobby-cleanup';
 import { fanOutChatSystem, isWithinJoinReconnectCooldown } from './ws-chat-system-shared';
 import { fanSubRoomPresenceSk } from './room-presence-shared';
@@ -161,6 +162,10 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event) => {
         except: connectionId,
       }).catch(() => undefined);
     }
+  }
+
+  if (!hostSub) {
+    emitProductEmf('GuestRoomJoin', 'success');
   }
 
   return { statusCode: 200, body: 'Connected' };

@@ -10,6 +10,7 @@ import {
 import { CATALOG_META_ID } from './catalog-meta';
 import { projectEpisode, sortEpisodes, type CatalogEpisode } from './catalog-shared';
 import { liveRoomIdForCatalogEpisodeId, LIVE_SYSTEM_HOST_SUB } from './live-channels';
+import { emitProductEmf } from './riffsync-observability';
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 
@@ -186,6 +187,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     displayTitle: channel.title,
     youtubeVideoId: channel.youtubeVideoId,
   });
+
+  emitProductEmf('LiveChannelView', 'success');
 
   return {
     statusCode: 200,

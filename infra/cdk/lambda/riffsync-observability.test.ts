@@ -3,6 +3,7 @@ import {
   emitApiEmf,
   emitPresenceActiveFanOut,
   emitPresenceRequestRehydrated,
+  emitProductEmf,
   emitQualifyingActiveWrite,
   emitTypingRouteAccepted,
   emitTypingRouteThrottled,
@@ -18,8 +19,8 @@ import {
   wsRealtimeOutcomeFromStatus,
 } from './riffsync-observability';
 
-const FORBIDDEN_EMF_PROPERTY_KEYS = ['roomId', 'sessionId', 'sub', 'fanSub', 'connectionId'] as const;
-const FORBIDDEN_EMF_DIMENSIONS = ['roomId', 'sessionId', 'sub', 'fanSub', 'connectionId'] as const;
+const FORBIDDEN_EMF_PROPERTY_KEYS = ['roomId', 'sessionId', 'sub', 'fanSub', 'hostSub', 'connectionId', 'slug'] as const;
+const FORBIDDEN_EMF_DIMENSIONS = ['roomId', 'sessionId', 'sub', 'fanSub', 'hostSub', 'connectionId', 'slug'] as const;
 
 function parseEmfLine(line: string): Record<string, unknown> {
   return JSON.parse(line) as Record<string, unknown>;
@@ -277,6 +278,50 @@ describe('riffsync-observability', () => {
     const throttled = parseEmfLine((console.log as ReturnType<typeof vi.fn>).mock.calls[1][0] as string);
     expect(throttled.TypingRouteThrottled).toBe(1);
     expect(throttled.Route).toBe('typing_stop');
+  });
+
+  it('emits Product EMF with RiffSync/Product namespace and dimensions', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'prod';
+    emitProductEmf('RoomCreate', 'success');
+
+    expect(console.log).toHaveBeenCalledTimes(1);
+    const line = (console.log as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    const aws = parsed._aws as {
+      CloudWatchMetrics: Array<{
+        Namespace: string;
+        Dimensions: string[][];
+        Metrics: Array<{ Name: string; Unit: string }>;
+      }>;
+    };
+
+    expect(aws.CloudWatchMetrics[0].Namespace).toBe('RiffSync/Product');
+    expect(aws.CloudWatchMetrics[0].Dimensions).toEqual([['Environment', 'Route', 'Outcome']]);
+    expect(aws.CloudWatchMetrics[0].Metrics).toEqual([{ Name: 'Requests', Unit: 'Count' }]);
+    expect(parsed.Environment).toBe('prod');
+    expect(parsed.Route).toBe('RoomCreate');
+    expect(parsed.Outcome).toBe('success');
+    expect(parsed.Requests).toBe(1);
+  });
+
+  it('emits Product EMF for all routes without high-cardinality keys', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'staging';
+    const routes = ['GuestRoomJoin', 'BroadcastStarted', 'RoomCreate', 'LiveChannelView'] as const;
+    for (const route of routes) {
+      emitProductEmf(route, 'success');
+    }
+
+    expect(console.log).toHaveBeenCalledTimes(4);
+    for (const call of (console.log as ReturnType<typeof vi.fn>).mock.calls) {
+      const parsed = parseEmfLine(call[0] as string);
+      assertLowCardinalityEmf(parsed);
+      const aws = parsed._aws as {
+        CloudWatchMetrics: Array<{ Namespace: string }>;
+      };
+      expect(aws.CloudWatchMetrics[0].Namespace).toBe('RiffSync/Product');
+      expect(parsed.Outcome).toBe('success');
+      expect(parsed.Requests).toBe(1);
+    }
   });
 
   it('emits presence and qualifying active EMF without high-cardinality dimensions', () => {

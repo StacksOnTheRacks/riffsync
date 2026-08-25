@@ -23,7 +23,7 @@ import {
   persistReactionRemove,
   queryChatHistory,
 } from './room-chat-shared';
-import { recordTypingRouteAccepted, recordTypingRouteThrottled, recordPresenceRequestRehydrated, recordQualifyingActiveWrite, recordWsRealtimeRoute, type QualifyingActiveRoute } from './riffsync-observability';
+import { emitProductEmf, recordTypingRouteAccepted, recordTypingRouteThrottled, recordPresenceRequestRehydrated, recordQualifyingActiveWrite, recordWsRealtimeRoute, type QualifyingActiveRoute } from './riffsync-observability';
 import {
   fanOutTyping,
   recordTypingStartFanOut,
@@ -348,6 +348,9 @@ async function websocketRouteInner(event: APIGatewayProxyWebsocketEventV2): Prom
     }
     const buf = encoder.encode(JSON.stringify(out));
     await postToConnections(mgmt, doc, connTable, ids, buf, undefined, presenceTable);
+    if (state === 'started') {
+      emitProductEmf('BroadcastStarted', 'success');
+    }
     return { statusCode: 200, body: 'OK' };
   }
 

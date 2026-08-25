@@ -64,8 +64,18 @@ export type ApiOutcome =
   | AdminCatalogPatchOutcome
   | AdminCatalogDeleteOutcome;
 
+export type ProductRoute = 'GuestRoomJoin' | 'BroadcastStarted' | 'RoomCreate' | 'LiveChannelView';
+
+export type ProductOutcome =
+  | 'success'
+  | 'validation_error'
+  | 'auth_forbidden'
+  | 'not_found'
+  | 'server_error';
+
 const REALTIME_METRIC_NAME = 'Requests';
 const API_METRIC_NAME = 'Requests';
+const PRODUCT_METRIC_NAME = 'Requests';
 
 export function wsRealtimeOutcomeFromStatus(statusCode: number): WsRealtimeOutcome {
   if (statusCode === 200) {
@@ -281,6 +291,29 @@ export function emitPresenceRequestRehydrated(): void {
 
 export function recordPresenceRequestRehydrated(): void {
   emitPresenceRequestRehydrated();
+}
+
+/** EMF counter for product funnel routes via stdout (no PutMetricData IAM required). */
+export function emitProductEmf(route: ProductRoute, outcome: ProductOutcome): void {
+  const env = riffsyncEnvironment();
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Product',
+            Dimensions: [['Environment', 'Route', 'Outcome']],
+            Metrics: [{ Name: PRODUCT_METRIC_NAME, Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: env,
+      Route: route,
+      Outcome: outcome,
+      [PRODUCT_METRIC_NAME]: 1,
+    }),
+  );
 }
 
 /** EMF counter for HTTP API routes via stdout (no PutMetricData IAM required). */
