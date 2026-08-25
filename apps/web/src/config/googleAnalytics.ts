@@ -1,3 +1,42 @@
+import type { CatalogCategory } from '../catalog/catalogTypes'
+
+/** Contract buckets from `docs/operations/product-metrics.md`. */
+export type GaEntrySurface =
+  | 'lobby'
+  | 'share_link'
+  | 'catalog'
+  | 'live'
+  | 'solo'
+  | 'home'
+  | 'unknown'
+
+/** Contract buckets from `docs/operations/product-metrics.md`. */
+export type GaSource =
+  | 'catalog_episode'
+  | 'lobby_card'
+  | 'share_url'
+  | 'live_index'
+  | 'direct'
+  | 'unknown'
+
+export type GaPlaybackHost = 'youtube' | 'custom'
+
+export type GaProductEventName =
+  | 'room_join'
+  | 'host_broadcast_start'
+  | 'host_room_create'
+  | 'solo_watch_start'
+  | 'live_channel_view'
+
+/** Allowlisted GA4 custom-event params only (low-cardinality contract enums). */
+export type GaProductEventParams = {
+  entry_surface?: GaEntrySurface
+  source?: GaSource
+  playback_host?: GaPlaybackHost
+  catalog_category?: CatalogCategory
+  is_authenticated?: boolean
+}
+
 /** Public GA4 measurement id baked at build time (`VITE_GA_MEASUREMENT_ID`). */
 export function getGaMeasurementId(): string | null {
   const id = import.meta.env.VITE_GA_MEASUREMENT_ID
@@ -94,6 +133,21 @@ export function trackGaPageView(pagePath: string): void {
   window.gtag('config', measurementId, {
     page_path: pagePath,
   })
+}
+
+/** Send a product funnel custom event; no-ops when measurement id unset or gtag missing. */
+export function trackGaEvent(name: GaProductEventName, params: GaProductEventParams = {}): void {
+  const measurementId = getGaMeasurementId()
+  if (!measurementId || typeof window.gtag !== 'function') {
+    return
+  }
+  const payload: Record<string, string | boolean> = {}
+  if (params.entry_surface !== undefined) payload.entry_surface = params.entry_surface
+  if (params.source !== undefined) payload.source = params.source
+  if (params.playback_host !== undefined) payload.playback_host = params.playback_host
+  if (params.catalog_category !== undefined) payload.catalog_category = params.catalog_category
+  if (params.is_authenticated !== undefined) payload.is_authenticated = params.is_authenticated
+  window.gtag('event', name, payload)
 }
 
 /** @internal Test helper for queued gtag commands. */

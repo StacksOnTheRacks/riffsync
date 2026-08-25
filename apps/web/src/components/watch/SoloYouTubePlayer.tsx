@@ -105,6 +105,8 @@ type SoloYouTubePlayerProps = {
   watchUrl?: string | null
   /** Party-capture host bridge registers play/pause while the YT player is ready. */
   onControlsChange?: (controls: SoloYouTubePlayerControls | null) => void
+  /** Fires once when the embed reports ready (solo watch funnel only when wired). */
+  onPlaybackReady?: () => void
 }
 
 export type SoloYouTubePlayerControls = {
@@ -118,17 +120,23 @@ function SoloYouTubePlayerInner({
   autoPlay = true,
   watchUrl,
   onControlsChange,
+  onPlaybackReady,
 }: SoloYouTubePlayerProps) {
   const domId = useId().replace(/:/g, '')
   const hostRef = useRef<HTMLDivElement | null>(null)
   const playerRef = useRef<YtPlayerInstance | null>(null)
   const onControlsChangeRef = useRef(onControlsChange)
+  const onPlaybackReadyRef = useRef(onPlaybackReady)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [errorDetail, setErrorDetail] = useState<string | null>(null)
 
   useEffect(() => {
     onControlsChangeRef.current = onControlsChange
   }, [onControlsChange])
+
+  useEffect(() => {
+    onPlaybackReadyRef.current = onPlaybackReady
+  }, [onPlaybackReady])
 
   const destroyPlayer = useCallback(() => {
     onControlsChangeRef.current?.(null)
@@ -186,6 +194,7 @@ function SoloYouTubePlayerInner({
             onReady: (e) => {
               if (cancelled) return
               setStatus('ready')
+              onPlaybackReadyRef.current?.()
               const target = e.target
               onControlsChangeRef.current?.({
                 play: () => target.playVideo(),

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as googleAnalytics from '../../config/googleAnalytics'
 import {
   ChatSession,
   routeInboundChatMessage,
@@ -24,6 +25,10 @@ vi.mock('../realtimeDiagnostics', async (importOriginal) => {
     recordWsOpen: vi.fn(),
   }
 })
+
+vi.mock('../../config/googleAnalytics', () => ({
+  trackGaEvent: vi.fn(),
+}))
 
 const ROOM = 'room-abc'
 
@@ -506,6 +511,113 @@ describe('ChatSession lifecycle FSM', () => {
       event: 'reconnect_success',
       outcome: 'recovered',
     })
+  })
+})
+
+describe('ChatSession GA4 room_join', () => {
+  class MockWebSocket {
+    static instances: MockWebSocket[] = []
+    static OPEN = 1
+    readyState = MockWebSocket.CONNECTING
+    static CONNECTING = 0
+    private listeners = new Map<string, Array<(ev?: unknown) => void>>()
+
+    constructor(url: string) {
+      void url
+      MockWebSocket.instances.push(this)
+    }
+
+    addEventListener(type: string, fn: (ev?: unknown) => void) {
+      const list = this.listeners.get(type) ?? []
+      list.push(fn)
+      this.listeners.set(type, list)
+    }
+
+    send = vi.fn()
+
+    emit(type: string, ev?: unknown) {
+      for (const fn of this.listeners.get(type) ?? []) fn(ev)
+    }
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    MockWebSocket.instances = []
+    vi.mocked(googleAnalytics.trackGaEvent).mockClear()
+    vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  it('fires room_join once for guest first connect with allowlisted params', () => {
+    const session = new ChatSession()
+    session.connect({
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-ga-guest',
+      accessToken: 'fan-token',
+      isPublisher: false,
+      trackRoomJoin: true,
+      gaEntrySurface: 'share_link',
+      gaSource: 'share_url',
+      enabled: true,
+    })
+
+    const ws = MockWebSocket.instances.at(-1)!
+    ws.readyState = MockWebSocket.OPEN
+    ws.emit('open')
+
+    expect(googleAnalytics.trackGaEvent).toHaveBeenCalledTimes(1)
+    expect(googleAnalytics.trackGaEvent).toHaveBeenCalledWith('room_join', {
+      entry_surface: 'share_link',
+      is_authenticated: true,
+      source: 'share_url',
+    })
+    const payload = vi.mocked(googleAnalytics.trackGaEvent).mock.calls[0]?.[1] as Record<string, unknown>
+    expect(Object.keys(payload)).not.toContain('roomId')
+    expect(Object.keys(payload)).not.toContain('sessionId')
+  })
+
+  it('skips room_join for publishers and reconnect recovery', () => {
+    const session = new ChatSession()
+    session.connect({
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-ga-host',
+      accessToken: 'host-token',
+      isPublisher: true,
+      trackRoomJoin: true,
+      gaEntrySurface: 'lobby',
+      enabled: true,
+    })
+    MockWebSocket.instances.at(-1)!.emit('open')
+    expect(googleAnalytics.trackGaEvent).not.toHaveBeenCalled()
+
+    const guest = new ChatSession()
+    guest.connect({
+      url: 'wss://ws.test',
+      roomId: ROOM,
+      sessionId: 'sess-ga-reconnect',
+      accessToken: null,
+      trackRoomJoin: true,
+      gaEntrySurface: 'lobby',
+      gaSource: 'lobby_card',
+      enabled: true,
+    })
+    const first = MockWebSocket.instances.at(-1)!
+    first.readyState = MockWebSocket.OPEN
+    first.emit('open')
+    expect(googleAnalytics.trackGaEvent).toHaveBeenCalledTimes(1)
+
+    first.emit('close', { code: 1006, reason: '' })
+    vi.runOnlyPendingTimers()
+    const second = MockWebSocket.instances.at(-1)!
+    second.readyState = MockWebSocket.OPEN
+    second.emit('open')
+    expect(googleAnalytics.trackGaEvent).toHaveBeenCalledTimes(1)
   })
 })
 

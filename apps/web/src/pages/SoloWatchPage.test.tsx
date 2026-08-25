@@ -10,6 +10,16 @@ import type { CatalogEpisode } from '../catalog/catalogTypes'
 
 const useCatalogEpisodeQuery = vi.fn()
 const useCatalogListQuery = vi.fn()
+const trackGaEvent = vi.fn()
+
+vi.mock('../config/googleAnalytics', () => ({
+  trackGaEvent: (...args: unknown[]) => trackGaEvent(...args),
+}))
+
+vi.mock('../auth/fanTokens', () => ({
+  getFanAccessToken: vi.fn(() => null),
+  getFanRefreshToken: vi.fn(() => null),
+}))
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogEpisodeQuery: (...args: unknown[]) => useCatalogEpisodeQuery(...args),
@@ -23,12 +33,15 @@ vi.mock('../components/watch/SoloYouTubePlayer', () => ({
     videoId,
     titleHint,
     watchUrl,
+    onPlaybackReady,
   }: {
     videoId: string
     titleHint: string
     watchUrl?: string | null
-  }) =>
-    youtubePlayerFail.value ? (
+    onPlaybackReady?: () => void
+  }) => {
+    onPlaybackReady?.()
+    return youtubePlayerFail.value ? (
       <div className="riffsync-solo-player" data-testid="solo-youtube-player-error">
         <div className="riffsync-solo-player__chrome" aria-live="polite">
           <p role="alert">
@@ -51,7 +64,8 @@ vi.mock('../components/watch/SoloYouTubePlayer', () => ({
         data-title={titleHint}
         data-watch-url={watchUrl ?? ''}
       />
-    ),
+    )
+  },
 }))
 
 function episode(overrides: Partial<CatalogEpisode> = {}): CatalogEpisode {
@@ -95,6 +109,7 @@ describe('SoloWatchPage', () => {
       error: null,
       refetch: vi.fn(),
     })
+    trackGaEvent.mockReset()
   })
 
   afterEach(() => {
@@ -331,5 +346,47 @@ describe('SoloWatchPage', () => {
       container.querySelector('a[href="https://www.youtube.com/watch?v=NXGXtm6gcxk"]')?.textContent,
     ).toBe('Open on YouTube')
     expect(container.querySelector('h1.sr-only')?.textContent).toBe('Mitchell')
+  })
+
+  it('tracks solo_watch_start when solo playback becomes ready', async () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({ embedAllows: true }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage()
+
+    await vi.waitFor(() => {
+      expect(trackGaEvent).toHaveBeenCalledWith('solo_watch_start', {
+        catalog_category: 'mst3k',
+        playback_host: 'youtube',
+        is_authenticated: false,
+        entry_surface: 'solo',
+        source: 'catalog_episode',
+      })
+    })
+    const payload = trackGaEvent.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(Object.keys(payload)).not.toContain('roomId')
+  })
+
+  it('does not track solo_watch_start for partyCapture host shell', async () => {
+    useCatalogEpisodeQuery.mockReturnValue({
+      data: episode({ embedAllows: true }),
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderWatchPage('/watch/032-mitchell?partyCapture=1')
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(trackGaEvent).not.toHaveBeenCalled()
   })
 })

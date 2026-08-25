@@ -1,4 +1,9 @@
 import type { RoomMode } from '../../api/roomsApi'
+import {
+  trackGaEvent,
+  type GaEntrySurface,
+  type GaSource,
+} from '../../config/googleAnalytics'
 import { emitClientDrawerLog } from '../clientDrawerLog'
 import { parseInboundChatGifMessage, type InboundChatGifLine } from '../chatGifMessage'
 import { parseInboundChatMessageId } from '../chatMessageId'
@@ -123,6 +128,12 @@ export type ChatSessionConnectOptions = {
   sessionId: string
   displayName?: string
   accessToken: string | null
+  /** When true, the tab is the room host/publisher (skip guest funnel events). */
+  isPublisher?: boolean
+  /** Enables `room_join` GA4 on first guest WS open (watch-party rooms only). */
+  trackRoomJoin?: boolean
+  gaEntrySurface?: GaEntrySurface
+  gaSource?: GaSource
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -344,6 +355,7 @@ export class ChatSession {
   private composeTypingStarted = false
   private typingStartDebounceTimer: ReturnType<typeof setTimeout> | null = null
   private typingIdleTimer: ReturnType<typeof setTimeout> | null = null
+  private gaRoomJoinTracked = false
 
   private chatTextListeners = new Set<Listener<ChatTextLine>>()
   private chatGifListeners = new Set<Listener<ChatGifLine>>()
@@ -487,9 +499,14 @@ export class ChatSession {
       sessionId: options.sessionId,
       displayName: options.displayName,
       accessToken: options.accessToken,
+      isPublisher: options.isPublisher,
+      trackRoomJoin: options.trackRoomJoin,
+      gaEntrySurface: options.gaEntrySurface,
+      gaSource: options.gaSource,
     }
     this.enabled = options.enabled !== false
     this.cancelled = false
+    this.gaRoomJoinTracked = false
     this.teardownSocket()
     if (!this.enabled || !options.url) {
       this.setStatus('idle')
@@ -776,6 +793,20 @@ export class ChatSession {
           drawer: 'chat',
           event: 'reconnect_success',
           outcome: 'recovered',
+        })
+      }
+      const joinOpts = this.connectOptions
+      if (
+        !recoveredFromReconnect &&
+        joinOpts?.trackRoomJoin === true &&
+        joinOpts.isPublisher !== true &&
+        !this.gaRoomJoinTracked
+      ) {
+        this.gaRoomJoinTracked = true
+        trackGaEvent('room_join', {
+          entry_surface: joinOpts.gaEntrySurface ?? 'unknown',
+          is_authenticated: Boolean(joinOpts.accessToken),
+          ...(joinOpts.gaSource !== undefined ? { source: joinOpts.gaSource } : {}),
         })
       }
       if (webrtcDebugEnabled()) webrtcLog('ws open')

@@ -3,6 +3,7 @@ import type { NavigateFunction } from 'react-router-dom'
 import type { CatalogEpisode } from './catalogTypes'
 import { PENDING_PARTY_EPISODE_KEY } from './pendingPartyStorage'
 import { catalogToRoomPlayback, createRoom } from '../api/roomsApi'
+import { trackGaEvent } from '../config/googleAnalytics'
 import { getFanAccessToken } from '../auth/fanTokens'
 
 async function resumePending(
@@ -20,6 +21,13 @@ async function resumePending(
       catalogEpisodeId: ep.id,
       playbackExpectation: catalogToRoomPlayback(ep),
       visibility: 'public',
+    })
+    trackGaEvent('host_room_create', {
+      catalog_category: ep.catalog,
+      playback_host: ep.playbackHost === 'custom' ? 'custom' : 'youtube',
+      is_authenticated: true,
+      entry_surface: 'catalog',
+      source: 'direct',
     })
     navigate(`/room/${encodeURIComponent(room.roomId)}`, { replace: true })
   } catch (e) {

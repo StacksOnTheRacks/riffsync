@@ -20,6 +20,7 @@ import {
   type RoomMediaEngine,
 } from './engine/RoomMediaEngine'
 import { pickRoomSnapshotMediaFields } from './engine/roomSnapshotDiff'
+import type { GaEntrySurface, GaSource } from '../config/googleAnalytics'
 
 export function useRoomMediaEngine(options: {
   wsBase: string | undefined
@@ -31,6 +32,8 @@ export function useRoomMediaEngine(options: {
   room: RoomSnapshot | null | undefined
   roomMode: RoomMode
   isPublisher: boolean
+  gaEntrySurface?: GaEntrySurface
+  gaSource?: GaSource
   captureStream: MediaStream | null
   captureStreamRef: RefObject<MediaStream | null>
   youtubeVideoId: string | null | undefined
@@ -81,6 +84,8 @@ export function useRoomMediaEngine(options: {
     room,
     roomMode,
     isPublisher,
+    gaEntrySurface,
+    gaSource,
     captureStream,
     captureStreamRef,
     youtubeVideoId,
@@ -144,6 +149,8 @@ export function useRoomMediaEngine(options: {
       displayName: displayNameRef.current,
       fanToken,
       isPublisher,
+      gaEntrySurface,
+      gaSource,
       wsBase,
       captureStreamRef,
       announceRoomA11y: (message) => announceRoomA11yRef.current(message),
@@ -175,6 +182,8 @@ export function useRoomMediaEngine(options: {
   }, [
     canonicalRoomId,
     engine,
+    gaEntrySurface,
+    gaSource,
     hostPatchSuppressAnnounceUntilRef,
     isPublisher,
     roomAvailable,
