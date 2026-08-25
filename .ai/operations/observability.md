@@ -8,6 +8,10 @@
 | --- | --- |
 | **Metrics (infra)** | Lambda, API Gateway, DynamoDB, EventBridge **built-in** metrics. |
 | **Metrics (product)** | **`PutMetricData`** or **EMF** under **`RiffSync/...`** namespaces; **low-cardinality** dimensions only. |
+
+## Product funnels
+
+Primary product funnel instrumentation (guest join, host broadcast, catalog room create, solo watch, Live entry) is defined in **`docs/operations/product-metrics.md`**. That document is the normative contract for GA4 custom event names/parameters and CloudWatch **`RiffSync/Product`** `Route` / `Outcome` strings. Implementation tickets **#438** (GA4) and **#439** (CloudWatch) must match it verbatim. Drawer/ops namespaces below (**`RiffSync/Realtime`**, **`RiffSync/Media`**, **`RiffSync/Api`**) remain separate from product funnel counters.
 | **Dashboards** | **`AWS::CloudWatch::Dashboard`** in IaC; ops + reconcile + optional WebSocket views. Shipped: **`RiffSync-prod-operations`** in **`infra/cdk/lib/observability-stack.ts`**. |
 | **Logs** | Structured JSON → **CloudWatch Logs**; **Logs Insights** for investigation; **metric filters** → alarms. |
 | **Alarms** | **Lightweight defaults for OSS/cost**: e.g. sustained **Lambda error rate**, **API 5xx %**, **Dynamo throttling**, **reconcile failure** custom metric — **SNS email** to maintainer **optional**; **no** mandatory commercial on-call SLA (**`.ai/interface/presentation.md`**). Tune thresholds in IaC for the **prod** footprint. |
