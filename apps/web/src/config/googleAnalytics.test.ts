@@ -6,6 +6,7 @@ import {
   initGoogleAnalytics,
   isArgumentsLikeForTests,
   resetGoogleAnalyticsInitForTests,
+  trackGaEvent,
   trackGaPageView,
 } from './googleAnalytics'
 
@@ -84,5 +85,49 @@ describe('googleAnalytics', () => {
   it('no-ops when gtag is unavailable', () => {
     vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST123')
     expect(() => trackGaPageView('/')).not.toThrow()
+  })
+
+  it('no-ops trackGaEvent when measurement id is unset', () => {
+    vi.stubEnv('VITE_GA_MEASUREMENT_ID', '')
+    const gtag = vi.fn()
+    window.gtag = gtag
+    trackGaEvent('room_join', { entry_surface: 'lobby', is_authenticated: false })
+    expect(gtag).not.toHaveBeenCalled()
+  })
+
+  it('no-ops trackGaEvent when gtag is unavailable', () => {
+    vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST123')
+    expect(() =>
+      trackGaEvent('solo_watch_start', {
+        catalog_category: 'mst3k',
+        playback_host: 'youtube',
+        is_authenticated: true,
+      }),
+    ).not.toThrow()
+  })
+
+  it('tracks custom funnel events through gtag with allowlisted params only', () => {
+    vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST123')
+    const gtag = vi.fn()
+    window.gtag = gtag
+
+    trackGaEvent('host_room_create', {
+      catalog_category: 'mst3k',
+      playback_host: 'youtube',
+      is_authenticated: true,
+      entry_surface: 'catalog',
+      source: 'catalog_episode',
+    })
+
+    expect(gtag).toHaveBeenCalledWith('event', 'host_room_create', {
+      catalog_category: 'mst3k',
+      playback_host: 'youtube',
+      is_authenticated: true,
+      entry_surface: 'catalog',
+      source: 'catalog_episode',
+    })
+    const payload = gtag.mock.calls[0]?.[2] as Record<string, unknown>
+    expect(Object.keys(payload)).not.toContain('roomId')
+    expect(Object.keys(payload)).not.toContain('sessionId')
   })
 })

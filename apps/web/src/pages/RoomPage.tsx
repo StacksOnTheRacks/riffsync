@@ -7,6 +7,7 @@ import { ensureGuestSession, setGuestDisplayName } from '../session/guestSession
 import { getPublicWsUrl } from '../config/wsUrl'
 import { getPublicApiBaseUrl } from '../config/apiBaseUrl'
 import { getPublicOrigin } from '../config/publicOrigin'
+import type { GaEntrySurface, GaSource } from '../config/googleAnalytics'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { announceWebrtcDebugOnRoomMount } from '../room/webrtcDebug'
 import { useViewportWide } from '../room/stage/useViewportWide'
@@ -75,6 +76,13 @@ export function RoomPage() {
 
   const wsBase = getPublicWsUrl()
   const apiBaseUrl = getPublicApiBaseUrl()
+
+  const roomJoinGaContext = useMemo((): { gaEntrySurface: GaEntrySurface; gaSource: GaSource } => {
+    if (typeof document !== 'undefined' && document.referrer.includes('/lobby')) {
+      return { gaEntrySurface: 'lobby', gaSource: 'lobby_card' }
+    }
+    return { gaEntrySurface: 'share_link', gaSource: 'share_url' }
+  }, [])
 
   const {
     room,
@@ -188,6 +196,7 @@ export function RoomPage() {
     room,
     roomMode,
     isPublisher,
+    ...roomJoinGaContext,
     captureStream,
     captureStreamRef,
     youtubeVideoId,

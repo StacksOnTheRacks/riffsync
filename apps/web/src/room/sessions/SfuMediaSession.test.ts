@@ -15,9 +15,14 @@ import {
   startSfuRoomSession,
 } from './SfuMediaSession'
 import * as clientDrawerLog from '../clientDrawerLog'
+import * as googleAnalytics from '../../config/googleAnalytics'
 
 vi.mock('../clientDrawerLog', () => ({
   emitClientDrawerLog: vi.fn(),
+}))
+
+vi.mock('../../config/googleAnalytics', () => ({
+  trackGaEvent: vi.fn(),
 }))
 
 vi.mock('../../api/webrtcSfuApi', () => ({
@@ -1131,7 +1136,7 @@ function mockSfuUnifiedSessionHandle() {
     close: vi.fn(),
     unpublishProducerKind: vi.fn(),
     unpublishProducerClass: vi.fn(),
-    publishStream: vi.fn(),
+    publishStream: vi.fn().mockResolvedValue(undefined),
     supportsPublish: false,
     tokenRole: 'consumer' as const,
     getProducerCount: () => 0,
@@ -1144,6 +1149,71 @@ function mockSfuUnifiedSessionHandle() {
     replayConsumerTracks: vi.fn(),
   }
 }
+
+describe('SfuMediaSession GA4 host_broadcast_start', () => {
+  beforeEach(() => {
+    vi.mocked(googleAnalytics.trackGaEvent).mockClear()
+  })
+
+  it('fires host_broadcast_start once after host_screen publish succeeds', async () => {
+    const session = new SfuMediaSession()
+    session.connect({
+      apiBaseUrl: 'https://api.example.test',
+      roomId: 'room-1',
+      sessionId: 'sess-host',
+      accessToken: 'host-token',
+      getIceServers: async () => [],
+      getHostScreenStream: () => null,
+      enabled: true,
+    })
+
+    const publishStream = vi.fn().mockResolvedValue(undefined)
+    ;(
+      session as unknown as {
+        sessionHandle: {
+          publishStream: typeof publishStream
+          ready: Promise<void>
+          unpublishProducerClass: ReturnType<typeof vi.fn>
+        }
+      }
+    ).sessionHandle = {
+      publishStream,
+      ready: Promise.resolve(),
+      unpublishProducerClass: vi.fn(),
+    }
+
+    const videoTrack = { kind: 'video', readyState: 'live' } as MediaStreamTrack
+    const stream = {
+      getTracks: () => [videoTrack],
+    } as MediaStream
+
+    session.syncHostScreenPublish({
+      stream,
+      roomMode: 'theater',
+      isPublisher: true,
+    })
+
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalledWith(stream, 'host_screen')
+    })
+    expect(googleAnalytics.trackGaEvent).toHaveBeenCalledTimes(1)
+    expect(googleAnalytics.trackGaEvent).toHaveBeenCalledWith('host_broadcast_start', {
+      is_authenticated: true,
+    })
+
+    session.syncHostScreenPublish({
+      stream,
+      roomMode: 'theater',
+      isPublisher: true,
+    })
+    await vi.waitFor(() => {
+      expect(publishStream).toHaveBeenCalledTimes(2)
+    })
+    expect(googleAnalytics.trackGaEvent).toHaveBeenCalledTimes(1)
+
+    session.disconnect()
+  })
+})
 
 describe('SfuMediaSession lifecycle FSM', () => {
   it('maps failed reconnect cycles to degraded lifecycle at threshold', () => {

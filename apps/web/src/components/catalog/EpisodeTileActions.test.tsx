@@ -4,15 +4,32 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CatalogEpisode } from '../../catalog/catalogTypes'
+import { getFanAccessToken } from '../../auth/fanTokens'
 import { EpisodeTileActions } from './EpisodeTileActions'
 
 vi.mock('../../auth/fanTokens', () => ({
-  getFanAccessToken: () => null,
+  getFanAccessToken: vi.fn(() => null),
 }))
 
 vi.mock('../../auth/fanHostedUiPkce', () => ({
   startFanHostedUiSignIn: vi.fn(),
 }))
+
+const trackGaEvent = vi.fn()
+
+vi.mock('../../config/googleAnalytics', () => ({
+  trackGaEvent: (...args: unknown[]) => trackGaEvent(...args),
+}))
+
+const createRoom = vi.fn()
+
+vi.mock('../../api/roomsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../api/roomsApi')>()
+  return {
+    ...actual,
+    createRoom: (...args: unknown[]) => createRoom(...args),
+  }
+})
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -48,6 +65,9 @@ describe('EpisodeTileActions', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     vi.spyOn(window, 'open').mockReturnValue(null)
+    trackGaEvent.mockReset()
+    createRoom.mockReset()
+    vi.mocked(getFanAccessToken).mockReturnValue(null)
   })
 
   afterEach(() => {
@@ -132,5 +152,30 @@ describe('EpisodeTileActions', () => {
     const startParty = container.querySelector('button.gen-button:not(.gen-button--ghost)') as HTMLButtonElement
     expect(watchSolo.disabled).toBe(true)
     expect(startParty.disabled).toBe(true)
+  })
+
+  it('tracks host_room_create after signed-in Start Party succeeds', async () => {
+    vi.mocked(getFanAccessToken).mockReturnValue('fan-token')
+    createRoom.mockResolvedValue({ roomId: 'room-new-1' })
+
+    renderActions(episode({ embedAllows: true }))
+
+    const startParty = container.querySelector('button.gen-button:not(.gen-button--ghost)') as HTMLButtonElement
+    await act(async () => {
+      startParty.click()
+    })
+
+    await vi.waitFor(() => {
+      expect(createRoom).toHaveBeenCalled()
+      expect(trackGaEvent).toHaveBeenCalledWith('host_room_create', {
+        catalog_category: 'mst3k',
+        playback_host: 'youtube',
+        is_authenticated: true,
+        entry_surface: 'catalog',
+        source: 'catalog_episode',
+      })
+    })
+    const payload = trackGaEvent.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(Object.keys(payload)).not.toContain('roomId')
   })
 })

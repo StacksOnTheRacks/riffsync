@@ -2,6 +2,7 @@ import type { RoomMode, RoomSnapshot } from '../../api/roomsApi'
 import type { GiphySearchResult } from '../../api/giphySearchApi'
 import { getPublicApiBaseUrl } from '../../config/apiBaseUrl'
 import { fetchRtcIceServers } from '../../config/fetchRtcIceServers'
+import type { GaEntrySurface, GaSource } from '../../config/googleAnalytics'
 import { probeTurnReachability } from '../sfu/iceDiagnostics'
 import { createSpeakingVadRegistry, type SpeakingVadRegistry } from '../audio/speakingVadRegistry'
 import { isSpeakingVadEnabled } from '../audio/speakingVad'
@@ -86,6 +87,8 @@ export type RoomMediaEngineMountOptions = {
   fanToken: string | null
   isPublisher: boolean
   wsBase: string | undefined
+  gaEntrySurface?: GaEntrySurface
+  gaSource?: GaSource
   captureStreamRef: { current: MediaStream | null }
   announceRoomA11y: (message: string) => void
   hostPatchSuppressAnnounceUntilRef: { current: number }
@@ -320,6 +323,8 @@ export class RoomMediaEngine {
       wsUrl: options.wsBase,
       apiBaseUrl: getPublicApiBaseUrl(),
       isHost: options.isPublisher,
+      gaEntrySurface: options.gaEntrySurface,
+      gaSource: options.gaSource,
       mixEnabled: true,
       getIceServers: () => this.getIceServers(),
       getHostScreenStream: () => options.captureStreamRef.current,

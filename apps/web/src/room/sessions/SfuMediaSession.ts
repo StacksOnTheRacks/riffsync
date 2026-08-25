@@ -1,5 +1,6 @@
 import { fetchSfuJoinToken } from '../../api/webrtcSfuApi'
 import type { RoomMode } from '../../api/roomsApi'
+import { trackGaEvent } from '../../config/googleAnalytics'
 import {
   isParticipantAvTokenHardFail,
   participantAvErrorFromSfuSessionEnd,
@@ -480,6 +481,7 @@ export class SfuMediaSession {
   private participantProducerRegistryListeners = new Set<Listener<void>>()
   private participantAvStateUnsub: (() => void) | null = null
   private ownSessionId: string | null = null
+  private hostBroadcastGaTracked = false
   private readonly connectivityByTransport = new Map<string, SfuConnectivityDiagnostics>()
 
   constructor() {
@@ -660,6 +662,7 @@ export class SfuMediaSession {
   connect(options: SfuMediaSessionConnectOptions): void {
     this.connectOptions = { ...options }
     this.ownSessionId = options.sessionId
+    this.hostBroadcastGaTracked = false
     this.enabled = options.enabled !== false
     this.participantAvStateUnsub?.()
     this.participantAvStateUnsub = this.participantAv.subscribe(() => {
@@ -684,6 +687,7 @@ export class SfuMediaSession {
 
   disconnect(): void {
     this.enabled = false
+    this.hostBroadcastGaTracked = false
     this.participantAvStateUnsub?.()
     this.participantAvStateUnsub = null
     this.ownSessionId = null
@@ -802,6 +806,12 @@ export class SfuMediaSession {
         await session.ready
         if (cancelled) return
         await session.publishStream(stream, 'host_screen')
+        if (!cancelled && !this.hostBroadcastGaTracked) {
+          this.hostBroadcastGaTracked = true
+          trackGaEvent('host_broadcast_start', {
+            is_authenticated: Boolean(this.connectOptions?.accessToken),
+          })
+        }
       } catch (e) {
         emitClientDrawerLog({
           drawer: 'produce_consume',

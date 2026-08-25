@@ -7,6 +7,7 @@ import {
   resolveCatalogYoutubeWatchUrl,
 } from '../../catalog/catalogYoutubePlayback'
 import { catalogToRoomPlayback, createRoom } from '../../api/roomsApi'
+import { trackGaEvent } from '../../config/googleAnalytics'
 import { getFanAccessToken } from '../../auth/fanTokens'
 import { startFanHostedUiSignIn } from '../../auth/fanHostedUiPkce'
 import { PENDING_PARTY_EPISODE_KEY } from '../../catalog/pendingPartyStorage'
@@ -39,6 +40,13 @@ export function EpisodeTileActions({
         catalogEpisodeId: episode.id,
         playbackExpectation: catalogToRoomPlayback(episode),
         visibility: 'public',
+      })
+      trackGaEvent('host_room_create', {
+        catalog_category: episode.catalog,
+        playback_host: episode.playbackHost === 'custom' ? 'custom' : 'youtube',
+        is_authenticated: true,
+        entry_surface: 'catalog',
+        source: 'catalog_episode',
       })
       navigate(`/room/${encodeURIComponent(room.roomId)}`)
     } catch (e) {

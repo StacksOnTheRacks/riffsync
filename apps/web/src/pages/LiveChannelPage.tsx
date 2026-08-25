@@ -7,6 +7,7 @@ import { SoloYouTubePlayer } from '../components/watch/SoloYouTubePlayer'
 import { getPublicWsUrl } from '../config/wsUrl'
 import { useLiveChannelQuery } from '../live/liveQueries'
 import { useLiveChannelChat } from '../live/useLiveChannelChat'
+import { trackGaEvent } from '../config/googleAnalytics'
 import { RoomPageSidebar } from '../room/RoomPageSidebar'
 import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
@@ -139,6 +140,7 @@ function LiveChannelReady(props: {
   const { slug, channel, sessionId, displayName, setDisplayName, myAvatarUrl, setMyAvatarUrl, fanToken } = props
   const chatInputRef = useRef<HTMLInputElement>(null)
   const castToTvButtonRef = useRef<HTMLButtonElement>(null)
+  const liveViewGaFiredRef = useRef(false)
   const [roomSidebarTab, setRoomSidebarTab] = useState<RoomSidebarTab>('chat')
   const chat = useLiveChannelChat({
     roomId: channel.roomId,
@@ -147,6 +149,16 @@ function LiveChannelReady(props: {
     fanToken,
     enabled: true,
   })
+
+  useEffect(() => {
+    if (liveViewGaFiredRef.current) return
+    liveViewGaFiredRef.current = true
+    trackGaEvent('live_channel_view', {
+      is_authenticated: Boolean(fanToken),
+      entry_surface: 'live',
+      source: 'direct',
+    })
+  }, [fanToken])
 
   const { logRef: chatLogRef, showJumpToLatest, jumpToLatestLabel, jumpToLatest } =
     useChatLogStickToBottom(chat.chat.length, true, channel.roomId)

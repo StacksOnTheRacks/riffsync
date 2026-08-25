@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { SoloCustomIframePlayer } from '../components/watch/SoloCustomIframePlayer'
 import {
@@ -12,17 +12,20 @@ import {
   resolveCatalogYoutubeWatchUrl,
 } from '../catalog/catalogYoutubePlayback'
 import { SITE_DOCUMENT_TITLE, trimTabTitleSegment } from '../config/documentTitle'
+import { trackGaEvent } from '../config/googleAnalytics'
 import {
   mountHostMediaControlBridge,
   type HostMediaPlayerControls,
 } from '../hostBridge/hostMediaControlBridge'
 import { getLivePathForEpisodeId } from '../live/liveChannels'
+import { getFanAccessToken } from '../auth/fanTokens'
 
 export function SoloWatchPage() {
   const { catalogEpisodeId } = useParams<{ catalogEpisodeId: string }>()
   const [searchParams] = useSearchParams()
   const partyCapture = searchParams.get('partyCapture') === '1'
   const playerControlsRef = useRef<HostMediaPlayerControls | null>(null)
+  const soloWatchGaFiredRef = useRef(false)
 
   const { data: episode, isPending, isError, error, refetch } = useCatalogEpisodeQuery(catalogEpisodeId)
 
@@ -45,6 +48,23 @@ export function SoloWatchPage() {
   const onYouTubeControlsChange = (controls: SoloYouTubePlayerControls | null) => {
     playerControlsRef.current = controls
   }
+
+  const onSoloPlaybackReady = useCallback(() => {
+    if (partyCapture || soloWatchGaFiredRef.current || !episode) return
+    soloWatchGaFiredRef.current = true
+    const playbackHost = episode.playbackHost === 'custom' ? 'custom' : 'youtube'
+    trackGaEvent('solo_watch_start', {
+      catalog_category: episode.catalog,
+      playback_host: playbackHost,
+      is_authenticated: Boolean(getFanAccessToken()),
+      entry_surface: 'solo',
+      source: 'catalog_episode',
+    })
+  }, [episode, partyCapture])
+
+  useEffect(() => {
+    soloWatchGaFiredRef.current = false
+  }, [catalogEpisodeId])
 
   useEffect(() => {
     if (!partyCapture) {
@@ -236,6 +256,7 @@ export function SoloWatchPage() {
             key={customPlaybackUrl}
             customPlaybackUrl={customPlaybackUrl}
             title={episode.title}
+            onPlaybackReady={partyCapture ? undefined : onSoloPlaybackReady}
           />
         </div>
       ) : null}
@@ -247,6 +268,7 @@ export function SoloWatchPage() {
             autoPlay={false}
             watchUrl={episode.youtubeWatchUrl}
             onControlsChange={partyCapture ? onYouTubeControlsChange : undefined}
+            onPlaybackReady={partyCapture ? undefined : onSoloPlaybackReady}
           />
         </div>
       ) : null}

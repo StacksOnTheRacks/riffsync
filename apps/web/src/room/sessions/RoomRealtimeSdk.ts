@@ -8,6 +8,7 @@
 
 import type { RoomMode, RoomSnapshot } from '../../api/roomsApi'
 import { fetchRtcIceServers } from '../../config/fetchRtcIceServers'
+import type { GaEntrySurface, GaSource } from '../../config/googleAnalytics'
 import type { ParticipantAvController } from '../sfu/participantAvSession'
 import type { SfuConsumerTrackEvent } from '../sfu/mediasoupSharing'
 import type { ParticipantProducerSnapshot } from '../participantProducerRegistry'
@@ -76,6 +77,8 @@ export type JoinOptions = {
   wsUrl?: string
   apiBaseUrl?: string
   isHost?: boolean
+  gaEntrySurface?: GaEntrySurface
+  gaSource?: GaSource
   /**
    * Enables the Web Audio participant mix (experimental camera/mic). When false (default for the
    * primary tab-sharing experience), host_screen audio plays directly through the <video> element
@@ -243,6 +246,10 @@ export class RoomRealtimeSdk {
         sessionId: options.sessionId,
         displayName: options.displayName,
         accessToken: options.accessToken ?? null,
+        isPublisher: this.isHost,
+        trackRoomJoin: true,
+        gaEntrySurface: options.gaEntrySurface,
+        gaSource: options.gaSource,
         enabled: true,
       })
     }

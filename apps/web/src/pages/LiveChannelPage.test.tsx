@@ -14,6 +14,11 @@ const fetchFanProfile = vi.fn()
 const useLiveChannelChat = vi.fn()
 const useFanSession = vi.fn()
 const setGuestDisplayName = vi.fn<(displayName: string) => string>()
+const trackGaEvent = vi.fn()
+
+vi.mock('../config/googleAnalytics', () => ({
+  trackGaEvent: (...args: unknown[]) => trackGaEvent(...args),
+}))
 
 vi.mock('../api/liveApi', () => ({
   fetchLiveChannel: (...args: unknown[]) => fetchLiveChannel(...args),
@@ -104,6 +109,7 @@ describe('LiveChannelPage', () => {
     useFanSession.mockReturnValue({ fanToken: null })
     setGuestDisplayName.mockReset()
     setGuestDisplayName.mockImplementation((displayName: string) => displayName)
+    trackGaEvent.mockReset()
     useLiveChannelChat.mockReturnValue({
       wsStatus: 'open',
       chat: [],
@@ -158,6 +164,39 @@ describe('LiveChannelPage', () => {
     expect(container.textContent).not.toContain('Room')
     expect(container.textContent).toContain('Sign In to Chat')
     expect(container.querySelector('.riffsync-live-page__chat .riffsync-room-page__chat')).not.toBeNull()
+  })
+
+  it('tracks live_channel_view once when channel layout renders', async () => {
+    fetchLiveChannel.mockResolvedValue({
+      slug: 'mst3k-forever-a-thon',
+      path: '/live/mst3k-forever-a-thon',
+      roomId: 'live-mst3k-forever-a-thon',
+      catalogEpisodeId: 'mst3k-forever-a-thon',
+      enabled: true,
+      title: 'MST3K Forever-A-Thon',
+      tagline: '24/7',
+      posterImageUrl: null,
+      backdropImageUrl: null,
+      youtubeVideoId: 'abcdefghijk',
+      youtubeWatchUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
+      embedAllows: true,
+      playbackHost: 'youtube',
+    })
+
+    await act(async () => {
+      renderLive(root, '/live/mst3k-forever-a-thon', queryClient)
+    })
+
+    await vi.waitFor(() => {
+      expect(trackGaEvent).toHaveBeenCalledWith('live_channel_view', {
+        is_authenticated: false,
+        entry_surface: 'live',
+        source: 'direct',
+      })
+    })
+    expect(trackGaEvent).toHaveBeenCalledTimes(1)
+    const payload = trackGaEvent.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(Object.keys(payload)).not.toContain('roomId')
   })
 
   it('hydrates signed-in fan display name before sending live chat identity', async () => {
