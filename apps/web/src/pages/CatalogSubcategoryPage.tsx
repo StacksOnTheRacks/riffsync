@@ -11,6 +11,7 @@ import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagF
 import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { ChannelLayout } from '../components/channel/ChannelLayout'
+import { getChannelSurfaceConfig } from '../components/channel/ChannelHero'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
 import {
@@ -29,13 +30,13 @@ export function CatalogSubcategoryPage() {
   const navigate = useNavigate()
   const browseView = getCatalogBrowseViewByPath(pathname)
   const subcategory = browseView?.subcategory
+  const channelSurface = subcategory ? getChannelSurfaceConfig(subcategory.slug) : undefined
   const { data, isPending, isError, error, refetch } = useCatalogListQuery()
   const [titleQuery, setTitleQuery] = useState('')
   const [selectedTagPills, setSelectedTagPills] = useState<SelectedMst3kTagPills>(EMPTY_MST3K_TAG_PILLS)
   const isMst3kRoute = subcategory?.slug === 'mst3k'
   const isRifftraxRoute = subcategory?.slug === 'rifftrax'
   const usesRouteFilter = isMst3kRoute || isRifftraxRoute
-  const usesSrOnlyHeading = subcategory?.slug === 'movies' || subcategory?.slug === 'tv-shows'
   const showMst3kTagPills = browseView?.mst3kRouteFilter?.kind === 'all'
 
   useResumePendingPartyRoom(data, navigate)
@@ -115,19 +116,11 @@ export function CatalogSubcategoryPage() {
   }
 
   if (isPending && !data) {
-    if (isMst3kRoute) {
+    if (channelSurface) {
       return (
         <div className="riffsync-channel-layout">
-          <h1 className="sr-only">MST3K</h1>
+          <h1 className="sr-only">{channelSurface.srOnlyHeading}</h1>
           <p className="container">Loading…</p>
-        </div>
-      )
-    }
-    if (usesSrOnlyHeading) {
-      return (
-        <div className="container">
-          <h1 className="sr-only">{browseView.title}</h1>
-          <p>Loading…</p>
         </div>
       )
     }
@@ -153,9 +146,13 @@ export function CatalogSubcategoryPage() {
     )
   }
 
-  if (isMst3kRoute) {
+  if (channelSurface) {
     return (
       <ChannelLayout
+        srOnlyHeading={channelSurface.srOnlyHeading}
+        coverUrl={channelSurface.coverUrl}
+        avatarUrl={channelSurface.avatarUrl}
+        visualTitle={channelSurface.visualTitle}
         subtitle={browseView.subtitle}
         filteredEntries={filteredEntries}
         routeCatalogEntries={routeCatalogEntries}
@@ -178,7 +175,7 @@ export function CatalogSubcategoryPage() {
       <CatalogPageHeader
         title={browseView.title}
         subtitle={browseView.subtitle}
-        srOnlyHeading={usesSrOnlyHeading}
+        srOnlyHeading={false}
       />
       <section className="gen-section-padding-3">
         <div className="container riffsync-catalog-page riffsync-catalog-subcategory-page">

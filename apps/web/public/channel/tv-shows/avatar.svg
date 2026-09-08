@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" role="img" aria-label="TV Shows channel avatar">
+  <circle cx="40" cy="40" r="40" fill="#1e3a5f" />
+  <circle cx="40" cy="40" r="36" fill="#2563eb" stroke="#93c5fd" stroke-width="2" />
+  <text x="40" y="44" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="10" font-weight="700">TV</text>
+</svg>

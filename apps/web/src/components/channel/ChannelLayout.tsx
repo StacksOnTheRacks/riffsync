@@ -3,17 +3,16 @@ import type { CatalogEpisode } from '../../catalog/catalogTypes'
 import type { SelectedMst3kTagPills } from '../../catalog/mst3kTagFilters'
 import { CatalogFilterBar } from '../catalog/CatalogFilterBar'
 import { Mst3kCatalogTagFilterBar } from '../catalog/Mst3kCatalogTagFilterBar'
-import {
-  ChannelHero,
-  MST3K_CHANNEL_AVATAR_URL,
-  MST3K_CHANNEL_COVER_URL,
-  MST3K_CHANNEL_VISUAL_TITLE,
-} from './ChannelHero'
+import { ChannelHero } from './ChannelHero'
 import { ViewToggle, type ChannelViewMode } from './ViewToggle'
 import { ChannelMovieCard } from './ChannelMovieCard'
 import { ChannelListRow } from './ChannelListRow'
 
 export interface ChannelLayoutProps {
+  srOnlyHeading: string
+  coverUrl: string
+  avatarUrl: string
+  visualTitle: string
   subtitle?: ReactNode
   filteredEntries: CatalogEpisode[]
   routeCatalogEntries: CatalogEpisode[]
@@ -30,6 +29,10 @@ export interface ChannelLayoutProps {
 }
 
 export function ChannelLayout({
+  srOnlyHeading,
+  coverUrl,
+  avatarUrl,
+  visualTitle,
   subtitle,
   filteredEntries,
   routeCatalogEntries,
@@ -48,11 +51,11 @@ export function ChannelLayout({
 
   return (
     <div className="riffsync-channel-layout">
-      <h1 className="sr-only">MST3K</h1>
+      <h1 className="sr-only">{srOnlyHeading}</h1>
       <ChannelHero
-        coverUrl={MST3K_CHANNEL_COVER_URL}
-        avatarUrl={MST3K_CHANNEL_AVATAR_URL}
-        visualTitle={MST3K_CHANNEL_VISUAL_TITLE}
+        coverUrl={coverUrl}
+        avatarUrl={avatarUrl}
+        visualTitle={visualTitle}
         subtitle={subtitle}
       />
       <section className="riffsync-channel-layout__body">
