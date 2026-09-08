@@ -111,6 +111,14 @@ const catalogFixtures: CatalogEpisode[] = [
     labels: ['Short'],
   }),
   episode({ id: 'ep-movie-night', experimentNumber: 1500, title: 'Movie Night Pick', catalog: 'movie_night' }),
+  episode({
+    id: 'ep-movie-night-unplayable',
+    experimentNumber: 1501,
+    title: 'Movie Night Unplayable',
+    catalog: 'movie_night',
+    youtubeVideoId: null,
+    youtubeWatchUrl: null,
+  }),
   episode({ id: 'ep-tv-shows', experimentNumber: 1601, title: 'TV Shows Pick', catalog: 'tv_shows' }),
   episode({
     id: 'ep-tv-shows-unplayable',
@@ -124,13 +132,13 @@ const catalogFixtures: CatalogEpisode[] = [
   episode({ id: 'ep-other', experimentNumber: 999, title: 'Other Experiment', catalog: 'other' }),
 ]
 
-function mst3kCardTitles(container: ParentNode): string[] {
+function channelCardTitles(container: ParentNode): string[] {
   return Array.from(container.querySelectorAll('.riffsync-channel-movie-card__title a')).map(
     (link) => link.textContent?.trim() ?? '',
   )
 }
 
-function mst3kListTitles(container: ParentNode): string[] {
+function channelListTitles(container: ParentNode): string[] {
   return Array.from(container.querySelectorAll('.riffsync-channel-list-row__title a')).map(
     (link) => link.textContent?.trim() ?? '',
   )
@@ -292,10 +300,10 @@ describe('CatalogSubcategoryPage', () => {
 
   it('shows the same filtered ids in Cards and List views', () => {
     renderSubcategoryPage('/catalog/mst3k')
-    const cardTitles = mst3kCardTitles(container)
+    const cardTitles = channelCardTitles(container)
 
     clickViewToggle('List')
-    const listTitles = mst3kListTitles(container)
+    const listTitles = channelListTitles(container)
     expect(listTitles).toEqual(cardTitles)
   })
 
@@ -316,13 +324,13 @@ describe('CatalogSubcategoryPage', () => {
   it('filters MST3K cards when an Era pill is selected', () => {
     renderSubcategoryPage('/catalog/mst3k')
     clickPill('Era: Joel')
-    expect(mst3kCardTitles(container)).toEqual(['Pod People'])
+    expect(channelCardTitles(container)).toEqual(['Pod People'])
   })
 
   it('filters MST3K cards when a Season pill is selected', () => {
     renderSubcategoryPage('/catalog/mst3k')
     clickPill('Season: 1')
-    expect(mst3kCardTitles(container)).toEqual(['Cave Dwellers', 'Pod People'])
+    expect(channelCardTitles(container)).toEqual(['Cave Dwellers', 'Pod People'])
   })
 
   it('locks a season route to that season and updates the hero subtitle', () => {
@@ -331,7 +339,7 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.querySelector('h1.sr-only')?.textContent).toBe('MST3K')
     expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe('Season 3')
     expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
-    expect(mst3kCardTitles(container)).toEqual(['Giant Spider'])
+    expect(channelCardTitles(container)).toEqual(['Giant Spider'])
   })
 
   it('locks an era route to that era and updates the hero subtitle', () => {
@@ -340,7 +348,7 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.querySelector('h1.sr-only')?.textContent).toBe('MST3K')
     expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe('Mike Era')
     expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
-    expect(mst3kCardTitles(container)).toEqual(['Cave Dwellers', 'Robot Rumpus'])
+    expect(channelCardTitles(container)).toEqual(['Cave Dwellers', 'Robot Rumpus'])
   })
 
   it('locks the Shorts route to rows labeled Short and updates the hero subtitle', () => {
@@ -349,7 +357,7 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.querySelector('h1.sr-only')?.textContent).toBe('MST3K')
     expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe('Short Riffs')
     expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
-    expect(mst3kCardTitles(container)).toEqual(['Robot Rumpus'])
+    expect(channelCardTitles(container)).toEqual(['Robot Rumpus'])
   })
 
   it.each(['/catalog/rifftrax', '/catalog/rifftrax/movies'] as const)(
@@ -390,7 +398,7 @@ describe('CatalogSubcategoryPage', () => {
     renderSubcategoryPage('/catalog/mst3k')
     clickPill('Era: Joel')
     clickPill('Season: 1')
-    expect(mst3kCardTitles(container)).toEqual(['Pod People'])
+    expect(channelCardTitles(container)).toEqual(['Pod People'])
   })
 
   it('keeps title search working with selected MST3K pills', () => {
@@ -408,7 +416,7 @@ describe('CatalogSubcategoryPage', () => {
       search.dispatchEvent(new Event('change', { bubbles: true }))
     })
 
-    expect(mst3kCardTitles(container)).toEqual(['Cave Dwellers'])
+    expect(channelCardTitles(container)).toEqual(['Cave Dwellers'])
   })
 
   it('gracefully omits the Season pill group when no Season tags exist', () => {
@@ -431,7 +439,7 @@ describe('CatalogSubcategoryPage', () => {
   it('MST3K includes host-tagged rows and excludes other catalogs', () => {
     renderSubcategoryPage('/catalog/mst3k')
 
-    const titles = mst3kCardTitles(container)
+    const titles = channelCardTitles(container)
     expect(titles).toEqual(['Cave Dwellers', 'Pod People', 'Giant Spider', 'Emily Special', 'Robot Rumpus'])
     expect(titles).not.toContain('Community Riff')
     expect(titles).not.toContain('Riff Material Classic')
@@ -454,25 +462,126 @@ describe('CatalogSubcategoryPage', () => {
   })
 
   it.each([
-    ['/catalog/tv-shows', 'TV Shows', 'ep-tv-shows'] as const,
-    ['/catalog/movies', 'Movies', 'ep-movie-night'] as const,
-  ])('renders sr-only h1 and filters %s to playable rows for its catalog only', (path, label, expectedId) => {
-    renderSubcategoryPage(path)
+    ['/catalog/tv-shows', 'TV Shows', 'TV Shows', 'Television Riffs'] as const,
+    ['/catalog/movies', 'Movies', 'Movies', 'Movie Night Picks'] as const,
+  ])(
+    'renders ChannelHero and ViewToggle on %s with sr-only h1',
+    (path, srOnlyHeading, visualTitle, subtitle) => {
+      renderSubcategoryPage(path)
 
-    expect(container.querySelectorAll('h1')).toHaveLength(1)
-    expect(container.querySelector('h1.sr-only')?.textContent).toBe(label)
-    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBeTruthy()
+      expect(container.querySelectorAll('h1')).toHaveLength(1)
+      expect(container.querySelector('h1.sr-only')?.textContent).toBe(srOnlyHeading)
+      expect(container.querySelector('.riffsync-channel-hero')).not.toBeNull()
+      expect(container.querySelector('.riffsync-view-toggle')).not.toBeNull()
+      expect(container.querySelector('.riffsync-channel-hero__visual-title')?.textContent).toBe(
+        visualTitle,
+      )
+      expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe(subtitle)
+      expect(container.querySelector('.riffsync-catalog-page-header')).toBeNull()
+      expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
+      expect(container.textContent).not.toContain('Subscribe')
+      expect(container.textContent).not.toContain('Subscribers')
+      expect(container.textContent).not.toContain('Home')
+      expect(container.textContent).not.toContain('Videos')
+      expect(container.textContent).not.toContain('Live')
+      expect(container.textContent).not.toContain('ACTION')
+      expect(container.textContent).not.toContain('COMEDY')
+      expect(container.textContent).not.toContain('HORROR')
+      expect(container.textContent).not.toContain('DRAMA')
+      expect(container.textContent).not.toContain('INDIE')
+    },
+  )
 
-    const cards = container.querySelectorAll('.riffsync-catalog-card')
-    expect(cards).toHaveLength(1)
-    expect(cards[0]?.querySelector('h3 a')?.textContent?.trim()).toBe(
-      catalogFixtures.find((entry) => entry.id === expectedId)?.title,
-    )
-    expect(container.textContent).not.toContain('Community Riff')
-    expect(container.textContent).not.toContain('TV Shows Unplayable')
-    expect(container.textContent).not.toContain('Live Source')
-    expect(container.textContent).not.toContain('Other Experiment')
-  })
+  it.each([
+    ['/catalog/tv-shows', 'TV Shows Pick', 'ep-tv-shows', 'tv_shows'] as const,
+    ['/catalog/movies', 'Movie Night Pick', 'ep-movie-night', 'movie_night'] as const,
+  ])(
+    'filters %s to playable rows for its catalog only in Cards view',
+    (path, expectedTitle, expectedId, catalog) => {
+      renderSubcategoryPage(path)
+
+      const titles = channelCardTitles(container)
+      expect(titles).toEqual([expectedTitle])
+      expect(titles).not.toContain('Community Riff')
+      expect(titles).not.toContain('Live Source')
+      expect(titles).not.toContain('Other Experiment')
+      if (catalog === 'tv_shows') {
+        expect(titles).not.toContain('Movie Night Pick')
+        expect(container.textContent).not.toContain('TV Shows Unplayable')
+      } else {
+        expect(titles).not.toContain('TV Shows Pick')
+        expect(container.textContent).not.toContain('Movie Night Unplayable')
+      }
+
+      const cards = container.querySelectorAll('.riffsync-channel-movie-card')
+      expect(cards).toHaveLength(1)
+      expect(cards[0]?.getAttribute('data-episode-id') ?? cards[0]?.querySelector('a[href]')?.getAttribute('href')).toBeTruthy()
+      expect(
+        catalogFixtures.find((entry) => entry.id === expectedId)?.title,
+      ).toBe(expectedTitle)
+    },
+  )
+
+  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+    'defaults to Cards view on %s',
+    (path) => {
+      renderSubcategoryPage(path)
+
+      expect(container.querySelector('[aria-label="Cards"]')?.getAttribute('aria-pressed')).toBe('true')
+      expect(container.querySelector('[aria-label="List"]')?.getAttribute('aria-pressed')).toBe('false')
+      expect(container.querySelector('.riffsync-channel-card-grid')).not.toBeNull()
+      expect(container.querySelector('.riffsync-channel-list')).toBeNull()
+    },
+  )
+
+  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+    'flips aria-pressed when toggling Cards | List on %s',
+    (path) => {
+      renderSubcategoryPage(path)
+      clickViewToggle('List')
+
+      expect(container.querySelector('[aria-label="Cards"]')?.getAttribute('aria-pressed')).toBe('false')
+      expect(container.querySelector('[aria-label="List"]')?.getAttribute('aria-pressed')).toBe('true')
+      expect(container.querySelector('.riffsync-channel-list')).not.toBeNull()
+      expect(container.querySelector('.riffsync-channel-card-grid')).toBeNull()
+
+      clickViewToggle('Cards')
+      expect(container.querySelector('[aria-label="Cards"]')?.getAttribute('aria-pressed')).toBe('true')
+    },
+  )
+
+  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+    'shows the same filtered ids in Cards and List views on %s',
+    (path) => {
+      renderSubcategoryPage(path)
+      const cardTitles = channelCardTitles(container)
+
+      clickViewToggle('List')
+      const listTitles = channelListTitles(container)
+      expect(listTitles).toEqual(cardTitles)
+    },
+  )
+
+  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+    'keeps title search working on %s',
+    (path) => {
+      renderSubcategoryPage(path)
+
+      const search = container.querySelector('input[type="search"]') as HTMLInputElement
+      act(() => {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value',
+        )?.set
+        nativeInputValueSetter?.call(search, 'no match')
+        search.dispatchEvent(new Event('input', { bubbles: true }))
+        search.dispatchEvent(new Event('change', { bubbles: true }))
+      })
+
+      expect(channelCardTitles(container)).toEqual([])
+      expect(container.querySelector('.riffsync-catalog-no-match')).not.toBeNull()
+    },
+  )
 
   it('uses empty-catalog presentation on /catalog/tv-shows when no playable tv_shows rows exist', () => {
     useCatalogListQuery.mockReturnValue({
@@ -495,11 +604,30 @@ describe('CatalogSubcategoryPage', () => {
     renderSubcategoryPage('/catalog/tv-shows')
 
     expect(container.querySelector('h1.sr-only')?.textContent).toBe('TV Shows')
-    expect(container.querySelector('.riffsync-catalog-grid')?.children.length).toBe(0)
+    expect(container.querySelector('.riffsync-channel-card-grid')?.children.length).toBe(0)
     expect(container.textContent).toContain('No episodes are available for in-app playback yet.')
   })
 
-  it('shows sr-only h1 on TV Shows loading path', () => {
+  it('uses empty-catalog presentation on /catalog/movies when no playable movie_night rows exist', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: [catalogFixtures.find((entry) => entry.id === 'ep-movie-night-unplayable')!],
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderSubcategoryPage('/catalog/movies')
+
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('Movies')
+    expect(container.querySelector('.riffsync-channel-card-grid')?.children.length).toBe(0)
+    expect(container.textContent).toContain('No episodes are available for in-app playback yet.')
+  })
+
+  it.each([
+    ['/catalog/tv-shows', 'TV Shows'] as const,
+    ['/catalog/movies', 'Movies'] as const,
+  ])('shows sr-only h1 on %s loading path', (path, label) => {
     useCatalogListQuery.mockReturnValue({
       data: undefined,
       isPending: true,
@@ -508,9 +636,85 @@ describe('CatalogSubcategoryPage', () => {
       refetch: vi.fn(),
     })
 
-    renderSubcategoryPage('/catalog/tv-shows')
-    expect(container.querySelector('h1.sr-only')?.textContent).toBe('TV Shows')
+    renderSubcategoryPage(path)
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe(label)
+    expect(container.querySelector('.riffsync-channel-layout')).not.toBeNull()
   })
+
+  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+    'title and poster links navigate to /watch/{id} only on %s',
+    (path) => {
+      renderSubcategoryPage(path)
+
+      const links = Array.from(
+        container.querySelectorAll('.riffsync-channel-movie-card a[href]'),
+      ) as HTMLAnchorElement[]
+      expect(links.length).toBeGreaterThan(0)
+      for (const link of links) {
+        expect(link.getAttribute('href')).toMatch(/^\/watch\//)
+      }
+    },
+  )
+
+  it('signed-out Start Party on /catalog/movies sets pending key and starts Hosted UI sign-in', () => {
+    renderSubcategoryPage('/catalog/movies')
+
+    const startParty = Array.from(container.querySelectorAll('button.gen-button')).find(
+      (button) => button.textContent?.trim() === 'Start Party',
+    ) as HTMLButtonElement
+    act(() => {
+      startParty.click()
+    })
+
+    expect(sessionStorage.getItem(PENDING_PARTY_EPISODE_KEY)).toBeTruthy()
+    expect(startFanHostedUiSignIn).toHaveBeenCalled()
+    expect(createRoom).not.toHaveBeenCalled()
+  })
+
+  it('signed-in Start Party on /catalog/tv-shows calls createRoom with catalogEpisodeId and visibility public', async () => {
+    vi.mocked(getFanAccessToken).mockReturnValue('fan-token')
+    createRoom.mockResolvedValue({ roomId: 'room-123' })
+
+    renderSubcategoryPage('/catalog/tv-shows')
+
+    const startParty = Array.from(container.querySelectorAll('button.gen-button')).find(
+      (button) => button.textContent?.trim() === 'Start Party',
+    ) as HTMLButtonElement
+    await act(async () => {
+      startParty.click()
+      await Promise.resolve()
+    })
+
+    expect(createRoom).toHaveBeenCalledWith(
+      'fan-token',
+      expect.objectContaining({
+        catalogEpisodeId: 'ep-tv-shows',
+        visibility: 'public',
+      }),
+    )
+  })
+
+  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+    'stacks channel rows to single column at max-width 767px on %s',
+    (path) => {
+      vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+        const matches = query === '(max-width: 767px)'
+        return {
+          matches,
+          media: query,
+          onchange: null,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          dispatchEvent: () => true,
+        } as MediaQueryList
+      })
+
+      renderSubcategoryPage(path)
+      expect(container.querySelector('.riffsync-channel-card-grid')).not.toBeNull()
+    },
+  )
 
   it('sets poster img alt text to each MST3K episode title', () => {
     renderSubcategoryPage('/catalog/mst3k')

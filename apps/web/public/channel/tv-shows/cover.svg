@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 240" role="img" aria-label="TV Shows channel cover">
+  <defs>
+    <linearGradient id="tv-shows-cover-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1e40af" />
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="240" fill="url(#tv-shows-cover-gradient)" />
+  <rect x="960" y="40" width="120" height="80" rx="8" fill="#ffffff" opacity="0.08" />
+  <rect x="180" y="120" width="160" height="90" rx="8" fill="#ffffff" opacity="0.06" />
+</svg>

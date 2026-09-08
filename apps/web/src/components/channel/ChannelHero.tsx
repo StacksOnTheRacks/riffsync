@@ -1,9 +1,5 @@
 import type { ReactNode } from 'react'
 
-export const MST3K_CHANNEL_COVER_URL = '/channel/mst3k/cover.svg'
-export const MST3K_CHANNEL_AVATAR_URL = '/channel/mst3k/avatar.svg'
-export const MST3K_CHANNEL_VISUAL_TITLE = 'Mystery Science Theater 3000'
-
 export interface ChannelHeroProps {
   coverUrl: string
   avatarUrl: string
