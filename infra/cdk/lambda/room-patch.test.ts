@@ -448,4 +448,29 @@ describe('room-patch handler', () => {
     });
     expect(mocks.docSend).toHaveBeenCalledTimes(2);
   });
+
+  it('derives displayTitle from catalog when catalogEpisodeId changes without displayTitle', async () => {
+    mocks.docSend
+      .mockResolvedValueOnce({ Item: baseRoom })
+      .mockResolvedValueOnce({
+        Item: {
+          id: 'ep-new',
+          title: 'Fresh Catalog Title',
+          playbackHost: 'youtube',
+          youtubeVideoId: validYoutubeId,
+        },
+      })
+      .mockResolvedValueOnce({});
+
+    const res = await handler(patchEvent({ catalogEpisodeId: 'ep-new' }));
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body ?? '{}') as Record<string, unknown>;
+    expect(body.displayTitle).toBe('Fresh Catalog Title');
+
+    const updateCall = mocks.docSend.mock.calls[2]?.[0] as { input: Record<string, unknown> };
+    expect(updateCall.input.ExpressionAttributeValues).toMatchObject({
+      ':dt': 'Fresh Catalog Title',
+    });
+  });
 });

@@ -14,6 +14,7 @@ import {
 import {
   lobbySortKey,
   LOBBY_PARTITION,
+  initialDisplayTitleFromCatalog,
   normalizeRoomDisplayTitle,
   parsePlaybackExpectation,
   parseRoomMode,
@@ -113,8 +114,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     typeof room.youtubeVideoId === 'string' && room.youtubeVideoId.trim() !== ''
       ? room.youtubeVideoId.trim()
       : null;
+  let catalogEpisodeChanged = false;
+  let catalogRowTitle: unknown;
 
   if (typeof body.catalogEpisodeId === 'string' && body.catalogEpisodeId !== catalogEpisodeId) {
+    catalogEpisodeChanged = true;
     catalogEpisodeId = body.catalogEpisodeId;
     const cat = await client.send(
       new GetCommand({
@@ -123,6 +127,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       }),
     );
     const row = cat.Item as Record<string, unknown> | undefined;
+    catalogRowTitle = row?.title;
     const playback = validateCatalogRowForRoomSeed(row, catalogEpisodeId);
     if (!playback.ok) {
       return {
@@ -209,6 +214,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       };
     }
     storedDisplayTitle = n;
+  } else if (catalogEpisodeChanged) {
+    storedDisplayTitle = initialDisplayTitleFromCatalog({
+      catalogEpisodeId,
+      catalogTitle: catalogRowTitle,
+    });
   } else if (typeof room.displayTitle === 'string' && room.displayTitle.trim() !== '') {
     const t = room.displayTitle.trim();
     storedDisplayTitle =

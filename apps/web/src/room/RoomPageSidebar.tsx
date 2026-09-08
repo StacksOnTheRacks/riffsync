@@ -115,7 +115,8 @@ type RoomPageSidebarProps = {
     onAddCatalog: (episode: CatalogEpisode) => void
     onAddUrl: (url: string) => boolean
     onRemoveNextUp: (id: string) => void
-    onOpenMediaTab: () => void
+    onOpenLoadMedia: () => void
+    loadMediaOpenerRef?: RefObject<HTMLButtonElement | null>
     onStartBroadcast: () => void
     onStopBroadcast: () => void
     onPlay: () => void
