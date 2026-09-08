@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
 import { CatalogSubcategoryPage } from './pages/CatalogSubcategoryPage'
 import { YourPartiesPage } from './pages/YourPartiesPage'
+import { LiveNowPage } from './pages/LiveNowPage'
 import { LobbyPage } from './pages/LobbyPage'
 import { LiveChannelPage } from './pages/LiveChannelPage'
 import { AccountPage } from './pages/AccountPage'
@@ -62,6 +63,7 @@ export function AppRoutes() {
         <Route path="/catalog/tv-shows" element={<CatalogSubcategoryPage />} />
         <Route path="/catalog/movie-night" element={<Navigate to="/catalog/movies" replace />} />
         <Route path="/your-parties" element={<YourPartiesPage />} />
+        <Route path="/live" element={<LiveNowPage />} />
       </Route>
       <Route element={<SiteLayout />}>
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />

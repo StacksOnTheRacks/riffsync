@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 240" role="img" aria-label="RiffTrax channel cover">
+  <defs>
+    <linearGradient id="rifftrax-cover-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#1e40af" />
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="240" fill="url(#rifftrax-cover-gradient)" />
+  <circle cx="1180" cy="90" r="55" fill="#fbbf24" opacity="0.14" />
+  <circle cx="260" cy="150" r="75" fill="#fbbf24" opacity="0.08" />
+</svg>

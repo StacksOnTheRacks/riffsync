@@ -149,6 +149,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
               </ul>
             </li>
           ) : null}
+          <SidebarNavItem to="/live" label="Live Now" iconClass="fa fa-circle" collapsed={collapsed} />
           <SidebarNavItem to="/lobby" label="Lobby" iconClass="fa fa-users" collapsed={collapsed} />
           {showGetAppNav ? (
             <SidebarNavItem to="/download" label="Get App" iconClass="fa fa-download" collapsed={collapsed} />

@@ -219,4 +219,11 @@ describe('HomePage', () => {
     expect(container.querySelector('#home-mike-era a[href="/catalog/mst3k/era/mike"]')).not.toBeNull()
     expect(container.querySelector('#home-jonah-era a[href="/catalog/mst3k/era/jonah"]')).not.toBeNull()
   })
+
+  it('does not render a Cards | List ViewToggle on home', () => {
+    mockCatalogQueries({})
+    renderHomePage()
+
+    expect(container.querySelector('.riffsync-view-toggle')).toBeNull()
+  })
 })
