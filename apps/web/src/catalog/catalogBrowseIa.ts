@@ -78,8 +78,7 @@ export type RifftraxCatalogRouteFilter =
 
 /**
  * Route-fixed subcategory browse destinations (M32 browse IA).
- * Movie Night remains in admin/data but is omitted here until YouTube license
- * churn for those titles can be managed reliably.
+ * Movie Night uses public path `/catalog/movies` but stays withheld from hub/search/chips.
  */
 export const CATALOG_SUBCATEGORIES = [
   {
@@ -109,6 +108,20 @@ export const CATALOG_SUBCATEGORIES = [
     label: 'Riff Material',
     subtitle: 'Cheesy Flicks Ready to Riff',
     catalog: 'riff_material' as const satisfies CatalogCategory,
+  },
+  {
+    slug: 'movies',
+    path: '/catalog/movies',
+    label: 'Movies',
+    subtitle: 'Movie Night Picks',
+    catalog: 'movie_night' as const satisfies CatalogCategory,
+  },
+  {
+    slug: 'tv-shows',
+    path: '/catalog/tv-shows',
+    label: 'TV Shows',
+    subtitle: 'Television Riffs',
+    catalog: 'tv_shows' as const satisfies CatalogCategory,
   },
 ] as const
 

@@ -111,6 +111,16 @@ const catalogFixtures: CatalogEpisode[] = [
     labels: ['Short'],
   }),
   episode({ id: 'ep-movie-night', experimentNumber: 1500, title: 'Movie Night Pick', catalog: 'movie_night' }),
+  episode({ id: 'ep-tv-shows', experimentNumber: 1601, title: 'TV Shows Pick', catalog: 'tv_shows' }),
+  episode({
+    id: 'ep-tv-shows-unplayable',
+    experimentNumber: 1602,
+    title: 'TV Shows Unplayable',
+    catalog: 'tv_shows',
+    youtubeVideoId: null,
+    youtubeWatchUrl: null,
+  }),
+  episode({ id: 'ep-live', experimentNumber: 1700, title: 'Live Source', catalog: 'live' }),
   episode({ id: 'ep-other', experimentNumber: 999, title: 'Other Experiment', catalog: 'other' }),
 ]
 
@@ -184,9 +194,13 @@ describe('CatalogSubcategoryPage', () => {
   }
 
   it.each(
-    CATALOG_SUBCATEGORIES.filter((entry) => entry.slug !== 'mst3k' && entry.slug !== 'rifftrax').map(
-      (entry) => [entry.path, entry.label, entry.subtitle] as const,
-    ),
+    CATALOG_SUBCATEGORIES.filter(
+      (entry) =>
+        entry.slug !== 'mst3k' &&
+        entry.slug !== 'rifftrax' &&
+        entry.slug !== 'movies' &&
+        entry.slug !== 'tv-shows',
+    ).map((entry) => [entry.path, entry.label, entry.subtitle] as const),
   )(
     'renders H1, subtitle, search, and filtered grid for %s without tag pills',
     (path, label, subtitle) => {
@@ -437,6 +451,65 @@ describe('CatalogSubcategoryPage', () => {
     const cards = container.querySelectorAll('.riffsync-catalog-card')
     expect(cards).toHaveLength(1)
     expect(cards[0]?.querySelector('h3 a')?.textContent?.trim()).toBe('Riff Material Classic')
+  })
+
+  it.each([
+    ['/catalog/tv-shows', 'TV Shows', 'ep-tv-shows'] as const,
+    ['/catalog/movies', 'Movies', 'ep-movie-night'] as const,
+  ])('renders sr-only h1 and filters %s to playable rows for its catalog only', (path, label, expectedId) => {
+    renderSubcategoryPage(path)
+
+    expect(container.querySelectorAll('h1')).toHaveLength(1)
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe(label)
+    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBeTruthy()
+
+    const cards = container.querySelectorAll('.riffsync-catalog-card')
+    expect(cards).toHaveLength(1)
+    expect(cards[0]?.querySelector('h3 a')?.textContent?.trim()).toBe(
+      catalogFixtures.find((entry) => entry.id === expectedId)?.title,
+    )
+    expect(container.textContent).not.toContain('Community Riff')
+    expect(container.textContent).not.toContain('TV Shows Unplayable')
+    expect(container.textContent).not.toContain('Live Source')
+    expect(container.textContent).not.toContain('Other Experiment')
+  })
+
+  it('uses empty-catalog presentation on /catalog/tv-shows when no playable tv_shows rows exist', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: [
+        episode({
+          id: 'ep-tv-unplayable-only',
+          experimentNumber: 1603,
+          title: 'Unplayable TV',
+          catalog: 'tv_shows',
+          youtubeVideoId: null,
+          youtubeWatchUrl: null,
+        }),
+      ],
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderSubcategoryPage('/catalog/tv-shows')
+
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('TV Shows')
+    expect(container.querySelector('.riffsync-catalog-grid')?.children.length).toBe(0)
+    expect(container.textContent).toContain('No episodes are available for in-app playback yet.')
+  })
+
+  it('shows sr-only h1 on TV Shows loading path', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: undefined,
+      isPending: true,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderSubcategoryPage('/catalog/tv-shows')
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('TV Shows')
   })
 
   it('sets poster img alt text to each MST3K episode title', () => {

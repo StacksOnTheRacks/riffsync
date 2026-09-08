@@ -35,6 +35,7 @@ export function CatalogSubcategoryPage() {
   const isMst3kRoute = subcategory?.slug === 'mst3k'
   const isRifftraxRoute = subcategory?.slug === 'rifftrax'
   const usesRouteFilter = isMst3kRoute || isRifftraxRoute
+  const usesSrOnlyHeading = subcategory?.slug === 'movies' || subcategory?.slug === 'tv-shows'
   const showMst3kTagPills = browseView?.mst3kRouteFilter?.kind === 'all'
 
   useResumePendingPartyRoom(data, navigate)
@@ -122,6 +123,14 @@ export function CatalogSubcategoryPage() {
         </div>
       )
     }
+    if (usesSrOnlyHeading) {
+      return (
+        <div className="container">
+          <h1 className="sr-only">{browseView.title}</h1>
+          <p>Loading…</p>
+        </div>
+      )
+    }
     return (
       <div className="container">
         <h1>{browseView.title}</h1>
@@ -166,7 +175,11 @@ export function CatalogSubcategoryPage() {
 
   return (
     <>
-      <CatalogPageHeader title={browseView.title} subtitle={browseView.subtitle} />
+      <CatalogPageHeader
+        title={browseView.title}
+        subtitle={browseView.subtitle}
+        srOnlyHeading={usesSrOnlyHeading}
+      />
       <section className="gen-section-padding-3">
         <div className="container riffsync-catalog-page riffsync-catalog-subcategory-page">
           <CatalogFilterBar

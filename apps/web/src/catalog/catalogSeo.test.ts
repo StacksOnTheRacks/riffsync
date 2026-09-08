@@ -74,6 +74,14 @@ describe('episodeIsIndexableForSeo', () => {
     ).toBe(false)
   })
 
+  it('includes playable YouTube-host tv_shows rows', () => {
+    expect(
+      episodeIsIndexableForSeo(
+        episode({ catalog: 'tv_shows', youtubeVideoId: 'abc12345678' }),
+      ),
+    ).toBe(true)
+  })
+
   it('excludes catalog live rows (official Live SEO is /live/:slug)', () => {
     expect(
       episodeIsIndexableForSeo(

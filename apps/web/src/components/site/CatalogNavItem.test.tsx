@@ -106,6 +106,7 @@ describe('CatalogNavItem', () => {
         'Movies',
         'Community',
         'Riff Material',
+        'TV Shows',
       ]),
     )
     expect(catalogNav().classList.contains('menu-item-has-children')).toBe(true)

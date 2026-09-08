@@ -37,6 +37,11 @@ describe('filterGlobalSearchCatalogTitles', () => {
       catalog: 'movie_night',
     }),
     episode({
+      id: 'tv-shows-row',
+      title: 'TV Shows Title',
+      catalog: 'tv_shows',
+    }),
+    episode({
       id: 'unplayable-row',
       title: 'Missing Video',
       youtubeVideoId: '',
@@ -49,11 +54,12 @@ describe('filterGlobalSearchCatalogTitles', () => {
     expect(results.map((row) => row.id)).toEqual(['playable-mst3k'])
   })
 
-  it('excludes staff-only, live, movie_night, and non-playable rows', () => {
+  it('excludes staff-only, live, movie_night, and non-playable rows but includes tv_shows', () => {
     expect(filterGlobalSearchCatalogTitles(fixtures, 'staff').map((row) => row.id)).toEqual([])
     expect(filterGlobalSearchCatalogTitles(fixtures, 'live').map((row) => row.id)).toEqual([])
     expect(filterGlobalSearchCatalogTitles(fixtures, 'movie night').map((row) => row.id)).toEqual([])
     expect(filterGlobalSearchCatalogTitles(fixtures, 'missing').map((row) => row.id)).toEqual([])
+    expect(filterGlobalSearchCatalogTitles(fixtures, 'tv shows').map((row) => row.id)).toEqual(['tv-shows-row'])
   })
 
   it('caps results at eight titles', () => {
