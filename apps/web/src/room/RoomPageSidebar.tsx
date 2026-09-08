@@ -390,10 +390,10 @@ export function RoomPageSidebar({
               </ul>
         </ChatboxPanel>
 
-        <ChatboxPanel tabId="people" activeTab={activeSidebarTab} className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
-          {presentation === 'sidebar' ? (
+        {presentation === 'sidebar' ? (
+          <ChatboxPanel tabId="people" activeTab={activeSidebarTab} className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
             <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
-              {peopleShown.map((p) => {
+              {(peopleShown ?? []).map((p) => {
                 const peopleAvatarUrl = resolveMemberAvatarUrl(
                   p.sessionId,
                   p.avatarUrl,
@@ -433,8 +433,8 @@ export function RoomPageSidebar({
                 )
               })}
             </ul>
-          ) : null}
-        </ChatboxPanel>
+          </ChatboxPanel>
+        ) : null}
 
         {presentation === 'sidebar' && fanToken ? (
           <RoomFriendsPane pane={roomFriends} visible={activeSidebarTab === 'friends'} />
