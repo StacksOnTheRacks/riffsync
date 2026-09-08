@@ -7,7 +7,20 @@ import type { CatalogCategory, CatalogEpisode } from '../catalog/catalogTypes'
 import {
   loadMediaCategoryLabel,
   loadMediaSidebarCategories,
+  LOAD_MEDIA_BASE_CATEGORIES,
 } from './loadMediaCategories'
+
+function initialLoadMediaCategory(
+  selectedCatalogEpisodeId: string,
+  playableEntries: CatalogEpisode[],
+  sidebarCategories: readonly CatalogCategory[],
+): CatalogCategory {
+  const selected = playableEntries.find((ep) => ep.id === selectedCatalogEpisodeId)
+  if (selected && sidebarCategories.includes(selected.catalog)) {
+    return selected.catalog
+  }
+  return sidebarCategories[0] ?? LOAD_MEDIA_BASE_CATEGORIES[0]!
+}
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -31,7 +44,7 @@ export function LoadMediaModal({
   const searchRef = useRef<HTMLInputElement>(null)
   const catalogQuery = useCatalogListQuery()
   const [titleQuery, setTitleQuery] = useState('')
-  const [activeCategory, setActiveCategory] = useState<CatalogCategory>('mst3k')
+  const [userCategory, setUserCategory] = useState<CatalogCategory | null>(null)
 
   const playableEntries = useMemo(
     () => catalogEntriesPlayableInApp(catalogQuery.data ?? []),
@@ -43,14 +56,9 @@ export function LoadMediaModal({
     [playableEntries],
   )
 
-  useEffect(() => {
-    const selected = playableEntries.find((ep) => ep.id === selectedCatalogEpisodeId)
-    if (selected && sidebarCategories.includes(selected.catalog)) {
-      setActiveCategory(selected.catalog)
-    } else if (sidebarCategories.length > 0) {
-      setActiveCategory(sidebarCategories[0]!)
-    }
-  }, [playableEntries, selectedCatalogEpisodeId, sidebarCategories])
+  const activeCategory =
+    userCategory ??
+    initialLoadMediaCategory(selectedCatalogEpisodeId, playableEntries, sidebarCategories)
 
   const tableRows = useMemo(
     () =>
@@ -122,7 +130,7 @@ export function LoadMediaModal({
                         : 'riffsync-load-media__category'
                     }
                     aria-current={activeCategory === category ? 'true' : undefined}
-                    onClick={() => setActiveCategory(category)}
+                    onClick={() => setUserCategory(category)}
                   >
                     {loadMediaCategoryLabel(category)}
                   </button>

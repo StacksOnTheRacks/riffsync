@@ -834,6 +834,7 @@ export function RoomPage() {
       ) : null}
       {loadMediaModalOpen && isPublisher && room ? (
         <LoadMediaModal
+          key={room.catalogEpisodeId}
           selectedCatalogEpisodeId={room.catalogEpisodeId}
           applying={hostConsoleBusy}
           applyError={loadMediaApplyErr}
