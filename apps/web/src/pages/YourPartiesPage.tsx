@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
 import { useFanSession } from '../auth/useFanSession'
-import { fetchRoomsMine, type MineRoomRow } from '../api/roomsApi'
+import { useRoomsMineQuery } from '../api/roomsQueries'
 import { ChannelHero } from '../components/channel/ChannelHero'
 import { WatchPartyCard } from '../components/your-parties/WatchPartyCard'
 import {
@@ -10,37 +10,16 @@ import {
   YOUR_PARTIES_HEADING,
 } from '../components/your-parties/yourPartiesAssets'
 
-type LoadState = 'idle' | 'loading' | 'ready' | 'error'
-
 export function YourPartiesPage() {
   const { fanToken } = useFanSession()
-  const [rooms, setRooms] = useState<MineRoomRow[]>([])
-  const [loadState, setLoadState] = useState<LoadState>('idle')
-  const [statusMessage, setStatusMessage] = useState('')
+  const { data, isPending, isError, refetch, isFetching } = useRoomsMineQuery(fanToken)
   const [copyMessage, setCopyMessage] = useState('')
-
-  const loadRooms = useCallback(async (token: string) => {
-    setLoadState('loading')
-    setStatusMessage('Loading parties.')
-    try {
-      const response = await fetchRoomsMine(token)
-      setRooms(response.rooms)
-      setLoadState('ready')
-      setStatusMessage('')
-    } catch {
-      setRooms([])
-      setLoadState('error')
-      setStatusMessage("Couldn't load your parties")
-    }
-  }, [])
 
   useEffect(() => {
     if (!fanToken) {
       void startFanHostedUiSignIn('/your-parties').catch(console.error)
-      return
     }
-    void loadRooms(fanToken)
-  }, [fanToken, loadRooms])
+  }, [fanToken])
 
   useEffect(() => {
     if (!copyMessage) return
@@ -56,9 +35,14 @@ export function YourPartiesPage() {
     )
   }
 
+  const rooms = data?.rooms ?? []
   const partyCountLabel = `${rooms.length} ${rooms.length === 1 ? 'Party' : 'Parties'}`
-  const isLoading = loadState === 'loading' || loadState === 'idle'
-  const isError = loadState === 'error'
+  const isLoading = isPending || (isFetching && !data)
+  const statusMessage = isLoading
+    ? 'Loading parties.'
+    : isError
+      ? "Couldn't load your parties"
+      : ''
 
   return (
     <div className="riffsync-your-parties-page">
@@ -80,7 +64,7 @@ export function YourPartiesPage() {
             type="button"
             className="gen-button riffsync-your-parties-page__retry"
             onClick={() => {
-              if (fanToken) void loadRooms(fanToken)
+              void refetch()
             }}
           >
             Retry

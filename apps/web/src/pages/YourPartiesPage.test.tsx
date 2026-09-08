@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -101,8 +102,12 @@ function mockMatchMedia(matches: boolean) {
 describe('YourPartiesPage', () => {
   let container: HTMLDivElement
   let root: Root
+  let queryClient: QueryClient
 
   beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
     startFanHostedUiSignIn.mockReset()
     fetchRoomsMine.mockReset()
     patchRoom.mockReset()
@@ -117,24 +122,27 @@ describe('YourPartiesPage', () => {
   afterEach(() => {
     act(() => root.unmount())
     container.remove()
+    queryClient.clear()
   })
 
   function renderInAppShell(initialPath = '/your-parties') {
     act(() => {
       root.render(
-        <MemoryRouter initialEntries={[initialPath]}>
-          <Routes>
-            <Route
-              path="/your-parties"
-              element={
-                <AppShell>
-                  <YourPartiesPage />
-                </AppShell>
-              }
-            />
-            <Route path="/room/:roomId" element={<div data-testid="room-page" />} />
-          </Routes>
-        </MemoryRouter>,
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={[initialPath]}>
+            <Routes>
+              <Route
+                path="/your-parties"
+                element={
+                  <AppShell>
+                    <YourPartiesPage />
+                  </AppShell>
+                }
+              />
+              <Route path="/room/:roomId" element={<div data-testid="room-page" />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>,
       )
     })
   }
