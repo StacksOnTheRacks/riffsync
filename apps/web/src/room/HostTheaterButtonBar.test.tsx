@@ -13,7 +13,6 @@ const baseProps = {
   onOpenLoadMedia: vi.fn(),
   onToggleChatRail: vi.fn(),
   chatRailOpen: true,
-  onLeave: vi.fn(),
   participantAvController: null,
   avDisabled: false,
   showAvControls: true,
@@ -38,7 +37,6 @@ const baseProps = {
   hostBarBusy: false,
   hostBarErr: null,
   onSelectRoomMode: vi.fn(),
-  onToggleAvDisabled: vi.fn(),
 }
 
 describe('HostTheaterButtonBar', () => {
@@ -57,22 +55,103 @@ describe('HostTheaterButtonBar', () => {
     container.remove()
   })
 
-  it('renders eight default segments including Load Media', () => {
+  it('renders eight default segments with an icon-only mode switcher and Load Media', () => {
     act(() => {
       root.render(<HostTheaterButtonBar {...baseProps} />)
     })
     const segments = container.querySelectorAll('.riffsync-host-theater-bar__segment')
     expect(segments.length).toBe(8)
+    const mode = container.querySelector('[aria-label="Room mode, Watch Party"]') as HTMLButtonElement
+    expect(mode).not.toBeNull()
+    expect(mode.textContent?.trim()).toBe('')
     expect(container.querySelector('[aria-label="Load media"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Show chat panel"]')).toBeNull()
+    expect(container.querySelector('[aria-label="Hide chat panel"]')).toBeNull()
   })
 
-  it('opens Load Media handler from the left segment', () => {
+  it('opens an icon-only Watch Party, Video Chat, and Games mode menu', () => {
+    const onSelectRoomMode = vi.fn()
+    act(() => {
+      root.render(<HostTheaterButtonBar {...baseProps} onSelectRoomMode={onSelectRoomMode} />)
+    })
+    const mode = container.querySelector('[aria-label="Room mode, Watch Party"]') as HTMLButtonElement
+    act(() => mode.click())
+
+    const options = [...container.querySelectorAll('.riffsync-host-theater-bar__mode-option')]
+    expect(options.map((option) => option.getAttribute('aria-label'))).toEqual([
+      'Watch Party',
+      'Video Chat',
+      'Games',
+    ])
+    expect(options.every((option) => option.textContent?.trim() === '')).toBe(true)
+    expect(options[0]?.getAttribute('aria-selected')).toBe('true')
+    expect(options[2]?.hasAttribute('disabled')).toBe(true)
+
+    act(() => (options[1] as HTMLButtonElement).click())
+    expect(onSelectRoomMode).toHaveBeenCalledWith('videoChat')
+  })
+
+  it('switches back to Watch Party from Video Chat', () => {
+    const onSelectRoomMode = vi.fn()
+    act(() => {
+      root.render(
+        <HostTheaterButtonBar
+          {...baseProps}
+          roomMode="videoChat"
+          onSelectRoomMode={onSelectRoomMode}
+        />,
+      )
+    })
+    const mode = container.querySelector('[aria-label="Room mode, Video Chat"]') as HTMLButtonElement
+    act(() => mode.click())
+    const watchParty = container.querySelector(
+      '.riffsync-host-theater-bar__mode-option[aria-label="Watch Party"]',
+    ) as HTMLButtonElement
+    act(() => watchParty.click())
+    expect(onSelectRoomMode).toHaveBeenCalledWith('theater')
+  })
+
+  it('starts and stops broadcast from the third segment', () => {
+    const onStartBroadcast = vi.fn()
+    const onStopBroadcast = vi.fn()
+    act(() => {
+      root.render(
+        <HostTheaterButtonBar
+          {...baseProps}
+          onStartBroadcast={onStartBroadcast}
+          onStopBroadcast={onStopBroadcast}
+        />,
+      )
+    })
+    const segments = [...container.querySelectorAll('.riffsync-host-theater-bar__segment')]
+    expect(segments[2]?.getAttribute('aria-label')).toBe('Broadcast')
+    act(() => (segments[2] as HTMLButtonElement).click())
+    expect(onStartBroadcast).toHaveBeenCalled()
+
+    act(() => {
+      root.render(
+        <HostTheaterButtonBar
+          {...baseProps}
+          captureActive
+          onStartBroadcast={onStartBroadcast}
+          onStopBroadcast={onStopBroadcast}
+        />,
+      )
+    })
+    const stop = container.querySelector('[aria-label="Stop broadcast"]') as HTMLButtonElement
+    act(() => stop.click())
+    expect(onStopBroadcast).toHaveBeenCalled()
+    expect(container.querySelector('[aria-label="Leave party"]')).toBeNull()
+  })
+
+  it('opens Load Media from the second segment', () => {
     const onOpenLoadMedia = vi.fn()
     act(() => {
       root.render(<HostTheaterButtonBar {...baseProps} onOpenLoadMedia={onOpenLoadMedia} />)
     })
-    const loadMedia = container.querySelector('[aria-label="Load media"]') as HTMLButtonElement
-    act(() => loadMedia.click())
+    const segments = [...container.querySelectorAll('.riffsync-host-theater-bar__segment')]
+    expect(segments[1]?.getAttribute('aria-label')).toBe('Load media')
+    act(() => (segments[1] as HTMLButtonElement).click())
     expect(onOpenLoadMedia).toHaveBeenCalled()
   })
 

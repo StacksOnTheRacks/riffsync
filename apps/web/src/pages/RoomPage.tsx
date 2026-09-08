@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RoomMode } from '../api/roomsApi'
 import { fetchFanProfile } from '../api/fanProfileApi'
@@ -11,7 +11,6 @@ import type { GaEntrySurface, GaSource } from '../config/googleAnalytics'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import { announceWebrtcDebugOnRoomMount } from '../room/webrtcDebug'
 import { useViewportWide } from '../room/stage/useViewportWide'
-import { HostControlBar } from '../room/HostControlBar'
 import {
   avDisabledAnnounceCopy,
   formatHostRoomPatchError,
@@ -74,7 +73,6 @@ export function RoomPage() {
   const [loadMediaApplyErr, setLoadMediaApplyErr] = useState<string | null>(null)
   const [chatRailOpen, setChatRailOpen] = useState(true)
   const loadMediaOpenerRef = useRef<HTMLButtonElement | null>(null)
-  const navigate = useNavigate()
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null)
 
   const a11yAnnouncerRef = useRef<HTMLDivElement | null>(null)
@@ -776,7 +774,6 @@ export function RoomPage() {
                 loadMediaOpenerRef={loadMediaOpenerRef}
                 onToggleChatRail={() => setChatRailOpen((open) => !open)}
                 chatRailOpen={chatRailOpen}
-                onLeave={() => navigate('/lobby')}
                 participantAvController={fanToken ? participantAvController : null}
                 avDisabled={avDisabled}
                 showAvControls={Boolean(fanToken)}
@@ -811,7 +808,6 @@ export function RoomPage() {
                 hostBarBusy={hostBarBusy}
                 hostBarErr={hostBarErr}
                 onSelectRoomMode={(mode) => void patchHostRoomFields({ roomMode: mode })}
-                onToggleAvDisabled={(next) => void patchHostRoomFields({ avDisabled: next })}
               />
             ) : null}
             {expandedViewActive ? <RoomPageSidebar presentation="overlay" {...roomSidebarProps} activeSidebarTab="chat" /> : null}
@@ -866,16 +862,6 @@ export function RoomPage() {
 
           {!expandedViewActive && chatRailOpen ? <RoomPageSidebar {...roomSidebarProps} /> : null}
         </div>
-        {isPublisher ? (
-          <HostControlBar
-            roomMode={roomMode}
-            avDisabled={avDisabled}
-            busy={hostBarBusy}
-            error={hostBarErr}
-            onSelectRoomMode={(mode) => void patchHostRoomFields({ roomMode: mode })}
-            onToggleAvDisabled={(next) => void patchHostRoomFields({ avDisabled: next })}
-          />
-        ) : null}
       </div>
 
       {renameModalOpen && isPublisher ? (

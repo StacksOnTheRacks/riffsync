@@ -243,7 +243,7 @@ export function RoomPageSidebar({
           </p>
         ) : null}
 
-        {showParticipantAvControls ? (
+        {showParticipantAvControls && !isPublisher ? (
           <div className="riffsync-room-page__sidebar-av" data-testid="room-sidebar-av">
             <ParticipantAvToggles
               controller={fanToken ? participantAvController : null}

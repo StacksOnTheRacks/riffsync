@@ -511,16 +511,18 @@ describe('RoomPage Cast active participation (#275)', () => {
     expect(sendButton()?.disabled).toBe(false)
   })
 
-  it('renders host A/V controls while experimental features are disabled', async () => {
+  it('renders host theater controls while experimental features are disabled', async () => {
     fanTokenState.value = mockFanJwt('host-sub')
     experimentalEnabled.value = false
     renderRoom()
     await waitForSidebarTabs()
 
-    expect(container.querySelector('.riffsync-room-page__host-bar')).not.toBeNull()
-    expect(container.textContent).toContain('Theater')
-    expect(container.textContent).toContain('Video Chat')
-    expect(container.textContent).toContain('Disable room A/V')
+    expect(container.querySelector('.riffsync-host-theater-bar')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Room mode, Watch Party"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Broadcast"]')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__host-bar')).toBeNull()
+    expect(container.querySelector('[data-testid="room-sidebar-av"]')).toBeNull()
+    expect(container.textContent).not.toContain('Disable room A/V')
     expect(container.textContent).not.toContain('Beta')
   })
 
