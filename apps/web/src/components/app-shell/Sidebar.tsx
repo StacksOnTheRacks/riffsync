@@ -116,7 +116,6 @@ function useSidebarFriends(enabled: boolean): FriendEntry[] {
 
   useEffect(() => {
     if (!enabled) {
-      setFriends([])
       return
     }
 
@@ -136,7 +135,7 @@ function useSidebarFriends(enabled: boolean): FriendEntry[] {
     return () => controller.abort()
   }, [enabled])
 
-  return friends
+  return enabled ? friends : []
 }
 
 function SidebarFriends({

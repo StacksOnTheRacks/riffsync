@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getChannelToolbarTabs, isChannelToolbarTabActive } from './ChannelSectionTabs'
+import { getChannelToolbarTabs, isChannelToolbarTabActive } from './channelToolbarTabs'
 
 describe('channelToolbarTabs', () => {
   it('returns no tabs on Movies, TV Shows, and Community', () => {
