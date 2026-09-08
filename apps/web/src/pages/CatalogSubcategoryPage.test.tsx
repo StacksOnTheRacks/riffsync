@@ -206,6 +206,7 @@ describe('CatalogSubcategoryPage', () => {
       (entry) =>
         entry.slug !== 'mst3k' &&
         entry.slug !== 'rifftrax' &&
+        entry.slug !== 'community' &&
         entry.slug !== 'movies' &&
         entry.slug !== 'tv-shows',
     ).map((entry) => [entry.path, entry.label, entry.subtitle] as const),
@@ -361,37 +362,29 @@ describe('CatalogSubcategoryPage', () => {
   })
 
   it.each(['/catalog/rifftrax', '/catalog/rifftrax/movies'] as const)(
-    'locks RiffTrax Movies route %s to rows without the Short label',
+    'locks RiffTrax Movies route %s to rows without the Short label in ChannelLayout',
     (path) => {
       renderSubcategoryPage(path)
 
-      expect(container.querySelector('h1')?.textContent).toBe('RiffTrax')
-      expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+      expect(container.querySelector('h1.sr-only')?.textContent).toBe('RiffTrax')
+      expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe(
         'RiffTrax Movies',
       )
       expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
-      expect(container.querySelector('.riffsync-channel-layout')).toBeNull()
-
-      const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-        (link) => link.textContent?.trim(),
-      )
-      expect(titles).toEqual(['RiffTrax Feature'])
+      expect(container.querySelector('.riffsync-channel-layout')).not.toBeNull()
+      expect(channelCardTitles(container)).toEqual(['RiffTrax Feature'])
     },
   )
 
-  it('locks the RiffTrax Shorts route to rows labeled Short', () => {
+  it('locks the RiffTrax Shorts route to rows labeled Short in ChannelLayout', () => {
     renderSubcategoryPage('/catalog/rifftrax/shorts')
 
-    expect(container.querySelector('h1')?.textContent).toBe('RiffTrax')
-    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('RiffTrax')
+    expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe(
       'RiffTrax Shorts',
     )
-    expect(container.querySelector('.riffsync-channel-layout')).toBeNull()
-
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-    expect(titles).toEqual(['RiffTrax Short Feature'])
+    expect(container.querySelector('.riffsync-channel-layout')).not.toBeNull()
+    expect(channelCardTitles(container)).toEqual(['RiffTrax Short Feature'])
   })
 
   it('combines Era and Season pill filters with AND semantics', () => {
@@ -462,6 +455,8 @@ describe('CatalogSubcategoryPage', () => {
   })
 
   it.each([
+    ['/catalog/rifftrax', 'RiffTrax', 'RiffTrax', 'RiffTrax Movies'] as const,
+    ['/catalog/community', 'Community', 'Community', 'Community Made Riffs'] as const,
     ['/catalog/tv-shows', 'TV Shows', 'TV Shows', 'Television Riffs'] as const,
     ['/catalog/movies', 'Movies', 'Movies', 'Movie Night Picks'] as const,
   ])(
@@ -493,6 +488,8 @@ describe('CatalogSubcategoryPage', () => {
   )
 
   it.each([
+    ['/catalog/rifftrax', 'RiffTrax Feature', 'ep-rifftrax-movie', 'rifftrax'] as const,
+    ['/catalog/community', 'Community Riff', 'ep-community', 'community'] as const,
     ['/catalog/tv-shows', 'TV Shows Pick', 'ep-tv-shows', 'tv_shows'] as const,
     ['/catalog/movies', 'Movie Night Pick', 'ep-movie-night', 'movie_night'] as const,
   ])(
@@ -502,15 +499,24 @@ describe('CatalogSubcategoryPage', () => {
 
       const titles = channelCardTitles(container)
       expect(titles).toEqual([expectedTitle])
-      expect(titles).not.toContain('Community Riff')
       expect(titles).not.toContain('Live Source')
       expect(titles).not.toContain('Other Experiment')
       if (catalog === 'tv_shows') {
+        expect(titles).not.toContain('Community Riff')
         expect(titles).not.toContain('Movie Night Pick')
         expect(container.textContent).not.toContain('TV Shows Unplayable')
-      } else {
+      } else if (catalog === 'movie_night') {
+        expect(titles).not.toContain('Community Riff')
         expect(titles).not.toContain('TV Shows Pick')
         expect(container.textContent).not.toContain('Movie Night Unplayable')
+      } else if (catalog === 'community') {
+        expect(titles).not.toContain('TV Shows Pick')
+        expect(titles).not.toContain('Movie Night Pick')
+        expect(titles).not.toContain('RiffTrax Feature')
+      } else if (catalog === 'rifftrax') {
+        expect(titles).not.toContain('Community Riff')
+        expect(titles).not.toContain('TV Shows Pick')
+        expect(titles).not.toContain('Movie Night Pick')
       }
 
       const cards = container.querySelectorAll('.riffsync-channel-movie-card')
@@ -522,7 +528,12 @@ describe('CatalogSubcategoryPage', () => {
     },
   )
 
-  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+  it.each([
+    '/catalog/rifftrax',
+    '/catalog/community',
+    '/catalog/tv-shows',
+    '/catalog/movies',
+  ] as const)(
     'defaults to Cards view on %s',
     (path) => {
       renderSubcategoryPage(path)
@@ -534,7 +545,12 @@ describe('CatalogSubcategoryPage', () => {
     },
   )
 
-  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+  it.each([
+    '/catalog/rifftrax',
+    '/catalog/community',
+    '/catalog/tv-shows',
+    '/catalog/movies',
+  ] as const)(
     'flips aria-pressed when toggling Cards | List on %s',
     (path) => {
       renderSubcategoryPage(path)
@@ -550,7 +566,12 @@ describe('CatalogSubcategoryPage', () => {
     },
   )
 
-  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+  it.each([
+    '/catalog/rifftrax',
+    '/catalog/community',
+    '/catalog/tv-shows',
+    '/catalog/movies',
+  ] as const)(
     'shows the same filtered ids in Cards and List views on %s',
     (path) => {
       renderSubcategoryPage(path)
@@ -562,7 +583,12 @@ describe('CatalogSubcategoryPage', () => {
     },
   )
 
-  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+  it.each([
+    '/catalog/rifftrax',
+    '/catalog/community',
+    '/catalog/tv-shows',
+    '/catalog/movies',
+  ] as const)(
     'keeps title search working on %s',
     (path) => {
       renderSubcategoryPage(path)
@@ -641,7 +667,12 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.querySelector('.riffsync-channel-layout')).not.toBeNull()
   })
 
-  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+  it.each([
+    '/catalog/rifftrax',
+    '/catalog/community',
+    '/catalog/tv-shows',
+    '/catalog/movies',
+  ] as const)(
     'title and poster links navigate to /watch/{id} only on %s',
     (path) => {
       renderSubcategoryPage(path)
@@ -694,7 +725,12 @@ describe('CatalogSubcategoryPage', () => {
     )
   })
 
-  it.each(['/catalog/tv-shows', '/catalog/movies'] as const)(
+  it.each([
+    '/catalog/rifftrax',
+    '/catalog/community',
+    '/catalog/tv-shows',
+    '/catalog/movies',
+  ] as const)(
     'stacks channel rows to single column at max-width 767px on %s',
     (path) => {
       vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
@@ -740,7 +776,8 @@ describe('CatalogSubcategoryPage', () => {
 
     renderSubcategoryPage('/catalog/community')
 
-    expect(container.querySelector('.riffsync-catalog-grid')?.children.length).toBe(0)
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('Community')
+    expect(container.querySelector('.riffsync-channel-card-grid')?.children.length).toBe(0)
     expect(container.querySelector('.riffsync-catalog-no-match')).not.toBeNull()
     expect(container.textContent).toContain('No episodes match your filters')
   })

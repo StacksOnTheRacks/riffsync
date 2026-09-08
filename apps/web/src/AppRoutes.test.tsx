@@ -15,6 +15,7 @@ vi.mock('./pages/YourPartiesPage', () => ({
   YourPartiesPage: () => <div>Your parties stub</div>,
 }))
 vi.mock('./pages/LobbyPage', () => ({ LobbyPage: () => <div>Lobby body</div> }))
+vi.mock('./pages/LiveNowPage', () => ({ LiveNowPage: () => <div>Live Now hub body</div> }))
 vi.mock('./pages/LiveChannelPage', () => ({ LiveChannelPage: () => <div>Live body</div> }))
 vi.mock('./pages/AccountPage', () => ({ AccountPage: () => <div>Account body</div> }))
 vi.mock('./pages/RoomPage', () => ({ RoomPage: () => <div>Room body</div> }))
@@ -152,6 +153,12 @@ describe('AppRoutes chrome selection', () => {
     renderRoute('/room/demo-room')
     expect(container.querySelector('.riffsync-app-shell')).toBeNull()
     expect(container.querySelector('.riffsync-site--room')).not.toBeNull()
+  })
+
+  it('wraps the Live Now hub at /live in AppShell', () => {
+    renderRoute('/live')
+    expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
+    expect(container.textContent).toContain('Live Now hub body')
   })
 
   it('keeps live, watch, and lobby on SiteLayout without AppShell', () => {

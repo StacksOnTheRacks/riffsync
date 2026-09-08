@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 240" role="img" aria-label="Community channel cover">
+  <defs>
+    <linearGradient id="community-cover-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14532d" />
+      <stop offset="50%" stop-color="#16a34a" />
+      <stop offset="100%" stop-color="#166534" />
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="240" fill="url(#community-cover-gradient)" />
+  <circle cx="1050" cy="70" r="48" fill="#bbf7d0" opacity="0.15" />
+  <circle cx="300" cy="170" r="65" fill="#bbf7d0" opacity="0.1" />
+</svg>

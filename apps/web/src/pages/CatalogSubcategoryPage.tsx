@@ -11,6 +11,7 @@ import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagF
 import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { ChannelLayout } from '../components/channel/ChannelLayout'
+import { ChannelHero } from '../components/channel/ChannelHero'
 import { getChannelSurfaceConfig } from '../components/channel/channelSurfaceConfig'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
@@ -133,6 +134,30 @@ export function CatalogSubcategoryPage() {
   }
 
   if (isError && !data) {
+    if (channelSurface) {
+      return (
+        <div className="riffsync-channel-layout">
+          <h1 className="sr-only">{channelSurface.srOnlyHeading}</h1>
+          <ChannelHero
+            coverUrl={channelSurface.coverUrl}
+            avatarUrl={channelSurface.avatarUrl}
+            visualTitle={channelSurface.visualTitle}
+            subtitle={browseView.subtitle}
+          />
+          <section className="riffsync-channel-layout__body">
+            <div className="container">
+              <CatalogLoadErrorPanel
+                error={error}
+                onRetry={() => {
+                  void refetch()
+                }}
+                homeLink
+              />
+            </div>
+          </section>
+        </div>
+      )
+    }
     return (
       <div className="container">
         <CatalogLoadErrorPanel

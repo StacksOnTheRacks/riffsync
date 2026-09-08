@@ -10,7 +10,19 @@ export const MOVIES_CHANNEL_COVER_URL = '/channel/movies/cover.svg'
 export const MOVIES_CHANNEL_AVATAR_URL = '/channel/movies/avatar.svg'
 export const MOVIES_CHANNEL_VISUAL_TITLE = 'Movies'
 
-export type ChannelLayoutSlug = 'mst3k' | 'tv-shows' | 'movies'
+export const RIFFTRAX_CHANNEL_COVER_URL = '/channel/rifftrax/cover.svg'
+export const RIFFTRAX_CHANNEL_AVATAR_URL = '/channel/rifftrax/avatar.svg'
+export const RIFFTRAX_CHANNEL_VISUAL_TITLE = 'RiffTrax'
+
+export const COMMUNITY_CHANNEL_COVER_URL = '/channel/community/cover.svg'
+export const COMMUNITY_CHANNEL_AVATAR_URL = '/channel/community/avatar.svg'
+export const COMMUNITY_CHANNEL_VISUAL_TITLE = 'Community'
+
+export const LIVE_NOW_CHANNEL_COVER_URL = '/channel/live-now/cover.svg'
+export const LIVE_NOW_CHANNEL_AVATAR_URL = '/channel/live-now/avatar.svg'
+export const LIVE_NOW_CHANNEL_VISUAL_TITLE = 'Live Now'
+
+export type ChannelLayoutSlug = 'mst3k' | 'tv-shows' | 'movies' | 'rifftrax' | 'community'
 
 export interface ChannelSurfaceConfig {
   srOnlyHeading: string
@@ -38,11 +50,23 @@ export const CHANNEL_SURFACE_CONFIG: Record<ChannelLayoutSlug, ChannelSurfaceCon
     avatarUrl: MOVIES_CHANNEL_AVATAR_URL,
     visualTitle: MOVIES_CHANNEL_VISUAL_TITLE,
   },
+  rifftrax: {
+    srOnlyHeading: 'RiffTrax',
+    coverUrl: RIFFTRAX_CHANNEL_COVER_URL,
+    avatarUrl: RIFFTRAX_CHANNEL_AVATAR_URL,
+    visualTitle: RIFFTRAX_CHANNEL_VISUAL_TITLE,
+  },
+  community: {
+    srOnlyHeading: 'Community',
+    coverUrl: COMMUNITY_CHANNEL_COVER_URL,
+    avatarUrl: COMMUNITY_CHANNEL_AVATAR_URL,
+    visualTitle: COMMUNITY_CHANNEL_VISUAL_TITLE,
+  },
 }
 
 export function getChannelSurfaceConfig(slug: string): ChannelSurfaceConfig | undefined {
-  if (slug === 'mst3k' || slug === 'tv-shows' || slug === 'movies') {
-    return CHANNEL_SURFACE_CONFIG[slug]
+  if (slug in CHANNEL_SURFACE_CONFIG) {
+    return CHANNEL_SURFACE_CONFIG[slug as ChannelLayoutSlug]
   }
   return undefined
 }
