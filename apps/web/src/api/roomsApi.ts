@@ -52,6 +52,35 @@ export type RoomMode = 'theater' | 'videoChat'
 
 export type RoomPlaybackHost = 'youtube' | 'custom'
 
+export interface MineRoomRow {
+  roomId: string
+  displayTitle: string
+  catalogEpisodeId: string
+  lastActivityAt: number
+  visibility: 'public' | 'private'
+}
+
+export interface MineRoomsResponse {
+  rooms: MineRoomRow[]
+}
+
+export async function fetchRoomsMine(accessToken: string): Promise<MineRoomsResponse> {
+  const base = getPublicApiBaseUrl()
+  if (!base) throw new Error('Configure VITE_PUBLIC_API_BASE_URL.')
+  const res = await fetch(`${base}/v1/rooms/mine`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+    },
+  })
+  if (res.status === 401) throw new Error('Sign in again — host token rejected')
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(`Rooms mine failed (${res.status}): ${t}`)
+  }
+  return (await res.json()) as MineRoomsResponse
+}
+
 export interface RoomSnapshot {
   roomId: string
   hostSub: string

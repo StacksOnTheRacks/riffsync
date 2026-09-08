@@ -6,6 +6,9 @@ export type RoomMode = 'theater' | 'videoChat';
 
 export const LOBBY_PARTITION = 'PUBLIC';
 
+/** GSI for host-owned room listings (`GET /v1/rooms/mine`). */
+export const HOST_SUB_ROOMS_INDEX = 'HostSubRoomsIndex';
+
 export function lobbySortKey(lastActivityAt: number, roomId: string): string {
   return `${String(lastActivityAt).padStart(20, '0')}#${roomId}`;
 }

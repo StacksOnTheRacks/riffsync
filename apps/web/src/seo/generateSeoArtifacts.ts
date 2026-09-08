@@ -11,6 +11,7 @@ export const ROBOTS_DISALLOW_PATHS = [
   '/room/',
   '/lobby',
   '/account',
+  '/your-parties',
   '/admin/',
   '/cast/receiver',
   '/privacy/data-removal',

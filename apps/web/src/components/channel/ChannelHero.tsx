@@ -5,9 +5,18 @@ export interface ChannelHeroProps {
   avatarUrl: string
   visualTitle: string
   subtitle?: ReactNode
+  /** When set to h1, the visual title is the page heading (Your Parties). */
+  visualTitleAs?: 'h1' | 'p'
 }
 
-export function ChannelHero({ coverUrl, avatarUrl, visualTitle, subtitle }: ChannelHeroProps) {
+export function ChannelHero({
+  coverUrl,
+  avatarUrl,
+  visualTitle,
+  subtitle,
+  visualTitleAs = 'p',
+}: ChannelHeroProps) {
+  const TitleTag = visualTitleAs
   return (
     <header className="riffsync-channel-hero">
       <div className="riffsync-channel-hero__cover">
@@ -22,7 +31,7 @@ export function ChannelHero({ coverUrl, avatarUrl, visualTitle, subtitle }: Chan
           height={80}
         />
         <div className="riffsync-channel-hero__titles">
-          <p className="riffsync-channel-hero__visual-title">{visualTitle}</p>
+          <TitleTag className="riffsync-channel-hero__visual-title">{visualTitle}</TitleTag>
           {subtitle ? <p className="riffsync-channel-hero__subtitle">{subtitle}</p> : null}
         </div>
       </div>

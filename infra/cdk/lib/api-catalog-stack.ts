@@ -18,6 +18,7 @@ import type { Construct } from 'constructs';
 
 import { fanWebAlternateDomainNamesFromContext } from './context-alternate-domains';
 import { SFU_ADMIN_SECRET_NAME, SFU_JOIN_SECRET_NAME } from './media-server-stack';
+import { HOST_SUB_ROOMS_INDEX } from '../lambda/room-shared';
 
 export interface ApiCatalogStackProps extends cdk.StackProps {
   /**
@@ -247,6 +248,12 @@ export class ApiCatalogStack extends cdk.Stack {
       indexName: 'PublicLobbyIndex',
       partitionKey: { name: 'lobbyPk', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'lobbySk', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+    this.roomsTable.addGlobalSecondaryIndex({
+      indexName: HOST_SUB_ROOMS_INDEX,
+      partitionKey: { name: 'hostSub', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'lastActivityAt', type: dynamodb.AttributeType.NUMBER },
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
@@ -617,6 +624,22 @@ export class ApiCatalogStack extends cdk.Stack {
       },
     });
 
+    const roomMineFn = new lambdaNodejs.NodejsFunction(this, 'RoomMineFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/room-mine.ts'),
+      handler: 'handler',
+      environment: {
+        ROOMS_TABLE_NAME: this.roomsTable.tableName,
+        FRIENDSHIP_RATE_LIMIT_TABLE_NAME: friendshipRateLimitTable.tableName,
+        ROOMS_MINE_LIMIT_PER_MINUTE: '60',
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+
     const liveGetFn = new lambdaNodejs.NodejsFunction(this, 'LiveGetFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(10),
@@ -639,6 +662,8 @@ export class ApiCatalogStack extends cdk.Stack {
     this.catalogTable.grantReadData(liveGetFn);
     this.roomsTable.grantReadData(roomGetFn);
     this.roomsTable.grantReadData(lobbyGetFn);
+    this.roomsTable.grantReadData(roomMineFn);
+    friendshipRateLimitTable.grantReadWriteData(roomMineFn);
     this.connectionsTable.grantReadData(lobbyGetFn);
     this.roomPresenceTable.grantReadData(lobbyGetFn);
     this.fanProfilesTable.grantReadData(lobbyGetFn);
@@ -1395,6 +1420,7 @@ export class ApiCatalogStack extends cdk.Stack {
     const roomCreateIntegration = new integrations.HttpLambdaIntegration('RoomCreateInt', roomCreateFn);
     const roomPatchIntegration = new integrations.HttpLambdaIntegration('RoomPatchInt', roomPatchFn);
     const roomGetIntegration = new integrations.HttpLambdaIntegration('RoomGetInt', roomGetFn);
+    const roomMineIntegration = new integrations.HttpLambdaIntegration('RoomMineInt', roomMineFn);
     const lobbyGetIntegration = new integrations.HttpLambdaIntegration('LobbyGetInt', lobbyGetFn);
     const privacyRemovalIntegration = new integrations.HttpLambdaIntegration(
       'PrivacyRemovalInt',
@@ -1481,6 +1507,13 @@ export class ApiCatalogStack extends cdk.Stack {
       path: '/v1/rooms',
       methods: [apigwv2.HttpMethod.POST],
       integration: roomCreateIntegration,
+      authorizer: fanJwtAuthorizer,
+    });
+
+    this.httpApi.addRoutes({
+      path: '/v1/rooms/mine',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: roomMineIntegration,
       authorizer: fanJwtAuthorizer,
     });
 
