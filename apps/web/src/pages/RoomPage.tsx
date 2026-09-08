@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RoomMode } from '../api/roomsApi'
 import { fetchFanProfile } from '../api/fanProfileApi'
@@ -49,6 +49,8 @@ import { useHostExtensionPresence } from '../room/useHostExtensionPresence'
 import { useHostNextUpQueue } from '../room/useHostNextUpQueue'
 import { useCatalogListQuery } from '../catalog/catalogQueries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
+import { NavigationSlim } from '../room/NavigationSlim'
+import { HostTheaterButtonBar } from '../room/HostTheaterButtonBar'
 
 export function RoomPage() {
   const { roomId: roomIdParam } = useParams<{ roomId: string }>()
@@ -70,7 +72,9 @@ export function RoomPage() {
   const [renameModalDraft, setRenameModalDraft] = useState('')
   const [loadMediaModalOpen, setLoadMediaModalOpen] = useState(false)
   const [loadMediaApplyErr, setLoadMediaApplyErr] = useState<string | null>(null)
+  const [chatRailOpen, setChatRailOpen] = useState(true)
   const loadMediaOpenerRef = useRef<HTMLButtonElement | null>(null)
+  const navigate = useNavigate()
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null)
 
   const a11yAnnouncerRef = useRef<HTMLDivElement | null>(null)
@@ -633,6 +637,12 @@ export function RoomPage() {
 
   const backdropImageUrl = catalogEp?.backdropImageUrl?.trim()
   const viewerCount = peopleShown.length
+  const roomDisplayTitle =
+    room?.displayTitle?.trim() ||
+    catalogEp?.title?.trim() ||
+    room?.catalogEpisodeId ||
+    'Watch party'
+
   const roomSidebarProps = {
     wsBase,
     fanToken,
@@ -723,6 +733,12 @@ export function RoomPage() {
         />
       ) : null}
 
+      <NavigationSlim
+        title={roomDisplayTitle}
+        subtitle={isPublisher ? 'Host' : undefined}
+        leaveHref="/lobby"
+      />
+
       <div className="container riffsync-room-page">
         {sfuConfigAlert ? (
           <p
@@ -734,7 +750,7 @@ export function RoomPage() {
           </p>
         ) : null}
         <div
-          className={`riffsync-room-page__stage${expandedViewActive ? ' riffsync-room-page__stage--expanded' : ''}`}
+          className={`riffsync-room-page__stage${expandedViewActive ? ' riffsync-room-page__stage--expanded' : ''}${chatRailOpen ? ' riffsync-room-page__stage--chat-open' : ''}`}
           data-expanded-view={expandedViewActive ? 'true' : 'false'}
         >
           <div className={`riffsync-room-page__theater${expandedViewActive ? ' riffsync-room-page__theater--expanded' : ''}`}>
@@ -748,6 +764,47 @@ export function RoomPage() {
               >
                 {expandedViewActive ? 'Exit expanded view' : 'Expand view'}
               </button>
+            ) : null}
+            {isPublisher && hostConsoleProps ? (
+              <HostTheaterButtonBar
+                extensionPresent={hostConsoleProps.extensionPresent}
+                mediaTabOpen={hostConsoleProps.mediaTabOpen}
+                mediaPlaybackControllable={hostConsoleProps.mediaPlaybackControllable}
+                captureActive={hostConsoleProps.captureActive}
+                transportBusy={hostConsoleProps.transportBusy ?? false}
+                onOpenLoadMedia={hostConsoleProps.onOpenLoadMedia}
+                loadMediaOpenerRef={loadMediaOpenerRef}
+                onToggleChatRail={() => setChatRailOpen((open) => !open)}
+                chatRailOpen={chatRailOpen}
+                onLeave={() => navigate('/lobby')}
+                participantAvController={fanToken ? participantAvController : null}
+                avDisabled={avDisabled}
+                showAvControls={Boolean(fanToken)}
+                onLocalToggleAnnounce={announceRoomA11y}
+                castAvailability={castAvailability}
+                castStartLifecycle={castStartLifecycle}
+                onCastToTvClick={onCastToTvClick}
+                castToTvButtonRef={castToTvButtonRef}
+                onLinkTvClick={openLinkPanel}
+                linkTvActive={linkActive}
+                linkTvButtonRef={linkTvButtonRef}
+                onStartBroadcast={hostConsoleProps.onStartBroadcast}
+                onStopBroadcast={hostConsoleProps.onStopBroadcast}
+                onPlay={hostConsoleProps.onPlay}
+                onPause={hostConsoleProps.onPause}
+                onCopyShare={() => void copyShare()}
+                shareHint={shareHint}
+                onOpenRenameModal={openRenameModal}
+                roomVisibility={room.visibility}
+                visibilityBusy={visibilityBusy}
+                visibilityErr={visibilityErr}
+                onSelectRoomVisibility={(visibility) => void patchRoomVisibility(visibility)}
+                roomMode={roomMode}
+                hostBarBusy={hostBarBusy}
+                hostBarErr={hostBarErr}
+                onSelectRoomMode={(mode) => void patchHostRoomFields({ roomMode: mode })}
+                onToggleAvDisabled={(next) => void patchHostRoomFields({ avDisabled: next })}
+              />
             ) : null}
             {expandedViewActive ? <RoomPageSidebar presentation="overlay" {...roomSidebarProps} activeSidebarTab="chat" /> : null}
             <StageParticipantLayout
@@ -799,7 +856,7 @@ export function RoomPage() {
             />
           </div>
 
-          {!expandedViewActive ? <RoomPageSidebar {...roomSidebarProps} /> : null}
+          {!expandedViewActive && chatRailOpen ? <RoomPageSidebar {...roomSidebarProps} /> : null}
         </div>
         {isPublisher ? (
           <HostControlBar

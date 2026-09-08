@@ -870,10 +870,10 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
-  --riffsync-room-chrome-height: 0px;
+  --riffsync-room-chrome-height: 3rem;
   --riffsync-vv-height: 100dvh;
   --riffsync-vv-offset-top: 0px;
-  --riffsync-room-stage-max-height: 100dvh;
+  --riffsync-room-stage-max-height: calc(100dvh - var(--riffsync-room-chrome-height));
 }
 
 .riffsync-site--room.riffsync-site--room-expanded {
@@ -5419,3 +5419,272 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   }
 }
 
+/* Host theater Figma reskin (#452) */
+.riffsync-room-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.riffsync-navigation-slim {
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  background: var(--surface-primary, rgb(13 17 23 / 0.96));
+  color: var(--text-primary, #e6edf3);
+}
+
+.riffsync-navigation-slim__inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: var(--riffsync-room-chrome-height, 3rem);
+  padding: 0.35rem clamp(0.75rem, 2vw, 1.25rem);
+}
+
+.riffsync-navigation-slim__leave {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.riffsync-navigation-slim__leave-text {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .riffsync-navigation-slim__leave-text {
+    display: inline;
+  }
+}
+
+.riffsync-navigation-slim__titles {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.riffsync-navigation-slim__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.riffsync-navigation-slim__subtitle {
+  margin: 0.1rem 0 0;
+  font-size: 0.78rem;
+  color: var(--secondary-color, rgb(255 255 255 / 0.65));
+}
+
+.riffsync-chatbox {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface-primary, rgb(22 27 34 / 0.92));
+  border-left: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.riffsync-chatbox__toolbar {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.5rem 0;
+}
+
+.riffsync-chatbox__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.riffsync-chatbox__tab {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary, #e6edf3);
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.riffsync-chatbox__tab--on,
+.riffsync-chatbox__tab[aria-selected='true'] {
+  background: var(--buttonprimary, rgb(56 139 253 / 0.18));
+  border-color: rgb(56 139 253 / 0.35);
+}
+
+.riffsync-chatbox__tab:focus-visible {
+  outline: 2px solid rgb(56 139 253 / 0.85);
+  outline-offset: 2px;
+}
+
+.riffsync-chatbox__tab-unread-dot {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.25rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #f85149;
+}
+
+.riffsync-chatbox__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.riffsync-chatbox__panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.riffsync-room-page__aux-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0 0.5rem 0.35rem;
+}
+
+.riffsync-host-theater-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+
+.riffsync-host-theater-bar__segments {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  pointer-events: auto;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: rgb(13 17 23 / 0.88);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+.riffsync-host-theater-bar--extension .riffsync-host-theater-bar__segments {
+  max-width: min(689px, calc(100vw - 2rem));
+}
+
+.riffsync-host-theater-bar:not(.riffsync-host-theater-bar--extension) .riffsync-host-theater-bar__segments {
+  max-width: min(557px, calc(100vw - 2rem));
+}
+
+.riffsync-host-theater-bar__segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.55rem;
+  border: none;
+  border-right: 1px solid rgb(255 255 255 / 0.08);
+  background: transparent;
+  color: var(--text-primary, #e6edf3);
+  cursor: pointer;
+}
+
+.riffsync-host-theater-bar__segment:last-child {
+  border-right: none;
+}
+
+.riffsync-host-theater-bar__segment--on {
+  background: var(--buttonprimary, rgb(56 139 253 / 0.22));
+}
+
+.riffsync-host-theater-bar__segment--load-media {
+  min-width: 3.5rem;
+}
+
+.riffsync-host-theater-bar__segment:focus-visible {
+  outline: 2px solid rgb(56 139 253 / 0.85);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.riffsync-host-theater-bar__segment:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.riffsync-host-theater-bar__chevron {
+  opacity: 0.75;
+}
+
+.riffsync-host-theater-bar__av-note,
+.riffsync-host-theater-bar__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--secondary-color, rgb(255 255 255 / 0.72));
+  pointer-events: auto;
+}
+
+.riffsync-host-theater-bar__dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.55);
+  pointer-events: auto;
+}
+
+.riffsync-host-theater-bar__dialog {
+  width: min(24rem, 100%);
+  border-radius: 0.65rem;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: var(--surface-primary, #161b22);
+  color: var(--text-primary, #e6edf3);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.riffsync-host-theater-bar__dialog-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.riffsync-host-theater-bar__dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (max-width: 767px) {
+  .riffsync-room-page__stage:not(.riffsync-room-page__stage--chat-open) .riffsync-room-page__chat-column {
+    display: none;
+  }
+
+  .riffsync-host-theater-bar__segments {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: calc(100vw - 1rem);
+    scrollbar-width: thin;
+  }
+}
+
+@media (min-width: 768px) {
+  .riffsync-room-page__stage .riffsync-room-page__chat-column {
+    display: flex;
+  }
+}
