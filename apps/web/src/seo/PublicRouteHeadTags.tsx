@@ -15,6 +15,7 @@ import {
 const NOINDEX_PREFIXES = ['/admin/', '/room/'] as const
 const NOINDEX_PATHS = new Set([
   '/account',
+  '/your-parties',
   '/admin',
   '/admin/auth/callback',
   '/admin/login',

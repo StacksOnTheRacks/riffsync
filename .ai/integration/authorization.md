@@ -28,7 +28,7 @@ Who may do what, and how identity is represented. Aligns with **`docs/architectu
 
 | Authorizer | Issuer / audience | Routes |
 | --- | --- | --- |
-| **Fan JWT** | Fan pool id + fan SPA client id | **`POST /v1/rooms`**, room-admin **`PATCH`/`PUT`**, **`/v1/fans/*`**, **`/v1/friends/*`**, **`GET /v1/giphy/search`**, **DM** routes (fan authorizer family), publisher WebSocket paths requiring **`sub === hostSub`**. |
+| **Fan JWT** | Fan pool id + fan SPA client id | **`POST /v1/rooms`**, **`GET /v1/rooms/mine`**, room-admin **`PATCH`/`PUT`**, **`/v1/fans/*`**, **`/v1/friends/*`**, **`GET /v1/giphy/search`**, **DM** routes (fan authorizer family), publisher WebSocket paths requiring **`sub === hostSub`**. |
 | **Staff JWT** | Staff pool id + staff SPA client id | **`/v1/admin/*`** only. **Does not** bind to friends/DM body or friendship mutation routes. |
 
 - **Cross-pool rejection:** API Gateway validates **issuer** and **jwt audience** per route binding. A fan token on **`/v1/admin/*`** or a staff token on fan-gated routes **fails at the authorizer** (typically **401**) without Lambda involvement.

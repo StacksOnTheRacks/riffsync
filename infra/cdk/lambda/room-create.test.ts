@@ -104,15 +104,20 @@ describe('room-create handler', () => {
       .mockResolvedValueOnce({});
 
     const res = await handler(
-      createEvent({
-        catalogEpisodeId: 'ep-yt',
-        playbackExpectation: 'free',
-        visibility: 'public',
-      }),
+      createEvent(
+        {
+          catalogEpisodeId: 'ep-yt',
+          playbackExpectation: 'free',
+          visibility: 'public',
+        },
+        'host-sub-1',
+      ),
     );
 
     expect(res.statusCode).toBe(201);
     const putCall = mocks.docSend.mock.calls[1]?.[0] as { input: { Item: Record<string, unknown> } };
+    expect(putCall.input.Item.hostSub).toBe('host-sub-1');
+    expect(typeof putCall.input.Item.lastActivityAt).toBe('number');
     expect(putCall.input.Item).toMatchObject({
       playbackHost: 'youtube',
       customPlaybackUrl: null,
