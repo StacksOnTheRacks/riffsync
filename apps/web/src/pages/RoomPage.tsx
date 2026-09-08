@@ -765,14 +765,14 @@ export function RoomPage() {
                 {expandedViewActive ? 'Exit expanded view' : 'Expand view'}
               </button>
             ) : null}
-            {isPublisher && hostConsoleProps ? (
+            {isPublisher ? (
               <HostTheaterButtonBar
-                extensionPresent={hostConsoleProps.extensionPresent}
-                mediaTabOpen={hostConsoleProps.mediaTabOpen}
-                mediaPlaybackControllable={hostConsoleProps.mediaPlaybackControllable}
-                captureActive={hostConsoleProps.captureActive}
-                transportBusy={hostConsoleProps.transportBusy ?? false}
-                onOpenLoadMedia={hostConsoleProps.onOpenLoadMedia}
+                extensionPresent={hostExtension.present}
+                mediaTabOpen={hostExtension.mediaState.mediaTabOpen}
+                mediaPlaybackControllable={hostExtension.mediaState.mediaPlaybackControllable}
+                captureActive={Boolean(captureStream)}
+                transportBusy={hostConsoleBusy}
+                onOpenLoadMedia={openLoadMediaModal}
                 loadMediaOpenerRef={loadMediaOpenerRef}
                 onToggleChatRail={() => setChatRailOpen((open) => !open)}
                 chatRailOpen={chatRailOpen}
@@ -788,10 +788,18 @@ export function RoomPage() {
                 onLinkTvClick={openLinkPanel}
                 linkTvActive={linkActive}
                 linkTvButtonRef={linkTvButtonRef}
-                onStartBroadcast={hostConsoleProps.onStartBroadcast}
-                onStopBroadcast={hostConsoleProps.onStopBroadcast}
-                onPlay={hostConsoleProps.onPlay}
-                onPause={hostConsoleProps.onPause}
+                onStartBroadcast={() => {
+                  void startCapture()
+                }}
+                onStopBroadcast={() => {
+                  stopCapture()
+                }}
+                onPlay={() => {
+                  void hostExtension.play()
+                }}
+                onPause={() => {
+                  void hostExtension.pause()
+                }}
                 onCopyShare={() => void copyShare()}
                 shareHint={shareHint}
                 onOpenRenameModal={openRenameModal}

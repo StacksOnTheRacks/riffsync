@@ -114,12 +114,14 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
   const [avState, setAvState] = useState(() =>
     participantAvController ? participantAvController.getState() : AV_EMPTY_STATE,
   )
+  const [trackedAvController, setTrackedAvController] = useState(participantAvController)
+  if (participantAvController !== trackedAvController) {
+    setTrackedAvController(participantAvController)
+    setAvState(participantAvController ? participantAvController.getState() : AV_EMPTY_STATE)
+  }
 
   useEffect(() => {
-    if (!participantAvController) {
-      setAvState(AV_EMPTY_STATE)
-      return
-    }
+    if (!participantAvController) return
     return participantAvController.subscribe(() => {
       setAvState(participantAvController.getState())
     })
