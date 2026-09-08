@@ -6,6 +6,8 @@ export const STATIC_INDEXABLE_ROUTES = [
   '/catalog/rifftrax',
   '/catalog/community',
   '/catalog/riff-material',
+  '/catalog/tv-shows',
+  '/catalog/movies',
   '/download',
   '/how-to-host-a-watchparty',
   '/terms',

@@ -118,12 +118,14 @@ describe('catalogEntriesPlayableInApp', () => {
 })
 
 describe('catalogEntriesVisibleInPublicBrowse', () => {
-  it('excludes playable movie_night rows from public browse', () => {
+  it('includes playable tv_shows and excludes playable movie_night, other, and live rows', () => {
     const entries = [
       episode({ id: 'yt', youtubeVideoId: 'abc12345678' }),
+      episode({ id: 'tv', catalog: 'tv_shows', youtubeVideoId: 'abc12345678' }),
       episode({ id: 'movie', catalog: 'movie_night', youtubeVideoId: 'abc12345678' }),
       episode({ id: 'other', catalog: 'other', youtubeVideoId: 'abc12345678' }),
+      episode({ id: 'live', catalog: 'live', youtubeVideoId: 'abc12345678' }),
     ]
-    expect(catalogEntriesVisibleInPublicBrowse(entries).map((e) => e.id)).toEqual(['yt'])
+    expect(catalogEntriesVisibleInPublicBrowse(entries).map((e) => e.id)).toEqual(['yt', 'tv'])
   })
 })

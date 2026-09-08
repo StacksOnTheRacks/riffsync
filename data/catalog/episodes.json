@@ -5223,6 +5223,27 @@
       "embedAllows": true,
       "playbackHost": "youtube",
       "customPlaybackUrl": null
+    },
+    {
+      "id": "9001-tv-shows-fixture",
+      "experimentNumber": 9001,
+      "title": "TV Shows Fixture Episode",
+      "catalog": "tv_shows",
+      "tags": [],
+      "labels": [],
+      "youtubeVideoId": "dQw4w9WgXcQ",
+      "youtubeWatchUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "tagline": null,
+      "posterImageUrl": null,
+      "backdropImageUrl": null,
+      "tmdbMovieId": null,
+      "tmdbArtworkSyncedAt": null,
+      "carousel": false,
+      "spotlight": false,
+      "movieSearchTitle": null,
+      "embedAllows": true,
+      "playbackHost": "youtube",
+      "customPlaybackUrl": null
     }
   ]
 }

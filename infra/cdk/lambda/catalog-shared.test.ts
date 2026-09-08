@@ -74,4 +74,14 @@ describe('projectEpisode', () => {
     const entry = projectEpisode({ ...baseItem, playbackHost: 'vimeo' });
     expect(entry.playbackHost).toBe('youtube');
   });
+
+  it('projects tv_shows catalog without coercing to other', () => {
+    const entry = projectEpisode({ ...baseItem, catalog: 'tv_shows' });
+    expect(entry.catalog).toBe('tv_shows');
+  });
+
+  it('coerces unknown catalog values to other', () => {
+    const entry = projectEpisode({ ...baseItem, catalog: 'unknown_bucket' });
+    expect(entry.catalog).toBe('other');
+  });
 });

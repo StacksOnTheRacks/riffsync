@@ -7,7 +7,7 @@ export interface CatalogEpisode {
   readonly id: string;
   readonly experimentNumber: number;
   readonly title: string;
-  readonly catalog: 'mst3k' | 'rifftrax' | 'community' | 'riff_material' | 'movie_night' | 'other' | 'live';
+  readonly catalog: 'mst3k' | 'rifftrax' | 'community' | 'riff_material' | 'movie_night' | 'tv_shows' | 'other' | 'live';
   readonly tags: string[];
   readonly labels: string[];
   readonly youtubeVideoId: string | null;
@@ -39,6 +39,7 @@ const CATALOGS = new Set([
   'community',
   'riff_material',
   'movie_night',
+  'tv_shows',
   'other',
   'live',
 ]);

@@ -8,6 +8,7 @@ export type CatalogCategory =
   | 'community'
   | 'riff_material'
   | 'movie_night'
+  | 'tv_shows'
   | 'other'
   | 'live'
 
@@ -17,6 +18,7 @@ export const CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   'community',
   'riff_material',
   'movie_night',
+  'tv_shows',
   'other',
   'live',
 ]
@@ -32,6 +34,7 @@ export const PUBLIC_CATALOG_CATEGORIES: readonly CatalogCategory[] = [
   'rifftrax',
   'community',
   'riff_material',
+  'tv_shows',
 ]
 
 const CATALOG_CATEGORY_LABELS: Record<CatalogCategory, string> = {
@@ -40,6 +43,7 @@ const CATALOG_CATEGORY_LABELS: Record<CatalogCategory, string> = {
   community: 'Community',
   riff_material: 'Riff Material',
   movie_night: 'Movie Night',
+  tv_shows: 'TV Shows',
   other: 'Other',
   live: 'Live',
 }

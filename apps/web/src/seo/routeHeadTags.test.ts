@@ -125,6 +125,20 @@ describe('buildStaticRouteHeadTags', () => {
           'Browse Riff Material titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/riff-material',
       },
+      {
+        route: '/catalog/tv-shows' as const,
+        title: 'TV Shows - RiffSync Catalog',
+        description:
+          'Browse TV Shows titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+        canonical: 'https://riffsync.tv/catalog/tv-shows',
+      },
+      {
+        route: '/catalog/movies' as const,
+        title: 'Movies - RiffSync Catalog',
+        description:
+          'Browse Movies titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+        canonical: 'https://riffsync.tv/catalog/movies',
+      },
     ] as const
 
     for (const { route, title, description, canonical } of subcategories) {
@@ -136,9 +150,10 @@ describe('buildStaticRouteHeadTags', () => {
     }
   })
 
-  it('indexes ten static routes without dynamic Live entries', () => {
-    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(10)
+  it('indexes twelve static routes without dynamic Live entries or movie-night legacy path', () => {
+    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(12)
     expect(STATIC_INDEXABLE_ROUTES).not.toContain('/live/mst3k-forever-a-thon')
+    expect(STATIC_INDEXABLE_ROUTES).not.toContain('/catalog/movie-night')
   })
 })
 

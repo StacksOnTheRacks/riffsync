@@ -38,6 +38,16 @@ const STATIC_ROUTE_COPY = {
     description:
       'Browse Riff Material titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
   },
+  '/catalog/tv-shows': {
+    title: 'TV Shows - RiffSync Catalog',
+    description:
+      'Browse TV Shows titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+  },
+  '/catalog/movies': {
+    title: 'Movies - RiffSync Catalog',
+    description:
+      'Browse Movies titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+  },
   '/download': {
     title: 'Install the RiffSync App - Download and Add to Home Screen',
     description:

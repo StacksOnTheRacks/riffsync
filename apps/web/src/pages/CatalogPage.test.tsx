@@ -177,7 +177,7 @@ describe('CatalogPage', () => {
     expect(cards).toHaveLength(catalogFixtures.length)
   })
 
-  it('excludes movie_night rows from the public hub grid', () => {
+  it('excludes movie_night rows from the public hub grid but includes tv_shows', () => {
     useCatalogListQuery.mockReturnValue({
       data: [
         ...catalogFixtures,
@@ -185,6 +185,11 @@ describe('CatalogPage', () => {
           id: 'ep-movie-night',
           title: 'Movie Night Pick',
           catalog: 'movie_night',
+        }),
+        episode({
+          id: 'ep-tv-shows-hub',
+          title: 'TV Shows Hub Pick',
+          catalog: 'tv_shows',
         }),
       ],
       isPending: false,
@@ -194,7 +199,8 @@ describe('CatalogPage', () => {
     })
     renderCatalogPage()
 
-    expect(container.querySelectorAll('.riffsync-catalog-card')).toHaveLength(catalogFixtures.length)
+    expect(container.querySelectorAll('.riffsync-catalog-card')).toHaveLength(catalogFixtures.length + 1)
     expect(container.textContent).not.toContain('Movie Night Pick')
+    expect(container.textContent).toContain('TV Shows Hub Pick')
   })
 })

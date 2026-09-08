@@ -6,6 +6,7 @@ const CATALOG_CATEGORIES = [
   'community',
   'riff_material',
   'movie_night',
+  'tv_shows',
   'other',
   'live',
 ]

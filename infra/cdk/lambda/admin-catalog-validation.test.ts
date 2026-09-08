@@ -65,6 +65,24 @@ describe('validateCatalogEpisodePost', () => {
     expect(result.item.customPlaybackUrl).toBeNull();
   });
 
+  it('accepts tv_shows catalog on create', () => {
+    const result = validateCatalogEpisodePost('ep-tv', {
+      ...requiredPostBody,
+      catalog: 'tv_shows',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.item.catalog).toBe('tv_shows');
+  });
+
+  it('rejects non-enum catalog values', () => {
+    const result = validateCatalogEpisodePost('ep-1', {
+      ...requiredPostBody,
+      catalog: 'movies',
+    });
+    expect(result.ok).toBe(false);
+  });
+
   it('persists provided hint fields', () => {
     const result = validateCatalogEpisodePost('ep-1', {
       ...requiredPostBody,
