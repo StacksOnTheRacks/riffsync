@@ -3,8 +3,6 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CATALOG_SUBCATEGORIES } from '../catalog/catalogBrowseIa'
-import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { PENDING_PARTY_EPISODE_KEY } from '../catalog/pendingPartyStorage'
 import { getFanAccessToken } from '../auth/fanTokens'
@@ -201,42 +199,6 @@ describe('CatalogSubcategoryPage', () => {
     })
   }
 
-  it.each(
-    CATALOG_SUBCATEGORIES.filter(
-      (entry) =>
-        entry.slug !== 'mst3k' &&
-        entry.slug !== 'rifftrax' &&
-        entry.slug !== 'community' &&
-        entry.slug !== 'movies' &&
-        entry.slug !== 'tv-shows',
-    ).map((entry) => [entry.path, entry.label, entry.subtitle] as const),
-  )(
-    'renders H1, subtitle, search, and filtered grid for %s without tag pills',
-    (path, label, subtitle) => {
-      renderSubcategoryPage(path)
-
-      const h1 = container.querySelector('h1')
-      expect(h1?.textContent).toBe(label)
-
-      expect(container.querySelector('.gen-breadcrumb nav[aria-label="breadcrumb"]')).toBeNull()
-      expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
-        subtitle,
-      )
-
-      expect(container.querySelector('.riffsync-catalog-filter-bar')).not.toBeNull()
-      expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
-      expect(container.querySelector('input[type="search"]')).not.toBeNull()
-
-      const subcategory = CATALOG_SUBCATEGORIES.find((entry) => entry.path === path)!
-      const expectedIds = filterCatalogEntries(catalogFixtures, {
-        titleQuery: '',
-        catalogs: [subcategory.catalog],
-      }).map((entry) => entry.id)
-
-      const cards = container.querySelectorAll('.riffsync-catalog-card')
-      expect(cards).toHaveLength(expectedIds.length)
-    },
-  )
 
   it('renders ChannelHero and ViewToggle on /catalog/mst3k with sr-only h1', () => {
     renderSubcategoryPage('/catalog/mst3k')
@@ -253,6 +215,34 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.textContent).not.toContain('Home')
     expect(container.textContent).not.toContain('Videos')
     expect(container.textContent).not.toContain('Live')
+  })
+
+  it('uses the sidebar MST3K icon and Movies | Shorts tabs', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+
+    expect(container.querySelector('.riffsync-channel-hero__avatar img')?.getAttribute('src')).toBe(
+      '/app-shell/sidebar/mst3k.jpg',
+    )
+    const tabs = [...container.querySelectorAll('.riffsync-channel-tabs__tab')]
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Movies', 'Shorts'])
+    expect(tabs[0]?.getAttribute('aria-current')).toBe('page')
+    expect(container.querySelector('.riffsync-view-toggle__label')).toBeNull()
+  })
+
+  it('uses the Movies nav icon and no section tabs on /catalog/movies', () => {
+    renderSubcategoryPage('/catalog/movies')
+    expect(container.querySelector('.riffsync-channel-hero__avatar img')?.getAttribute('src')).toBe(
+      '/app-shell/sidebar/movies.svg',
+    )
+    expect(container.querySelector('.riffsync-channel-tabs')).toBeNull()
+  })
+
+  it('uses the TV Shows nav icon and no section tabs on /catalog/tv-shows', () => {
+    renderSubcategoryPage('/catalog/tv-shows')
+    expect(container.querySelector('.riffsync-channel-hero__avatar img')?.getAttribute('src')).toBe(
+      '/app-shell/sidebar/tv-shows.svg',
+    )
+    expect(container.querySelector('.riffsync-channel-tabs')).toBeNull()
   })
 
   it('defaults to Cards view on /catalog/mst3k', () => {
@@ -394,22 +384,10 @@ describe('CatalogSubcategoryPage', () => {
     expect(channelCardTitles(container)).toEqual(['Pod People'])
   })
 
-  it('keeps title search working with selected MST3K pills', () => {
+  it('does not render an in-page title search on MST3K', () => {
     renderSubcategoryPage('/catalog/mst3k')
-    clickPill('Season: 1')
-
-    const search = container.querySelector('input[type="search"]') as HTMLInputElement
-    act(() => {
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype,
-        'value',
-      )?.set
-      nativeInputValueSetter?.call(search, 'cave')
-      search.dispatchEvent(new Event('input', { bubbles: true }))
-      search.dispatchEvent(new Event('change', { bubbles: true }))
-    })
-
-    expect(channelCardTitles(container)).toEqual(['Cave Dwellers'])
+    expect(container.querySelector('input[type="search"]')).toBeNull()
+    expect(container.querySelector('.riffsync-catalog-filter-bar__title')).toBeNull()
   })
 
   it('gracefully omits the Season pill group when no Season tags exist', () => {
@@ -440,23 +418,29 @@ describe('CatalogSubcategoryPage', () => {
     expect(titles).not.toContain('Other Experiment')
   })
 
-  it('Riff Material shows public label in chrome while filtering riff_material rows', () => {
+  it('uses ChannelHero, the sidebar icon, and no section tabs on /catalog/riff-material', () => {
     renderSubcategoryPage('/catalog/riff-material')
 
-    expect(container.querySelector('h1')?.textContent).toBe('Riff Material')
-    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('Riff Material')
+    expect(container.querySelector('.riffsync-channel-hero__visual-title')?.textContent).toBe(
+      'Riff Material',
+    )
+    expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe(
       'Cheesy Flicks Ready to Riff',
     )
-    expect(container.querySelector('.riffsync-channel-layout')).toBeNull()
-
-    const cards = container.querySelectorAll('.riffsync-catalog-card')
-    expect(cards).toHaveLength(1)
-    expect(cards[0]?.querySelector('h3 a')?.textContent?.trim()).toBe('Riff Material Classic')
+    expect(container.querySelector('.riffsync-channel-hero__avatar img')?.getAttribute('src')).toBe(
+      '/app-shell/sidebar/riff-material.svg',
+    )
+    expect(container.querySelector('.riffsync-channel-tabs')).toBeNull()
+    expect(container.querySelector('.riffsync-view-toggle')).not.toBeNull()
+    expect(container.querySelector('.riffsync-catalog-page-header')).toBeNull()
+    expect(channelCardTitles(container)).toEqual(['Riff Material Classic'])
   })
 
   it.each([
     ['/catalog/rifftrax', 'RiffTrax', 'RiffTrax', 'RiffTrax Movies'] as const,
     ['/catalog/community', 'Community', 'Community', 'Community Made Riffs'] as const,
+    ['/catalog/riff-material', 'Riff Material', 'Riff Material', 'Cheesy Flicks Ready to Riff'] as const,
     ['/catalog/tv-shows', 'TV Shows', 'TV Shows', 'Television Riffs'] as const,
     ['/catalog/movies', 'Movies', 'Movies', 'Movie Night Picks'] as const,
   ])(
@@ -490,6 +474,7 @@ describe('CatalogSubcategoryPage', () => {
   it.each([
     ['/catalog/rifftrax', 'RiffTrax Feature', 'ep-rifftrax-movie', 'rifftrax'] as const,
     ['/catalog/community', 'Community Riff', 'ep-community', 'community'] as const,
+    ['/catalog/riff-material', 'Riff Material Classic', 'ep-riff-material', 'riff_material'] as const,
     ['/catalog/tv-shows', 'TV Shows Pick', 'ep-tv-shows', 'tv_shows'] as const,
     ['/catalog/movies', 'Movie Night Pick', 'ep-movie-night', 'movie_night'] as const,
   ])(
@@ -517,6 +502,10 @@ describe('CatalogSubcategoryPage', () => {
         expect(titles).not.toContain('Community Riff')
         expect(titles).not.toContain('TV Shows Pick')
         expect(titles).not.toContain('Movie Night Pick')
+      } else if (catalog === 'riff_material') {
+        expect(titles).not.toContain('Community Riff')
+        expect(titles).not.toContain('RiffTrax Feature')
+        expect(titles).not.toContain('Movie Night Pick')
       }
 
       const cards = container.querySelectorAll('.riffsync-channel-movie-card')
@@ -531,6 +520,7 @@ describe('CatalogSubcategoryPage', () => {
   it.each([
     '/catalog/rifftrax',
     '/catalog/community',
+    '/catalog/riff-material',
     '/catalog/tv-shows',
     '/catalog/movies',
   ] as const)(
@@ -548,6 +538,7 @@ describe('CatalogSubcategoryPage', () => {
   it.each([
     '/catalog/rifftrax',
     '/catalog/community',
+    '/catalog/riff-material',
     '/catalog/tv-shows',
     '/catalog/movies',
   ] as const)(
@@ -569,6 +560,7 @@ describe('CatalogSubcategoryPage', () => {
   it.each([
     '/catalog/rifftrax',
     '/catalog/community',
+    '/catalog/riff-material',
     '/catalog/tv-shows',
     '/catalog/movies',
   ] as const)(
@@ -586,26 +578,15 @@ describe('CatalogSubcategoryPage', () => {
   it.each([
     '/catalog/rifftrax',
     '/catalog/community',
+    '/catalog/riff-material',
     '/catalog/tv-shows',
     '/catalog/movies',
   ] as const)(
-    'keeps title search working on %s',
+    'does not render an in-page title search on %s',
     (path) => {
       renderSubcategoryPage(path)
-
-      const search = container.querySelector('input[type="search"]') as HTMLInputElement
-      act(() => {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-          window.HTMLInputElement.prototype,
-          'value',
-        )?.set
-        nativeInputValueSetter?.call(search, 'no match')
-        search.dispatchEvent(new Event('input', { bubbles: true }))
-        search.dispatchEvent(new Event('change', { bubbles: true }))
-      })
-
-      expect(channelCardTitles(container)).toEqual([])
-      expect(container.querySelector('.riffsync-catalog-no-match')).not.toBeNull()
+      expect(container.querySelector('input[type="search"]')).toBeNull()
+      expect(container.querySelector('.riffsync-catalog-filter-bar__title')).toBeNull()
     },
   )
 
@@ -670,6 +651,7 @@ describe('CatalogSubcategoryPage', () => {
   it.each([
     '/catalog/rifftrax',
     '/catalog/community',
+    '/catalog/riff-material',
     '/catalog/tv-shows',
     '/catalog/movies',
   ] as const)(
@@ -728,6 +710,7 @@ describe('CatalogSubcategoryPage', () => {
   it.each([
     '/catalog/rifftrax',
     '/catalog/community',
+    '/catalog/riff-material',
     '/catalog/tv-shows',
     '/catalog/movies',
   ] as const)(

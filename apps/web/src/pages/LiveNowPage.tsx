@@ -25,6 +25,7 @@ export function LiveNowPage() {
         <ChannelHero
           coverUrl={LIVE_NOW_CHANNEL_COVER_URL}
           avatarUrl={LIVE_NOW_CHANNEL_AVATAR_URL}
+          avatarVariant="glyph"
           visualTitle={LIVE_NOW_CHANNEL_VISUAL_TITLE}
           subtitle="Official live channels on RiffSync"
         />
@@ -45,6 +46,7 @@ export function LiveNowPage() {
         <ChannelHero
           coverUrl={LIVE_NOW_CHANNEL_COVER_URL}
           avatarUrl={LIVE_NOW_CHANNEL_AVATAR_URL}
+          avatarVariant="glyph"
           visualTitle={LIVE_NOW_CHANNEL_VISUAL_TITLE}
           subtitle="Official live channels on RiffSync"
         />
@@ -70,14 +72,13 @@ export function LiveNowPage() {
       <ChannelHero
         coverUrl={LIVE_NOW_CHANNEL_COVER_URL}
         avatarUrl={LIVE_NOW_CHANNEL_AVATAR_URL}
+        avatarVariant="glyph"
         visualTitle={LIVE_NOW_CHANNEL_VISUAL_TITLE}
         subtitle="Official live channels on RiffSync"
+        toolbar={<ViewToggle view={view} onViewChange={setView} />}
       />
       <section className="riffsync-channel-layout__body">
         <div className="container riffsync-channel-layout__container">
-          <div className="riffsync-channel-layout__toolbar">
-            <ViewToggle view={view} onViewChange={setView} />
-          </div>
           {enabledChannels.length === 0 ? (
             <p className="riffsync-live-now-page__empty">No live channels right now.</p>
           ) : view === 'cards' ? (

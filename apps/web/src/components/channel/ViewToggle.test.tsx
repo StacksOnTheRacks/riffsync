@@ -30,6 +30,13 @@ describe('ViewToggle', () => {
     expect(group?.getAttribute('aria-label')).toBe('View mode')
     expect(container.querySelector('[aria-label="Cards"]')?.getAttribute('aria-pressed')).toBe('true')
     expect(container.querySelector('[aria-label="List"]')?.getAttribute('aria-pressed')).toBe('false')
+    expect(container.querySelector('.riffsync-view-toggle__label')).toBeNull()
+    expect(container.querySelector('[aria-label="List"] img')?.getAttribute('src')).toBe(
+      '/app-shell/channel/view-list.svg',
+    )
+    expect(container.querySelector('[aria-label="Cards"] img')?.getAttribute('src')).toBe(
+      '/app-shell/channel/view-cards.svg',
+    )
   })
 
   it('calls onViewChange when List is clicked', () => {

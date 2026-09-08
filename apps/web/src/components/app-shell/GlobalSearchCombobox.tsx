@@ -112,30 +112,48 @@ export function GlobalSearchCombobox() {
       <label className="sr-only" htmlFor="riffsync-global-search">
         Search catalog titles
       </label>
-      <input
-        ref={inputRef}
-        id="riffsync-global-search"
-        type="search"
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={showDropdown}
-        aria-controls={showDropdown ? listboxId : undefined}
-        aria-activedescendant={showDropdown ? activeDescendant : undefined}
-        className="riffsync-app-shell-search-input"
-        placeholder="Search titles"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value)
-          setActiveIndex(-1)
-          setOpen(true)
-        }}
-        onFocus={() => {
-          if (trimmedQuery.length > 0) {
+      <div className="riffsync-app-shell-search-box">
+        <input
+          ref={inputRef}
+          id="riffsync-global-search"
+          type="search"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showDropdown}
+          aria-controls={showDropdown ? listboxId : undefined}
+          aria-activedescendant={showDropdown ? activeDescendant : undefined}
+          className="riffsync-app-shell-search-input"
+          placeholder="Search"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setActiveIndex(-1)
             setOpen(true)
-          }
-        }}
-        onKeyDown={onInputKeyDown}
-      />
+          }}
+          onFocus={() => {
+            if (trimmedQuery.length > 0) {
+              setOpen(true)
+            }
+          }}
+          onKeyDown={onInputKeyDown}
+        />
+        <button
+          type="button"
+          className="riffsync-app-shell-search-submit"
+          aria-label="Search"
+          onClick={() => {
+            if (results[0]) {
+              selectEpisode(results[0])
+              return
+            }
+            inputRef.current?.focus()
+          }}
+        >
+          <span className="riffsync-app-shell-topbar-icon">
+            <img src="/app-shell/topbar/search.svg" alt="" width={24} height={24} />
+          </span>
+        </button>
+      </div>
       {showDropdown ? (
         <ul id={listboxId} className="riffsync-app-shell-search-listbox" role="listbox">
           {showLoading ? (

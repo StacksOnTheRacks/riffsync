@@ -5,6 +5,7 @@ import {
   startFanHostedUiSignOut,
 } from '../../auth/fanHostedUiPkce'
 import { useFanSession } from '../../auth/useFanSession'
+import { FanAvatarThumb } from '../FanAvatarThumb'
 
 export function ProfileMenu() {
   const { fanToken } = useFanSession()
@@ -80,9 +81,12 @@ export function ProfileMenu() {
       <button
         type="button"
         className="riffsync-app-shell-profile-sign-in"
+        aria-label="Sign In"
         onClick={onSignIn}
       >
-        Sign In
+        <span className="riffsync-app-shell-topbar-icon">
+          <img src="/app-shell/topbar/login.svg" alt="" width={24} height={24} />
+        </span>
       </button>
     )
   }
@@ -100,8 +104,7 @@ export function ProfileMenu() {
         onClick={toggleMenu}
         onKeyDown={onTriggerKeyDown}
       >
-        <i className="fa fa-user" aria-hidden />
-        <span className="riffsync-app-shell-profile-trigger-label">Account</span>
+        <FanAvatarThumb displayName="Account" sizePx={32} />
       </button>
       {open ? (
         <ul id={panelId} className="riffsync-app-shell-profile-menu" role="menu">

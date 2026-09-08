@@ -89,7 +89,7 @@ describe('CatalogPage', () => {
     }
   })
 
-  it('renders hub entry links in the page header above search and the mixed grid in fixed order', () => {
+  it('renders hub entry links in the page header above the mixed grid in fixed order', () => {
     renderCatalogPage()
 
     const pageHeader = container.querySelector('.riffsync-catalog-page-header')
@@ -101,10 +101,9 @@ describe('CatalogPage', () => {
     expect(container.textContent).not.toContain('Push the button, Frank')
     expect(container.textContent).not.toContain('Movie Night')
 
-    const filterBar = container.querySelector('.riffsync-catalog-filter-bar')
     const grid = container.querySelector('.riffsync-catalog-grid')
-    expect(hubNav!.compareDocumentPosition(filterBar!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
-    expect(filterBar!.compareDocumentPosition(grid!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(container.querySelector('.riffsync-catalog-filter-bar')).toBeNull()
+    expect(hubNav!.compareDocumentPosition(grid!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
 
     const hubLinks = Array.from(
       container.querySelectorAll('.riffsync-catalog-hub-entry-links__link'),
@@ -119,11 +118,11 @@ describe('CatalogPage', () => {
     )
   })
 
-  it('does not render public catalog-chip toggles on the hub', () => {
+  it('does not render an in-page catalog search on the hub', () => {
     renderCatalogPage()
 
-    expect(container.querySelector('.riffsync-catalog-filter-bar__era-group')).toBeNull()
-    expect(container.querySelector('.riffsync-catalog-filter-bar__era')).toBeNull()
+    expect(container.querySelector('.riffsync-catalog-filter-bar')).toBeNull()
+    expect(container.querySelector('input[type="search"]')).toBeNull()
   })
 
   it('includes Custom-host playable rows in the hub grid', () => {

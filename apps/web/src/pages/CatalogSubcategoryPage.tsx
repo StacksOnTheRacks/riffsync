@@ -6,12 +6,12 @@ import {
   getCatalogBrowseViewByPath,
 } from '../catalog/catalogBrowseIa'
 import { CatalogLoadErrorPanel } from '../components/catalog/CatalogLoadErrorPanel'
-import { CatalogFilterBar } from '../components/catalog/CatalogFilterBar'
 import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagFilterBar'
 import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { ChannelLayout } from '../components/channel/ChannelLayout'
 import { ChannelHero } from '../components/channel/ChannelHero'
+import { ChannelSectionTabs, getChannelToolbarTabs } from '../components/channel/ChannelSectionTabs'
 import { getChannelSurfaceConfig } from '../components/channel/channelSurfaceConfig'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
@@ -33,7 +33,6 @@ export function CatalogSubcategoryPage() {
   const subcategory = browseView?.subcategory
   const channelSurface = subcategory ? getChannelSurfaceConfig(subcategory.slug) : undefined
   const { data, isPending, isError, error, refetch } = useCatalogListQuery()
-  const [titleQuery, setTitleQuery] = useState('')
   const [selectedTagPills, setSelectedTagPills] = useState<SelectedMst3kTagPills>(EMPTY_MST3K_TAG_PILLS)
   const isMst3kRoute = subcategory?.slug === 'mst3k'
   const isRifftraxRoute = subcategory?.slug === 'rifftrax'
@@ -74,27 +73,18 @@ export function CatalogSubcategoryPage() {
       subcategory
         ? isMst3kRoute
           ? filterMst3kCatalogEntries(routeCatalogEntries, {
-              titleQuery,
+              titleQuery: '',
               catalogs: [subcategory.catalog],
               selectedTagPills: showMst3kTagPills ? selectedTagPills : EMPTY_MST3K_TAG_PILLS,
             })
           : usesRouteFilter
             ? filterCatalogEntries(routeCatalogEntries, {
-                titleQuery,
+                titleQuery: '',
                 catalogs: [subcategory.catalog],
               })
-            : filterCatalogEntries(playableEntries, { titleQuery, catalogs: [subcategory.catalog] })
+            : filterCatalogEntries(playableEntries, { titleQuery: '', catalogs: [subcategory.catalog] })
         : [],
-    [
-      routeCatalogEntries,
-      playableEntries,
-      titleQuery,
-      subcategory,
-      isMst3kRoute,
-      usesRouteFilter,
-      selectedTagPills,
-      showMst3kTagPills,
-    ],
+    [routeCatalogEntries, playableEntries, subcategory, isMst3kRoute, usesRouteFilter, selectedTagPills, showMst3kTagPills],
   )
 
   const filterBarDisabled = isPending && !data
@@ -141,8 +131,10 @@ export function CatalogSubcategoryPage() {
           <ChannelHero
             coverUrl={channelSurface.coverUrl}
             avatarUrl={channelSurface.avatarUrl}
+            avatarVariant={channelSurface.avatarVariant}
             visualTitle={channelSurface.visualTitle}
             subtitle={browseView.subtitle}
+            toolbar={<ChannelSectionTabs tabs={getChannelToolbarTabs(pathname)} pathname={pathname} />}
           />
           <section className="riffsync-channel-layout__body">
             <div className="container">
@@ -177,12 +169,11 @@ export function CatalogSubcategoryPage() {
         srOnlyHeading={channelSurface.srOnlyHeading}
         coverUrl={channelSurface.coverUrl}
         avatarUrl={channelSurface.avatarUrl}
+        avatarVariant={channelSurface.avatarVariant}
         visualTitle={channelSurface.visualTitle}
         subtitle={browseView.subtitle}
         filteredEntries={filteredEntries}
         routeCatalogEntries={routeCatalogEntries}
-        titleQuery={titleQuery}
-        onTitleQueryChange={setTitleQuery}
         filterBarDisabled={filterBarDisabled}
         showMst3kTagPills={showMst3kTagPills}
         selectedTagPills={selectedTagPills}
@@ -204,12 +195,6 @@ export function CatalogSubcategoryPage() {
       />
       <section className="gen-section-padding-3">
         <div className="container riffsync-catalog-page riffsync-catalog-subcategory-page">
-          <CatalogFilterBar
-            titleQuery={titleQuery}
-            onTitleQueryChange={setTitleQuery}
-            disabled={filterBarDisabled}
-            showCatalogChips={false}
-          />
           {showMst3kTagPills && (
             <Mst3kCatalogTagFilterBar
               entries={routeCatalogEntries}
@@ -234,9 +219,9 @@ export function CatalogSubcategoryPage() {
             <div className="riffsync-catalog-no-match">
               <p>No episodes match your filters.</p>
               <p className="riffsync-catalog-no-match-hint">
-                {hasActiveTagPills || titleQuery.trim()
-                  ? 'Clear the search field and tag pills to see all episodes.'
-                  : 'Clear the search field to see all episodes.'}
+                {hasActiveTagPills
+                  ? 'Clear the tag pills to see all episodes.'
+                  : 'Clear the filters to see all episodes.'}
               </p>
             </div>
           )}

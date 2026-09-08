@@ -50,7 +50,8 @@ describe('ProfileMenu', () => {
     useFanSession.mockReturnValue({ fanToken: null })
     renderMenu()
 
-    expect(container.textContent).toContain('Sign In')
+    expect(container.querySelector('[aria-label="Sign In"]')).not.toBeNull()
+    expect(container.textContent).not.toContain('Sign In')
     expect(container.querySelector('a[href="/your-parties"]')).toBeNull()
   })
 

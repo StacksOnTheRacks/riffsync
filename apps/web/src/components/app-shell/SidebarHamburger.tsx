@@ -29,7 +29,9 @@ export function SidebarHamburger({
       onClick={onToggle}
       onKeyDown={onKeyDown}
     >
-      <i className="fas fa-bars" aria-hidden />
+      <span className="riffsync-app-shell-topbar-icon">
+        <img src="/app-shell/topbar/hamburger.svg" alt="" width={24} height={24} />
+      </span>
     </button>
   )
 }

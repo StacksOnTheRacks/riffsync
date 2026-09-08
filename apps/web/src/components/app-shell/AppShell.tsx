@@ -30,6 +30,7 @@ export function AppShell({ children }: AppShellProps) {
           onClick={closeMobileDrawer}
         />
       ) : null}
+      <TopBar sidebarExpanded={sidebarExpanded} onToggleSidebar={toggleSidebar} />
       <Sidebar
         ref={sidebarRef}
         id="riffsync-app-shell-sidebar"
@@ -37,12 +38,9 @@ export function AppShell({ children }: AppShellProps) {
         mobileOpen={drawerOpen}
         onNavigate={isMobile ? closeMobileDrawer : undefined}
       />
-      <div className="riffsync-app-shell-body">
-        <TopBar sidebarExpanded={sidebarExpanded} onToggleSidebar={toggleSidebar} />
-        <main id="riffsync-main" className="riffsync-main riffsync-main--app-shell">
-          {children}
-        </main>
-      </div>
+      <main id="riffsync-main" className="riffsync-main riffsync-main--app-shell">
+        {children}
+      </main>
     </div>
   )
 }

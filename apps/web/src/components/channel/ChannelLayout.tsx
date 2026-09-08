@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import type { CatalogEpisode } from '../../catalog/catalogTypes'
 import type { SelectedMst3kTagPills } from '../../catalog/mst3kTagFilters'
-import { CatalogFilterBar } from '../catalog/CatalogFilterBar'
 import { Mst3kCatalogTagFilterBar } from '../catalog/Mst3kCatalogTagFilterBar'
 import { ChannelHero } from './ChannelHero'
+import { ChannelSectionTabs, getChannelToolbarTabs } from './ChannelSectionTabs'
+import type { ChannelAvatarVariant } from './channelSurfaceConfig'
 import { ViewToggle, type ChannelViewMode } from './ViewToggle'
 import { ChannelMovieCard } from './ChannelMovieCard'
 import { ChannelListRow } from './ChannelListRow'
@@ -12,12 +14,11 @@ export interface ChannelLayoutProps {
   srOnlyHeading: string
   coverUrl: string
   avatarUrl: string
+  avatarVariant?: ChannelAvatarVariant
   visualTitle: string
   subtitle?: ReactNode
   filteredEntries: CatalogEpisode[]
   routeCatalogEntries: CatalogEpisode[]
-  titleQuery: string
-  onTitleQueryChange: (query: string) => void
   filterBarDisabled: boolean
   showMst3kTagPills: boolean
   selectedTagPills: SelectedMst3kTagPills
@@ -32,12 +33,11 @@ export function ChannelLayout({
   srOnlyHeading,
   coverUrl,
   avatarUrl,
+  avatarVariant,
   visualTitle,
   subtitle,
   filteredEntries,
   routeCatalogEntries,
-  titleQuery,
-  onTitleQueryChange,
   filterBarDisabled,
   showMst3kTagPills,
   selectedTagPills,
@@ -48,6 +48,8 @@ export function ChannelLayout({
   hasActiveTagPills,
 }: ChannelLayoutProps) {
   const [view, setView] = useState<ChannelViewMode>('cards')
+  const { pathname } = useLocation()
+  const tabs = getChannelToolbarTabs(pathname)
 
   return (
     <div className="riffsync-channel-layout">
@@ -55,17 +57,18 @@ export function ChannelLayout({
       <ChannelHero
         coverUrl={coverUrl}
         avatarUrl={avatarUrl}
+        avatarVariant={avatarVariant}
         visualTitle={visualTitle}
         subtitle={subtitle}
+        toolbar={
+          <>
+            <ChannelSectionTabs tabs={tabs} pathname={pathname} />
+            <ViewToggle view={view} onViewChange={setView} />
+          </>
+        }
       />
       <section className="riffsync-channel-layout__body">
         <div className="container riffsync-channel-layout__container">
-          <CatalogFilterBar
-            titleQuery={titleQuery}
-            onTitleQueryChange={onTitleQueryChange}
-            disabled={filterBarDisabled}
-            showCatalogChips={false}
-          />
           {showMst3kTagPills ? (
             <Mst3kCatalogTagFilterBar
               entries={routeCatalogEntries}
@@ -74,9 +77,6 @@ export function ChannelLayout({
               disabled={filterBarDisabled}
             />
           ) : null}
-          <div className="riffsync-channel-layout__toolbar">
-            <ViewToggle view={view} onViewChange={setView} />
-          </div>
           {view === 'cards' ? (
             <div className="riffsync-channel-card-grid">
               {filteredEntries.map((episode) => (
@@ -101,9 +101,9 @@ export function ChannelLayout({
             <div className="riffsync-catalog-no-match">
               <p>No episodes match your filters.</p>
               <p className="riffsync-catalog-no-match-hint">
-                {hasActiveTagPills || titleQuery.trim()
-                  ? 'Clear the search field and tag pills to see all episodes.'
-                  : 'Clear the search field to see all episodes.'}
+                {hasActiveTagPills
+                  ? 'Clear the tag pills to see all episodes.'
+                  : 'Clear the filters to see all episodes.'}
               </p>
             </div>
           ) : null}

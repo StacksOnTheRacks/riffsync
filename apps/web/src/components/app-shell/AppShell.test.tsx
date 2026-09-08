@@ -30,6 +30,10 @@ vi.mock('../../auth/fanTokens', () => ({
   getFanAccessToken: vi.fn(() => null),
 }))
 
+vi.mock('../../friends/friendsApi', () => ({
+  fetchFriendRosterSnapshot: () => new Promise(() => {}),
+}))
+
 vi.mock('../../friends/useRoomFriendsPane', () => ({
   useRoomFriendsPane: () => ({
     loading: false,
@@ -147,12 +151,16 @@ describe('AppShell sidebar chrome', () => {
     expect(container.querySelector('.riffsync-app-shell-drawer-backdrop')).not.toBeNull()
   })
 
-  it('keeps Friends, Lobby, and Get App reachable', () => {
+  it('keeps Download App, Your Parties, and header profile reachable when signed in', () => {
     useFanSession.mockReturnValue({ fanToken: 'fan-token' })
     renderShell()
 
-    expect(container.querySelector('a[href="/lobby"]')).not.toBeNull()
-    expect(container.querySelector('a[href="/download"]')).not.toBeNull()
-    expect(container.querySelector('.riffsync-friends-nav')).not.toBeNull()
+    expect(container.textContent).toContain('Download App')
+    expect(container.querySelector('a[aria-label="Download App"]')).not.toBeNull()
+    expect(container.querySelector('a[href="/your-parties"]')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-profile-trigger')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-brand img')?.getAttribute('src')).toBe(
+      '/app-shell/topbar/logo.svg',
+    )
   })
 })

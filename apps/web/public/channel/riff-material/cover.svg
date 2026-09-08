@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 240" role="img" aria-label="Riff Material channel cover">
+  <defs>
+    <linearGradient id="riff-material-cover-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#431407" />
+      <stop offset="50%" stop-color="#b45309" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+  </defs>
+  <rect width="1440" height="240" fill="url(#riff-material-cover-gradient)" />
+  <circle cx="1080" cy="75" r="50" fill="#fde68a" opacity="0.12" />
+  <circle cx="260" cy="165" r="70" fill="#fde68a" opacity="0.08" />
+</svg>

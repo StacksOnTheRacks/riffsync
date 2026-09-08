@@ -50,6 +50,10 @@ vi.mock('../auth/fanTokens', () => ({
   getFanAccessToken: vi.fn(() => 'fan-token'),
 }))
 
+vi.mock('../friends/friendsApi', () => ({
+  fetchFriendRosterSnapshot: () => new Promise(() => {}),
+}))
+
 vi.mock('../friends/useRoomFriendsPane', () => ({
   useRoomFriendsPane: () => ({
     loading: false,
