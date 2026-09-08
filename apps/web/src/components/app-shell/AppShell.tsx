@@ -1,9 +1,6 @@
 import { useRef, type ReactNode } from 'react'
-import {
-  Sidebar,
-  useSidebarFocusTrap,
-  useSidebarShellState,
-} from './Sidebar'
+import { Sidebar } from './Sidebar'
+import { useSidebarFocusTrap, useSidebarShellState } from './sidebarShellState'
 import { TopBar } from './TopBar'
 import { useMobileAppShell } from './useMobileAppShell'
 

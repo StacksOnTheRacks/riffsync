@@ -1,12 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from 'react'
+import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CATALOG_UNAVAILABLE_MESSAGE } from '../../catalog/catalogLoadError'
 import { useCatalogListQuery } from '../../catalog/catalogQueries'
@@ -30,14 +22,13 @@ export function GlobalSearchCombobox() {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
 
-  const entries = data ?? []
-  const hasCache = entries.length > 0 || data !== undefined
+  const hasCache = (data?.length ?? 0) > 0 || data !== undefined
   const showLoading = isPending && !hasCache
   const showError = isError && !hasCache
 
   const results = useMemo(
-    () => (showError ? [] : filterGlobalSearchCatalogTitles(entries, query)),
-    [entries, query, showError],
+    () => (showError ? [] : filterGlobalSearchCatalogTitles(data ?? [], query)),
+    [data, query, showError],
   )
 
   const trimmedQuery = query.trim()
@@ -97,15 +88,11 @@ export function GlobalSearchCombobox() {
     }
   }
 
-  useEffect(() => {
-    if (!showDropdown) {
-      setActiveIndex(-1)
-    }
-  }, [showDropdown, query])
+  const highlightedIndex = showDropdown ? activeIndex : -1
 
   const activeDescendant =
-    activeIndex >= 0 && results[activeIndex]
-      ? `${listboxId}-option-${results[activeIndex]!.id}`
+    highlightedIndex >= 0 && results[highlightedIndex]
+      ? `${listboxId}-option-${results[highlightedIndex]!.id}`
       : undefined
 
   let statusAnnouncement = ''
@@ -139,6 +126,7 @@ export function GlobalSearchCombobox() {
         value={query}
         onChange={(event) => {
           setQuery(event.target.value)
+          setActiveIndex(-1)
           setOpen(true)
         }}
         onFocus={() => {
@@ -171,9 +159,11 @@ export function GlobalSearchCombobox() {
                   key={episode.id}
                   id={`${listboxId}-option-${episode.id}`}
                   role="option"
-                  aria-selected={index === activeIndex}
+                  aria-selected={index === highlightedIndex}
                   className={
-                    index === activeIndex ? 'riffsync-app-shell-search-option is-active' : 'riffsync-app-shell-search-option'
+                    index === highlightedIndex
+                      ? 'riffsync-app-shell-search-option is-active'
+                      : 'riffsync-app-shell-search-option'
                   }
                 >
                   <button

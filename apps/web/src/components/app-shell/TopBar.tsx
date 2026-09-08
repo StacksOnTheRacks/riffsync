@@ -3,7 +3,7 @@ import { useFanSession } from '../../auth/useFanSession'
 import { FriendsDropdown } from '../../friends/FriendsDropdown'
 import { GlobalSearchCombobox } from './GlobalSearchCombobox'
 import { ProfileMenu } from './ProfileMenu'
-import { SidebarHamburger } from './Sidebar'
+import { SidebarHamburger } from './SidebarHamburger'
 
 type TopBarProps = {
   sidebarExpanded: boolean
