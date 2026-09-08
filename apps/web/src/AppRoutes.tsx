@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { AppShellLayout } from './layouts/AppShellLayout'
 import { SiteLayout } from './layouts/SiteLayout'
 import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
 import { CatalogSubcategoryPage } from './pages/CatalogSubcategoryPage'
+import { YourPartiesPage } from './pages/YourPartiesPage'
 import { LobbyPage } from './pages/LobbyPage'
 import { LiveChannelPage } from './pages/LiveChannelPage'
 import { AccountPage } from './pages/AccountPage'
@@ -43,7 +45,7 @@ export function AppRoutes() {
           <Route path="email" element={<AdminEmailPage />} />
         </Route>
       </Route>
-      <Route element={<SiteLayout />}>
+      <Route element={<AppShellLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/catalog" element={<CatalogPage />} />
         <Route path="/catalog/mst3k" element={<CatalogSubcategoryPage />} />
@@ -57,6 +59,9 @@ export function AppRoutes() {
         <Route path="/catalog/riff-ready" element={<Navigate to="/catalog/riff-material" replace />} />
         <Route path="/catalog/riff-material" element={<CatalogSubcategoryPage />} />
         <Route path="/catalog/movie-night" element={<Navigate to="/catalog" replace />} />
+        <Route path="/your-parties" element={<YourPartiesPage />} />
+      </Route>
+      <Route element={<SiteLayout />}>
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/live/:slug" element={<LiveChannelPage />} />
