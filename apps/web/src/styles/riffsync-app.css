@@ -5215,3 +5215,207 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   }
 }
 
+/* Load Media modal (host title picker) */
+.riffsync-load-media-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(3 6 10 / 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.riffsync-load-media {
+  display: flex;
+  flex-direction: column;
+  width: min(56rem, 100%);
+  max-height: min(42rem, calc(100vh - 2rem));
+  border-radius: 10px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(10 12 18 / 0.98);
+  box-shadow: 0 28px 64px rgb(0 0 0 / 0.55);
+  overflow: hidden;
+}
+
+.riffsync-load-media__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.riffsync-load-media__sidebar {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+  padding: 0.65rem 0.75rem;
+}
+
+.riffsync-load-media__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.riffsync-load-media__category {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: rgb(255 255 255 / 0.04);
+  color: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.riffsync-load-media__category--active,
+.riffsync-load-media__category[aria-current='true'] {
+  border-color: rgb(255 255 255 / 0.35);
+  background: rgb(255 255 255 / 0.12);
+}
+
+.riffsync-load-media__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 0;
+  flex: 1;
+  padding: 0.75rem 0.85rem 0.85rem;
+}
+
+.riffsync-load-media__search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: rgb(255 255 255 / 0.06);
+  color: inherit;
+  font-size: 0.95rem;
+}
+
+.riffsync-load-media__table-wrap {
+  min-height: 12rem;
+  flex: 1;
+  overflow: auto;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.18);
+}
+
+.riffsync-load-media__status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.9rem;
+}
+
+.riffsync-load-media__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.riffsync-load-media__row {
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.riffsync-load-media__row--selected {
+  background: rgb(255 255 255 / 0.06);
+}
+
+.riffsync-load-media__poster-cell {
+  width: 3.25rem;
+  padding: 0.45rem 0.35rem 0.45rem 0.55rem;
+  vertical-align: middle;
+}
+
+.riffsync-load-media__poster {
+  display: block;
+  width: 2.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.riffsync-load-media__poster--empty {
+  display: block;
+  width: 2.5rem;
+  height: 3.5rem;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.riffsync-load-media__title-cell {
+  padding: 0.55rem 0.45rem;
+  vertical-align: middle;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.riffsync-load-media__action-cell {
+  width: 8.5rem;
+  padding: 0.45rem 0.65rem 0.45rem 0.25rem;
+  vertical-align: middle;
+  text-align: right;
+}
+
+.riffsync-load-media__load-btn {
+  padding: 0.35rem 0.55rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #ff4d4d;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.riffsync-load-media__load-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.riffsync-load-media__apply-err {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #ffb4b4;
+}
+
+@media (min-width: 768px) {
+  .riffsync-load-media__body {
+    flex-direction: row;
+  }
+
+  .riffsync-load-media__sidebar {
+    width: 11.5rem;
+    border-bottom: none;
+    border-right: 1px solid rgb(255 255 255 / 0.1);
+    padding: 0.85rem 0.65rem;
+  }
+
+  .riffsync-load-media__categories {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+  }
+
+  .riffsync-load-media__category {
+    width: 100%;
+    text-align: left;
+    border-radius: 6px;
+  }
+}
+

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type RefObject } from 'react'
 import { Link } from 'react-router-dom'
 import { useCatalogListQuery } from '../catalog/catalogQueries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
@@ -16,7 +16,8 @@ type HostRoomConsoleProps = {
   onAddCatalog: (episode: CatalogEpisode) => void
   onAddUrl: (url: string) => boolean
   onRemoveNextUp: (id: string) => void
-  onOpenMediaTab: () => void
+  onOpenLoadMedia: () => void
+  loadMediaOpenerRef?: RefObject<HTMLButtonElement | null>
   onStartBroadcast: () => void
   onStopBroadcast: () => void
   onPlay: () => void
@@ -36,7 +37,8 @@ export function HostRoomConsole({
   onAddCatalog,
   onAddUrl,
   onRemoveNextUp,
-  onOpenMediaTab,
+  onOpenLoadMedia,
+  loadMediaOpenerRef,
   onStartBroadcast,
   onStopBroadcast,
   onPlay,
@@ -71,40 +73,17 @@ export function HostRoomConsole({
     setUrlDraft('')
   }
 
-  if (!extensionPresent) {
-    return (
-      <div className="riffsync-host-console riffsync-host-console--no-ext">
-        <Link
-          className="gen-button gen-button-wide"
-          to={`/how-to-host-a-watchparty${HOST_EXTENSION_INSTALL_HASH}`}
-        >
-          Install Host Extension
-        </Link>
-        <Link
-          className="gen-button gen-button-wide"
-          to="/how-to-host-a-watchparty"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Hosting Guide
-        </Link>
-        <Link className="gen-button gen-button-wide" to="/">
-          Leave Party
-        </Link>
-      </div>
-    )
-  }
-
   return (
-    <div className="riffsync-host-console">
-      {!mediaTabOpen ? (
+    <div className={`riffsync-host-console${extensionPresent ? '' : ' riffsync-host-console--no-ext'}`}>
+      {!mediaTabOpen || !extensionPresent ? (
         <button
+          ref={loadMediaOpenerRef}
           type="button"
           className="gen-button gen-button-wide"
           disabled={transportBusy}
-          onClick={onOpenMediaTab}
+          onClick={onOpenLoadMedia}
         >
-          Open Media Source Tab
+          Load Media
         </button>
       ) : captureActive ? (
         <button
@@ -277,6 +256,25 @@ export function HostRoomConsole({
           </ul>
         )}
       </section>
+
+      {!extensionPresent ? (
+        <section className="riffsync-host-console__section" aria-label="Host extension">
+          <Link
+            className="gen-button gen-button-wide"
+            to={`/how-to-host-a-watchparty${HOST_EXTENSION_INSTALL_HASH}`}
+          >
+            Install Host Extension
+          </Link>
+          <Link
+            className="gen-button gen-button-wide"
+            to="/how-to-host-a-watchparty"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Hosting Guide
+          </Link>
+        </section>
+      ) : null}
 
       <Link className="gen-button gen-button-wide" to="/">
         Leave Party

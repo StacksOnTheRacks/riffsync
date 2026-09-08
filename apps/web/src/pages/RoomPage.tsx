@@ -30,6 +30,8 @@ import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { RoomPlaybackPanel } from '../room/RoomPlaybackPanel'
 import { RoomPageSidebar } from '../room/RoomPageSidebar'
 import { RoomRenameModal } from '../room/RoomRenameModal'
+import { LoadMediaModal } from '../room/LoadMediaModal'
+import { applyLoadMediaSelection } from '../room/applyLoadMedia'
 import { RIFFSYNC_SFU_CONFIG_ALERT_ID } from '../room/drawerErrorPresentation'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
 import {
@@ -66,6 +68,9 @@ export function RoomPage() {
   const [expandedView, setExpandedView] = useState(false)
   const [renameModalOpen, setRenameModalOpen] = useState(false)
   const [renameModalDraft, setRenameModalDraft] = useState('')
+  const [loadMediaModalOpen, setLoadMediaModalOpen] = useState(false)
+  const [loadMediaApplyErr, setLoadMediaApplyErr] = useState<string | null>(null)
+  const loadMediaOpenerRef = useRef<HTMLButtonElement | null>(null)
   const [myAvatarUrl, setMyAvatarUrl] = useState<string | null>(null)
 
   const a11yAnnouncerRef = useRef<HTMLDivElement | null>(null)
@@ -274,6 +279,12 @@ export function RoomPage() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [renameModalOpen])
 
+  const closeLoadMediaModal = useCallback(() => {
+    setLoadMediaModalOpen(false)
+    setLoadMediaApplyErr(null)
+    window.setTimeout(() => loadMediaOpenerRef.current?.focus(), 0)
+  }, [])
+
   useEffect(() => {
     const previousMode = prevRoomModeRef.current
     prevRoomModeRef.current = roomMode
@@ -428,6 +439,52 @@ export function RoomPage() {
     window.setTimeout(() => setShareHint(null), 4000)
   }
 
+  const openLoadMediaModal = useCallback(() => {
+    if (!room || !isPublisher) return
+    setLoadMediaApplyErr(null)
+    setLoadMediaModalOpen(true)
+  }, [room, isPublisher])
+
+  const confirmLoadMedia = useCallback(
+    async (episode: CatalogEpisode) => {
+      if (!room || !fanToken || !isPublisher || hostConsoleBusy) return
+      setHostConsoleBusy(true)
+      setLoadMediaApplyErr(null)
+      setHostConsoleErr(null)
+      const result = await applyLoadMediaSelection({
+        fanToken,
+        roomId,
+        room,
+        episode,
+        origin: getPublicOrigin(),
+        extensionPresent: hostExtension.present,
+        extensionBound: hostExtension.mediaState.bound,
+        openHostMediaTab: hostExtension.openMediaTab,
+      })
+      setHostConsoleBusy(false)
+      if (!result.ok) {
+        setLoadMediaApplyErr(result.error)
+        setHostConsoleErr(result.error)
+        return
+      }
+      setRoom(result.room)
+      setLoadMediaModalOpen(false)
+      setLoadMediaApplyErr(null)
+      window.setTimeout(() => loadMediaOpenerRef.current?.focus(), 0)
+    },
+    [
+      room,
+      fanToken,
+      isPublisher,
+      hostConsoleBusy,
+      roomId,
+      hostExtension.present,
+      hostExtension.mediaState.bound,
+      hostExtension.openMediaTab,
+      setRoom,
+    ],
+  )
+
   const openHostMediaTab = hostExtension.openMediaTab
 
   const openCapturePlayerTab = () => {
@@ -524,7 +581,8 @@ export function RoomPage() {
         onAddCatalog: (episode: CatalogEpisode) => nextUp.addCatalogEpisode(episode),
         onAddUrl: (url: string) => nextUp.addUrl(url),
         onRemoveNextUp: (id: string) => nextUp.removeItem(id),
-        onOpenMediaTab: () => openCapturePlayerTab(),
+        onOpenLoadMedia: () => openLoadMediaModal(),
+        loadMediaOpenerRef,
         onStartBroadcast: () => {
           void startCapture()
         },
@@ -772,6 +830,15 @@ export function RoomPage() {
               }
             })
           }
+        />
+      ) : null}
+      {loadMediaModalOpen && isPublisher && room ? (
+        <LoadMediaModal
+          selectedCatalogEpisodeId={room.catalogEpisodeId}
+          applying={hostConsoleBusy}
+          applyError={loadMediaApplyErr}
+          onCancel={closeLoadMediaModal}
+          onConfirm={(episode) => void confirmLoadMedia(episode)}
         />
       ) : null}
     </div>
