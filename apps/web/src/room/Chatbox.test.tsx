@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Chatbox, ChatboxTabList } from './Chatbox'
+import { ChatboxTabList } from './Chatbox'
 
 describe('Chatbox', () => {
   let container: HTMLDivElement
