@@ -35,6 +35,7 @@ import { RoomHostIconRow } from './RoomHostIconRow'
 import { HostRoomConsole } from './HostRoomConsole'
 import type { HostNextUpItem } from './hostNextUpQueue'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
+import { Chatbox, ChatboxPanel, ChatboxTabList, type ChatboxTabConfig } from './Chatbox'
 
 type RoomPageSidebarProps = {
   variant?: 'party' | 'live'
@@ -205,6 +206,20 @@ export function RoomPageSidebar({
   const showParticipantAvControls = !isLiveVariant
   const chatSignInReturnPath = signInReturnPath ?? `/room/${encodeURIComponent(roomId)}`
   const sidebarClassName = ['riffsync-room-page__chat-column', className].filter(Boolean).join(' ')
+  const chatboxTabs: ChatboxTabConfig[] = [
+    { id: 'chat', label: 'Chat' },
+    { id: 'people', label: `People (${viewerCount})` },
+    ...(fanToken
+      ? [
+          {
+            id: 'friends' as const,
+            label: 'Friends',
+            ariaLabel: friendsAnyUnread ? 'Friends, unread messages' : 'Friends',
+            unreadDot: friendsAnyUnread,
+          },
+        ]
+      : []),
+  ]
 
   const chatPlane = (
     <section
@@ -254,38 +269,11 @@ export function RoomPageSidebar({
         ) : null}
 
         {presentation === 'sidebar' ? (
-        <div className="riffsync-room-page__chat-toolbar">
-          <div className="riffsync-room-page__tabs">
-            <button
-              type="button"
-              className={`riffsync-room-page__tab${activeSidebarTab === 'chat' ? ' riffsync-room-page__tab--on' : ''}`}
-              aria-pressed={activeSidebarTab === 'chat'}
-              onClick={() => setRoomSidebarTab('chat')}
-            >
-              Chat
-            </button>
-            <button
-              type="button"
-              className={`riffsync-room-page__tab${activeSidebarTab === 'people' ? ' riffsync-room-page__tab--on' : ''}`}
-              aria-pressed={activeSidebarTab === 'people'}
-              onClick={() => setRoomSidebarTab('people')}
-            >
-              People ({viewerCount})
-            </button>
-            {fanToken ? (
-              <button
-                type="button"
-                className={`riffsync-room-page__tab${activeSidebarTab === 'friends' ? ' riffsync-room-page__tab--on' : ''}`}
-                aria-pressed={activeSidebarTab === 'friends'}
-                aria-label={friendsAnyUnread ? 'Friends, unread messages' : 'Friends'}
-                onClick={() => setRoomSidebarTab('friends')}
-              >
-                Friends
-                {friendsAnyUnread ? (
-                  <span className="riffsync-room-page__tab-unread-dot" aria-hidden="true" />
-                ) : null}
-              </button>
-            ) : null}
+          <ChatboxTabList activeTab={activeSidebarTab} tabs={chatboxTabs} onSelectTab={setRoomSidebarTab} />
+        ) : null}
+
+        {presentation === 'sidebar' ? (
+          <div className="riffsync-room-page__aux-tabs" role="group" aria-label="Room settings">
             {showRoomTab ? (
               <button
                 type="button"
@@ -307,11 +295,9 @@ export function RoomPageSidebar({
               </button>
             ) : null}
           </div>
-        </div>
         ) : null}
 
-        {activeSidebarTab === 'chat' ? (
-          <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
+        <ChatboxPanel tabId="chat" activeTab={activeSidebarTab} className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
               <ul ref={chatLogRef} className="riffsync-room-chat-log">
                 {chat.map((m, index) => {
                   if (m.kind === 'system') {
@@ -402,13 +388,12 @@ export function RoomPageSidebar({
                   </li>
                 ))}
               </ul>
-          </div>
-        ) : null}
+        </ChatboxPanel>
 
-        {presentation === 'sidebar' && activeSidebarTab === 'people' ? (
-          <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
+        {presentation === 'sidebar' ? (
+          <ChatboxPanel tabId="people" activeTab={activeSidebarTab} className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
             <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
-              {peopleShown.map((p) => {
+              {(peopleShown ?? []).map((p) => {
                 const peopleAvatarUrl = resolveMemberAvatarUrl(
                   p.sessionId,
                   p.avatarUrl,
@@ -448,7 +433,7 @@ export function RoomPageSidebar({
                 )
               })}
             </ul>
-          </div>
+          </ChatboxPanel>
         ) : null}
 
         {presentation === 'sidebar' && fanToken ? (
@@ -580,7 +565,11 @@ export function RoomPageSidebar({
                     onGifSelect={sendChatGif}
                   />
                 ) : null}
+                <label htmlFor="riffsync-chat-compose-input" className="sr-only">
+                  Message
+                </label>
                 <input
+                  id="riffsync-chat-compose-input"
                   ref={chatInputRef}
                   type="text"
                   maxLength={2000}
@@ -636,8 +625,8 @@ export function RoomPageSidebar({
   if (presentation === 'overlay') return chatPlane
 
   return (
-    <aside className={sidebarClassName} aria-label={isLiveVariant ? 'Live sidebar' : 'Room sidebar'}>
+    <Chatbox presentation="sidebar" className={sidebarClassName}>
       {chatPlane}
-    </aside>
+    </Chatbox>
   )
 }
