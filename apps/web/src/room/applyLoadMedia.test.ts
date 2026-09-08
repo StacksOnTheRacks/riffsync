@@ -44,6 +44,7 @@ const room: RoomSnapshot = {
   roomMode: 'theater',
   avDisabled: false,
   broadcastCaptureActive: false,
+  playbackExpectation: 'free',
 }
 
 describe('applyLoadMediaSelection', () => {

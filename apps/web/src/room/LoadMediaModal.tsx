@@ -92,8 +92,9 @@ export function LoadMediaModal({
     }
   }, [trapFocus])
 
-  const showLoading = catalogQuery.isPending && (catalogQuery.data?.length ?? 0) === 0
-  const showError = catalogQuery.isError && (catalogQuery.data?.length ?? 0) === 0
+  const catalogData = catalogQuery.data ?? []
+  const showLoading = catalogQuery.isPending && catalogData.length === 0
+  const showError = catalogQuery.isError && catalogData.length === 0
 
   return (
     <div className="riffsync-load-media-overlay" role="presentation" onClick={onCancel}>
