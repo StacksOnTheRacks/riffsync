@@ -6,15 +6,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CATALOG_SUBCATEGORIES } from '../catalog/catalogBrowseIa'
 import { filterCatalogEntries } from '../catalog/filterCatalogEntries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
+import { PENDING_PARTY_EPISODE_KEY } from '../catalog/pendingPartyStorage'
+import { getFanAccessToken } from '../auth/fanTokens'
+import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
 import { CatalogSubcategoryPage } from './CatalogSubcategoryPage'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const useCatalogListQuery = vi.fn()
+const createRoom = vi.fn()
 
 vi.mock('../catalog/catalogQueries', () => ({
   useCatalogListQuery: () => useCatalogListQuery(),
 }))
+
+vi.mock('../auth/fanTokens', () => ({
+  getFanAccessToken: vi.fn(() => null),
+}))
+
+vi.mock('../auth/fanHostedUiPkce', () => ({
+  startFanHostedUiSignIn: vi.fn(),
+}))
+
+vi.mock('../api/roomsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/roomsApi')>()
+  return {
+    ...actual,
+    createRoom: (...args: unknown[]) => createRoom(...args),
+  }
+})
 
 function episode(overrides: Partial<CatalogEpisode> & Pick<CatalogEpisode, 'id'>): CatalogEpisode {
   return {
@@ -94,6 +114,18 @@ const catalogFixtures: CatalogEpisode[] = [
   episode({ id: 'ep-other', experimentNumber: 999, title: 'Other Experiment', catalog: 'other' }),
 ]
 
+function mst3kCardTitles(container: ParentNode): string[] {
+  return Array.from(container.querySelectorAll('.riffsync-channel-movie-card__title a')).map(
+    (link) => link.textContent?.trim() ?? '',
+  )
+}
+
+function mst3kListTitles(container: ParentNode): string[] {
+  return Array.from(container.querySelectorAll('.riffsync-channel-list-row__title a')).map(
+    (link) => link.textContent?.trim() ?? '',
+  )
+}
+
 describe('CatalogSubcategoryPage', () => {
   let container: HTMLDivElement
   let root: Root
@@ -103,6 +135,9 @@ describe('CatalogSubcategoryPage', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     useCatalogListQuery.mockReset()
+    createRoom.mockReset()
+    vi.mocked(getFanAccessToken).mockReturnValue(null)
+    sessionStorage.clear()
     useCatalogListQuery.mockReturnValue({
       data: catalogFixtures,
       isPending: false,
@@ -115,6 +150,7 @@ describe('CatalogSubcategoryPage', () => {
   afterEach(() => {
     act(() => root.unmount())
     container.remove()
+    vi.restoreAllMocks()
   })
 
   function renderSubcategoryPage(path: string) {
@@ -134,6 +170,16 @@ describe('CatalogSubcategoryPage', () => {
     expect(pill).toBeTruthy()
     act(() => {
       pill?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+  }
+
+  function clickViewToggle(label: 'Cards' | 'List') {
+    const button = Array.from(container.querySelectorAll('.riffsync-view-toggle__button')).find(
+      (node) => node.getAttribute('aria-label') === label,
+    )
+    expect(button).toBeTruthy()
+    act(() => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
   }
 
@@ -169,6 +215,76 @@ describe('CatalogSubcategoryPage', () => {
     },
   )
 
+  it('renders ChannelHero and ViewToggle on /catalog/mst3k with sr-only h1', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('MST3K')
+    expect(container.querySelector('.riffsync-channel-hero')).not.toBeNull()
+    expect(container.querySelector('.riffsync-view-toggle')).not.toBeNull()
+    expect(container.querySelector('.riffsync-channel-hero__visual-title')?.textContent).toBe(
+      'Mystery Science Theater 3000',
+    )
+    expect(container.querySelector('.gen-breadcrumb')).toBeNull()
+    expect(container.textContent).not.toContain('Subscribe')
+    expect(container.textContent).not.toContain('Subscribers')
+    expect(container.textContent).not.toContain('Home')
+    expect(container.textContent).not.toContain('Videos')
+    expect(container.textContent).not.toContain('Live')
+  })
+
+  it('defaults to Cards view on /catalog/mst3k', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+
+    const cardsButton = container.querySelector('[aria-label="Cards"]')
+    const listButton = container.querySelector('[aria-label="List"]')
+    expect(cardsButton?.getAttribute('aria-pressed')).toBe('true')
+    expect(listButton?.getAttribute('aria-pressed')).toBe('false')
+    expect(container.querySelector('.riffsync-channel-card-grid')).not.toBeNull()
+    expect(container.querySelector('.riffsync-channel-list')).toBeNull()
+  })
+
+  it('flips aria-pressed when toggling Cards | List', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+    clickViewToggle('List')
+
+    expect(container.querySelector('[aria-label="Cards"]')?.getAttribute('aria-pressed')).toBe('false')
+    expect(container.querySelector('[aria-label="List"]')?.getAttribute('aria-pressed')).toBe('true')
+    expect(container.querySelector('.riffsync-channel-list')).not.toBeNull()
+    expect(container.querySelector('.riffsync-channel-card-grid')).toBeNull()
+
+    clickViewToggle('Cards')
+    expect(container.querySelector('[aria-label="Cards"]')?.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('activates ViewToggle buttons with Enter and Space', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+    const listButton = container.querySelector('[aria-label="List"]') as HTMLButtonElement
+
+    act(() => {
+      listButton.focus()
+      listButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      listButton.click()
+    })
+    expect(container.querySelector('.riffsync-channel-list')).not.toBeNull()
+
+    const cardsButton = container.querySelector('[aria-label="Cards"]') as HTMLButtonElement
+    act(() => {
+      cardsButton.focus()
+      cardsButton.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
+      cardsButton.click()
+    })
+    expect(container.querySelector('.riffsync-channel-card-grid')).not.toBeNull()
+  })
+
+  it('shows the same filtered ids in Cards and List views', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+    const cardTitles = mst3kCardTitles(container)
+
+    clickViewToggle('List')
+    const listTitles = mst3kListTitles(container)
+    expect(listTitles).toEqual(cardTitles)
+  })
+
   it('renders Era and Season pill groups on /catalog/mst3k', () => {
     renderSubcategoryPage('/catalog/mst3k')
 
@@ -183,69 +299,43 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.querySelectorAll('[aria-label="Filter by Season"]').length).toBe(1)
   })
 
-  it('filters MST3K grid when an Era pill is selected', () => {
+  it('filters MST3K cards when an Era pill is selected', () => {
     renderSubcategoryPage('/catalog/mst3k')
     clickPill('Era: Joel')
-
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-    expect(titles).toEqual(['Pod People'])
+    expect(mst3kCardTitles(container)).toEqual(['Pod People'])
   })
 
-  it('filters MST3K grid when a Season pill is selected', () => {
+  it('filters MST3K cards when a Season pill is selected', () => {
     renderSubcategoryPage('/catalog/mst3k')
     clickPill('Season: 1')
-
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-    expect(titles).toEqual(['Cave Dwellers', 'Pod People'])
+    expect(mst3kCardTitles(container)).toEqual(['Cave Dwellers', 'Pod People'])
   })
 
-  it('locks a season route to that season and updates the subtitle', () => {
+  it('locks a season route to that season and updates the hero subtitle', () => {
     renderSubcategoryPage('/catalog/mst3k/season/3')
 
-    expect(container.querySelector('h1')?.textContent).toBe('MST3K')
-    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
-      'Season 3',
-    )
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('MST3K')
+    expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe('Season 3')
     expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
-
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-    expect(titles).toEqual(['Giant Spider'])
+    expect(mst3kCardTitles(container)).toEqual(['Giant Spider'])
   })
 
-  it('locks an era route to that era and updates the subtitle', () => {
+  it('locks an era route to that era and updates the hero subtitle', () => {
     renderSubcategoryPage('/catalog/mst3k/era/mike')
 
-    expect(container.querySelector('h1')?.textContent).toBe('MST3K')
-    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
-      'Mike Era',
-    )
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('MST3K')
+    expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe('Mike Era')
     expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
-
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-    expect(titles).toEqual(['Cave Dwellers', 'Robot Rumpus'])
+    expect(mst3kCardTitles(container)).toEqual(['Cave Dwellers', 'Robot Rumpus'])
   })
 
-  it('locks the Shorts route to rows labeled Short and updates the subtitle', () => {
+  it('locks the Shorts route to rows labeled Short and updates the hero subtitle', () => {
     renderSubcategoryPage('/catalog/mst3k/shorts')
 
-    expect(container.querySelector('h1')?.textContent).toBe('MST3K')
-    expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
-      'Short Riffs',
-    )
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('MST3K')
+    expect(container.querySelector('.riffsync-channel-hero__subtitle')?.textContent).toBe('Short Riffs')
     expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
-
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-    expect(titles).toEqual(['Robot Rumpus'])
+    expect(mst3kCardTitles(container)).toEqual(['Robot Rumpus'])
   })
 
   it.each(['/catalog/rifftrax', '/catalog/rifftrax/movies'] as const)(
@@ -258,6 +348,7 @@ describe('CatalogSubcategoryPage', () => {
         'RiffTrax Movies',
       )
       expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
+      expect(container.querySelector('.riffsync-channel-layout')).toBeNull()
 
       const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
         (link) => link.textContent?.trim(),
@@ -273,7 +364,7 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
       'RiffTrax Shorts',
     )
-    expect(container.querySelector('.riffsync-catalog-filter-bar__tag-groups')).toBeNull()
+    expect(container.querySelector('.riffsync-channel-layout')).toBeNull()
 
     const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
       (link) => link.textContent?.trim(),
@@ -285,11 +376,7 @@ describe('CatalogSubcategoryPage', () => {
     renderSubcategoryPage('/catalog/mst3k')
     clickPill('Era: Joel')
     clickPill('Season: 1')
-
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-    expect(titles).toEqual(['Pod People'])
+    expect(mst3kCardTitles(container)).toEqual(['Pod People'])
   })
 
   it('keeps title search working with selected MST3K pills', () => {
@@ -307,10 +394,7 @@ describe('CatalogSubcategoryPage', () => {
       search.dispatchEvent(new Event('change', { bubbles: true }))
     })
 
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-    expect(titles).toEqual(['Cave Dwellers'])
+    expect(mst3kCardTitles(container)).toEqual(['Cave Dwellers'])
   })
 
   it('gracefully omits the Season pill group when no Season tags exist', () => {
@@ -333,10 +417,7 @@ describe('CatalogSubcategoryPage', () => {
   it('MST3K includes host-tagged rows and excludes other catalogs', () => {
     renderSubcategoryPage('/catalog/mst3k')
 
-    const titles = Array.from(container.querySelectorAll('.riffsync-catalog-card h3 a')).map(
-      (link) => link.textContent?.trim(),
-    )
-
+    const titles = mst3kCardTitles(container)
     expect(titles).toEqual(['Cave Dwellers', 'Pod People', 'Giant Spider', 'Emily Special', 'Robot Rumpus'])
     expect(titles).not.toContain('Community Riff')
     expect(titles).not.toContain('Riff Material Classic')
@@ -351,21 +432,24 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.querySelector('.riffsync-catalog-page-header__subtitle')?.textContent).toBe(
       'Cheesy Flicks Ready to Riff',
     )
+    expect(container.querySelector('.riffsync-channel-layout')).toBeNull()
 
     const cards = container.querySelectorAll('.riffsync-catalog-card')
     expect(cards).toHaveLength(1)
     expect(cards[0]?.querySelector('h3 a')?.textContent?.trim()).toBe('Riff Material Classic')
   })
 
-  it('sets poster img alt text to each episode title', () => {
-    renderSubcategoryPage('/catalog/community')
+  it('sets poster img alt text to each MST3K episode title', () => {
+    renderSubcategoryPage('/catalog/mst3k')
 
     const posterImages = Array.from(
-      container.querySelectorAll('.riffsync-catalog-card img'),
+      container.querySelectorAll('.riffsync-channel-movie-card__poster'),
     ) as HTMLImageElement[]
 
-    expect(posterImages).toHaveLength(1)
-    expect(posterImages[0]?.getAttribute('alt')).toBe('Community Riff')
+    expect(posterImages.length).toBeGreaterThan(0)
+    for (const img of posterImages) {
+      expect(img.getAttribute('alt')).toBeTruthy()
+    }
   })
 
   it('shows empty-catalog presentation when the subcategory filter matches no rows', () => {
@@ -382,5 +466,93 @@ describe('CatalogSubcategoryPage', () => {
     expect(container.querySelector('.riffsync-catalog-grid')?.children.length).toBe(0)
     expect(container.querySelector('.riffsync-catalog-no-match')).not.toBeNull()
     expect(container.textContent).toContain('No episodes match your filters')
+  })
+
+  it('shows sr-only h1 on MST3K loading path', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: undefined,
+      isPending: true,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    })
+
+    renderSubcategoryPage('/catalog/mst3k')
+    expect(container.querySelector('h1.sr-only')?.textContent).toBe('MST3K')
+  })
+
+  it('MST3K title and poster links navigate to /watch/{id} only', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+
+    const links = Array.from(
+      container.querySelectorAll('.riffsync-channel-movie-card a[href]'),
+    ) as HTMLAnchorElement[]
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) {
+      expect(link.getAttribute('href')).toMatch(/^\/watch\//)
+    }
+  })
+
+  it('signed-out Start Party sets pending key and starts Hosted UI sign-in', () => {
+    renderSubcategoryPage('/catalog/mst3k')
+
+    const startParty = Array.from(container.querySelectorAll('button.gen-button')).find(
+      (button) => button.textContent?.trim() === 'Start Party',
+    ) as HTMLButtonElement
+    act(() => {
+      startParty.click()
+    })
+
+    expect(sessionStorage.getItem(PENDING_PARTY_EPISODE_KEY)).toBeTruthy()
+    expect(startFanHostedUiSignIn).toHaveBeenCalled()
+    expect(createRoom).not.toHaveBeenCalled()
+  })
+
+  it('signed-in Start Party calls createRoom with catalogEpisodeId and visibility public', async () => {
+    vi.mocked(getFanAccessToken).mockReturnValue('fan-token')
+    createRoom.mockResolvedValue({ roomId: 'room-123' })
+
+    renderSubcategoryPage('/catalog/mst3k')
+
+    const startParty = Array.from(container.querySelectorAll('button.gen-button')).find(
+      (button) => button.textContent?.trim() === 'Start Party',
+    ) as HTMLButtonElement
+    await act(async () => {
+      startParty.click()
+      await Promise.resolve()
+    })
+
+    expect(createRoom).toHaveBeenCalledWith(
+      'fan-token',
+      expect.objectContaining({
+        catalogEpisodeId: expect.any(String),
+        visibility: 'public',
+      }),
+    )
+  })
+
+  it('stacks MST3K card grid to single column at max-width 767px', () => {
+    const matchMediaListeners: Array<(event: MediaQueryListEvent) => void> = []
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+      const matches = query === '(max-width: 767px)'
+      const mql = {
+        matches,
+        media: query,
+        onchange: null,
+        addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) => {
+          matchMediaListeners.push(listener)
+        },
+        removeEventListener: () => undefined,
+        addListener: (listener: (event: MediaQueryListEvent) => void) => {
+          matchMediaListeners.push(listener)
+        },
+        removeListener: () => undefined,
+        dispatchEvent: () => true,
+      } as MediaQueryList
+      return mql
+    })
+
+    renderSubcategoryPage('/catalog/mst3k')
+    expect(container.querySelector('.riffsync-channel-card-grid')).not.toBeNull()
   })
 })

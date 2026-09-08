@@ -10,6 +10,7 @@ import { CatalogFilterBar } from '../components/catalog/CatalogFilterBar'
 import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagFilterBar'
 import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
+import { ChannelLayout } from '../components/channel/ChannelLayout'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
 import {
@@ -113,9 +114,17 @@ export function CatalogSubcategoryPage() {
   }
 
   if (isPending && !data) {
+    if (isMst3kRoute) {
+      return (
+        <div className="riffsync-channel-layout">
+          <h1 className="sr-only">MST3K</h1>
+          <p className="container">Loading…</p>
+        </div>
+      )
+    }
     return (
       <div className="container">
-        <h1>{browseView?.title}</h1>
+        <h1>{browseView.title}</h1>
         <p>Loading…</p>
       </div>
     )
@@ -132,6 +141,26 @@ export function CatalogSubcategoryPage() {
           homeLink
         />
       </div>
+    )
+  }
+
+  if (isMst3kRoute) {
+    return (
+      <ChannelLayout
+        subtitle={browseView.subtitle}
+        filteredEntries={filteredEntries}
+        routeCatalogEntries={routeCatalogEntries}
+        titleQuery={titleQuery}
+        onTitleQueryChange={setTitleQuery}
+        filterBarDisabled={filterBarDisabled}
+        showMst3kTagPills={showMst3kTagPills}
+        selectedTagPills={selectedTagPills}
+        onSelectedTagPillsChange={setSelectedTagPills}
+        playableEntries={playableEntries}
+        allEntries={allEntries}
+        isFilterNoMatch={isFilterNoMatch}
+        hasActiveTagPills={hasActiveTagPills}
+      />
     )
   }
 
