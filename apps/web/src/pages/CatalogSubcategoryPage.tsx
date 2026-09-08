@@ -11,7 +11,7 @@ import { Mst3kCatalogTagFilterBar } from '../components/catalog/Mst3kCatalogTagF
 import { CatalogPageHeader } from '../components/catalog/CatalogPageHeader'
 import { CatalogGridCard } from '../components/catalog/CatalogGridCard'
 import { ChannelLayout } from '../components/channel/ChannelLayout'
-import { getChannelSurfaceConfig } from '../components/channel/ChannelHero'
+import { getChannelSurfaceConfig } from '../components/channel/channelSurfaceConfig'
 import { useResumePendingPartyRoom } from '../catalog/useResumePendingPartyRoom'
 import { catalogEntriesPlayableInApp } from '../catalog/catalogPlayback'
 import {
