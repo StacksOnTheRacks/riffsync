@@ -1,3 +1,5 @@
+import { LIVE_NOW_WATCH_PARTIES_PATH } from '../../live/liveChannels'
+
 export type ChannelToolbarTab = {
   label: string
   href: string
@@ -15,6 +17,13 @@ export function getChannelToolbarTabs(pathname: string): ChannelToolbarTab[] {
     return [
       { label: 'Movies', href: '/catalog/rifftrax' },
       { label: 'Shorts', href: '/catalog/rifftrax/shorts' },
+    ]
+  }
+
+  if (pathname === '/live' || pathname === LIVE_NOW_WATCH_PARTIES_PATH) {
+    return [
+      { label: 'Streams', href: '/live' },
+      { label: 'Watch Parties', href: LIVE_NOW_WATCH_PARTIES_PATH },
     ]
   }
 

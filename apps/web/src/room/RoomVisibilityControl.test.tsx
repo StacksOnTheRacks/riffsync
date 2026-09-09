@@ -35,9 +35,9 @@ describe('RoomVisibilityControl', () => {
     return { onSelectVisibility }
   }
 
-  it('renders lobby visibility options for the room host', () => {
+  it('renders Live Now visibility options for the room host', () => {
     renderControl()
-    expect(container.textContent).toContain('Show in lobby')
+    expect(container.textContent).toContain('Show on Live Now')
     expect(container.textContent).toContain('Link only')
     expect(container.querySelector('[role="radiogroup"]')).not.toBeNull()
   })

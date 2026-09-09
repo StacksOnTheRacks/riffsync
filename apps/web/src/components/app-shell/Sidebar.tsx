@@ -223,7 +223,13 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       >
         <ul className="riffsync-app-shell-nav-list">
           <SidebarNavItem to="/" end label="Home" iconSrc={SIDEBAR_ICON.home} collapsed={collapsed} />
-          <SidebarNavItem to="/live" label="Live Now" iconSrc={SIDEBAR_ICON.live} collapsed={collapsed} />
+          <SidebarNavItem
+            to="/live"
+            end={false}
+            label="Live Now"
+            iconSrc={SIDEBAR_ICON.live}
+            collapsed={collapsed}
+          />
           {signedIn ? (
             <SidebarNavItem
               to="/your-parties"

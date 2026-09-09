@@ -1,5 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchRoomsMine } from '../api/roomsApi'
+import { fetchLobby, fetchRoomsMine } from '../api/roomsApi'
+import { ensureGuestSession } from '../session/guestSession'
+
+export function lobbyQueryKey() {
+  return ['lobby'] as const
+}
+
+export function useLobbyQuery() {
+  return useQuery({
+    queryKey: lobbyQueryKey(),
+    queryFn: () => {
+      const { sessionId } = ensureGuestSession('live')
+      return fetchLobby(sessionId)
+    },
+    staleTime: 15_000,
+  })
+}
 
 export function roomsMineQueryKey(fanToken: string | null | undefined) {
   return ['rooms-mine', fanToken ?? ''] as const

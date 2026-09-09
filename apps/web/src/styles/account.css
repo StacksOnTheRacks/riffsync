@@ -1,0 +1,126 @@
+.riffsync-account-page {
+  color: var(--white-color);
+}
+
+.riffsync-account-page__panel {
+  max-width: 40rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.riffsync-account-page__status,
+.riffsync-account-page__lede {
+  margin: 0;
+  color: var(--secondary-color);
+}
+
+.riffsync-account-page__success {
+  margin: 0;
+  color: rgb(144 238 144 / 0.95);
+}
+
+.riffsync-account-page__err {
+  margin: 0;
+  color: var(--primary-color);
+}
+
+.riffsync-account-page__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--dark-color);
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 8px;
+}
+
+.riffsync-account-page__card-title {
+  margin: 0;
+  font-family: var(--title-fonts);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.riffsync-account-page__avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.riffsync-account-page__label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--white-color);
+}
+
+.riffsync-account-page__avatar-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 18%);
+  background: rgb(7 10 14 / 0.85);
+}
+
+.riffsync-account-page__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.riffsync-account-page__avatar-placeholder {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.45);
+  line-height: 1;
+}
+
+.riffsync-account-page__avatar-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.riffsync-account-page__field {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  background: rgb(7 10 14 / 0.72);
+  color: inherit;
+  font-size: 0.9375rem;
+  box-sizing: border-box;
+}
+
+.riffsync-account-page__field:disabled {
+  opacity: 0.65;
+}
+
+.riffsync-account-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.riffsync-account-page__save {
+  align-self: flex-start;
+}
+
+@media (max-width: 767px) {
+  .riffsync-account-page__card {
+    padding: 1rem;
+  }
+}

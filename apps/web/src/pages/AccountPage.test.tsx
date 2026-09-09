@@ -87,6 +87,11 @@ describe('AccountPage', () => {
 
     expect(container.textContent).toContain('Sign in to manage your display name')
     expect(container.querySelector('button.gen-button')?.textContent).toBe('Sign In')
+    expect(container.querySelector('.riffsync-channel-hero')).not.toBeNull()
+    expect(container.querySelector('.riffsync-channel-hero__visual-title')?.textContent).toBe(
+      'Account',
+    )
+    expect(container.querySelector('a[href="/catalog"]')).toBeNull()
   })
 
   it('starts sign-in with returnTo=/account', () => {
@@ -122,7 +127,7 @@ describe('AccountPage', () => {
     })
 
     await act(async () => {
-      ;(container.querySelector('.riffsync-room-page__profile-save') as HTMLButtonElement).click()
+      ;(container.querySelector('.riffsync-account-page__save') as HTMLButtonElement).click()
     })
 
     await vi.waitFor(() => {
@@ -136,7 +141,7 @@ describe('AccountPage', () => {
 
     await vi.waitFor(() => expect(fetchFanProfile).toHaveBeenCalled())
 
-    const buttons = Array.from(container.querySelectorAll('.riffsync-account__actions button'))
+    const buttons = Array.from(container.querySelectorAll('.riffsync-account-page__actions button'))
     act(() => {
       ;(buttons[0] as HTMLButtonElement).click()
     })

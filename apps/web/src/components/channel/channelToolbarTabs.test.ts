@@ -20,6 +20,18 @@ describe('channelToolbarTabs', () => {
     ])
   })
 
+  it('returns Streams | Watch Parties on Live Now hub routes', () => {
+    expect(getChannelToolbarTabs('/live')).toEqual([
+      { label: 'Streams', href: '/live' },
+      { label: 'Watch Parties', href: '/live/watch-parties' },
+    ])
+    expect(getChannelToolbarTabs('/live/watch-parties')).toEqual([
+      { label: 'Streams', href: '/live' },
+      { label: 'Watch Parties', href: '/live/watch-parties' },
+    ])
+    expect(getChannelToolbarTabs('/live/mst3k-forever-a-thon')).toEqual([])
+  })
+
   it('marks MST3K season and era routes as the Movies tab', () => {
     const movies = { label: 'Movies', href: '/catalog/mst3k' }
     const shorts = { label: 'Shorts', href: '/catalog/mst3k/shorts' }

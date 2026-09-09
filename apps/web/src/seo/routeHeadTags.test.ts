@@ -80,7 +80,7 @@ describe('buildStaticRouteHeadTags', () => {
     const head = buildStaticRouteHeadTags('/catalog', 'https://riffsync.tv')
     expect(head.documentTitle).toBe('RiffSync Catalog - Browse the Library')
     expect(head.description).toBe(
-      'Browse RiffSync episodes across MST3K, RiffTrax, Community, and Riff Material. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
+      'Browse RiffSync titles across MST3K, RiffTrax, Community, Riff Material, Movies, and TV Shows. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
     )
     expect(head.canonicalUrl).toBe('https://riffsync.tv/catalog')
   })
@@ -108,35 +108,35 @@ describe('buildStaticRouteHeadTags', () => {
         route: '/catalog/rifftrax' as const,
         title: 'RiffTrax - RiffSync Catalog',
         description:
-          'Browse RiffTrax movies on RiffSync with lawful YouTube embeds. Pick a title and start a watch party. Unofficial fan project.',
+          'Browse RiffTrax movies and shorts on RiffSync with lawful YouTube embeds. Pick a title and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/rifftrax',
       },
       {
         route: '/catalog/community' as const,
         title: 'Community - RiffSync Catalog',
         description:
-          'Browse Community catalog titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+          'Browse community-made riffs on RiffSync with lawful YouTube embeds. Pick a title and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/community',
       },
       {
         route: '/catalog/riff-material' as const,
         title: 'Riff Material - RiffSync Catalog',
         description:
-          'Browse Riff Material titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+          'Browse cheesy flicks ready to riff on RiffSync with lawful YouTube embeds. Pick a title and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/riff-material',
       },
       {
         route: '/catalog/tv-shows' as const,
         title: 'TV Shows - RiffSync Catalog',
         description:
-          'Browse TV Shows titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+          'Browse television riffs on RiffSync with lawful YouTube embeds. Pick a title and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/tv-shows',
       },
       {
         route: '/catalog/movies' as const,
         title: 'Movies - RiffSync Catalog',
         description:
-          'Browse Movies titles on RiffSync with lawful YouTube embeds. Pick an experiment and start a watch party. Unofficial fan project.',
+          'Browse movie-night picks on RiffSync with lawful YouTube embeds. Pick a title and start a watch party. Unofficial fan project.',
         canonical: 'https://riffsync.tv/catalog/movies',
       },
     ] as const
@@ -150,10 +150,31 @@ describe('buildStaticRouteHeadTags', () => {
     }
   })
 
-  it('indexes twelve static routes without dynamic Live entries or movie-night legacy path', () => {
-    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(12)
+  it('indexes sixteen static routes including Live Now hub and channel tab paths', () => {
+    expect(STATIC_INDEXABLE_ROUTES).toHaveLength(16)
+    expect(STATIC_INDEXABLE_ROUTES).toContain('/live')
+    expect(STATIC_INDEXABLE_ROUTES).toContain('/catalog/mst3k/shorts')
+    expect(STATIC_INDEXABLE_ROUTES).toContain('/catalog/rifftrax/movies')
+    expect(STATIC_INDEXABLE_ROUTES).toContain('/catalog/rifftrax/shorts')
     expect(STATIC_INDEXABLE_ROUTES).not.toContain('/live/mst3k-forever-a-thon')
+    expect(STATIC_INDEXABLE_ROUTES).not.toContain('/live/watch-parties')
     expect(STATIC_INDEXABLE_ROUTES).not.toContain('/catalog/movie-night')
+  })
+
+  it('uses normative Live Now hub copy', () => {
+    const head = buildStaticRouteHeadTags('/live', 'https://riffsync.tv')
+    expect(head.documentTitle).toBe('Live Now - Official Channels | RiffSync')
+    expect(head.description).toContain('Official live channels')
+    expect(head.canonicalUrl).toBe('https://riffsync.tv/live')
+    expect(head.robotsNoindex).toBe(false)
+    expect(head.jsonLd).toBeNull()
+  })
+
+  it('emits WebSite JSON-LD on the home route only', () => {
+    const home = buildStaticRouteHeadTags('/', 'https://riffsync.tv')
+    expect(home.jsonLd).toContain('"@type":"WebSite"')
+    expect(home.jsonLd).toContain('https://riffsync.tv/')
+    expect(buildStaticRouteHeadTags('/catalog', 'https://riffsync.tv').jsonLd).toBeNull()
   })
 })
 
@@ -171,7 +192,7 @@ describe('buildLiveRouteHeadTags', () => {
     )
 
     expect(head.documentTitle).toBe('Second Live - Live on RiffSync')
-    expect(head.description).toBe('Live all day.')
+    expect(head.description).toBe('Live all day. Watch Second Live live on RiffSync.')
     expect(head.canonicalUrl).toBe('https://riffsync.tv/live/second-live')
     expect(head.ogImageUrl).toBe('https://riffsync.tv/posters/live.jpg')
     expect(head.robotsNoindex).toBe(false)
@@ -275,6 +296,7 @@ describe('buildPrerenderDocument', () => {
     expect(html).toContain('rel="canonical" href="https://riffsync.tv/"')
     expect(html).toContain('<div id="root"></div>')
     expect(html).toContain('<script type="module" src="/assets/main.js"></script>')
+    expect(html).toContain('"@type":"WebSite"')
     expect(html).not.toContain('name="robots" content="noindex"')
   })
 

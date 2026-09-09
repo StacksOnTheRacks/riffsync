@@ -74,6 +74,14 @@ function replaceMetaName(html: string, name: string, content: string): string {
   return html
 }
 
+function replaceJsonLd(html: string, jsonLd: string | null): string {
+  const without = html.replace(/\s*<script type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/g, '')
+  if (!jsonLd) {
+    return without
+  }
+  return without.replace('</head>', `    <script type="application/ld+json">${jsonLd}</script>\n  </head>`)
+}
+
 /** Inject per-route head tags into the Vite HTML shell without changing body markup. */
 export function buildPrerenderDocument(templateHtml: string, head: RouteHeadTags): string {
   let html = templateHtml
@@ -83,6 +91,7 @@ export function buildPrerenderDocument(templateHtml: string, head: RouteHeadTags
   html = replaceRobotsMeta(html, head.robotsNoindex)
 
   const ogUrl = head.canonicalUrl ?? ''
+  html = replaceMetaProperty(html, 'og:type', 'website')
   html = replaceMetaProperty(html, 'og:title', head.ogTitle)
   html = replaceMetaProperty(html, 'og:description', head.description)
   if (ogUrl) {
@@ -90,9 +99,11 @@ export function buildPrerenderDocument(templateHtml: string, head: RouteHeadTags
   }
   html = replaceMetaProperty(html, 'og:image', head.ogImageUrl)
 
+  html = replaceMetaName(html, 'twitter:card', 'summary_large_image')
   html = replaceMetaName(html, 'twitter:title', head.ogTitle)
   html = replaceMetaName(html, 'twitter:description', head.description)
   html = replaceMetaName(html, 'twitter:image', head.ogImageUrl)
+  html = replaceJsonLd(html, head.jsonLd)
 
   return html
 }

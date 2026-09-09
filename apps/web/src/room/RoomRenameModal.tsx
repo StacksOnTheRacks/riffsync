@@ -28,7 +28,7 @@ export function RoomRenameModal({
           Rename Party
         </h2>
         <p className="riffsync-room-modal__lede riffsync-muted">
-          This updates the lobby listing and &quot;Now playing&quot; label for everyone in the party.
+          This updates the Live Now listing and &quot;Now playing&quot; label for everyone in the party.
         </p>
         <div className="riffsync-room-modal__form">
           <label className="riffsync-room-modal__label" htmlFor="riffsync-rename-room-input">

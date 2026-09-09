@@ -10,12 +10,12 @@ export type RoomVisibilityControlProps = {
 }
 
 const VISIBILITY_OPTIONS: Array<{ value: RoomVisibility; label: string }> = [
-  { value: 'public', label: 'Show in lobby' },
+  { value: 'public', label: 'Show on Live Now' },
   { value: 'private', label: 'Link only' },
 ]
 
 export const ROOM_VISIBILITY_HINT =
-  'Anyone with the party link can still join. Link-only rooms are hidden from the lobby.'
+  'Anyone with the party link can still join. Link-only rooms are hidden from Live Now.'
 
 export function RoomVisibilityControl({
   visibility,
@@ -26,9 +26,9 @@ export function RoomVisibilityControl({
   const hintId = useId()
 
   return (
-    <div className="riffsync-room-page__visibility" role="region" aria-label="Lobby visibility">
+    <div className="riffsync-room-page__visibility" role="region" aria-label="Live Now visibility">
       <span className="riffsync-room-page__visibility-label" id={hintId}>
-        Lobby visibility
+        Live Now visibility
       </span>
       <div
         className="riffsync-room-page__visibility-options"

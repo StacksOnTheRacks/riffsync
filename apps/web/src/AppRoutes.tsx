@@ -6,7 +6,6 @@ import { CatalogPage } from './pages/CatalogPage'
 import { CatalogSubcategoryPage } from './pages/CatalogSubcategoryPage'
 import { YourPartiesPage } from './pages/YourPartiesPage'
 import { LiveNowPage } from './pages/LiveNowPage'
-import { LobbyPage } from './pages/LobbyPage'
 import { LiveChannelPage } from './pages/LiveChannelPage'
 import { AccountPage } from './pages/AccountPage'
 import { RoomPage } from './pages/RoomPage'
@@ -65,12 +64,13 @@ export function AppRoutes() {
         <Route path="/catalog/movie-night" element={<Navigate to="/catalog/movies" replace />} />
         <Route path="/your-parties" element={<YourPartiesPage />} />
         <Route path="/live" element={<LiveNowPage />} />
+        <Route path="/live/watch-parties" element={<LiveNowPage />} />
+        <Route path="/lobby" element={<Navigate to="/live" replace />} />
+        <Route path="/account" element={<AccountPage />} />
       </Route>
       <Route element={<SiteLayout />}>
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
-        <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/live/:slug" element={<LiveChannelPage />} />
-        <Route path="/account" element={<AccountPage />} />
         <Route path="/download" element={<DownloadAppPage />} />
         <Route path="/how-to-host-a-watchparty" element={<HowToHostWatchPartyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />

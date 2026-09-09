@@ -41,6 +41,24 @@ function removeCanonicalLink(): void {
   document.head.querySelector('link[rel="canonical"]')?.remove()
 }
 
+const JSON_LD_SCRIPT_ID = 'riffsync-json-ld'
+
+function upsertJsonLd(jsonLd: string | null): void {
+  const existing = document.getElementById(JSON_LD_SCRIPT_ID)
+  if (!jsonLd) {
+    existing?.remove()
+    return
+  }
+  let script = existing instanceof HTMLScriptElement ? existing : null
+  if (!script) {
+    script = document.createElement('script')
+    script.id = JSON_LD_SCRIPT_ID
+    script.type = 'application/ld+json'
+    document.head.appendChild(script)
+  }
+  script.textContent = jsonLd
+}
+
 export function applyRouteHeadTags(head: RouteHeadTags): void {
   document.title = head.documentTitle
 
@@ -61,10 +79,13 @@ export function applyRouteHeadTags(head: RouteHeadTags): void {
     robots?.remove()
   }
 
+  upsertMetaByProperty('og:type').setAttribute('content', 'website')
   upsertMetaByProperty('og:title').setAttribute('content', head.ogTitle)
   upsertMetaByProperty('og:description').setAttribute('content', head.description)
   upsertMetaByProperty('og:image').setAttribute('content', head.ogImageUrl)
+  upsertMetaByName('twitter:card').setAttribute('content', 'summary_large_image')
   upsertMetaByName('twitter:title').setAttribute('content', head.ogTitle)
   upsertMetaByName('twitter:description').setAttribute('content', head.description)
   upsertMetaByName('twitter:image').setAttribute('content', head.ogImageUrl)
+  upsertJsonLd(head.jsonLd)
 }

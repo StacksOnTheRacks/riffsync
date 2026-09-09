@@ -91,7 +91,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
                         Home
                       </PrimaryNavItem>
                       <CatalogNavItem />
-                      <PrimaryNavItem to="/lobby">Lobby</PrimaryNavItem>
+                      <PrimaryNavItem to="/live">Live Now</PrimaryNavItem>
                       {showGetAppNav ? <PrimaryNavItem to="/download">Get App</PrimaryNavItem> : null}
                       {fanToken ? (
                         <PrimaryNavItem to="/account">Account</PrimaryNavItem>

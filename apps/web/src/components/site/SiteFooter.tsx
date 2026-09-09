@@ -19,7 +19,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
               <span aria-hidden>·</span>
               <Link to="/catalog">Catalog</Link>
               <span aria-hidden>·</span>
-              <Link to="/lobby">Lobby</Link>
+              <Link to="/live">Live Now</Link>
               {showGetAppNav ? (
                 <>
                   <span aria-hidden>·</span>
@@ -76,7 +76,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
                         <Link to="/catalog">Catalog</Link>
                       </li>
                       <li className="menu-item">
-                        <Link to="/lobby">Lobby</Link>
+                        <Link to="/live">Live Now</Link>
                       </li>
                       {showGetAppNav ? (
                         <li className="menu-item">

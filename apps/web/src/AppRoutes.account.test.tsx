@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { act } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -25,6 +26,59 @@ vi.mock('./room/useRoomChrome', () => ({
   useRoomChromeOptional: () => null,
 }))
 
+vi.mock('./pwa/useShowGetAppNav', () => ({
+  useShowGetAppNav: () => false,
+}))
+
+vi.mock('./catalog/catalogQueries', () => ({
+  useCatalogListQuery: () => ({ data: [], isPending: false, isError: false }),
+  useCatalogCarouselQuery: () => ({ data: [], isPending: false, isError: false }),
+  useCatalogSpotlightQuery: () => ({ data: [], isPending: false, isError: false }),
+}))
+
+vi.mock('./auth/fanHostedUiPkce', () => ({
+  startFanHostedUiSignIn: vi.fn(),
+  startFanHostedUiSignOut: vi.fn(),
+  refreshFanTokensIfStale: vi.fn(),
+}))
+
+vi.mock('./auth/fanTokens', () => ({
+  getFanAccessToken: vi.fn(() => 'fan-token'),
+  getFanRefreshToken: vi.fn(() => 'refresh-token'),
+}))
+
+vi.mock('./friends/friendsApi', () => ({
+  fetchFriendRosterSnapshot: () => new Promise(() => {}),
+}))
+
+vi.mock('./friends/useRoomFriendsPane', () => ({
+  useRoomFriendsPane: () => ({
+    loading: false,
+    loadError: false,
+    snapshot: { friends: [], inbound: [], outbound: [], anyUnread: false },
+    openPeer: null,
+    dmMessages: [],
+    dmClosed: false,
+    dmLoading: false,
+    dmDraft: '',
+    dmComposeError: null,
+    removeTarget: null,
+    anyUnread: false,
+    setDmDraft: () => undefined,
+    refreshRoster: () => undefined,
+    acceptRequest: () => undefined,
+    declineRequest: () => undefined,
+    cancelRequest: () => undefined,
+    openDm: () => undefined,
+    closeDm: () => undefined,
+    confirmRemove: () => undefined,
+    cancelRemove: () => undefined,
+    executeRemove: () => undefined,
+    sendDm: () => undefined,
+    sendDmGif: () => undefined,
+  }),
+}))
+
 describe('AppRoutes fan account route', () => {
   let container: HTMLDivElement
   let root: Root | null = null
@@ -35,16 +89,19 @@ describe('AppRoutes fan account route', () => {
     container?.remove()
   })
 
-  it('renders AccountPage under fan site shell', async () => {
+  it('renders AccountPage under AppShell', async () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    const queryClient = new QueryClient()
 
     act(() => {
       root!.render(
-        <MemoryRouter initialEntries={['/account']}>
-          <AppRoutes />
-        </MemoryRouter>,
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/account']}>
+            <AppRoutes />
+          </MemoryRouter>
+        </QueryClientProvider>,
       )
     })
 
@@ -52,7 +109,8 @@ describe('AppRoutes fan account route', () => {
       expect(container.textContent).toContain('RiffSync Account Settings')
     })
 
-    expect(container.querySelector('#gen-header')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
+    expect(container.querySelector('#gen-header')).toBeNull()
     expect(container.querySelector('a[href="/account"]')).not.toBeNull()
   })
 })

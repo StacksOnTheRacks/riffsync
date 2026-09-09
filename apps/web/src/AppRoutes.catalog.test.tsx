@@ -14,7 +14,7 @@ vi.mock('./pages/CatalogSubcategoryPage', () => ({
 vi.mock('./pages/YourPartiesPage', () => ({
   YourPartiesPage: () => <div>Your parties stub</div>,
 }))
-vi.mock('./pages/LobbyPage', () => ({ LobbyPage: () => <div>Lobby body</div> }))
+vi.mock('./pages/LiveNowPage', () => ({ LiveNowPage: () => <div>Live Now hub body</div> }))
 vi.mock('./pages/LiveChannelPage', () => ({ LiveChannelPage: () => <div>Live body</div> }))
 vi.mock('./pages/AccountPage', () => ({ AccountPage: () => <div>Account body</div> }))
 vi.mock('./pages/RoomPage', () => ({ RoomPage: () => <div>Room body</div> }))

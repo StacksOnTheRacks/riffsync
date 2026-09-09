@@ -14,7 +14,6 @@ vi.mock('./pages/CatalogSubcategoryPage', () => ({
 vi.mock('./pages/YourPartiesPage', () => ({
   YourPartiesPage: () => <div>Your parties stub</div>,
 }))
-vi.mock('./pages/LobbyPage', () => ({ LobbyPage: () => <div>Lobby body</div> }))
 vi.mock('./pages/LiveNowPage', () => ({ LiveNowPage: () => <div>Live Now hub body</div> }))
 vi.mock('./pages/LiveChannelPage', () => ({ LiveChannelPage: () => <div>Live body</div> }))
 vi.mock('./pages/AccountPage', () => ({ AccountPage: () => <div>Account body</div> }))
@@ -155,8 +154,21 @@ describe('AppRoutes chrome selection', () => {
     expect(container.querySelector('.riffsync-site--room')).not.toBeNull()
   })
 
+  it('wraps the account page in AppShell', () => {
+    renderRoute('/account')
+    expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
+    expect(container.querySelector('#gen-header')).toBeNull()
+    expect(container.textContent).toContain('Account body')
+  })
+
   it('wraps the Live Now hub at /live in AppShell', () => {
     renderRoute('/live')
+    expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
+    expect(container.textContent).toContain('Live Now hub body')
+  })
+
+  it('wraps the Live Now watch-parties tab in AppShell', () => {
+    renderRoute('/live/watch-parties')
     expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
     expect(container.textContent).toContain('Live Now hub body')
   })
@@ -173,10 +185,10 @@ describe('AppRoutes chrome selection', () => {
     expect(container.querySelector('#gen-header')).not.toBeNull()
   })
 
-  it('keeps lobby on SiteLayout without AppShell', () => {
+  it('redirects /lobby to the Live Now hub in AppShell', () => {
     renderRoute('/lobby')
-    expect(container.querySelector('.riffsync-app-shell')).toBeNull()
-    expect(container.querySelector('#gen-header')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
+    expect(container.textContent).toContain('Live Now hub body')
   })
 
   it('keeps cast and tv outside AppShell', () => {

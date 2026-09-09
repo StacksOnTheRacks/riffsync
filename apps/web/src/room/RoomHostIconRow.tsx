@@ -39,8 +39,8 @@ export function RoomHostIconRow({
           <button
             type="button"
             className={`gen-button riffsync-room-host-icons__btn${visibilityOpen ? ' riffsync-room-host-icons__btn--on' : ''}`}
-            aria-label="Lobby visibility"
-            title="Lobby visibility"
+            aria-label="Live Now visibility"
+            title="Live Now visibility"
             aria-expanded={visibilityOpen}
             aria-controls={panelId}
             onClick={() => setVisibilityOpen((open) => !open)}

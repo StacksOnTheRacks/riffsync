@@ -4,14 +4,33 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { LobbyResponse } from '../api/roomsApi'
 import { LiveNowPage } from './LiveNowPage'
 
 const fetchLiveChannels = vi.fn()
 const fetchLiveChannel = vi.fn()
+const fetchLobby = vi.fn<(sessionId: string) => Promise<LobbyResponse>>()
+const useCatalogListQuery = vi.fn()
 
 vi.mock('../api/liveApi', () => ({
   fetchLiveChannels: (...args: unknown[]) => fetchLiveChannels(...args),
   fetchLiveChannel: (...args: unknown[]) => fetchLiveChannel(...args),
+}))
+
+vi.mock('../api/roomsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/roomsApi')>()
+  return {
+    ...actual,
+    fetchLobby: (sessionId: string) => fetchLobby(sessionId),
+  }
+})
+
+vi.mock('../catalog/catalogQueries', () => ({
+  useCatalogListQuery: () => useCatalogListQuery(),
+}))
+
+vi.mock('../session/guestSession', () => ({
+  ensureGuestSession: () => ({ sessionId: 'guest-session-1' }),
 }))
 
 vi.mock('../config/apiBaseUrl', () => ({
@@ -36,6 +55,16 @@ const liveChannelFixture = {
   playbackHost: 'youtube' as const,
 }
 
+const lobbyRoomFixture = {
+  roomId: 'room-1',
+  catalogEpisodeId: 'ep-1',
+  displayTitle: 'Night of the Living Bread',
+  hostDisplayName: 'CosmicCrow123',
+  playbackExpectation: 'free' as const,
+  liveConnectionCount: 2,
+  lastActivityAt: Date.now() - 60_000,
+}
+
 describe('LiveNowPage', () => {
   let container: HTMLDivElement
   let root: Root
@@ -44,10 +73,14 @@ describe('LiveNowPage', () => {
   beforeEach(() => {
     fetchLiveChannels.mockReset()
     fetchLiveChannel.mockReset()
+    fetchLobby.mockReset()
+    useCatalogListQuery.mockReset()
     fetchLiveChannels.mockResolvedValue({
       version: 1,
       channels: [liveChannelFixture],
     })
+    fetchLobby.mockResolvedValue({ rooms: [lobbyRoomFixture] })
+    useCatalogListQuery.mockReturnValue({ data: [], isPending: false, isError: false })
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -59,11 +92,11 @@ describe('LiveNowPage', () => {
     container.remove()
   })
 
-  function renderPage() {
+  function renderPage(path = '/live') {
     act(() => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter>
+          <MemoryRouter initialEntries={[path]}>
             <LiveNowPage />
           </MemoryRouter>
         </QueryClientProvider>,
@@ -94,21 +127,60 @@ describe('LiveNowPage', () => {
 
     const link = container.querySelector('a[href="/live/mst3k-forever-a-thon"]')
     expect(link).not.toBeNull()
+    expect(container.querySelector('img[alt="MST3K Forever-A-Thon"]')?.getAttribute('src')).toBe(
+      'https://img.youtube.com/vi/abcdefghijk/hqdefault.jpg',
+    )
     expect(container.querySelector('button.gen-button')).toBeNull()
+    expect(container.querySelector('a[href="/live"]')?.classList.contains('is-active')).toBe(true)
+    expect(container.querySelector('a[href="/live/watch-parties"]')?.textContent).toBe('Watch Parties')
+    expect(container.textContent).not.toContain('Night of the Living Bread')
+  })
+
+  it('lists public watch parties on the Watch Parties tab from GET /v1/lobby', async () => {
+    renderPage('/live/watch-parties')
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('Hosted by CosmicCrow123')
+    })
+
+    expect(fetchLobby).toHaveBeenCalledWith('guest-session-1')
+    expect(container.querySelector('a[href="/live/watch-parties"]')?.classList.contains('is-active')).toBe(
+      true,
+    )
+    expect(container.textContent).toContain('Night of the Living Bread')
+    expect(container.querySelector('a[href="/room/room-1"]')).not.toBeNull()
+    expect(container.textContent).not.toContain('MST3K Forever-A-Thon')
+    expect(container.textContent).not.toContain('Likely ad-supported')
+  })
+
+  it('switches from Streams to Watch Parties with the channel tab bar', async () => {
+    renderPage('/live')
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('MST3K Forever-A-Thon')
+    })
+
+    const partiesTab = container.querySelector('a[href="/live/watch-parties"]') as HTMLAnchorElement
+    expect(partiesTab).not.toBeNull()
+    act(() => {
+      partiesTab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    })
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('Night of the Living Bread')
+    })
+    expect(container.textContent).not.toContain('MST3K Forever-A-Thon')
   })
 
   it('defaults to Cards view with aria-pressed on ViewToggle', async () => {
     renderPage()
     await vi.waitFor(() => {
-      expect(container.querySelector('[aria-label="Cards"]')).not.toBeNull()
+      expect(container.querySelector('.riffsync-live-now-card-grid')).not.toBeNull()
     })
 
     expect(container.querySelector('[aria-label="Cards"]')?.getAttribute('aria-pressed')).toBe('true')
-    expect(container.querySelector('.riffsync-live-now-card-grid')).not.toBeNull()
     expect(container.querySelector('.riffsync-live-now-list')).toBeNull()
   })
 
-  it('shows the same channels in Cards and List views', async () => {
+  it('shows the same streams in Cards and List views', async () => {
     renderPage()
     await vi.waitFor(() => {
       expect(container.textContent).toContain('MST3K Forever-A-Thon')
@@ -133,6 +205,15 @@ describe('LiveNowPage', () => {
     expect(container.textContent).not.toContain('No episodes in the catalog yet.')
   })
 
+  it('shows empty watch-party copy when the lobby has no public rooms', async () => {
+    fetchLobby.mockResolvedValue({ rooms: [] })
+
+    renderPage('/live/watch-parties')
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('There are no public rooms right now.')
+    })
+  })
+
   it('announces live fetch errors to assistive tech', async () => {
     fetchLiveChannels.mockRejectedValue(new Error('Live channels unavailable'))
 
@@ -142,6 +223,7 @@ describe('LiveNowPage', () => {
     })
 
     expect(container.textContent).toContain('Live channels unavailable')
+    expect(container.querySelector('a[href="/live/watch-parties"]')?.textContent).toBe('Watch Parties')
   })
 
   it('stacks live rows at max-width 767px', async () => {

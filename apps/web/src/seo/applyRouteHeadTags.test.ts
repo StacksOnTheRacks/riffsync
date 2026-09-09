@@ -24,7 +24,7 @@ describe('applyRouteHeadTags', () => {
 
     expect(document.title).toBe('RiffSync Catalog - Browse the Library')
     expect(document.head.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(
-      'Browse RiffSync episodes across MST3K, RiffTrax, Community, and Riff Material. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
+      'Browse RiffSync titles across MST3K, RiffTrax, Community, Riff Material, Movies, and TV Shows. Pick a title and start a lawful YouTube watch party. Unofficial fan project.',
     )
     expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
       'https://riffsync.tv/catalog',
@@ -33,6 +33,15 @@ describe('applyRouteHeadTags', () => {
       'https://riffsync.tv/catalog',
     )
     expect(document.head.querySelector('meta[name="robots"]')).toBeNull()
+  })
+
+  it('injects WebSite JSON-LD on home and removes it on noindex shell', () => {
+    applyRouteHeadTags(buildStaticRouteHeadTags('/', 'https://riffsync.tv'))
+    const script = document.getElementById('riffsync-json-ld')
+    expect(script?.textContent).toContain('"@type":"WebSite"')
+
+    applyRouteHeadTags(buildSpaShellHeadTags())
+    expect(document.getElementById('riffsync-json-ld')).toBeNull()
   })
 
   it('applies noindex shell tags and removes canonical identity', () => {

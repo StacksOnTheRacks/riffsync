@@ -10,7 +10,7 @@ export type NavigationSlimProps = {
 export function NavigationSlim({
   title,
   subtitle,
-  leaveHref = '/lobby',
+  leaveHref = '/live',
   leaveLabel = 'Leave party',
 }: NavigationSlimProps) {
   return (

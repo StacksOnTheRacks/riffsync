@@ -1,10 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { LiveChannelSnapshot } from '../../api/liveApi'
-import { LIVE_NOW_CHANNEL_AVATAR_URL } from './channelSurfaceConfig'
-
-function liveChannelPosterUrl(channel: LiveChannelSnapshot): string {
-  return channel.posterImageUrl?.trim() || channel.backdropImageUrl?.trim() || LIVE_NOW_CHANNEL_AVATAR_URL
-}
+import { liveChannelCardImageUrl } from '../../live/liveChannels'
 
 export function LiveNowChannelListRow({ channel }: { channel: LiveChannelSnapshot }) {
   const tagline = channel.tagline?.trim() || 'Watch live on RiffSync with room chat.'
@@ -13,7 +9,7 @@ export function LiveNowChannelListRow({ channel }: { channel: LiveChannelSnapsho
     <article className="riffsync-live-now-list-row">
       <Link to={channel.path} className="riffsync-live-now-list-row__poster-link">
         <img
-          src={liveChannelPosterUrl(channel)}
+          src={liveChannelCardImageUrl(channel)}
           alt={channel.title}
           loading="lazy"
           className="riffsync-live-now-list-row__poster"

@@ -85,8 +85,20 @@ export function RoomPage() {
   const apiBaseUrl = getPublicApiBaseUrl()
 
   const roomJoinGaContext = useMemo((): { gaEntrySurface: GaEntrySurface; gaSource: GaSource } => {
-    if (typeof document !== 'undefined' && document.referrer.includes('/lobby')) {
-      return { gaEntrySurface: 'lobby', gaSource: 'lobby_card' }
+    if (typeof document !== 'undefined') {
+      try {
+        const path = new URL(document.referrer).pathname
+        if (path === '/live' || path === '/lobby') {
+          return {
+            gaEntrySurface: path === '/live' ? 'live' : 'lobby',
+            gaSource: 'lobby_card',
+          }
+        }
+      } catch {
+        if (document.referrer.includes('/lobby')) {
+          return { gaEntrySurface: 'lobby', gaSource: 'lobby_card' }
+        }
+      }
     }
     return { gaEntrySurface: 'share_link', gaSource: 'share_url' }
   }, [])
@@ -627,7 +639,7 @@ export function RoomPage() {
         <h1>Room</h1>
         <p>{roomErr ?? 'Room unavailable.'}</p>
         <p>
-          <Link to="/lobby">← Lobby</Link>
+          <Link to="/live">Live Now</Link>
         </p>
       </div>
     )
@@ -734,7 +746,7 @@ export function RoomPage() {
       <NavigationSlim
         title={roomDisplayTitle}
         subtitle={isPublisher ? 'Host' : undefined}
-        leaveHref="/lobby"
+        leaveHref="/live"
       />
 
       <div className="container riffsync-room-page">

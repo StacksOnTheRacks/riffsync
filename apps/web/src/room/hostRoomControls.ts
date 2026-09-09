@@ -47,6 +47,6 @@ export function avDisabledAnnounceCopy(disabled: boolean): string {
 
 export function visibilityAnnounceCopy(visibility: RoomVisibility): string {
   return visibility === 'private'
-    ? 'Room hidden from lobby. Party link still works.'
-    : 'Room visible in lobby.'
+    ? 'Room hidden from Live Now. Party link still works.'
+    : 'Room visible on Live Now.'
 }

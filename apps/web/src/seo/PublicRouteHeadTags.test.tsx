@@ -160,4 +160,44 @@ describe('PublicRouteHeadTags', () => {
       'noindex',
     )
   })
+
+  it('does not treat /live/watch-parties as an official live channel', async () => {
+    await renderAt('/live/watch-parties')
+
+    expect(useLiveChannelQuery).toHaveBeenCalledWith(undefined)
+    expect(document.title).toBe('Watch Parties - Live Now - RiffSync')
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
+      'noindex',
+    )
+    expect(document.head.querySelector('link[rel="canonical"]')).toBeNull()
+  })
+
+  it('indexes the Live Now hub', async () => {
+    await renderAt('/live')
+
+    expect(document.title).toBe('Live Now - Official Channels | RiffSync')
+    expect(document.head.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(
+      'https://riffsync.tv/live',
+    )
+    expect(document.head.querySelector('meta[name="robots"]')).toBeNull()
+  })
+
+  it('does not index nested catalog filter routes', async () => {
+    await renderAt('/catalog/mst3k/season/1')
+
+    expect(document.title).toBe('RiffSync')
+    expect(document.head.querySelector('link[rel="canonical"]')).toBeNull()
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
+      'noindex',
+    )
+  })
+
+  it('uses a named noindex title for Account', async () => {
+    await renderAt('/account')
+
+    expect(document.title).toBe('Account - RiffSync')
+    expect(document.head.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe(
+      'noindex',
+    )
+  })
 })
