@@ -456,12 +456,12 @@ describe('createParticipantAvController', () => {
   it('enableMic while camera is on keeps the live video track', async () => {
     const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v-cam' }
     const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a-mic' }
-    const videoTracks = [videoTrack]
+    const videoTracks: Array<typeof videoTrack | typeof audioTrack> = [videoTrack]
     const videoStream = {
       getTracks: () => videoTracks,
       getVideoTracks: () => videoTracks.filter((track) => track.kind === 'video'),
       getAudioTracks: () => videoTracks.filter((track) => track.kind === 'audio'),
-      addTrack: (track: { kind: string }) => {
+      addTrack: (track: typeof videoTrack | typeof audioTrack) => {
         videoTracks.push(track)
       },
       removeTrack: vi.fn(),

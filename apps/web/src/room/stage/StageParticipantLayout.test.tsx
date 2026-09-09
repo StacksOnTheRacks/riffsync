@@ -71,9 +71,10 @@ describe('StageParticipantLayout', () => {
     const chrome = container.querySelector('.chrome-fixture')
     expect(grid).not.toBeNull()
     expect(chrome).not.toBeNull()
+    if (!grid || !chrome) throw new Error('expected video chat grid and theater chrome')
     expect(container.querySelector('.riffsync-room-page__theater-playback')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__participant-row--desktop')).toBeNull()
-    expect(grid?.compareDocumentPosition(chrome!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(grid.compareDocumentPosition(chrome) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(container.textContent).toContain('You')
   })
 
@@ -105,8 +106,9 @@ describe('StageParticipantLayout', () => {
     expect(playback).not.toBeNull()
     expect(chrome).not.toBeNull()
     expect(cameras).not.toBeNull()
-    expect(playback?.compareDocumentPosition(chrome!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(chrome?.compareDocumentPosition(cameras!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    if (!playback || !chrome || !cameras) throw new Error('expected theater playback, chrome, and cameras')
+    expect(playback.compareDocumentPosition(chrome) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(chrome.compareDocumentPosition(cameras) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('renders self tile in desktop theater bottom row', () => {
