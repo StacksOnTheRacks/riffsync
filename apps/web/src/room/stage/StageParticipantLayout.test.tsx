@@ -50,9 +50,63 @@ describe('StageParticipantLayout', () => {
     expect(container.querySelector('.playback-fixture')).toBeNull()
   })
 
+  it('keeps theater chrome in video chat and hides the theater camera row', () => {
+    const stream = new MediaStream()
+    renderLayout({
+      roomMode: 'videoChat',
+      viewportWide: true,
+      theaterChrome: <div className="chrome-fixture">Bar</div>,
+      tiles: [
+        {
+          key: 'self',
+          sessionId: 'me',
+          label: 'You',
+          isSelf: true,
+          stream,
+          speaking: false,
+        },
+      ],
+    })
+    const grid = container.querySelector('.riffsync-room-page__participant-grid')
+    const chrome = container.querySelector('.chrome-fixture')
+    expect(grid).not.toBeNull()
+    expect(chrome).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__theater-playback')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__participant-row--desktop')).toBeNull()
+    expect(grid?.compareDocumentPosition(chrome!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(container.textContent).toContain('You')
+  })
+
   it('shows layout updating status while transitioning', () => {
     renderLayout({ layoutUpdating: true })
     expect(container.textContent).toContain('Updating room layout')
+  })
+
+  it('renders theater chrome between playback and desktop camera row', () => {
+    const stream = new MediaStream()
+    renderLayout({
+      roomMode: 'theater',
+      viewportWide: true,
+      theaterChrome: <div className="chrome-fixture">Bar</div>,
+      tiles: [
+        {
+          key: 'self',
+          sessionId: 'me',
+          label: 'You',
+          isSelf: true,
+          stream,
+          speaking: false,
+        },
+      ],
+    })
+    const playback = container.querySelector('.riffsync-room-page__theater-playback')
+    const chrome = container.querySelector('.chrome-fixture')
+    const cameras = container.querySelector('.riffsync-room-page__participant-row--desktop')
+    expect(playback).not.toBeNull()
+    expect(chrome).not.toBeNull()
+    expect(cameras).not.toBeNull()
+    expect(playback?.compareDocumentPosition(chrome!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(chrome?.compareDocumentPosition(cameras!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('renders self tile in desktop theater bottom row', () => {
@@ -74,6 +128,28 @@ describe('StageParticipantLayout', () => {
     expect(container.querySelector('.riffsync-room-page__participant-row--desktop')).not.toBeNull()
     expect(container.querySelector('.riffsync-room-page__participant-strip--desktop')).toBeNull()
     expect(container.textContent).toContain('You')
+  })
+
+  it('hides theater chrome in expanded view so the stage can fill the space', () => {
+    renderLayout({
+      roomMode: 'theater',
+      viewportWide: true,
+      expandedView: true,
+      theaterChrome: <div className="chrome-fixture">Bar</div>,
+    })
+    expect(container.querySelector('.chrome-fixture')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__theater-playback')).not.toBeNull()
+  })
+
+  it('hides theater chrome in expanded video chat', () => {
+    renderLayout({
+      roomMode: 'videoChat',
+      viewportWide: true,
+      expandedView: true,
+      theaterChrome: <div className="chrome-fixture">Bar</div>,
+    })
+    expect(container.querySelector('.chrome-fixture')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__participant-grid')).not.toBeNull()
   })
 
   it('moves theater participant cameras to a bottom overlay row in expanded view', () => {

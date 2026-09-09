@@ -195,11 +195,43 @@ export function createParticipantAvController(options: {
     }
   }
 
+  const liveTracksOfKind = (kind: 'video' | 'audio') =>
+    (localStream?.getTracks() ?? []).filter((track) => track.kind === kind && track.readyState === 'live')
+
+  const addTracksToLocal = (incoming: MediaStream) => {
+    if (!localStream) {
+      localStream = incoming
+      return
+    }
+    for (const track of incoming.getTracks()) {
+      if (!localStream.getTracks().some((existing) => existing.id === track.id)) {
+        localStream.addTrack(track)
+      }
+    }
+  }
+
+  const dropTracksOfKind = (kind: 'video' | 'audio') => {
+    if (!localStream) return
+    for (const track of [...localStream.getTracks()].filter((candidate) => candidate.kind === kind)) {
+      try {
+        track.stop()
+        localStream.removeTrack(track)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   const mergeStream = async (wantVideo: boolean, wantAudio: boolean) => {
-    stopLocalTracks()
-    localStream = await ensureUserMedia(wantVideo, wantAudio)
-    const hasVideo = localStream.getVideoTracks().length > 0
-    const hasAudio = localStream.getAudioTracks().length > 0
+    const needVideo = wantVideo && liveTracksOfKind('video').length === 0
+    const needAudio = wantAudio && liveTracksOfKind('audio').length === 0
+    if (needVideo || needAudio) {
+      addTracksToLocal(await ensureUserMedia(needVideo, needAudio))
+    }
+    if (!wantVideo) dropTracksOfKind('video')
+    if (!wantAudio) dropTracksOfKind('audio')
+    const hasVideo = liveTracksOfKind('video').length > 0
+    const hasAudio = liveTracksOfKind('audio').length > 0
     cameraEnabled = hasVideo && wantVideo
     micEnabled = hasAudio && wantAudio
     if (!cameraEnabled && !micEnabled) {

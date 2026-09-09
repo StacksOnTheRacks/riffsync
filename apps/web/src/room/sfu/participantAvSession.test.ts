@@ -9,6 +9,8 @@ vi.stubGlobal(
       getTracks: () => MediaStreamTrack[]
       getVideoTracks: () => MediaStreamTrack[]
       getAudioTracks: () => MediaStreamTrack[]
+      addTrack: (track: MediaStreamTrack) => void
+      removeTrack: (track: MediaStreamTrack) => void
     },
     tracks: MediaStreamTrack[] = [],
   ) {
@@ -16,6 +18,12 @@ vi.stubGlobal(
     this.getTracks = () => this.tracks
     this.getVideoTracks = () => this.tracks.filter((t) => t.kind === 'video')
     this.getAudioTracks = () => this.tracks.filter((t) => t.kind === 'audio')
+    this.addTrack = (track: MediaStreamTrack) => {
+      if (!this.tracks.some((existing) => existing.id === track.id)) this.tracks.push(track)
+    }
+    this.removeTrack = (track: MediaStreamTrack) => {
+      this.tracks = this.tracks.filter((existing) => existing.id !== track.id)
+    }
   },
 )
 
@@ -44,6 +52,8 @@ describe('createParticipantAvController', () => {
           getTracks: () => MediaStreamTrack[]
           getVideoTracks: () => MediaStreamTrack[]
           getAudioTracks: () => MediaStreamTrack[]
+          addTrack: (track: MediaStreamTrack) => void
+          removeTrack: (track: MediaStreamTrack) => void
         },
         tracks: MediaStreamTrack[] = [],
       ) {
@@ -51,6 +61,12 @@ describe('createParticipantAvController', () => {
         this.getTracks = () => this.tracks
         this.getVideoTracks = () => this.tracks.filter((t) => t.kind === 'video')
         this.getAudioTracks = () => this.tracks.filter((t) => t.kind === 'audio')
+        this.addTrack = (track: MediaStreamTrack) => {
+          if (!this.tracks.some((existing) => existing.id === track.id)) this.tracks.push(track)
+        }
+        this.removeTrack = (track: MediaStreamTrack) => {
+          this.tracks = this.tracks.filter((existing) => existing.id !== track.id)
+        }
       },
     )
   })
@@ -433,6 +449,53 @@ describe('createParticipantAvController', () => {
     expect(unpublishProducerClass).not.toHaveBeenCalled()
     expect(publishStream).not.toHaveBeenCalled()
     expect(audioTrack.stop).toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
+  })
+
+  it('enableMic while camera is on keeps the live video track', async () => {
+    const videoTrack = { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v-cam' }
+    const audioTrack = { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a-mic' }
+    const videoTracks = [videoTrack]
+    const videoStream = {
+      getTracks: () => videoTracks,
+      getVideoTracks: () => videoTracks.filter((track) => track.kind === 'video'),
+      getAudioTracks: () => videoTracks.filter((track) => track.kind === 'audio'),
+      addTrack: (track: { kind: string }) => {
+        videoTracks.push(track)
+      },
+      removeTrack: vi.fn(),
+    } as unknown as MediaStream
+    const audioStream = {
+      getTracks: () => [audioTrack],
+      getVideoTracks: () => [],
+      getAudioTracks: () => [audioTrack],
+    } as unknown as MediaStream
+
+    const getUserMedia = vi.fn()
+      .mockResolvedValueOnce(videoStream)
+      .mockResolvedValueOnce(audioStream)
+    vi.stubGlobal('navigator', {
+      mediaDevices: { getUserMedia },
+    })
+
+    const controller = createParticipantAvController({ canPublish: () => true })
+    await controller.enableCamera()
+    expect(controller.getState().cameraEnabled).toBe(true)
+    expect(controller.getState().micEnabled).toBe(false)
+    expect(videoTrack.stop).not.toHaveBeenCalled()
+
+    await controller.enableMic()
+
+    expect(controller.getState()).toMatchObject({
+      cameraEnabled: true,
+      micEnabled: true,
+    })
+    expect(videoTrack.stop).not.toHaveBeenCalled()
+    expect(getUserMedia).toHaveBeenCalledTimes(2)
+    expect(getUserMedia.mock.calls[0]?.[0]).toMatchObject({ audio: false })
+    expect(getUserMedia.mock.calls[1]?.[0]).toMatchObject({ video: false })
+    expect(videoStream.getAudioTracks()).toEqual([audioTrack])
 
     vi.unstubAllGlobals()
   })

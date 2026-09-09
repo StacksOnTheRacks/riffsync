@@ -16,6 +16,7 @@ import {
   PARTICIPANT_AV_DISABLED_COPY,
 } from './participantAvErrorCopy'
 import { messageForParticipantAvError } from './drawerErrorPresentation'
+import { getTvLinkUrl } from '../tv/tvLinkPath'
 
 export type HostTheaterButtonBarProps = {
   extensionPresent: boolean
@@ -35,7 +36,8 @@ export type HostTheaterButtonBarProps = {
   castStartLifecycle: CastStartLifecycle
   onCastToTvClick: () => void
   castToTvButtonRef?: RefObject<HTMLButtonElement | null>
-  onLinkTvClick: () => void
+  onLinkTvSubmitCode: (code: string) => Promise<void>
+  onStopLinkTv: () => void
   linkTvActive: boolean
   linkTvButtonRef?: RefObject<HTMLButtonElement | null>
   onStartBroadcast: () => void
@@ -96,7 +98,8 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
     castStartLifecycle,
     onCastToTvClick,
     castToTvButtonRef,
-    onLinkTvClick,
+    onLinkTvSubmitCode,
+    onStopLinkTv,
     linkTvActive,
     linkTvButtonRef,
     onStartBroadcast,
@@ -362,30 +365,16 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
       ) : null}
 
       {openPopup === 'cast' ? (
-        <HostTheaterDialog title="Watch on TV" onClose={closePopup}>
-          <button
-            ref={castToTvButtonRef}
-            type="button"
-            className="gen-button gen-button-wide"
-            disabled={castDisabled}
-            onClick={() => {
-              onCastToTvClick()
-              closePopup()
-            }}
-          >
-            Cast to TV
-          </button>
-          <button
-            ref={linkTvButtonRef}
-            type="button"
-            className={`gen-button gen-button-wide${linkTvActive ? ' gen-button--on' : ''}`}
-            onClick={() => {
-              onLinkTvClick()
-            }}
-          >
-            {linkTvActive ? 'Link TV active' : 'Link TV with code'}
-          </button>
-        </HostTheaterDialog>
+        <WatchOnTvDialog
+          onClose={closePopup}
+          castDisabled={castDisabled}
+          onCastToTvClick={onCastToTvClick}
+          castToTvButtonRef={castToTvButtonRef}
+          onLinkTvSubmitCode={onLinkTvSubmitCode}
+          onStopLinkTv={onStopLinkTv}
+          linkTvActive={linkTvActive}
+          linkTvButtonRef={linkTvButtonRef}
+        />
       ) : null}
 
       {openPopup === 'share' ? (
@@ -437,14 +426,157 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
   )
 }
 
+function WatchOnTvDialog({
+  onClose,
+  castDisabled,
+  onCastToTvClick,
+  castToTvButtonRef,
+  onLinkTvSubmitCode,
+  onStopLinkTv,
+  linkTvActive,
+  linkTvButtonRef,
+}: {
+  onClose: () => void
+  castDisabled: boolean
+  onCastToTvClick: () => void
+  castToTvButtonRef?: RefObject<HTMLButtonElement | null>
+  onLinkTvSubmitCode: (code: string) => Promise<void>
+  onStopLinkTv: () => void
+  linkTvActive: boolean
+  linkTvButtonRef?: RefObject<HTMLButtonElement | null>
+}) {
+  const inputId = useId()
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const tvLinkUrl = getTvLinkUrl()
+
+  const submitLink = async () => {
+    const trimmed = code.trim()
+    if (!trimmed) {
+      setError('Enter the code shown on your TV.')
+      return
+    }
+    setError(null)
+    setBusy(true)
+    try {
+      await onLinkTvSubmitCode(trimmed)
+      setCode('')
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not link TV')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <HostTheaterDialog
+      title="Watch on TV"
+      onClose={onClose}
+      className="riffsync-host-theater-bar__dialog--watch-tv"
+      hideDefaultClose
+    >
+      {linkTvActive ? (
+        <>
+          <p className="riffsync-watch-on-tv__status" role="status">
+            TV linked. Party video and chat overlay are streaming to the TV client.
+          </p>
+          <div className="riffsync-watch-on-tv__actions">
+            <button type="button" className="gen-button gen-button--ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="gen-button" onClick={onStopLinkTv}>
+              Stop Link TV
+            </button>
+          </div>
+        </>
+      ) : (
+        <form
+          className="riffsync-watch-on-tv"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void submitLink()
+          }}
+        >
+          <div className="riffsync-watch-on-tv__instructions">
+            <p>
+              To use a Chromecast device, skip linking and simply click Chromecast below.
+            </p>
+            <p>
+              If you have a smart TV, navigate it to {tvLinkUrl}. Enter the code that it shows in
+              the field, then click Link Smart TV.
+            </p>
+          </div>
+          <div className="riffsync-watch-on-tv__code-row">
+            <label className="riffsync-watch-on-tv__label" htmlFor={inputId}>
+              TV Link Code
+            </label>
+            <input
+              id={inputId}
+              className="riffsync-watch-on-tv__input"
+              name="tvLinkCode"
+              value={code}
+              onChange={(event) => {
+                setCode(event.target.value.toUpperCase())
+                if (error) setError(null)
+              }}
+              autoComplete="one-time-code"
+              spellCheck={false}
+              maxLength={8}
+              required
+              aria-required="true"
+              disabled={busy}
+            />
+          </div>
+          {error ? (
+            <p className="riffsync-watch-on-tv__error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="riffsync-watch-on-tv__actions">
+            <button type="button" className="gen-button gen-button--ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              ref={linkTvButtonRef}
+              type="submit"
+              className="gen-button"
+              disabled={busy}
+            >
+              {busy ? 'Linking…' : 'Link Smart TV'}
+            </button>
+            <button
+              ref={castToTvButtonRef}
+              type="button"
+              className="gen-button"
+              disabled={castDisabled || busy}
+              onClick={() => {
+                onCastToTvClick()
+                onClose()
+              }}
+            >
+              Chromecast
+            </button>
+          </div>
+        </form>
+      )}
+    </HostTheaterDialog>
+  )
+}
+
 function HostTheaterDialog({
   title,
   onClose,
   children,
+  className,
+  hideDefaultClose = false,
 }: {
   title: string
   onClose: () => void
   children: React.ReactNode
+  className?: string
+  hideDefaultClose?: boolean
 }) {
   const titleId = useId()
   return (
@@ -453,16 +585,18 @@ function HostTheaterDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="riffsync-host-theater-bar__dialog"
+        className={`riffsync-host-theater-bar__dialog${className ? ` ${className}` : ''}`}
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id={titleId} className="riffsync-host-theater-bar__dialog-title">
           {title}
         </h2>
         <div className="riffsync-host-theater-bar__dialog-body">{children}</div>
-        <button type="button" className="gen-button" onClick={onClose}>
-          Close
-        </button>
+        {hideDefaultClose ? null : (
+          <button type="button" className="gen-button" onClick={onClose}>
+            Close
+          </button>
+        )}
       </div>
     </div>
   )

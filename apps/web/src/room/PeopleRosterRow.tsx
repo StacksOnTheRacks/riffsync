@@ -120,29 +120,29 @@ export function PeopleRosterRow({
       <div className="riffsync-room-page__people-row-inner">
         <span className="riffsync-room-page__person-label">
           <FanAvatarThumb displayName={member.displayName} avatarUrl={peopleAvatarUrl} />
-          <span className="riffsync-room-page__person-name">
-            {member.isHost ? (
-              <>
-                <strong>{member.displayName}</strong>
+          <span className="riffsync-room-page__people-identity">
+            <span className="riffsync-room-page__person-name">
+              {member.isHost ? <strong>{member.displayName}</strong> : member.displayName}
+            </span>
+            <span className="riffsync-room-page__people-meta">
+              {member.isHost ? (
                 <span className="riffsync-room-page__host-badge" aria-label="Host">
                   Host
                 </span>
-              </>
-            ) : (
-              member.displayName
-            )}
-            {member.sessionId === sessionId ? <span className="riffsync-muted"> · you</span> : null}
-            {member.active ? (
-              <span className="riffsync-room-page__active-badge" aria-label="Active">
-                <span className="riffsync-room-page__active-dot" aria-hidden="true" />
-                Active
-              </span>
-            ) : null}
-            {speaking ? (
-              <span className="riffsync-room-page__speaking-badge" aria-hidden="true">
-                Speaking
-              </span>
-            ) : null}
+              ) : null}
+              {member.sessionId === sessionId ? <span className="riffsync-muted"> · you</span> : null}
+              {member.active ? (
+                <span className="riffsync-room-page__active-badge" aria-label="Active">
+                  <span className="riffsync-room-page__active-dot" aria-hidden="true" />
+                  Active
+                </span>
+              ) : null}
+              {speaking ? (
+                <span className="riffsync-room-page__speaking-badge" aria-hidden="true">
+                  Speaking
+                </span>
+              ) : null}
+            </span>
           </span>
           {showAvIndicators ? (
             <PeopleRowAvIndicators snapshot={producerSnapshot} speaking={speaking} />

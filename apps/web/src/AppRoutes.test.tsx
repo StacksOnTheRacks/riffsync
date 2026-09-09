@@ -183,7 +183,22 @@ describe('AppRoutes chrome selection', () => {
     renderRoute('/cast/receiver')
     expect(container.querySelector('.riffsync-app-shell')).toBeNull()
 
+    renderRoute('/link')
+    expect(container.querySelector('.riffsync-app-shell')).toBeNull()
+
     renderRoute('/tv')
     expect(container.querySelector('.riffsync-app-shell')).toBeNull()
+  })
+
+  it('serves the TV pairing page at /link', () => {
+    renderRoute('/link')
+    expect(container.querySelector('.riffsync-app-shell')).toBeNull()
+    expect(container.textContent).toContain('TV body')
+  })
+
+  it('redirects /tv to the /link pairing page', () => {
+    renderRoute('/tv')
+    expect(container.querySelector('.riffsync-app-shell')).toBeNull()
+    expect(container.textContent).toContain('TV body')
   })
 })

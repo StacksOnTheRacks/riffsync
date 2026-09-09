@@ -7,7 +7,7 @@ type CastReceiverPresentationProps = {
   liveStream?: MediaStream | null
 }
 
-/** Cast/TV linked presentation shell (shared with `/tv` via TvClientShell). */
+/** Cast/TV linked presentation shell (shared with `/link` via TvClientShell). */
 export function CastReceiverPresentation({
   snapshot,
   chatMessages,

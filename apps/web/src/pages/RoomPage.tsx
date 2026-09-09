@@ -752,65 +752,6 @@ export function RoomPage() {
           data-expanded-view={expandedViewActive ? 'true' : 'false'}
         >
           <div className={`riffsync-room-page__theater${expandedViewActive ? ' riffsync-room-page__theater--expanded' : ''}`}>
-            {viewportWide && !castStageActive ? (
-              <button
-                ref={expandToggleRef}
-                type="button"
-                className="riffsync-room-page__expand-toggle"
-                aria-pressed={expandedViewActive}
-                onClick={() => setExpandedView((value) => !value)}
-              >
-                {expandedViewActive ? 'Exit expanded view' : 'Expand view'}
-              </button>
-            ) : null}
-            {isPublisher ? (
-              <HostTheaterButtonBar
-                extensionPresent={hostExtension.present}
-                mediaTabOpen={hostExtension.mediaState.mediaTabOpen}
-                mediaPlaybackControllable={hostExtension.mediaState.mediaPlaybackControllable}
-                captureActive={Boolean(captureStream)}
-                transportBusy={hostConsoleBusy}
-                onOpenLoadMedia={openLoadMediaModal}
-                loadMediaOpenerRef={loadMediaOpenerRef}
-                onToggleChatRail={() => setChatRailOpen((open) => !open)}
-                chatRailOpen={chatRailOpen}
-                participantAvController={fanToken ? participantAvController : null}
-                avDisabled={avDisabled}
-                showAvControls={Boolean(fanToken)}
-                onLocalToggleAnnounce={announceRoomA11y}
-                castAvailability={castAvailability}
-                castStartLifecycle={castStartLifecycle}
-                onCastToTvClick={onCastToTvClick}
-                castToTvButtonRef={castToTvButtonRef}
-                onLinkTvClick={openLinkPanel}
-                linkTvActive={linkActive}
-                linkTvButtonRef={linkTvButtonRef}
-                onStartBroadcast={() => {
-                  void startCapture()
-                }}
-                onStopBroadcast={() => {
-                  stopCapture()
-                }}
-                onPlay={() => {
-                  void hostExtension.play()
-                }}
-                onPause={() => {
-                  void hostExtension.pause()
-                }}
-                onCopyShare={() => void copyShare()}
-                shareHint={shareHint}
-                onOpenRenameModal={openRenameModal}
-                roomVisibility={room.visibility}
-                visibilityBusy={visibilityBusy}
-                visibilityErr={visibilityErr}
-                onSelectRoomVisibility={(visibility) => void patchRoomVisibility(visibility)}
-                roomMode={roomMode}
-                hostBarBusy={hostBarBusy}
-                hostBarErr={hostBarErr}
-                onSelectRoomMode={(mode) => void patchHostRoomFields({ roomMode: mode })}
-              />
-            ) : null}
-            {expandedViewActive ? <RoomPageSidebar presentation="overlay" {...roomSidebarProps} activeSidebarTab="chat" /> : null}
             <StageParticipantLayout
               roomMode={roomMode}
               tiles={stageParticipantTiles}
@@ -818,6 +759,56 @@ export function RoomPage() {
               viewportWide={viewportWide}
               avSurfacesEnabled={avSurfacesEnabled}
               expandedView={expandedViewActive}
+              theaterChrome={
+                isPublisher ? (
+                  <HostTheaterButtonBar
+                    extensionPresent={hostExtension.present}
+                    mediaTabOpen={hostExtension.mediaState.mediaTabOpen}
+                    mediaPlaybackControllable={hostExtension.mediaState.mediaPlaybackControllable}
+                    captureActive={Boolean(captureStream)}
+                    transportBusy={hostConsoleBusy}
+                    onOpenLoadMedia={openLoadMediaModal}
+                    loadMediaOpenerRef={loadMediaOpenerRef}
+                    onToggleChatRail={() => setChatRailOpen((open) => !open)}
+                    chatRailOpen={chatRailOpen}
+                    participantAvController={fanToken ? participantAvController : null}
+                    avDisabled={avDisabled}
+                    showAvControls={Boolean(fanToken)}
+                    onLocalToggleAnnounce={announceRoomA11y}
+                    castAvailability={castAvailability}
+                    castStartLifecycle={castStartLifecycle}
+                    onCastToTvClick={onCastToTvClick}
+                    castToTvButtonRef={castToTvButtonRef}
+                    onLinkTvSubmitCode={claimCode}
+                    onStopLinkTv={stopLink}
+                    linkTvActive={linkActive}
+                    linkTvButtonRef={linkTvButtonRef}
+                    onStartBroadcast={() => {
+                      void startCapture()
+                    }}
+                    onStopBroadcast={() => {
+                      stopCapture()
+                    }}
+                    onPlay={() => {
+                      void hostExtension.play()
+                    }}
+                    onPause={() => {
+                      void hostExtension.pause()
+                    }}
+                    onCopyShare={() => void copyShare()}
+                    shareHint={shareHint}
+                    onOpenRenameModal={openRenameModal}
+                    roomVisibility={room.visibility}
+                    visibilityBusy={visibilityBusy}
+                    visibilityErr={visibilityErr}
+                    onSelectRoomVisibility={(visibility) => void patchRoomVisibility(visibility)}
+                    roomMode={roomMode}
+                    hostBarBusy={hostBarBusy}
+                    hostBarErr={hostBarErr}
+                    onSelectRoomMode={(mode) => void patchHostRoomFields({ roomMode: mode })}
+                  />
+                ) : null
+              }
               playback={
                 castStageActive ? (
                   <CastActiveStagePanel
@@ -858,6 +849,20 @@ export function RoomPage() {
                 )
               }
             />
+            {expandedViewActive ? (
+              <RoomPageSidebar presentation="overlay" {...roomSidebarProps} activeSidebarTab="chat" />
+            ) : null}
+            {viewportWide && !castStageActive ? (
+              <button
+                ref={expandToggleRef}
+                type="button"
+                className="riffsync-room-page__expand-toggle"
+                aria-pressed={expandedViewActive}
+                onClick={() => setExpandedView((value) => !value)}
+              >
+                {expandedViewActive ? 'Exit expanded view' : 'Expand view'}
+              </button>
+            ) : null}
           </div>
 
           {!expandedViewActive && chatRailOpen ? <RoomPageSidebar {...roomSidebarProps} /> : null}

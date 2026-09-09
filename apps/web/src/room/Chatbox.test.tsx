@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ChatboxTabList } from './Chatbox'
+import { ChatboxPanel, ChatboxTabList } from './Chatbox'
 
 describe('Chatbox', () => {
   let container: HTMLDivElement
@@ -42,5 +42,21 @@ describe('Chatbox', () => {
     expect(tabs[1]?.getAttribute('aria-selected')).toBe('false')
     act(() => (tabs[1] as HTMLButtonElement).click())
     expect(onSelectTab).toHaveBeenCalledWith('people')
+  })
+
+  it('renders tab panels as divs so template section padding cannot center the list', () => {
+    act(() => {
+      root.render(
+        <ChatboxPanel tabId="chat" activeTab="chat">
+          <ul className="riffsync-room-chat-log">
+            <li>hello</li>
+          </ul>
+        </ChatboxPanel>,
+      )
+    })
+    const panel = container.querySelector('[role="tabpanel"]')
+    expect(panel).not.toBeNull()
+    expect(panel?.tagName).toBe('DIV')
+    expect(container.querySelector('section')).toBeNull()
   })
 })

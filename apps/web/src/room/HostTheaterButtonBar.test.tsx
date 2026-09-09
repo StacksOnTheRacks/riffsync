@@ -20,7 +20,8 @@ const baseProps = {
   castAvailability: 'available' as const,
   castStartLifecycle: 'idle' as const,
   onCastToTvClick: vi.fn(),
-  onLinkTvClick: vi.fn(),
+  onLinkTvSubmitCode: vi.fn(),
+  onStopLinkTv: vi.fn(),
   linkTvActive: false,
   onStartBroadcast: vi.fn(),
   onStopBroadcast: vi.fn(),
@@ -170,5 +171,65 @@ describe('HostTheaterButtonBar', () => {
     expect(segments.length).toBe(10)
     expect(container.querySelector('[aria-label="Play"]')).not.toBeNull()
     expect(container.querySelector('[aria-label="Pause"]')).not.toBeNull()
+  })
+
+  it('opens Watch on TV with /link instructions and a required TV code for Link Smart TV', async () => {
+    const onLinkTvSubmitCode = vi.fn()
+    const onCastToTvClick = vi.fn()
+    act(() => {
+      root.render(
+        <HostTheaterButtonBar
+          {...baseProps}
+          onLinkTvSubmitCode={onLinkTvSubmitCode}
+          onCastToTvClick={onCastToTvClick}
+        />,
+      )
+    })
+
+    const cast = container.querySelector('[aria-label="Cast to TV"]') as HTMLButtonElement
+    act(() => cast.click())
+
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Watch on TV')
+    expect(container.textContent).toContain('/link')
+    expect(container.textContent).not.toMatch(/(^|[^/])\/tv(\b|$)/)
+
+    const input = container.querySelector('[name="tvLinkCode"]') as HTMLInputElement
+    expect(input).not.toBeNull()
+    expect(input.required).toBe(true)
+
+    const link = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Link Smart TV',
+    ) as HTMLButtonElement
+    act(() => link.click())
+    expect(onLinkTvSubmitCode).not.toHaveBeenCalled()
+    expect(input.validity.valueMissing).toBe(true)
+
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
+    act(() => {
+      setter.call(input, 'ABC123')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    act(() => {
+      const form = container.querySelector('.riffsync-watch-on-tv') as HTMLFormElement
+      form.requestSubmit()
+    })
+    await vi.waitFor(() => {
+      expect(onLinkTvSubmitCode).toHaveBeenCalledWith('ABC123')
+    })
+  })
+
+  it('starts Chromecast from Watch on TV without requiring a TV link code', () => {
+    const onCastToTvClick = vi.fn()
+    act(() => {
+      root.render(<HostTheaterButtonBar {...baseProps} onCastToTvClick={onCastToTvClick} />)
+    })
+    act(() => (container.querySelector('[aria-label="Cast to TV"]') as HTMLButtonElement).click())
+
+    const chromecast = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Chromecast',
+    ) as HTMLButtonElement
+    act(() => chromecast.click())
+    expect(onCastToTvClick).toHaveBeenCalled()
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
   })
 })

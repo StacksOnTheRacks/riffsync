@@ -15,6 +15,7 @@ type StageParticipantLayoutProps = {
   viewportWide: boolean
   avSurfacesEnabled: boolean
   playback: ReactNode
+  theaterChrome?: ReactNode
   expandedView?: boolean
 }
 
@@ -25,6 +26,7 @@ export function StageParticipantLayout({
   viewportWide,
   avSurfacesEnabled,
   playback,
+  theaterChrome,
   expandedView = false,
 }: StageParticipantLayoutProps) {
   const showDesktopTheaterRow =
@@ -35,6 +37,7 @@ export function StageParticipantLayout({
     avSurfacesEnabled && !viewportWide && roomMode === 'theater' && tiles.length > 0
   const showVideoChatEmpty =
     roomMode === 'videoChat' && viewportWide && tiles.length === 0 && !layoutUpdating
+  const chrome = expandedView ? null : theaterChrome
 
   const tileList = (
     <>
@@ -58,20 +61,24 @@ export function StageParticipantLayout({
         {roomMode === 'theater' ? (
           <div className="riffsync-room-page__theater-row">
             <div className="riffsync-room-page__theater-playback">{playback}</div>
+            {chrome}
           </div>
         ) : (
-          <div
-            className="riffsync-room-page__participant-grid"
-            aria-label="Participant cameras"
-          >
-            {showVideoChatEmpty ? (
-              <p className="riffsync-room-page__participant-grid-empty" role="status">
-                {VIDEO_CHAT_EMPTY_COPY}
-              </p>
-            ) : (
-              tileList
-            )}
-          </div>
+          <>
+            <div
+              className="riffsync-room-page__participant-grid"
+              aria-label="Participant cameras"
+            >
+              {showVideoChatEmpty ? (
+                <p className="riffsync-room-page__participant-grid-empty" role="status">
+                  {VIDEO_CHAT_EMPTY_COPY}
+                </p>
+              ) : (
+                tileList
+              )}
+            </div>
+            {chrome}
+          </>
         )}
       </div>
       {showNarrowRow || showExpandedTheaterRow || showDesktopTheaterRow ? (

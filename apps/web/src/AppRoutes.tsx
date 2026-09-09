@@ -35,7 +35,8 @@ export function AppRoutes() {
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
       <Route path="/admin/auth/callback" element={<StaffAuthCallbackPage />} />
       <Route path="/cast/receiver" element={<CastReceiverPage />} />
-      <Route path="/tv" element={<TvClientPage />} />
+      <Route path="/link" element={<TvClientPage />} />
+      <Route path="/tv" element={<Navigate to="/link" replace />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin" element={<StaffAdminGate />}>
         <Route element={<AdminLayout />}>

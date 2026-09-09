@@ -167,4 +167,50 @@ describe('RoomPage host theater chrome', () => {
     expect(container.textContent).not.toMatch(/\bTHEATER\b/)
     expect(container.textContent).not.toContain('VIDEO CHAT')
   })
+
+  it('hides the host theater bar in expanded view', async () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(min-width: 992px)',
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    })
+
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/room/room-test-1']}>
+          <RoomChromeProvider>
+            <Routes>
+              <Route path="/room/:roomId" element={<RoomPage />} />
+            </Routes>
+          </RoomChromeProvider>
+        </MemoryRouter>,
+      )
+    })
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-host-theater-bar')).not.toBeNull()
+    })
+
+    const expand = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Expand view',
+    )
+    expect(expand).toBeTruthy()
+    act(() => {
+      expand?.click()
+    })
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-room-page__theater--expanded')).not.toBeNull()
+    })
+    expect(container.querySelector('.riffsync-host-theater-bar')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__chat--overlay')).not.toBeNull()
+    expect(
+      [...container.querySelectorAll('button')].some((button) => button.textContent === 'Exit expanded view'),
+    ).toBe(true)
+  })
 })

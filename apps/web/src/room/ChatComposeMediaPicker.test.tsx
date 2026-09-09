@@ -103,6 +103,18 @@ describe('ChatComposeMediaPicker', () => {
     expect(resultsRule).toContain('min-height: 0;')
   })
 
+  it('lets the compose popover stack above the chat log', () => {
+    const footerRule = cssRule('.riffsync-room-page__sidebar-footer')
+    const holderRule = cssRule('.riffsync-room-chat-compose-holder')
+    const popoverRule = cssRule('.riffsync-room-chat-media-popover')
+
+    expect(footerRule).toContain('overflow: visible;')
+    expect(footerRule).toContain('z-index: 20;')
+    expect(holderRule).toContain('z-index: 21;')
+    expect(popoverRule).toContain('z-index: 30;')
+    expect(popoverRule).toContain('bottom: calc(100% + 0.35rem);')
+  })
+
   it('switches to GIF tab and runs debounced search', async () => {
     searchGiphyMock.mockResolvedValue({
       results: [

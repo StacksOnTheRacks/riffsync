@@ -123,12 +123,13 @@ cp infra/local-media/coturn/turnserver.conf.example infra/local-media/coturn/tur
 npm run media:local
 curl -sSf http://127.0.0.1:3000/healthz
 
-# SPA env (prod API + local SFU override)
-cd apps/web
-cp .env.example .env.local
-# Edit .env.local: set prod VITE_PUBLIC_API_BASE_URL, VITE_PUBLIC_WS_URL, Cognito vars, and:
-#   VITE_PUBLIC_SFU_WS_URL=ws://127.0.0.1:3000
+# SPA env from production CloudFormation (API, room WS, Cognito)
+# Uses AWS CLI profile `me` (same as infra/cdk/README.md). Override with --profile.
+npm run dev:env
+# Optional: point media at the disposable SFU instead of prod signal
+# npm run dev:env -- --media local
 
+cd apps/web
 npm ci
 npm test
 npm run dev

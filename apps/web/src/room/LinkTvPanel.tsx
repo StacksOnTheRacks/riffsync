@@ -1,4 +1,5 @@
 import { useId, useState } from 'react'
+import { TV_LINK_PATH, getTvLinkUrl } from '../tv/tvLinkPath'
 
 export type LinkTvPanelProps = {
   open: boolean
@@ -60,14 +61,15 @@ export function LinkTvPanel({ open, onClose, onSubmitCode, linked, onStopLink }:
       ) : (
         <div className="riffsync-link-tv-panel__body">
           <p className="riffsync-link-tv-panel__instructions">
-            On your TV, open RiffSync and go to the TV page. Enter the code shown on the TV screen
-            below to link this room.
+            On your TV, open RiffSync and go to {getTvLinkUrl()}. Enter the code shown on the TV
+            screen below to link this room.
           </p>
           <p className="riffsync-muted riffsync-link-tv-panel__hint">
-            Tip: visit <strong>/tv</strong> in your TV browser, or use Cast for Chromecast devices.
+            Tip: visit <strong>{TV_LINK_PATH}</strong> in your TV browser, or use Cast for Chromecast
+            devices.
           </p>
           <label className="riffsync-link-tv-panel__label" htmlFor={inputId}>
-            TV code
+            TV Link Code
           </label>
           <input
             id={inputId}
@@ -78,6 +80,7 @@ export function LinkTvPanel({ open, onClose, onSubmitCode, linked, onStopLink }:
             spellCheck={false}
             maxLength={8}
             placeholder="ABC123"
+            required
             disabled={busy}
           />
           {error ? (

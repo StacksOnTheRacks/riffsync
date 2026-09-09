@@ -339,7 +339,7 @@ export function RoomPageSidebar({
                       <div className="riffsync-room-chat-log__entry">
                         {showTheirsMeta ? (
                           <div className="riffsync-room-chat-log__meta">
-                            <FanAvatarThumb displayName={chatDisplayName} avatarUrl={chatAvatarUrl} />
+                            <FanAvatarThumb displayName={chatDisplayName} avatarUrl={chatAvatarUrl} sizePx={24} />
                             <span className="riffsync-room-chat-log__who-name">{chatDisplayName}</span>
                           </div>
                         ) : (

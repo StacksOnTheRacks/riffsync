@@ -85,13 +85,13 @@ export function ChatboxPanel({
   if (activeTab !== tabId) return null
   const panelClass = ['riffsync-chatbox__panel', className].filter(Boolean).join(' ')
   return (
-    <section
+    <div
       role="tabpanel"
       id={`riffsync-chatbox-panel-${tabId}`}
       aria-labelledby={labelledBy ?? `riffsync-chatbox-tab-${tabId}`}
       className={panelClass}
     >
       {children}
-    </section>
+    </div>
   )
 }

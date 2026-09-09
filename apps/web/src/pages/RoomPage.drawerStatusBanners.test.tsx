@@ -513,7 +513,12 @@ describe('RoomPage drawer status banner integration (#209)', () => {
     expect(roomChromeExpandedProbe()?.getAttribute('data-expanded')).toBe('true')
     expect(expandViewButton()?.textContent).toBe('Exit expanded view')
     const overlay = container.querySelector('.riffsync-room-page__chat--overlay')
+    const stageMedia = container.querySelector('.riffsync-room-page__stage-media')
     expect(overlay).not.toBeNull()
+    expect(stageMedia).not.toBeNull()
+    expect(
+      stageMedia!.compareDocumentPosition(overlay!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(container.querySelector('.riffsync-room-page__chat-column')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__tabs')).toBeNull()
     expect(chatBanner()?.closest('.riffsync-room-page__chat--overlay')).not.toBeNull()
