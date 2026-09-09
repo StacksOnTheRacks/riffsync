@@ -109,6 +109,7 @@ describe('prepareDefaultCastSenderClient', () => {
   })
 
   it('returns false when the receiver application id is missing', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '')
     installCastFramework()
 
     await expect(prepareDefaultCastSenderClient()).resolves.toBe(false)
@@ -175,6 +176,7 @@ describe('createDefaultCastSenderClient', () => {
   })
 
   it('fails before requesting a session when the receiver application id is not configured', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '')
     const { context } = installCastFramework()
 
     expect(() => createDefaultCastSenderClient().requestSession()).toThrow(

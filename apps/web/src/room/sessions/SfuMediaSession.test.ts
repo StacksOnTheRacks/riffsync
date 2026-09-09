@@ -1023,11 +1023,11 @@ describe('SfuMediaSession media policy', () => {
     vi.stubGlobal('navigator', {
       mediaDevices: {
         getUserMedia: vi.fn().mockResolvedValue({
-          getVideoTracks: () => [{ kind: 'video', stop: vi.fn(), id: 'v1' }],
-          getAudioTracks: () => [{ kind: 'audio', stop: vi.fn(), id: 'a1' }],
+          getVideoTracks: () => [{ kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }],
+          getAudioTracks: () => [{ kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }],
           getTracks: () => [
-            { kind: 'video', stop: vi.fn(), id: 'v1' },
-            { kind: 'audio', stop: vi.fn(), id: 'a1' },
+            { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' },
+            { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' },
           ],
           removeTrack: vi.fn(),
         }),
@@ -1083,11 +1083,11 @@ describe('SfuMediaSession media policy', () => {
     vi.stubGlobal('navigator', {
       mediaDevices: {
         getUserMedia: vi.fn().mockResolvedValue({
-          getVideoTracks: () => [{ kind: 'video', stop: vi.fn(), id: 'v1' }],
-          getAudioTracks: () => [{ kind: 'audio', stop: vi.fn(), id: 'a1' }],
+          getVideoTracks: () => [{ kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' }],
+          getAudioTracks: () => [{ kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' }],
           getTracks: () => [
-            { kind: 'video', stop: vi.fn(), id: 'v1' },
-            { kind: 'audio', stop: vi.fn(), id: 'a1' },
+            { kind: 'video', readyState: 'live', stop: vi.fn(), id: 'v1' },
+            { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1' },
           ],
           removeTrack: vi.fn(),
         }),
@@ -1441,8 +1441,10 @@ describe('SfuMediaSession participant producer registry (#248)', () => {
       mediaDevices: {
         getUserMedia: vi.fn().mockResolvedValue({
           getVideoTracks: () => [],
-          getAudioTracks: () => [{ kind: 'audio', stop: vi.fn(), id: 'a1', enabled: true }],
-          getTracks: () => [{ kind: 'audio', stop: vi.fn(), id: 'a1', enabled: true }],
+          getAudioTracks: () => [
+            { kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1', enabled: true },
+          ],
+          getTracks: () => [{ kind: 'audio', readyState: 'live', stop: vi.fn(), id: 'a1', enabled: true }],
           removeTrack: vi.fn(),
         }),
       },
