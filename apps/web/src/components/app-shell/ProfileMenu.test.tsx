@@ -90,6 +90,7 @@ describe('ProfileMenu', () => {
     })
 
     expect(container.querySelector('a[href="/your-parties"]')?.textContent).toBe('Your Parties')
+    expect(container.querySelector('a[href="/account"]')?.textContent).toBe('Profile')
   })
 
   it('shows the signed-in avatar in the header trigger', async () => {

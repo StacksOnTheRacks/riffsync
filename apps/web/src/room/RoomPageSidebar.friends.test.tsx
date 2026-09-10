@@ -144,17 +144,6 @@ function buildSidebarProps(overrides: Partial<Parameters<typeof RoomPageSidebar>
     avDisabled: false,
     participantAvController: createParticipantAvControllerStub(),
     announceRoomA11y: vi.fn(),
-    profileDraft: '',
-    setProfileDraft: vi.fn(),
-    profileSaveErr: null,
-    profileSaving: false,
-    profileAvatarUrl: null,
-    profileAvatarLoading: false,
-    profileAvatarUploading: false,
-    profileAvatarErr: null,
-    profileAvatarInputRef: { current: null },
-    saveProfileDisplayName: vi.fn(),
-    onProfileAvatarSelected: vi.fn(),
     castAvailability: 'checking' as const,
     castStartLifecycle: 'idle' as const,
     onCastToTvClick: vi.fn(),
@@ -209,7 +198,7 @@ describe('RoomPageSidebar friends tab (#364)', () => {
     expect(container.querySelector('.riffsync-room-page__tab-unread-dot')).toBeNull()
   })
 
-  it('shows Friends tab in order Chat, People, Friends, Room, Profile for signed-in fans', () => {
+  it('shows Friends tab in order Chat, People, Friends, Room for signed-in fans', () => {
     renderSidebar()
 
     const labels = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).map((node) =>
@@ -219,7 +208,7 @@ describe('RoomPageSidebar friends tab (#364)', () => {
     expect(labels[1]).toBe('People (2)')
     expect(labels[2]).toMatch(/^Friends/)
     expect(labels[3]).toBe('Room')
-    expect(labels[4]).toBe('Profile')
+    expect(labels).not.toContain('Profile')
   })
 
   it('shows aggregate unread dot on Friends tab when anyUnread', () => {
@@ -299,7 +288,7 @@ describe('RoomPageSidebar friends tab (#364)', () => {
     expect(labels[0]).toBe('Chat')
     expect(labels[1]).toBe('People (2)')
     expect(labels[2]).toMatch(/^Friends/)
-    expect(labels[3]).toBe('Profile')
+    expect(labels).not.toContain('Profile')
     expect(labels).not.toContain('Room')
     expect(container.querySelector('.riffsync-room-av-toggle')).toBeNull()
   })

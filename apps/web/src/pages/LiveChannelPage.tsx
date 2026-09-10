@@ -9,7 +9,6 @@ import { useLiveChannelQuery } from '../live/liveQueries'
 import { useLiveChannelChat } from '../live/useLiveChannelChat'
 import { trackGaEvent } from '../config/googleAnalytics'
 import { RoomPageSidebar } from '../room/RoomPageSidebar'
-import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
 import type { ParticipantAvController } from '../room/sfu/participantAvSession'
@@ -105,9 +104,7 @@ export function LiveChannelPage() {
             channel={channel}
             sessionId={sessionId}
             displayName={displayName}
-            setDisplayName={setDisplayName}
             myAvatarUrl={myAvatarUrl}
-            setMyAvatarUrl={setMyAvatarUrl}
             fanToken={fanToken}
           />
         ) : null}
@@ -121,12 +118,10 @@ function LiveChannelReady(props: {
   channel: LiveChannelSnapshot
   sessionId: string
   displayName: string
-  setDisplayName: (name: string) => void
   myAvatarUrl: string | null
-  setMyAvatarUrl: (url: string | null) => void
   fanToken: string | null
 }) {
-  const { slug, channel, sessionId, displayName, setDisplayName, myAvatarUrl, setMyAvatarUrl, fanToken } = props
+  const { slug, channel, sessionId, displayName, myAvatarUrl, fanToken } = props
   const chatInputRef = useRef<HTMLInputElement>(null)
   const castToTvButtonRef = useRef<HTMLButtonElement>(null)
   const liveViewGaFiredRef = useRef(false)
@@ -152,18 +147,11 @@ function LiveChannelReady(props: {
   const { logRef: chatLogRef, showJumpToLatest, jumpToLatestLabel, jumpToLatest } =
     useChatLogStickToBottom(chat.chat.length, true, channel.roomId)
   const activeSidebarTab =
-    !fanToken && (roomSidebarTab === 'profile' || roomSidebarTab === 'friends')
+    roomSidebarTab === 'profile' ||
+    roomSidebarTab === 'room' ||
+    (!fanToken && roomSidebarTab === 'friends')
       ? 'chat'
-      : roomSidebarTab === 'room'
-        ? 'chat'
-        : roomSidebarTab
-  const profile = useRoomProfileTab({
-    fanToken,
-    roomSidebarTab: activeSidebarTab,
-    displayName,
-    setDisplayName,
-    setMyAvatarUrl,
-  })
+      : roomSidebarTab
 
   const canPlay =
     Boolean(channel.youtubeVideoId) && channel.embedAllows !== false && channel.playbackHost !== 'custom'
@@ -236,17 +224,6 @@ function LiveChannelReady(props: {
         avDisabled
         participantAvController={LIVE_PARTICIPANT_AV_CONTROLLER}
         announceRoomA11y={() => {}}
-        profileDraft={profile.profileDraft}
-        setProfileDraft={profile.setProfileDraft}
-        profileSaveErr={profile.profileSaveErr}
-        profileSaving={profile.profileSaving}
-        profileAvatarUrl={profile.profileAvatarUrl}
-        profileAvatarLoading={profile.profileAvatarLoading}
-        profileAvatarUploading={profile.profileAvatarUploading}
-        profileAvatarErr={profile.profileAvatarErr}
-        profileAvatarInputRef={profile.profileAvatarInputRef}
-        saveProfileDisplayName={profile.saveProfileDisplayName}
-        onProfileAvatarSelected={profile.onProfileAvatarSelected}
         castAvailability="unavailable"
         castStartLifecycle="idle"
         onCastToTvClick={() => {}}

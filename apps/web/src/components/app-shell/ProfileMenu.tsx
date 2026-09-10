@@ -130,7 +130,7 @@ export function ProfileMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={panelId}
-        aria-label="Account menu"
+        aria-label="Profile menu"
         onClick={toggleMenu}
         onKeyDown={onTriggerKeyDown}
       >
@@ -145,7 +145,7 @@ export function ProfileMenu() {
           </li>
           <li role="none">
             <Link to="/account" role="menuitem" onClick={closeMenu}>
-              Account
+              Profile
             </Link>
           </li>
           <li role="none">

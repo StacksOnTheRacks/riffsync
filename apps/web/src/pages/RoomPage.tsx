@@ -25,7 +25,6 @@ import { useRoomChrome } from '../room/useRoomChrome'
 import { useRoomSnapshot } from '../room/useRoomSnapshot'
 import { useRoomMediaEngine } from '../room/useRoomMediaEngine'
 import { useHostScreenCapture } from '../room/useHostScreenCapture'
-import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { RoomPlaybackPanel } from '../room/RoomPlaybackPanel'
 import { RoomPageSidebar } from '../room/RoomPageSidebar'
 import { RoomRenameModal } from '../room/RoomRenameModal'
@@ -249,14 +248,6 @@ export function RoomPage() {
     return map
   }, [catalogListQuery.data])
 
-  const profile = useRoomProfileTab({
-    fanToken,
-    roomSidebarTab,
-    displayName,
-    setDisplayName,
-    setMyAvatarUrl,
-  })
-
   useEffect(() => {
     captureStreamRef.current = captureStream
   }, [captureStream])
@@ -313,7 +304,7 @@ export function RoomPage() {
   }, [isPublisher, roomMode, setRoom, stopCapture])
 
   const activeSidebarTab =
-    !fanToken && (roomSidebarTab === 'profile' || roomSidebarTab === 'friends')
+    roomSidebarTab === 'profile' || (!fanToken && roomSidebarTab === 'friends')
       ? 'chat'
       : roomSidebarTab
   const viewportWide = useViewportWide()
@@ -693,17 +684,6 @@ export function RoomPage() {
     avDisabled,
     participantAvController,
     announceRoomA11y,
-    profileDraft: profile.profileDraft,
-    setProfileDraft: profile.setProfileDraft,
-    profileSaveErr: profile.profileSaveErr,
-    profileSaving: profile.profileSaving,
-    profileAvatarUrl: profile.profileAvatarUrl,
-    profileAvatarLoading: profile.profileAvatarLoading,
-    profileAvatarUploading: profile.profileAvatarUploading,
-    profileAvatarErr: profile.profileAvatarErr,
-    profileAvatarInputRef: profile.profileAvatarInputRef,
-    saveProfileDisplayName: profile.saveProfileDisplayName,
-    onProfileAvatarSelected: profile.onProfileAvatarSelected,
     castAvailability,
     castStartLifecycle,
     onCastToTvClick,

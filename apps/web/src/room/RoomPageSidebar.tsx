@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
-import type { ChangeEvent, RefObject } from 'react'
+import type { RefObject } from 'react'
 import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
-import { FAN_DISPLAY_NAME_MAX_LEN } from '../session/guestSession'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 import { ChatComposeMediaPicker } from './ChatComposeMediaPicker'
 import { ChatReactionsStrip } from './ChatReactionsStrip'
@@ -81,17 +80,6 @@ type RoomPageSidebarProps = {
   avDisabled: boolean
   participantAvController: ParticipantAvController
   announceRoomA11y: (message: string) => void
-  profileDraft: string
-  setProfileDraft: (draft: string) => void
-  profileSaveErr: string | null
-  profileSaving: boolean
-  profileAvatarUrl: string | null
-  profileAvatarLoading: boolean
-  profileAvatarUploading: boolean
-  profileAvatarErr: string | null
-  profileAvatarInputRef: RefObject<HTMLInputElement | null>
-  saveProfileDisplayName: () => void
-  onProfileAvatarSelected: (e: ChangeEvent<HTMLInputElement>) => void
   castAvailability: CastAvailabilityState
   castStartLifecycle: CastStartLifecycle
   onCastToTvClick: () => void
@@ -172,17 +160,6 @@ export function RoomPageSidebar({
   avDisabled,
   participantAvController,
   announceRoomA11y,
-  profileDraft,
-  setProfileDraft,
-  profileSaveErr,
-  profileSaving,
-  profileAvatarUrl,
-  profileAvatarLoading,
-  profileAvatarUploading,
-  profileAvatarErr,
-  profileAvatarInputRef,
-  saveProfileDisplayName,
-  onProfileAvatarSelected,
   castAvailability,
   castStartLifecycle,
   onCastToTvClick,
@@ -272,28 +249,16 @@ export function RoomPageSidebar({
           <ChatboxTabList activeTab={activeSidebarTab} tabs={chatboxTabs} onSelectTab={setRoomSidebarTab} />
         ) : null}
 
-        {presentation === 'sidebar' ? (
+        {showRoomTab ? (
           <div className="riffsync-room-page__aux-tabs" role="group" aria-label="Room settings">
-            {showRoomTab ? (
-              <button
-                type="button"
-                className={`riffsync-room-page__tab${activeSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
-                aria-pressed={activeSidebarTab === 'room'}
-                onClick={() => setRoomSidebarTab('room')}
-              >
-                Room
-              </button>
-            ) : null}
-            {fanToken ? (
-              <button
-                type="button"
-                className={`riffsync-room-page__tab${activeSidebarTab === 'profile' ? ' riffsync-room-page__tab--on' : ''}`}
-                aria-pressed={activeSidebarTab === 'profile'}
-                onClick={() => setRoomSidebarTab('profile')}
-              >
-                Profile
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className={`riffsync-room-page__tab${activeSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
+              aria-pressed={activeSidebarTab === 'room'}
+              onClick={() => setRoomSidebarTab('room')}
+            >
+              Room
+            </button>
           </div>
         ) : null}
 
@@ -452,83 +417,6 @@ export function RoomPageSidebar({
               onSelectRoomVisibility={onSelectRoomVisibility}
             />
             {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
-            {isPublisher && hostConsole ? (
-              <HostRoomConsole {...hostConsole} />
-            ) : (
-              <Link className="gen-button gen-button-wide" to="/">
-                Leave Party
-              </Link>
-            )}
-          </div>
-        ) : null}
-
-        {presentation === 'sidebar' && activeSidebarTab === 'profile' ? (
-          <div className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--profile">
-            <p className="riffsync-muted riffsync-room-page__profile-lede">
-              This name appears in chat, the viewer list, and across devices when you&apos;re signed in.
-            </p>
-            <div className="riffsync-room-page__profile-avatar-block">
-              <span className="riffsync-room-page__profile-label" id="riffsync-profile-avatar-label">
-                Avatar
-              </span>
-              <div
-                className="riffsync-room-page__profile-avatar-preview"
-                aria-labelledby="riffsync-profile-avatar-label"
-                aria-busy={profileAvatarLoading || profileAvatarUploading}
-              >
-                {profileAvatarUrl ? (
-                  <img src={profileAvatarUrl} alt="" className="riffsync-room-page__profile-avatar-img" />
-                ) : (
-                  <span className="riffsync-room-page__profile-avatar-placeholder" aria-hidden>
-                    ?
-                  </span>
-                )}
-              </div>
-              <input
-                ref={profileAvatarInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="riffsync-room-page__profile-avatar-input"
-                onChange={onProfileAvatarSelected}
-              />
-              <button
-                type="button"
-                className="gen-button riffsync-room-page__profile-avatar-btn"
-                disabled={profileAvatarLoading || profileAvatarUploading}
-                onClick={() => profileAvatarInputRef.current?.click()}
-              >
-                {profileAvatarUploading ? 'Uploading…' : profileAvatarUrl ? 'Replace image' : 'Choose image'}
-              </button>
-              {profileAvatarErr ? (
-                <p className="riffsync-room-page__profile-err" role="alert">
-                  {profileAvatarErr}
-                </p>
-              ) : null}
-            </div>
-            <label className="riffsync-room-page__profile-label" htmlFor="riffsync-profile-display-name">
-              Display name
-            </label>
-            <input
-              id="riffsync-profile-display-name"
-              className="riffsync-room-page__profile-field"
-              maxLength={FAN_DISPLAY_NAME_MAX_LEN}
-              value={profileDraft}
-              onChange={(e) => setProfileDraft(e.target.value)}
-              autoComplete="nickname"
-            />
-            {profileSaveErr ? (
-              <p className="riffsync-room-page__profile-err" role="alert">
-                {profileSaveErr}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              className="gen-button riffsync-room-page__profile-save"
-              disabled={profileSaving}
-              onClick={saveProfileDisplayName}
-            >
-              {profileSaving ? 'Saving…' : 'Save'}
-            </button>
             {isPublisher && onTheaterShareQualityChange ? (
               <div className="riffsync-room-page__profile-share-quality">
                 <TheaterShareQualityControls
@@ -537,6 +425,13 @@ export function RoomPageSidebar({
                 />
               </div>
             ) : null}
+            {isPublisher && hostConsole ? (
+              <HostRoomConsole {...hostConsole} />
+            ) : (
+              <Link className="gen-button gen-button-wide" to="/">
+                Leave Party
+              </Link>
+            )}
           </div>
         ) : null}
 
