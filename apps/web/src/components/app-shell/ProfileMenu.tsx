@@ -13,10 +13,15 @@ export function ProfileMenu() {
   const location = useLocation()
   const returnPath = `${location.pathname}${location.search}` || '/'
   const [open, setOpen] = useState(false)
-  const [displayName, setDisplayName] = useState('Account')
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [profile, setProfile] = useState<{
+    token: string
+    displayName: string
+    avatarUrl: string | null
+  } | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelId = useId()
+  const displayName = profile?.token === fanToken ? profile.displayName : 'Account'
+  const avatarUrl = profile?.token === fanToken ? profile.avatarUrl : null
 
   const closeMenu = useCallback(() => {
     setOpen(false)
@@ -49,20 +54,18 @@ export function ProfileMenu() {
 
   useEffect(() => {
     if (!fanToken) {
-      setDisplayName('Account')
-      setAvatarUrl(null)
       return
     }
 
     let cancelled = false
     void fetchFanProfile(fanToken)
-      .then((profile) => {
+      .then((next) => {
         if (cancelled) return
-        const nextName = profile.displayName?.trim()
-        if (nextName) {
-          setDisplayName(nextName)
-        }
-        setAvatarUrl(profile.avatarUrl)
+        setProfile({
+          token: fanToken,
+          displayName: next.displayName?.trim() || 'Account',
+          avatarUrl: next.avatarUrl,
+        })
       })
       .catch(() => {})
 
