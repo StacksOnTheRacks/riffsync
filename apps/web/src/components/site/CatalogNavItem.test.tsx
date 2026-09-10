@@ -106,12 +106,12 @@ describe('CatalogNavItem', () => {
         'Movies',
         'Community',
         'Riff Material',
-        'TV Shows',
       ]),
     )
     expect(catalogNav().classList.contains('menu-item-has-children')).toBe(true)
     expect(container.textContent).not.toContain('other')
     expect(container.textContent).not.toContain('Movie Night')
+    expect(container.textContent).not.toContain('TV Shows')
   })
 
   it('marks the catalog nav item active on subcategory routes', () => {

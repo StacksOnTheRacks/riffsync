@@ -73,6 +73,8 @@ describe('Sidebar Figma rail', () => {
     expect(sidebarHrefs()).toEqual(
       expect.arrayContaining(CATALOG_HUB_ENTRY_LINKS.map((entry) => entry.href)),
     )
+    expect(sidebarHrefs()).not.toContain('/catalog/tv-shows')
+    expect(container.textContent).not.toContain('TV Shows')
     expect(sidebarHrefs().filter((href) => href.includes('/season/'))).toEqual([])
     expect(container.querySelector('a[href="/catalog"]')).toBeNull()
   })

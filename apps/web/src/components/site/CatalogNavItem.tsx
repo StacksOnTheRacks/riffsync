@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } f
 import type { ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
 import {
-  CATALOG_SUBCATEGORIES,
+  CATALOG_NAV_SUBCATEGORIES,
   MST3K_ERA_NAV_LINKS,
   MST3K_SEASON_NAV_LINKS,
   MST3K_SHORTS_NAV_LINK,
@@ -101,9 +101,9 @@ function NestedDisclosureItem({
 }
 
 function CatalogSubcategoryLinks() {
-  const mst3kSubcategory = CATALOG_SUBCATEGORIES.find((entry) => entry.slug === 'mst3k')
-  const rifftraxSubcategory = CATALOG_SUBCATEGORIES.find((entry) => entry.slug === 'rifftrax')
-  const leafSubcategories = CATALOG_SUBCATEGORIES.filter(
+  const mst3kSubcategory = CATALOG_NAV_SUBCATEGORIES.find((entry) => entry.slug === 'mst3k')
+  const rifftraxSubcategory = CATALOG_NAV_SUBCATEGORIES.find((entry) => entry.slug === 'rifftrax')
+  const leafSubcategories = CATALOG_NAV_SUBCATEGORIES.filter(
     (entry) => entry.slug !== 'mst3k' && entry.slug !== 'rifftrax',
   )
 

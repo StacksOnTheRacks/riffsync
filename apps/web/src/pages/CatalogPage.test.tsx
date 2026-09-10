@@ -109,6 +109,7 @@ describe('CatalogPage', () => {
       container.querySelectorAll('.riffsync-catalog-hub-entry-links__link'),
     ) as HTMLAnchorElement[]
 
+    expect(hubLinks.map((link) => link.textContent?.trim())).not.toContain('TV Shows')
     expect(hubLinks).toHaveLength(CATALOG_HUB_ENTRY_LINKS.length)
     expect(hubLinks.map((link) => link.textContent?.trim())).toEqual(
       CATALOG_HUB_ENTRY_LINKS.map((entry) => entry.label),

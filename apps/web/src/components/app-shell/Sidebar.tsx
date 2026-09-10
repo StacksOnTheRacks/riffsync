@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useState } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
 import { useFanSession } from '../../auth/useFanSession'
 import {
-  CATALOG_SUBCATEGORIES,
+  CATALOG_NAV_SUBCATEGORIES,
   type CatalogSubcategorySlug,
 } from '../../catalog/catalogBrowseIa'
 import { FanAvatarThumb } from '../FanAvatarThumb'
@@ -243,7 +243,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
         <div className="riffsync-app-shell-nav-rule" aria-hidden />
 
         <ul className="riffsync-app-shell-nav-list" aria-label="Channels">
-          {CATALOG_SUBCATEGORIES.map((entry) => {
+          {CATALOG_NAV_SUBCATEGORIES.map((entry) => {
             const icon = CATALOG_ICONS[entry.slug]
             const nested = entry.slug === 'mst3k' || entry.slug === 'rifftrax'
             return (

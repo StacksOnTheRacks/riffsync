@@ -128,8 +128,15 @@ export const CATALOG_SUBCATEGORIES = [
 export type CatalogSubcategory = (typeof CATALOG_SUBCATEGORIES)[number]
 export type CatalogSubcategorySlug = CatalogSubcategory['slug']
 
-/** Public catalog hub entry links (same order and labels as subcategory routes). */
-export const CATALOG_HUB_ENTRY_LINKS = CATALOG_SUBCATEGORIES.map(({ label, path }) => ({
+/** Slugs kept on routes but omitted from public nav until the library has titles. */
+export const CATALOG_NAV_HIDDEN_SLUGS = new Set<CatalogSubcategorySlug>(['tv-shows'])
+
+export const CATALOG_NAV_SUBCATEGORIES = CATALOG_SUBCATEGORIES.filter(
+  (entry) => !CATALOG_NAV_HIDDEN_SLUGS.has(entry.slug),
+)
+
+/** Public catalog hub entry links (same order as visible subcategory nav). */
+export const CATALOG_HUB_ENTRY_LINKS = CATALOG_NAV_SUBCATEGORIES.map(({ label, path }) => ({
   label,
   href: path,
 }))
