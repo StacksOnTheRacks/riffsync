@@ -13,6 +13,13 @@ describe('detectCastSenderSupport', () => {
     vi.unstubAllGlobals()
     prepareDefaultCastSenderClient.mockReset()
     prepareDefaultCastSenderClient.mockResolvedValue(true)
+    document.querySelectorAll('script[data-riffsync-cast-framework="true"]').forEach((node) => {
+      const script = node as HTMLScriptElement
+      script.onload = null
+      script.onerror = null
+      script.removeAttribute('src')
+      script.remove()
+    })
     document.head.innerHTML = ''
     delete (window as Window & { __onGCastApiAvailable?: (isAvailable: boolean) => void }).__onGCastApiAvailable
     delete (window as Window & { chrome?: { cast?: { isAvailable?: boolean } } }).chrome
@@ -53,7 +60,7 @@ describe('detectCastSenderSupport', () => {
 
     const script = document.querySelector('script[data-riffsync-cast-framework="true"]')
     expect(script).not.toBeNull()
-    expect((script as HTMLScriptElement).src).toBe(
+    expect((script as HTMLScriptElement).dataset.riffsyncCastSrc).toBe(
       'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1',
     )
 

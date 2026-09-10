@@ -54,12 +54,17 @@ function ensureCastFrameworkScript(): void {
   if (document.querySelector(CAST_FRAMEWORK_SCRIPT_SELECTOR)) return
 
   const script = document.createElement('script')
-  script.src = CAST_FRAMEWORK_SRC
   script.async = true
   script.dataset.riffsyncCastFramework = 'true'
+  script.dataset.riffsyncCastSrc = CAST_FRAMEWORK_SRC
   script.onerror = () => {
+    if (typeof window === 'undefined') return
     const win = window as CastChromeWindow
     win.__onGCastApiAvailable?.(false)
+  }
+  // Happy-dom fetches script.src; unit tests must not hit the live Cast CDN.
+  if (import.meta.env.MODE !== 'test') {
+    script.src = CAST_FRAMEWORK_SRC
   }
   document.head.appendChild(script)
 }
