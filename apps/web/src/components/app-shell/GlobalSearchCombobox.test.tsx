@@ -106,6 +106,55 @@ describe('GlobalSearchCombobox', () => {
     expect(container.textContent).not.toContain('Secret Mitchell')
   })
 
+  it('shows category, tags, and Watch / Start Party for duplicate titles', () => {
+    useCatalogListQuery.mockReturnValue({
+      data: [
+        episode({
+          id: 'mac-mst3k',
+          title: 'Mac & Me',
+          catalog: 'mst3k',
+          tags: ['Season: 10', 'Era: Mike'],
+        }),
+        episode({
+          id: 'mac-rifftrax',
+          title: 'Mac & Me',
+          catalog: 'rifftrax',
+          tags: ['Short'],
+        }),
+      ],
+      isPending: false,
+      isError: false,
+    })
+    renderCombobox()
+
+    const input = container.querySelector('#riffsync-global-search') as HTMLInputElement
+    act(() => {
+      setInputValue(input, 'mac')
+      input.dispatchEvent(new FocusEvent('focus', { bubbles: true }))
+    })
+
+    const options = container.querySelectorAll('[role="option"]')
+    expect(options).toHaveLength(2)
+    expect(options[0]?.getAttribute('aria-label')).toBe('Mac & Me, MST3K')
+    expect(options[1]?.getAttribute('aria-label')).toBe('Mac & Me, RiffTrax')
+    expect(container.textContent).toContain('MST3K')
+    expect(container.textContent).toContain('RiffTrax')
+    expect(container.textContent).toContain('Season: 10')
+    expect(container.textContent).toContain('Era: Mike')
+    expect(container.textContent).toContain('Short')
+
+    const watchButtons = Array.from(container.querySelectorAll('a.gen-button--ghost')).filter(
+      (node) => node.textContent?.trim() === 'Watch',
+    )
+    const partyButtons = Array.from(container.querySelectorAll('button.gen-button')).filter(
+      (node) => node.textContent?.trim() === 'Start Party',
+    )
+    expect(watchButtons).toHaveLength(2)
+    expect(partyButtons).toHaveLength(2)
+    expect(watchButtons[0]?.getAttribute('href')).toBe('/watch/mac-mst3k')
+    expect(watchButtons[1]?.getAttribute('href')).toBe('/watch/mac-rifftrax')
+  })
+
   it('announces empty and error states', () => {
     useCatalogListQuery.mockReturnValue({
       data: undefined,

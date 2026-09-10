@@ -300,7 +300,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
               <ul className="riffsync-app-shell-nav-list">
                 <SidebarNavItem
                   to="/download"
-                  label="Download App"
+                  label="Download"
                   iconSrc={SIDEBAR_ICON.downloadApp}
                   collapsed={collapsed}
                 />

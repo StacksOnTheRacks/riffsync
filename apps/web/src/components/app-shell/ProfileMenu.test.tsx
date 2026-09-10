@@ -3,10 +3,12 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { FanProfilePayload } from '../../api/fanProfileApi'
 import { ProfileMenu } from './ProfileMenu'
 
 const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
 const useFanSession = vi.fn()
+const fetchFanProfile = vi.fn<(token: string) => Promise<FanProfilePayload>>()
 
 vi.mock('../../auth/fanHostedUiPkce', () => ({
   startFanHostedUiSignIn: (returnPath: string) => startFanHostedUiSignIn(returnPath),
@@ -15,6 +17,10 @@ vi.mock('../../auth/fanHostedUiPkce', () => ({
 
 vi.mock('../../auth/useFanSession', () => ({
   useFanSession: () => useFanSession(),
+}))
+
+vi.mock('../../api/fanProfileApi', () => ({
+  fetchFanProfile: (token: string) => fetchFanProfile(token),
 }))
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -26,6 +32,13 @@ describe('ProfileMenu', () => {
   beforeEach(() => {
     startFanHostedUiSignIn.mockReset()
     startFanHostedUiSignIn.mockResolvedValue(undefined)
+    fetchFanProfile.mockReset()
+    fetchFanProfile.mockResolvedValue({
+      displayName: 'Account',
+      updatedAt: 1,
+      avatarUrl: null,
+      avatarUpdatedAt: null,
+    })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -77,5 +90,41 @@ describe('ProfileMenu', () => {
     })
 
     expect(container.querySelector('a[href="/your-parties"]')?.textContent).toBe('Your Parties')
+  })
+
+  it('shows the signed-in avatar in the header trigger', async () => {
+    useFanSession.mockReturnValue({ fanToken: 'fan-token' })
+    fetchFanProfile.mockResolvedValue({
+      displayName: 'Derrick',
+      updatedAt: 1,
+      avatarUrl: 'https://cdn.test/me.png',
+      avatarUpdatedAt: 1,
+    })
+    renderMenu()
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-app-shell-profile-trigger img')?.getAttribute('src')).toBe(
+        'https://cdn.test/me.png',
+      )
+    })
+    expect(container.querySelector('.riffsync-app-shell-profile-trigger img')?.getAttribute('alt')).toBe(
+      'Derrick',
+    )
+    expect(fetchFanProfile).toHaveBeenCalledWith('fan-token')
+  })
+
+  it('uses the display-name initial when the profile has no avatar', async () => {
+    useFanSession.mockReturnValue({ fanToken: 'fan-token' })
+    fetchFanProfile.mockResolvedValue({
+      displayName: 'Derrick',
+      updatedAt: 1,
+      avatarUrl: null,
+      avatarUpdatedAt: null,
+    })
+    renderMenu()
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-fan-avatar-thumb--initials')?.textContent).toBe('D')
+    })
   })
 })

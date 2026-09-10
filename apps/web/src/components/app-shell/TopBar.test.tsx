@@ -26,6 +26,16 @@ vi.mock('../../auth/fanHostedUiPkce', () => ({
   startFanHostedUiSignOut: vi.fn(),
 }))
 
+vi.mock('../../api/fanProfileApi', () => ({
+  fetchFanProfile: () =>
+    Promise.resolve({
+      displayName: 'Account',
+      updatedAt: 1,
+      avatarUrl: null,
+      avatarUpdatedAt: null,
+    }),
+}))
+
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 describe('TopBar Figma chrome', () => {
@@ -46,11 +56,15 @@ describe('TopBar Figma chrome', () => {
     container.remove()
   })
 
-  function renderBar() {
+  function renderBar(showSidebarToggle = true) {
     act(() => {
       root.render(
         <MemoryRouter>
-          <TopBar sidebarExpanded onToggleSidebar={() => undefined} />
+          <TopBar
+            sidebarExpanded
+            onToggleSidebar={() => undefined}
+            showSidebarToggle={showSidebarToggle}
+          />
         </MemoryRouter>,
       )
     })
@@ -66,7 +80,7 @@ describe('TopBar Figma chrome', () => {
     expect(container.querySelector('.riffsync-app-shell-search-submit')).not.toBeNull()
     expect(container.querySelector('a[aria-label="How to Host"]')).not.toBeNull()
     expect(container.querySelector('[aria-label="Sign In"]')).not.toBeNull()
-    expect(container.querySelector('a[aria-label="Download App"]')).toBeNull()
+    expect(container.querySelector('a[aria-label="Download"]')).toBeNull()
     expect(container.querySelector('.riffsync-app-shell-profile-trigger')).toBeNull()
   })
 
@@ -74,11 +88,18 @@ describe('TopBar Figma chrome', () => {
     useFanSession.mockReturnValue({ fanToken: 'fan-token' })
     renderBar()
 
-    expect(container.querySelector('a[aria-label="Download App"] img')?.getAttribute('src')).toBe(
-      '/app-shell/topbar/apps.svg',
+    expect(container.querySelector('a[aria-label="Download"] img')?.getAttribute('src')).toBe(
+      '/app-shell/sidebar/download-app.svg',
     )
     expect(container.querySelector('a[aria-label="How to Host"]')).not.toBeNull()
     expect(container.querySelector('.riffsync-app-shell-profile-trigger')).not.toBeNull()
     expect(container.querySelector('[aria-label="Sign In"]')).toBeNull()
+  })
+
+  it('omits the hamburger when the sidebar toggle is hidden', () => {
+    renderBar(false)
+
+    expect(container.querySelector('.riffsync-app-shell-hamburger')).toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-brand')).not.toBeNull()
   })
 })

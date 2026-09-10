@@ -26,6 +26,16 @@ vi.mock('../../auth/fanHostedUiPkce', () => ({
   startFanHostedUiSignOut: vi.fn(),
 }))
 
+vi.mock('../../api/fanProfileApi', () => ({
+  fetchFanProfile: () =>
+    Promise.resolve({
+      displayName: 'Account',
+      updatedAt: 1,
+      avatarUrl: null,
+      avatarUpdatedAt: null,
+    }),
+}))
+
 vi.mock('../../auth/fanTokens', () => ({
   getFanAccessToken: vi.fn(() => null),
 }))
@@ -99,11 +109,11 @@ describe('AppShell sidebar chrome', () => {
     vi.restoreAllMocks()
   })
 
-  function renderShell() {
+  function renderShell(hideSidebar = false) {
     act(() => {
       root.render(
         <MemoryRouter>
-          <AppShell>
+          <AppShell hideSidebar={hideSidebar}>
             <p>Page body</p>
           </AppShell>
         </MemoryRouter>,
@@ -151,16 +161,26 @@ describe('AppShell sidebar chrome', () => {
     expect(container.querySelector('.riffsync-app-shell-drawer-backdrop')).not.toBeNull()
   })
 
-  it('keeps Download App, Your Parties, and header profile reachable when signed in', () => {
+  it('keeps Download, Your Parties, and header profile reachable when signed in', () => {
     useFanSession.mockReturnValue({ fanToken: 'fan-token' })
     renderShell()
 
-    expect(container.textContent).toContain('Download App')
-    expect(container.querySelector('a[aria-label="Download App"]')).not.toBeNull()
+    expect(container.textContent).toContain('Download')
+    expect(container.querySelector('a[aria-label="Download"]')).not.toBeNull()
     expect(container.querySelector('a[href="/your-parties"]')).not.toBeNull()
     expect(container.querySelector('.riffsync-app-shell-profile-trigger')).not.toBeNull()
     expect(container.querySelector('.riffsync-app-shell-brand img')?.getAttribute('src')).toBe(
       '/app-shell/topbar/logo.svg',
     )
+  })
+
+  it('hides the sidebar and hamburger when hideSidebar is set', () => {
+    renderShell(true)
+
+    expect(container.querySelector('.riffsync-app-shell--no-sidebar')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-sidebar')).toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-hamburger')).toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-topbar')).not.toBeNull()
+    expect(container.textContent).toContain('Page body')
   })
 })

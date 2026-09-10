@@ -110,6 +110,10 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   color: var(--white-color);
 }
 
+.riffsync-how-to-host-page {
+  padding-top: 1.5rem;
+}
+
 /* Template sets `section { padding: 130px 0 }` globally — reset for prose sections */
 .riffsync-legal section {
   padding: 0;

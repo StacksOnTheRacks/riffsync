@@ -161,6 +161,13 @@ describe('AppRoutes chrome selection', () => {
     expect(container.textContent).toContain('Account body')
   })
 
+  it('wraps how-to-host in AppShell without the old site header', () => {
+    renderRoute('/how-to-host-a-watchparty')
+    expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
+    expect(container.querySelector('#gen-header')).toBeNull()
+    expect(container.textContent).toContain('Host help body')
+  })
+
   it('wraps the Live Now hub at /live in AppShell', () => {
     renderRoute('/live')
     expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
@@ -179,10 +186,21 @@ describe('AppRoutes chrome selection', () => {
     expect(container.querySelector('.riffsync-site--live')).not.toBeNull()
   })
 
-  it('keeps watch on SiteLayout without AppShell', () => {
+  it('wraps watch in AppShell without the sidebar', () => {
     renderRoute('/watch/032-mitchell')
+    expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell--no-sidebar')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-sidebar')).toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-hamburger')).toBeNull()
+    expect(container.querySelector('#gen-header')).toBeNull()
+    expect(container.textContent).toContain('Watch body')
+  })
+
+  it('keeps party-capture watch chrome-free', () => {
+    renderRoute('/watch/032-mitchell?partyCapture=1')
     expect(container.querySelector('.riffsync-app-shell')).toBeNull()
-    expect(container.querySelector('#gen-header')).not.toBeNull()
+    expect(container.querySelector('.riffsync-site--party-capture')).not.toBeNull()
+    expect(container.textContent).toContain('Watch body')
   })
 
   it('redirects /lobby to the Live Now hub in AppShell', () => {

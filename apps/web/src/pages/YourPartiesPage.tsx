@@ -49,6 +49,7 @@ export function YourPartiesPage() {
       <ChannelHero
         coverUrl={YOUR_PARTIES_COVER_URL}
         avatarUrl={YOUR_PARTIES_AVATAR_URL}
+        avatarVariant="glyph"
         visualTitle={YOUR_PARTIES_HEADING}
         visualTitleAs="h1"
         subtitle={partyCountLabel}

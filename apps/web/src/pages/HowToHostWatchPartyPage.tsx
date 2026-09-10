@@ -11,7 +11,7 @@ export function HowToHostWatchPartyPage() {
   }, [])
 
   return (
-    <div className="riffsync-legal">
+    <div className="riffsync-legal riffsync-how-to-host-page">
       <div className="container">
         <h1>How to host a watch party</h1>
         <p className="riffsync-legal__meta text-muted">

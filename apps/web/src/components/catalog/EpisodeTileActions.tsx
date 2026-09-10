@@ -21,10 +21,15 @@ function resolveExternalSoloWatchUrl(episode: CatalogEpisode): string | null {
 export function EpisodeTileActions({
   episode,
   layout = 'stack',
+  watchLabel = 'Watch Solo',
+  onAfterAction,
 }: {
   episode: CatalogEpisode
   /** Wide banners use a horizontal button row; grid tiles stack. */
   layout?: 'stack' | 'inline'
+  watchLabel?: string
+  /** Called after Watch or Start Party begins (navigate, external open, or sign-in). */
+  onAfterAction?: () => void
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -48,6 +53,7 @@ export function EpisodeTileActions({
         entry_surface: 'catalog',
         source: 'catalog_episode',
       })
+      onAfterAction?.()
       navigate(`/room/${encodeURIComponent(room.roomId)}`)
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Could not create room')
@@ -57,7 +63,14 @@ export function EpisodeTileActions({
   const signInThenStartParty = () => {
     if (!playable) return
     sessionStorage.setItem(PENDING_PARTY_EPISODE_KEY, episode.id)
+    onAfterAction?.()
     void startFanHostedUiSignIn(returnPath)
+  }
+
+  const onWatchExternal = () => {
+    if (!externalSoloWatchUrl) return
+    openCatalogYoutubeWatch(externalSoloWatchUrl)
+    onAfterAction?.()
   }
 
   return (
@@ -70,21 +83,21 @@ export function EpisodeTileActions({
     >
       {playable ? (
         externalSoloWatchUrl ? (
-          <button
-            type="button"
-            className="gen-button gen-button--ghost"
-            onClick={() => openCatalogYoutubeWatch(externalSoloWatchUrl)}
-          >
-            Watch Solo
+          <button type="button" className="gen-button gen-button--ghost" onClick={onWatchExternal}>
+            {watchLabel}
           </button>
         ) : (
-          <Link to={`/watch/${episode.id}`} className="gen-button gen-button--ghost">
-            Watch Solo
+          <Link
+            to={`/watch/${episode.id}`}
+            className="gen-button gen-button--ghost"
+            onClick={() => onAfterAction?.()}
+          >
+            {watchLabel}
           </Link>
         )
       ) : (
         <button type="button" className="gen-button gen-button--ghost" disabled>
-          Watch Solo
+          {watchLabel}
         </button>
       )}
       <button

@@ -50,6 +50,16 @@ vi.mock('../auth/fanTokens', () => ({
   getFanAccessToken: vi.fn(() => 'fan-token'),
 }))
 
+vi.mock('../api/fanProfileApi', () => ({
+  fetchFanProfile: () =>
+    Promise.resolve({
+      displayName: 'Account',
+      updatedAt: 1,
+      avatarUrl: null,
+      avatarUpdatedAt: null,
+    }),
+}))
+
 vi.mock('../friends/friendsApi', () => ({
   fetchFriendRosterSnapshot: () => new Promise(() => {}),
 }))
@@ -195,6 +205,10 @@ describe('YourPartiesPage', () => {
       (node) => node.textContent,
     )
     expect(titles).toEqual(['Alpha Party', 'Beta Party'])
+    expect(container.querySelector('.riffsync-channel-hero__avatar img')?.getAttribute('src')).toBe(
+      '/app-shell/sidebar/your-parties.svg',
+    )
+    expect(container.querySelector('.riffsync-channel-hero__avatar--glyph')).not.toBeNull()
     expect(container.querySelector('.riffsync-view-toggle')).toBeNull()
     expect(container.textContent).not.toContain('Subscribe')
     expect(container.textContent).not.toContain('Subscribers')

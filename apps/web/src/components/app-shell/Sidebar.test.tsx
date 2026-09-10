@@ -85,7 +85,7 @@ describe('Sidebar Figma rail', () => {
     expect(container.querySelector('a[href="/your-parties"]')).toBeNull()
     expect(container.querySelector('a[href="/lobby"]')).toBeNull()
     expect(container.querySelector('a[href="/account"]')).toBeNull()
-    expect(container.querySelector('a[href="/download"]')?.textContent).toBe('Download App')
+    expect(container.querySelector('a[href="/download"]')?.textContent).toBe('Download')
     expect(container.textContent).toContain('More from RiffSync')
     expect(container.querySelector('img[src="/app-shell/sidebar/home.svg"]')).not.toBeNull()
     expect(container.querySelector('img[src="/app-shell/sidebar/mst3k.jpg"]')).not.toBeNull()

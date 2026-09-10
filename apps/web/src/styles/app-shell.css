@@ -22,6 +22,17 @@
   grid-template-columns: var(--app-shell-sidebar-collapsed-width) minmax(0, 1fr);
 }
 
+.riffsync-app-shell--no-sidebar {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'topbar'
+    'main';
+}
+
+.riffsync-app-shell--no-sidebar .riffsync-app-shell-topbar {
+  padding-left: 16px;
+}
+
 .riffsync-app-shell-sidebar {
   --app-shell-sidebar-bg: #212121;
   --app-shell-sidebar-active: #303030;
@@ -350,21 +361,42 @@
   top: calc(100% + 0.35rem);
   left: 0;
   right: 0;
+  z-index: 70;
   list-style: none;
   margin: 0;
-  padding: 0.35rem 0;
-  max-height: 18rem;
+  padding: 0.4rem 0;
+  max-height: min(28rem, 70vh);
   overflow-y: auto;
   border-radius: 0.5rem;
-  background: var(--dark-color);
+  background: #181818;
   border: 1px solid rgb(255 255 255 / 12%);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+}
+
+.riffsync-app-shell-search-option {
+  padding: 0.15rem 0.4rem;
+}
+
+.riffsync-app-shell-search-result {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.4rem;
+}
+
+.riffsync-app-shell-search-option.is-active .riffsync-app-shell-search-result,
+.riffsync-app-shell-search-option:hover .riffsync-app-shell-search-result {
+  background: rgb(255 255 255 / 8%);
 }
 
 .riffsync-app-shell-search-option-btn {
-  display: block;
-  width: 100%;
-  padding: 0.55rem 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--white-color);
@@ -372,14 +404,105 @@
   cursor: pointer;
 }
 
-.riffsync-app-shell-search-option.is-active .riffsync-app-shell-search-option-btn,
 .riffsync-app-shell-search-option-btn:hover,
 .riffsync-app-shell-search-option-btn:focus {
-  background: rgb(255 255 255 / 8%);
+  background: transparent;
+}
+
+.riffsync-app-shell-search-result-poster {
+  display: block;
+  width: 72px;
+  height: 40px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #121212;
+}
+
+.riffsync-app-shell-search-result-poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.riffsync-app-shell-search-result-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.riffsync-app-shell-search-result-title {
+  display: block;
+  overflow: hidden;
+  color: var(--white-color);
+  font-family: var(--body-fonts);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.riffsync-app-shell-search-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.riffsync-app-shell-search-result-category,
+.riffsync-app-shell-search-result-tag {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.riffsync-app-shell-search-result-category {
+  background: #c4161c;
+  border: 1px solid #c4161c;
+  color: #fff;
+  font-weight: 600;
+}
+
+.riffsync-app-shell-search-result-tag {
+  background: rgb(255 255 255 / 6%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  color: var(--secondary-color);
+}
+
+.riffsync-app-shell-search-option-actions {
+  flex-shrink: 0;
+}
+
+.riffsync-app-shell-search-option-actions .riffsync-episode-tile-actions {
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+  gap: 0.35rem;
+}
+
+.riffsync-app-shell-search-option-actions .gen-button {
+  width: 100%;
+  min-width: 7.25rem;
+  min-height: 30px;
+  padding: 0.28rem 0.65rem;
+  border-radius: 2px;
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
 }
 
 .riffsync-app-shell-search-status {
-  padding: 0.55rem 0.85rem;
+  padding: 0.7rem 0.9rem;
   color: var(--secondary-color);
 }
 
@@ -497,5 +620,30 @@
 
   .riffsync-app-shell-search {
     max-width: none;
+  }
+
+  .riffsync-app-shell-search-result {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .riffsync-app-shell-search-option-btn {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .riffsync-app-shell-search-option-actions {
+    width: 100%;
+    padding-left: calc(72px + 0.7rem);
+  }
+
+  .riffsync-app-shell-search-option-actions .riffsync-episode-tile-actions {
+    flex-direction: row;
+  }
+
+  .riffsync-app-shell-search-option-actions .gen-button {
+    flex: 1;
+    min-width: 0;
   }
 }

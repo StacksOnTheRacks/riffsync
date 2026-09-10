@@ -1,9 +1,10 @@
-import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CATALOG_UNAVAILABLE_MESSAGE } from '../../catalog/catalogLoadError'
 import { useCatalogListQuery } from '../../catalog/catalogQueries'
 import type { CatalogEpisode } from '../../catalog/catalogTypes'
 import { filterGlobalSearchCatalogTitles } from './filterGlobalSearchResults'
+import { GlobalSearchResultRow } from './GlobalSearchResultRow'
 
 function SearchStatusAnnouncement({ message }: { message: string }) {
   return (
@@ -15,6 +16,7 @@ function SearchStatusAnnouncement({ message }: { message: string }) {
 
 export function GlobalSearchCombobox() {
   const listboxId = useId()
+  const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const { data, isPending, isError } = useCatalogListQuery()
@@ -40,14 +42,39 @@ export function GlobalSearchCombobox() {
     setActiveIndex(-1)
   }, [])
 
+  const finishSearch = useCallback(() => {
+    closeDropdown()
+    setQuery('')
+  }, [closeDropdown])
+
   const selectEpisode = useCallback(
     (episode: CatalogEpisode) => {
-      closeDropdown()
-      setQuery('')
+      finishSearch()
       navigate(`/watch/${episode.id}`)
     },
-    [closeDropdown, navigate],
+    [finishSearch, navigate],
   )
+
+  useEffect(() => {
+    if (!showDropdown) {
+      return
+    }
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) {
+        return
+      }
+      if (rootRef.current && !rootRef.current.contains(target)) {
+        closeDropdown()
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+    }
+  }, [closeDropdown, showDropdown])
 
   const onInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (!showDropdown) {
@@ -107,7 +134,7 @@ export function GlobalSearchCombobox() {
   }
 
   return (
-    <div className="riffsync-app-shell-search">
+    <div ref={rootRef} className="riffsync-app-shell-search">
       {statusAnnouncement ? <SearchStatusAnnouncement message={statusAnnouncement} /> : null}
       <label className="sr-only" htmlFor="riffsync-global-search">
         Search catalog titles
@@ -173,26 +200,15 @@ export function GlobalSearchCombobox() {
           ) : null}
           {!showLoading && !showError
             ? results.map((episode, index) => (
-                <li
+                <GlobalSearchResultRow
                   key={episode.id}
-                  id={`${listboxId}-option-${episode.id}`}
-                  role="option"
-                  aria-selected={index === highlightedIndex}
-                  className={
-                    index === highlightedIndex
-                      ? 'riffsync-app-shell-search-option is-active'
-                      : 'riffsync-app-shell-search-option'
-                  }
-                >
-                  <button
-                    type="button"
-                    className="riffsync-app-shell-search-option-btn"
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => selectEpisode(episode)}
-                  >
-                    {episode.title}
-                  </button>
-                </li>
+                  episode={episode}
+                  active={index === highlightedIndex}
+                  optionId={`${listboxId}-option-${episode.id}`}
+                  onHighlight={() => setActiveIndex(index)}
+                  onWatch={() => selectEpisode(episode)}
+                  onAfterAction={finishSearch}
+                />
               ))
             : null}
         </ul>

@@ -47,6 +47,16 @@ vi.mock('./auth/fanTokens', () => ({
   getFanRefreshToken: vi.fn(() => 'refresh-token'),
 }))
 
+vi.mock('./api/fanProfileApi', () => ({
+  fetchFanProfile: () =>
+    Promise.resolve({
+      displayName: 'Account',
+      updatedAt: 1,
+      avatarUrl: null,
+      avatarUpdatedAt: null,
+    }),
+}))
+
 vi.mock('./friends/friendsApi', () => ({
   fetchFriendRosterSnapshot: () => new Promise(() => {}),
 }))

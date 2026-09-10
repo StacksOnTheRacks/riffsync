@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShellLayout } from './layouts/AppShellLayout'
 import { SiteLayout } from './layouts/SiteLayout'
+import { WatchLayout } from './layouts/WatchLayout'
 import { HomePage } from './pages/HomePage'
 import { CatalogPage } from './pages/CatalogPage'
 import { CatalogSubcategoryPage } from './pages/CatalogSubcategoryPage'
@@ -67,12 +68,14 @@ export function AppRoutes() {
         <Route path="/live/watch-parties" element={<LiveNowPage />} />
         <Route path="/lobby" element={<Navigate to="/live" replace />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/how-to-host-a-watchparty" element={<HowToHostWatchPartyPage />} />
+      </Route>
+      <Route element={<WatchLayout />}>
+        <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
       </Route>
       <Route element={<SiteLayout />}>
-        <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
         <Route path="/live/:slug" element={<LiveChannelPage />} />
         <Route path="/download" element={<DownloadAppPage />} />
-        <Route path="/how-to-host-a-watchparty" element={<HowToHostWatchPartyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/privacy/data-removal" element={<DataRemovalRequestPage />} />

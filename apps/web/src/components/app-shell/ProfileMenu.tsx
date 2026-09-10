@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { fetchFanProfile } from '../../api/fanProfileApi'
 import {
   startFanHostedUiSignIn,
   startFanHostedUiSignOut,
@@ -12,6 +13,8 @@ export function ProfileMenu() {
   const location = useLocation()
   const returnPath = `${location.pathname}${location.search}` || '/'
   const [open, setOpen] = useState(false)
+  const [displayName, setDisplayName] = useState('Account')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelId = useId()
 
@@ -43,6 +46,30 @@ export function ProfileMenu() {
       triggerRef.current?.focus()
     }
   }
+
+  useEffect(() => {
+    if (!fanToken) {
+      setDisplayName('Account')
+      setAvatarUrl(null)
+      return
+    }
+
+    let cancelled = false
+    void fetchFanProfile(fanToken)
+      .then((profile) => {
+        if (cancelled) return
+        const nextName = profile.displayName?.trim()
+        if (nextName) {
+          setDisplayName(nextName)
+        }
+        setAvatarUrl(profile.avatarUrl)
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [fanToken])
 
   useEffect(() => {
     if (!open) {
@@ -104,7 +131,7 @@ export function ProfileMenu() {
         onClick={toggleMenu}
         onKeyDown={onTriggerKeyDown}
       >
-        <FanAvatarThumb displayName="Account" sizePx={32} />
+        <FanAvatarThumb displayName={displayName} avatarUrl={avatarUrl} sizePx={32} />
       </button>
       {open ? (
         <ul id={panelId} className="riffsync-app-shell-profile-menu" role="menu">

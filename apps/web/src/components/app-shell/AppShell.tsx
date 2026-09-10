@@ -6,23 +6,29 @@ import { useMobileAppShell } from './useMobileAppShell'
 
 type AppShellProps = {
   children: ReactNode
+  hideSidebar?: boolean
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, hideSidebar = false }: AppShellProps) {
   const isMobile = useMobileAppShell()
   const sidebarRef = useRef<HTMLElement>(null)
   const { sidebarExpanded, sidebarCollapsed, toggleSidebar, closeMobileDrawer, drawerOpen } =
     useSidebarShellState(isMobile)
 
-  useSidebarFocusTrap(isMobile && drawerOpen, sidebarRef, closeMobileDrawer)
+  useSidebarFocusTrap(!hideSidebar && isMobile && drawerOpen, sidebarRef, closeMobileDrawer)
+
+  const className = [
+    'riffsync-app-shell',
+    hideSidebar ? 'riffsync-app-shell--no-sidebar' : isMobile ? 'riffsync-app-shell--mobile' : 'riffsync-app-shell--desktop',
+    !hideSidebar && sidebarCollapsed ? 'riffsync-app-shell--collapsed' : '',
+    !hideSidebar && drawerOpen ? 'riffsync-app-shell--drawer-open' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
-    <div
-      className={`riffsync-app-shell${isMobile ? ' riffsync-app-shell--mobile' : ' riffsync-app-shell--desktop'}${
-        sidebarCollapsed ? ' riffsync-app-shell--collapsed' : ''
-      }${drawerOpen ? ' riffsync-app-shell--drawer-open' : ''}`}
-    >
-      {isMobile && drawerOpen ? (
+    <div className={className}>
+      {!hideSidebar && isMobile && drawerOpen ? (
         <button
           type="button"
           className="riffsync-app-shell-drawer-backdrop"
@@ -30,14 +36,20 @@ export function AppShell({ children }: AppShellProps) {
           onClick={closeMobileDrawer}
         />
       ) : null}
-      <TopBar sidebarExpanded={sidebarExpanded} onToggleSidebar={toggleSidebar} />
-      <Sidebar
-        ref={sidebarRef}
-        id="riffsync-app-shell-sidebar"
-        collapsed={sidebarCollapsed}
-        mobileOpen={drawerOpen}
-        onNavigate={isMobile ? closeMobileDrawer : undefined}
+      <TopBar
+        sidebarExpanded={sidebarExpanded}
+        onToggleSidebar={toggleSidebar}
+        showSidebarToggle={!hideSidebar}
       />
+      {hideSidebar ? null : (
+        <Sidebar
+          ref={sidebarRef}
+          id="riffsync-app-shell-sidebar"
+          collapsed={sidebarCollapsed}
+          mobileOpen={drawerOpen}
+          onNavigate={isMobile ? closeMobileDrawer : undefined}
+        />
+      )}
       <main id="riffsync-main" className="riffsync-main riffsync-main--app-shell">
         {children}
       </main>

@@ -105,6 +105,28 @@ describe('EpisodeTileActions', () => {
     )
   })
 
+  it('uses a custom watch label and calls onAfterAction after Watch', () => {
+    const onAfterAction = vi.fn()
+    act(() => {
+      root.render(
+        <MemoryRouter>
+          <EpisodeTileActions
+            episode={episode({ embedAllows: true })}
+            watchLabel="Watch"
+            onAfterAction={onAfterAction}
+          />
+        </MemoryRouter>,
+      )
+    })
+
+    const watch = container.querySelector('a.gen-button--ghost') as HTMLAnchorElement
+    expect(watch.textContent).toBe('Watch')
+    act(() => {
+      watch.click()
+    })
+    expect(onAfterAction).toHaveBeenCalledTimes(1)
+  })
+
   it('links Watch Solo to /watch/:id for embeddable YouTube rows', () => {
     renderActions(episode({ embedAllows: true }))
 

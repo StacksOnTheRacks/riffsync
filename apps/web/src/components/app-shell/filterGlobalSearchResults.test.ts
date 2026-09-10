@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { CatalogEpisode } from '../../catalog/catalogTypes'
-import { filterGlobalSearchCatalogTitles } from './filterGlobalSearchResults'
+import {
+  filterGlobalSearchCatalogTitles,
+  searchResultTagChips,
+} from './filterGlobalSearchResults'
 
 function episode(overrides: Partial<CatalogEpisode> = {}): CatalogEpisode {
   return {
@@ -71,5 +74,54 @@ describe('filterGlobalSearchCatalogTitles', () => {
 
   it('returns empty for blank query', () => {
     expect(filterGlobalSearchCatalogTitles(fixtures, '   ')).toEqual([])
+  })
+
+  it('matches tags and labels as well as titles', () => {
+    const tagged = [
+      ...fixtures,
+      episode({
+        id: 'joel-era',
+        title: 'Pod People',
+        tags: ['Era: Joel', 'Season: 3'],
+      }),
+      episode({
+        id: 'label-only',
+        title: 'Future Force',
+        catalog: 'rifftrax',
+        tags: [],
+        labels: ['Short'],
+      }),
+    ]
+    expect(filterGlobalSearchCatalogTitles(tagged, 'era: joel').map((row) => row.id)).toEqual([
+      'joel-era',
+    ])
+    expect(filterGlobalSearchCatalogTitles(tagged, 'short').map((row) => row.id)).toEqual([
+      'label-only',
+    ])
+  })
+})
+
+describe('searchResultTagChips', () => {
+  it('prefers tags, skips the category label, and caps at three', () => {
+    const chips = searchResultTagChips(
+      episode({
+        catalog: 'mst3k',
+        tags: ['MST3K', 'Season: 1', 'Era: Joel', 'Host: Joel', 'Experiment'],
+        labels: ['Short'],
+      }),
+    )
+    expect(chips).toEqual(['Season: 1', 'Era: Joel', 'Host: Joel'])
+  })
+
+  it('falls back to labels when tags are empty', () => {
+    expect(
+      searchResultTagChips(
+        episode({
+          catalog: 'rifftrax',
+          tags: [],
+          labels: ['RiffTrax', 'Short'],
+        }),
+      ),
+    ).toEqual(['Short'])
   })
 })
