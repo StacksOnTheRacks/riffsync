@@ -48,7 +48,14 @@
   max-height: calc(100vh - var(--app-shell-topbar-height));
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
   z-index: 20;
+}
+
+.riffsync-app-shell-sidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .riffsync-app-shell-sidebar.is-collapsed {

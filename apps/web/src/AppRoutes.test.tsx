@@ -180,10 +180,14 @@ describe('AppRoutes chrome selection', () => {
     expect(container.textContent).toContain('Live Now hub body')
   })
 
-  it('keeps live, watch, and lobby on SiteLayout without AppShell', () => {
+  it('wraps live channel in AppShell without the sidebar', () => {
     renderRoute('/live/mst3k-forever-a-thon')
-    expect(container.querySelector('.riffsync-app-shell')).toBeNull()
-    expect(container.querySelector('.riffsync-site--live')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell--no-sidebar')).not.toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-sidebar')).toBeNull()
+    expect(container.querySelector('.riffsync-app-shell-hamburger')).toBeNull()
+    expect(container.querySelector('#gen-header')).toBeNull()
+    expect(container.textContent).toContain('Live body')
   })
 
   it('wraps watch in AppShell without the sidebar', () => {

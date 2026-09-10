@@ -11,7 +11,6 @@ import { trackGaEvent } from '../config/googleAnalytics'
 import { RoomPageSidebar } from '../room/RoomPageSidebar'
 import { useRoomProfileTab } from '../room/useRoomProfileTab'
 import { useChatLogStickToBottom } from '../room/useChatLogStickToBottom'
-import { useRoomChrome } from '../room/useRoomChrome'
 import type { RoomSidebarTab } from '../room/roomPageTypes'
 import type { ParticipantAvController } from '../room/sfu/participantAvSession'
 import { ensureGuestSession, setGuestDisplayName } from '../session/guestSession'
@@ -45,7 +44,6 @@ const LIVE_PARTICIPANT_AV_CONTROLLER: ParticipantAvController = {
 export function LiveChannelPage() {
   const { slug: slugParam } = useParams<{ slug: string }>()
   const slug = slugParam ? decodeURIComponent(slugParam) : ''
-  const { setNowPlayingLabel } = useRoomChrome()
 
   const guest = ensureGuestSession('live')
   const [sessionId] = useState(guest.sessionId)
@@ -65,15 +63,6 @@ export function LiveChannelPage() {
       : null
 
   const pageTitle = channel?.title ?? 'Live'
-
-  useEffect(() => {
-    if (loadError || loading) {
-      setNowPlayingLabel(null)
-      return
-    }
-    setNowPlayingLabel(pageTitle)
-    return () => setNowPlayingLabel(null)
-  }, [loadError, loading, pageTitle, setNowPlayingLabel])
 
   useEffect(() => {
     if (!fanToken) return

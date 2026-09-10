@@ -211,6 +211,7 @@
 .riffsync-channel-movie-card {
   display: flex;
   flex-direction: column;
+  height: 100%;
   background: var(--dark-color);
   border-radius: 8px;
   overflow: hidden;
@@ -233,6 +234,7 @@
 .riffsync-channel-movie-card__body {
   padding: 1rem;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 0.5rem;
 }
@@ -273,6 +275,12 @@
   font-size: 0.75rem;
   background: rgb(255 255 255 / 8%);
   color: var(--secondary-color);
+}
+
+.riffsync-channel-movie-card__body .riffsync-episode-tile-actions {
+  margin-top: auto;
+  margin-bottom: 0;
+  padding-top: 0.65rem;
 }
 
 .riffsync-channel-list {

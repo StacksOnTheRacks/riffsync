@@ -72,9 +72,9 @@ export function AppRoutes() {
       </Route>
       <Route element={<WatchLayout />}>
         <Route path="/watch/:catalogEpisodeId" element={<SoloWatchPage />} />
+        <Route path="/live/:slug" element={<LiveChannelPage />} />
       </Route>
       <Route element={<SiteLayout />}>
-        <Route path="/live/:slug" element={<LiveChannelPage />} />
         <Route path="/download" element={<DownloadAppPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
