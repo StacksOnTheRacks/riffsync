@@ -1,9 +1,18 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { signIn as amplifySignIn, fetchAuthSession, signOut as amplifySignOut } from 'aws-amplify/auth'
+import {
+  confirmResetPassword,
+  signIn as amplifySignIn,
+  fetchAuthSession,
+  resetPassword,
+  signOut as amplifySignOut,
+} from 'aws-amplify/auth'
 import { resetFanCognitoConfigForTests } from './fanCognitoConfig'
 import {
   FanAuthError,
+  confirmFanPasswordReset,
+  meetsFanPasswordPolicy,
+  requestFanPasswordReset,
   setFanSrpClientForTests,
   signInWithSrp,
 } from './fanSrpAuth'
@@ -13,6 +22,8 @@ vi.mock('aws-amplify/auth', () => ({
   signIn: vi.fn(),
   signOut: vi.fn(),
   fetchAuthSession: vi.fn(),
+  resetPassword: vi.fn(),
+  confirmResetPassword: vi.fn(),
 }))
 
 vi.mock('aws-amplify', () => ({
@@ -98,6 +109,95 @@ describe('fanSrpAuth', () => {
       password: 'secret',
       options: { authFlowType: 'USER_SRP_AUTH' },
     })
+  })
+
+  it('requestFanPasswordReset resolves for UserNotFound without throwing', async () => {
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      resetPassword: vi.fn().mockRejectedValue(Object.assign(new Error('User not found'), { name: 'UserNotFoundException' })),
+    })
+
+    await expect(requestFanPasswordReset('unknown@example.com')).resolves.toBeUndefined()
+  })
+
+  it('requestFanPasswordReset calls resetPassword with normalized email', async () => {
+    const resetPasswordMock = vi.fn().mockResolvedValue(undefined)
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      resetPassword: resetPasswordMock,
+    })
+
+    await requestFanPasswordReset(' Fan@Example.com ')
+    expect(resetPasswordMock).toHaveBeenCalledWith('fan@example.com')
+  })
+
+  it('confirmFanPasswordReset calls confirmResetPassword and does not write tokens', async () => {
+    const confirmResetPasswordMock = vi.fn().mockResolvedValue(undefined)
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      confirmResetPassword: confirmResetPasswordMock,
+    })
+
+    await confirmFanPasswordReset({
+      username: 'fan@example.com',
+      confirmationCode: '123456',
+      newPassword: 'NewPass1!',
+    })
+
+    expect(confirmResetPasswordMock).toHaveBeenCalledWith({
+      username: 'fan@example.com',
+      confirmationCode: '123456',
+      newPassword: 'NewPass1!',
+    })
+    expect(setFanTokenBundle).not.toHaveBeenCalled()
+  })
+
+  it('maps CodeMismatchException on confirm reset', async () => {
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      confirmResetPassword: vi.fn().mockRejectedValue(Object.assign(new Error('Mismatch'), { name: 'CodeMismatchException' })),
+    })
+
+    await expect(
+      confirmFanPasswordReset({
+        username: 'fan@example.com',
+        confirmationCode: 'bad',
+        newPassword: 'NewPass1!',
+      }),
+    ).rejects.toMatchObject({ code: 'CODE_MISMATCH' })
+  })
+
+  it('uses Amplify resetPassword when no test client override is set', async () => {
+    vi.mocked(resetPassword).mockResolvedValue({} as never)
+    await requestFanPasswordReset('fan@example.com')
+    expect(resetPassword).toHaveBeenCalledWith({ username: 'fan@example.com' })
+  })
+
+  it('uses Amplify confirmResetPassword when no test client override is set', async () => {
+    vi.mocked(confirmResetPassword).mockResolvedValue({} as never)
+    await confirmFanPasswordReset({
+      username: 'fan@example.com',
+      confirmationCode: '123456',
+      newPassword: 'NewPass1!',
+    })
+    expect(confirmResetPassword).toHaveBeenCalledWith({
+      username: 'fan@example.com',
+      confirmationCode: '123456',
+      newPassword: 'NewPass1!',
+    })
+  })
+
+  it('meetsFanPasswordPolicy enforces Cognito default rules', () => {
+    expect(meetsFanPasswordPolicy('short1!')).toBe(false)
+    expect(meetsFanPasswordPolicy('NewPass1!')).toBe(true)
   })
 
   it('maps NEW_PASSWORD_REQUIRED without writing tokens', async () => {
