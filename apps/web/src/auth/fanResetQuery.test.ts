@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  bootstrapFanResetQueryStrip,
   buildStrippedResetSearch,
+  consumeFanResetBootstrapPrefill,
   readFanResetQueryPrefill,
   resetQueryHasSecrets,
+  sanitizeGaPagePath,
   stripFanResetQueryFromUrl,
 } from './fanResetQuery'
 
@@ -56,5 +59,25 @@ describe('fanResetQuery', () => {
   it('resetQueryHasSecrets detects code params', () => {
     expect(resetQueryHasSecrets('?code=abc')).toBe(true)
     expect(resetQueryHasSecrets('?returnTo=/account')).toBe(false)
+  })
+
+  it('sanitizeGaPagePath strips reset secrets from analytics paths', () => {
+    expect(
+      sanitizeGaPagePath('/auth/reset-password?confirmation_code=secret-code&returnTo=/account'),
+    ).toBe('/auth/reset-password?returnTo=%2Faccount')
+    expect(sanitizeGaPagePath('/catalog?genre=sci-fi')).toBe('/catalog?genre=sci-fi')
+  })
+
+  it('bootstrapFanResetQueryStrip strips URL and exposes one-time prefill', () => {
+    window.history.replaceState(null, '', '/auth/reset-password?code=secret-code&email=fan@example.com')
+
+    bootstrapFanResetQueryStrip()
+
+    expect(window.location.search).not.toContain('code=')
+    expect(consumeFanResetBootstrapPrefill()).toEqual({
+      code: 'secret-code',
+      email: 'fan@example.com',
+    })
+    expect(consumeFanResetBootstrapPrefill()).toEqual({ code: null, email: null })
   })
 })

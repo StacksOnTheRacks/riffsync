@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { buildFanAuthUrl } from '../../auth/fanAuthNavigation'
 import {
   buildStrippedResetSearch,
+  consumeFanResetBootstrapPrefill,
   readFanResetQueryPrefill,
   resetQueryHasSecrets,
 } from '../../auth/fanResetQuery'
@@ -16,10 +17,11 @@ import {
 
 function readInitialResetState(search: string) {
   const prefill = readFanResetQueryPrefill(search)
+  const bootstrap = consumeFanResetBootstrapPrefill()
   return {
     returnTo: prefill.returnTo,
-    email: prefill.email ?? readFanResetUsernameFromSession() ?? '',
-    code: prefill.code ?? '',
+    email: bootstrap.email ?? prefill.email ?? readFanResetUsernameFromSession() ?? '',
+    code: bootstrap.code ?? prefill.code ?? '',
   }
 }
 
@@ -27,9 +29,10 @@ export function FanResetPasswordPage() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const [returnTo] = useState(() => readInitialResetState(location.search).returnTo)
-  const [email, setEmail] = useState(() => readInitialResetState(location.search).email)
-  const [code, setCode] = useState(() => readInitialResetState(location.search).code)
+  const [initial] = useState(() => readInitialResetState(location.search))
+  const returnTo = initial.returnTo
+  const [email, setEmail] = useState(initial.email)
+  const [code, setCode] = useState(initial.code)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showNewPassword, setShowNewPassword] = useState(false)

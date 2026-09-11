@@ -41,6 +41,55 @@ export function resetQueryHasSecrets(search: string): boolean {
   return STRIP_PARAMS.some((key) => params.has(key))
 }
 
+const RESET_PASSWORD_PATH = '/auth/reset-password'
+
+function splitPagePath(pagePath: string): { pathname: string; search: string; hash: string } {
+  const hashIndex = pagePath.indexOf('#')
+  const hash = hashIndex >= 0 ? pagePath.slice(hashIndex) : ''
+  const pathAndSearch = hashIndex >= 0 ? pagePath.slice(0, hashIndex) : pagePath
+  const queryIndex = pathAndSearch.indexOf('?')
+  if (queryIndex < 0) {
+    return { pathname: pathAndSearch, search: '', hash }
+  }
+  return {
+    pathname: pathAndSearch.slice(0, queryIndex),
+    search: pathAndSearch.slice(queryIndex),
+    hash,
+  }
+}
+
+/** Remove reset secrets from analytics page paths (SR-002). */
+export function sanitizeGaPagePath(pagePath: string): string {
+  const { pathname, search, hash } = splitPagePath(pagePath)
+  if (pathname !== RESET_PASSWORD_PATH || !resetQueryHasSecrets(search)) {
+    return pagePath
+  }
+  const prefill = readFanResetQueryPrefill(search)
+  return `${pathname}${buildStrippedResetSearch(prefill.returnTo)}${hash}`
+}
+
+let bootstrapCodePrefill: string | null = null
+let bootstrapEmailPrefill: string | null = null
+
+/** Strip reset secrets from the URL before React mounts; stash prefill in memory only. */
+export function bootstrapFanResetQueryStrip(): void {
+  const { pathname, search, hash } = window.location
+  if (pathname !== RESET_PASSWORD_PATH || !resetQueryHasSecrets(search)) {
+    return
+  }
+  const prefill = stripFanResetQueryFromUrl(pathname, search, hash)
+  bootstrapCodePrefill = prefill.code
+  bootstrapEmailPrefill = prefill.email
+}
+
+/** Read bootstrap prefill once; never persisted to storage. */
+export function consumeFanResetBootstrapPrefill(): { code: string | null; email: string | null } {
+  const prefill = { code: bootstrapCodePrefill, email: bootstrapEmailPrefill }
+  bootstrapCodePrefill = null
+  bootstrapEmailPrefill = null
+  return prefill
+}
+
 /** Strip reset secrets from the visible URL via replaceState; returns prefilled values. */
 export function stripFanResetQueryFromUrl(
   pathname: string,
