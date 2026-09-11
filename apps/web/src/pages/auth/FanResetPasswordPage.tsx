@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { buildFanAuthUrl, normalizeFanReturnTo, readReturnToFromQuery } from '../../auth/fanAuthNavigation'
 import {

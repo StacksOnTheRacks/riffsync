@@ -1,4 +1,4 @@
-import { FormEvent, useId, useRef, useState } from 'react'
+import { useId, useRef, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { buildFanAuthUrl, normalizeFanReturnTo, readReturnToFromQuery } from '../../auth/fanAuthNavigation'
 import { FanAuthError, requestFanPasswordReset } from '../../auth/fanSrpAuth'
