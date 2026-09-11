@@ -154,12 +154,14 @@ export function FanSignInPage() {
         >
           Sign in
         </button>
-        <Link className="riffsync-fan-auth__secondary-link" to={signUpHref}>
-          Create account
-        </Link>
-        <Link className="riffsync-fan-auth__secondary-link" to={forgotPasswordHref}>
-          Forgot password
-        </Link>
+        <div className="riffsync-fan-auth__inline-links">
+          <Link className="riffsync-fan-auth__secondary-link" to={signUpHref}>
+            Create account
+          </Link>
+          <Link className="riffsync-fan-auth__secondary-link" to={forgotPasswordHref}>
+            Forgot password
+          </Link>
+        </div>
       </div>
     </form>
   )
