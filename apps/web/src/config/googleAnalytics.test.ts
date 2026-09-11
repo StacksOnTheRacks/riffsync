@@ -82,6 +82,18 @@ describe('googleAnalytics', () => {
     })
   })
 
+  it('sanitizes reset-password secret query params before sending page_path', () => {
+    vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST123')
+    const gtag = vi.fn()
+    window.gtag = gtag
+
+    trackGaPageView('/auth/reset-password?confirmation_code=secret-code&returnTo=/account')
+
+    expect(gtag).toHaveBeenCalledWith('config', 'G-TEST123', {
+      page_path: '/auth/reset-password?returnTo=%2Faccount',
+    })
+  })
+
   it('no-ops when gtag is unavailable', () => {
     vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST123')
     expect(() => trackGaPageView('/')).not.toThrow()

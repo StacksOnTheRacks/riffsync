@@ -19,8 +19,8 @@ describe('AppRoutes fan auth shells', () => {
     ['/auth/sign-in', 'Sign in'],
     ['/auth/sign-up', 'Create account'],
     ['/auth/verify-email', 'Verify email'],
-    ['/auth/forgot-password', 'Forgot password'],
-    ['/auth/reset-password', 'Reset password'],
+    ['/auth/forgot-password', 'Forgot Password'],
+    ['/auth/reset-password', 'Reset Password'],
     ['/auth/change-password', 'Change password'],
   ])('route %s renders FanAuthLayout with h1 %s', async (path, heading) => {
     container = document.createElement('div')

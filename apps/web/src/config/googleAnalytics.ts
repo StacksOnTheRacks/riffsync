@@ -1,4 +1,5 @@
 import type { CatalogCategory } from '../catalog/catalogTypes'
+import { sanitizeGaPagePath } from '../auth/fanResetQuery'
 
 /** Contract buckets from `docs/operations/product-metrics.md`. */
 export type GaEntrySurface =
@@ -131,7 +132,7 @@ export function trackGaPageView(pagePath: string): void {
     return
   }
   window.gtag('config', measurementId, {
-    page_path: pagePath,
+    page_path: sanitizeGaPagePath(pagePath),
   })
 }
 
