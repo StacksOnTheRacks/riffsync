@@ -5,6 +5,16 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AppRoutes } from './AppRoutes'
 
+const getFanAccessToken = vi.fn<() => string | null>()
+
+vi.mock('./auth/fanTokens', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./auth/fanTokens')>()
+  return {
+    ...actual,
+    getFanAccessToken: () => getFanAccessToken(),
+  }
+})
+
 describe('AppRoutes fan auth shells', () => {
   let container: HTMLDivElement
   let root: Root | null = null
@@ -21,8 +31,11 @@ describe('AppRoutes fan auth shells', () => {
     ['/auth/verify-email', 'Verify Email'],
     ['/auth/forgot-password', 'Forgot Password'],
     ['/auth/reset-password', 'Reset Password'],
-    ['/auth/change-password', 'Change password'],
+    ['/auth/change-password', 'Change Password'],
   ])('route %s renders FanAuthLayout with h1 %s', async (path, heading) => {
+    getFanAccessToken.mockReset()
+    getFanAccessToken.mockReturnValue(path === '/auth/change-password' ? 'fan-token' : null)
+
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
