@@ -1,9 +1,12 @@
 import {
   confirmResetPassword,
+  confirmSignUp,
   fetchAuthSession,
+  resendSignUpCode,
   resetPassword,
   signIn,
   signOut,
+  signUp,
 } from 'aws-amplify/auth'
 import { ensureFanCognitoConfigured } from './fanCognitoConfig'
 import { setFanTokenBundle } from './fanTokens'
@@ -18,6 +21,7 @@ export type FanAuthErrorCode =
   | 'CODE_MISMATCH'
   | 'EXPIRED_CODE'
   | 'INVALID_PASSWORD'
+  | 'USERNAME_EXISTS'
   | 'CONFIG'
   | 'UNKNOWN'
 
@@ -53,9 +57,19 @@ export interface FanSrpClient {
   signOut(): Promise<void>
   resetPassword?(username: string): Promise<void>
   confirmResetPassword?(input: FanConfirmPasswordResetInput): Promise<void>
+  signUp?(username: string, password: string): Promise<void>
+  confirmSignUp?(username: string, confirmationCode: string): Promise<void>
+  resendSignUpCode?(username: string): Promise<void>
 }
 
 const FAN_RESET_USERNAME_KEY = 'riffsync.fanResetUsername'
+const FAN_VERIFY_USERNAME_KEY = 'riffsync.fanVerifyUsername'
+
+export const FAN_SIGN_IN_GENERIC_ERROR = 'Incorrect email or password.'
+export const FAN_USERNAME_EXISTS_ERROR =
+  'An account with this email already exists. Sign in or verify your email if you still need access.'
+export const FAN_NEW_PASSWORD_REQUIRED_ERROR =
+  'A new password is required before sign-in can complete. Contact support or use forgot password if you need help.'
 
 let srpClientOverride: FanSrpClient | null = null
 
@@ -129,6 +143,22 @@ async function defaultConfirmResetPassword(input: FanConfirmPasswordResetInput):
   })
 }
 
+async function defaultSignUp(username: string, password: string): Promise<void> {
+  await signUp({
+    username,
+    password,
+    options: { userAttributes: { email: username } },
+  })
+}
+
+async function defaultConfirmSignUp(username: string, confirmationCode: string): Promise<void> {
+  await confirmSignUp({ username, confirmationCode })
+}
+
+async function defaultResendSignUpCode(username: string): Promise<void> {
+  await resendSignUpCode({ username })
+}
+
 function isNonEnumeratingForgotError(err: unknown): boolean {
   const name = err instanceof Error ? err.name : ''
   return (
@@ -184,12 +214,69 @@ function mapSignInError(err: unknown): FanAuthError {
     return new FanAuthError('UNCONFIRMED', message)
   }
   if (name === 'NotAuthorizedException' || name === 'UserNotFoundException') {
-    return new FanAuthError('NOT_AUTHORIZED', message)
+    return new FanAuthError('NOT_AUTHORIZED', FAN_SIGN_IN_GENERIC_ERROR)
   }
   if (message.includes('Missing fan Cognito SRP configuration')) {
     return new FanAuthError('CONFIG', message)
   }
   return new FanAuthError('UNKNOWN', message)
+}
+
+function mapSignUpError(err: unknown): FanAuthError {
+  const name = err instanceof Error ? err.name : ''
+  const message = err instanceof Error ? err.message : 'Unable to create account.'
+
+  if (name === 'UsernameExistsException' || name === 'AliasExistsException') {
+    return new FanAuthError('USERNAME_EXISTS', FAN_USERNAME_EXISTS_ERROR)
+  }
+  if (name === 'InvalidPasswordException') {
+    return new FanAuthError('INVALID_PASSWORD', FAN_PASSWORD_POLICY_HINT)
+  }
+  if (name === 'InvalidParameterException') {
+    return new FanAuthError('INVALID_PARAMETER', message)
+  }
+  if (name === 'LimitExceededException' || name === 'TooManyRequestsException') {
+    return new FanAuthError('LIMIT_EXCEEDED', 'Too many attempts. Please try again later.')
+  }
+  if (message.includes('Missing fan Cognito SRP configuration')) {
+    return new FanAuthError('CONFIG', message)
+  }
+  return new FanAuthError('UNKNOWN', 'Unable to create account. Please try again.')
+}
+
+function mapConfirmSignUpError(err: unknown): FanAuthError {
+  const name = err instanceof Error ? err.name : ''
+  const message = err instanceof Error ? err.message : 'Unable to verify email.'
+
+  if (name === 'CodeMismatchException') {
+    return new FanAuthError('CODE_MISMATCH', 'The verification code is incorrect. Check your email and try again.')
+  }
+  if (name === 'ExpiredCodeException') {
+    return new FanAuthError('EXPIRED_CODE', 'The verification code has expired. Request a new code and try again.')
+  }
+  if (name === 'LimitExceededException' || name === 'TooManyRequestsException') {
+    return new FanAuthError('LIMIT_EXCEEDED', 'Too many attempts. Please try again later.')
+  }
+  if (message.includes('Missing fan Cognito SRP configuration')) {
+    return new FanAuthError('CONFIG', message)
+  }
+  return new FanAuthError('UNKNOWN', 'Unable to verify email. Please try again.')
+}
+
+function mapResendSignUpError(err: unknown): FanAuthError {
+  const name = err instanceof Error ? err.name : ''
+  const message = err instanceof Error ? err.message : 'Unable to resend verification code.'
+
+  if (name === 'LimitExceededException' || name === 'TooManyRequestsException') {
+    return new FanAuthError('LIMIT_EXCEEDED', 'Too many attempts. Please try again later.')
+  }
+  if (name === 'CodeDeliveryFailureException') {
+    return new FanAuthError('CODE_DELIVERY', 'Unable to resend the verification code. Please try again later.')
+  }
+  if (message.includes('Missing fan Cognito SRP configuration')) {
+    return new FanAuthError('CONFIG', message)
+  }
+  return new FanAuthError('UNKNOWN', 'Unable to resend the verification code. Please try again later.')
 }
 
 function resolveClient(): FanSrpClient {
@@ -200,8 +287,23 @@ function resolveClient(): FanSrpClient {
       signOut: () => signOut(),
       resetPassword: defaultResetPassword,
       confirmResetPassword: defaultConfirmResetPassword,
+      signUp: defaultSignUp,
+      confirmSignUp: defaultConfirmSignUp,
+      resendSignUpCode: defaultResendSignUpCode,
     }
   )
+}
+
+export function writeFanVerifyUsername(rawEmail: string): void {
+  sessionStorage.setItem(FAN_VERIFY_USERNAME_KEY, normalizeFanEmail(rawEmail))
+}
+
+export function readFanVerifyUsernameFromSession(): string | null {
+  return sessionStorage.getItem(FAN_VERIFY_USERNAME_KEY)
+}
+
+export function clearFanVerifyUsername(): void {
+  sessionStorage.removeItem(FAN_VERIFY_USERNAME_KEY)
 }
 
 /** Non-enumerating: resolves for unknown emails as well as successful sends. */
@@ -287,7 +389,7 @@ export async function signInWithSrp(username: string, password: string): Promise
       throw new FanAuthError('UNCONFIRMED', 'Email address is not verified.')
     }
     if (nextStep === 'CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED' || nextStep === 'NEW_PASSWORD_REQUIRED') {
-      throw new FanAuthError('NEW_PASSWORD_REQUIRED', 'A new password is required before sign-in can complete.')
+      throw new FanAuthError('NEW_PASSWORD_REQUIRED', FAN_NEW_PASSWORD_REQUIRED_ERROR)
     }
     if (!result.isSignedIn) {
       throw new FanAuthError('UNKNOWN', 'Sign-in did not complete.')
@@ -312,5 +414,82 @@ export async function signInWithSrp(username: string, password: string): Promise
   } catch (err) {
     if (err instanceof FanAuthError) throw err
     throw mapSignInError(err)
+  }
+}
+
+export async function signUpFan(rawEmail: string, password: string): Promise<void> {
+  const username = normalizeFanEmail(rawEmail)
+  if (!username || !isFanEmailWellFormed(username)) {
+    throw new FanAuthError('INVALID_PARAMETER', 'Enter a valid email address.')
+  }
+  if (!password) {
+    throw new FanAuthError('INVALID_PARAMETER', 'Enter a password.')
+  }
+  if (!meetsFanPasswordPolicy(password)) {
+    throw new FanAuthError('INVALID_PASSWORD', FAN_PASSWORD_POLICY_HINT)
+  }
+
+  try {
+    ensureFanCognitoConfigured()
+  } catch (err) {
+    throw mapSignUpError(err)
+  }
+
+  const client = resolveClient()
+  const register = client.signUp ?? defaultSignUp
+
+  try {
+    await register(username, password)
+  } catch (err) {
+    throw mapSignUpError(err)
+  }
+}
+
+export async function confirmFanSignUp(rawEmail: string, confirmationCode: string): Promise<void> {
+  const username = normalizeFanEmail(rawEmail)
+  const code = confirmationCode.trim()
+
+  if (!username || !isFanEmailWellFormed(username)) {
+    throw new FanAuthError('INVALID_PARAMETER', 'Enter a valid email address.')
+  }
+  if (!code) {
+    throw new FanAuthError('INVALID_PARAMETER', 'Enter the verification code from your email.')
+  }
+
+  try {
+    ensureFanCognitoConfigured()
+  } catch (err) {
+    throw mapConfirmSignUpError(err)
+  }
+
+  const client = resolveClient()
+  const confirm = client.confirmSignUp ?? defaultConfirmSignUp
+
+  try {
+    await confirm(username, code)
+  } catch (err) {
+    throw mapConfirmSignUpError(err)
+  }
+}
+
+export async function resendFanConfirmationCode(rawEmail: string): Promise<void> {
+  const username = normalizeFanEmail(rawEmail)
+  if (!username || !isFanEmailWellFormed(username)) {
+    throw new FanAuthError('INVALID_PARAMETER', 'Enter a valid email address.')
+  }
+
+  try {
+    ensureFanCognitoConfigured()
+  } catch (err) {
+    throw mapResendSignUpError(err)
+  }
+
+  const client = resolveClient()
+  const resend = client.resendSignUpCode ?? defaultResendSignUpCode
+
+  try {
+    await resend(username)
+  } catch (err) {
+    throw mapResendSignUpError(err)
   }
 }

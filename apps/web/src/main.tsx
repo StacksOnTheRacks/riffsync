@@ -15,11 +15,13 @@ import { GoogleAnalytics } from './components/GoogleAnalytics'
 import { ScrollToTop } from './components/ScrollToTop'
 import { AppRoutes } from './AppRoutes.tsx'
 import { bootstrapFanResetQueryStrip } from './auth/fanResetQuery'
+import { bootstrapFanVerifyQueryStrip } from './auth/fanVerifyQuery'
 import { mountHostJwtBridge } from './hostBridge/hostJwtBridge'
 import { PublicRouteHeadTags } from './seo/PublicRouteHeadTags'
 
 mountHostJwtBridge()
 bootstrapFanResetQueryStrip()
+bootstrapFanVerifyQueryStrip()
 
 const queryClient = new QueryClient({
   defaultOptions: {

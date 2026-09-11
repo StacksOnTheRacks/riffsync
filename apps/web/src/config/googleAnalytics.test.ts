@@ -94,6 +94,18 @@ describe('googleAnalytics', () => {
     })
   })
 
+  it('sanitizes verify-email secret query params before sending page_path', () => {
+    vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST123')
+    const gtag = vi.fn()
+    window.gtag = gtag
+
+    trackGaPageView('/auth/verify-email?confirmation_code=secret-code&returnTo=/account')
+
+    expect(gtag).toHaveBeenCalledWith('config', 'G-TEST123', {
+      page_path: '/auth/verify-email?returnTo=%2Faccount',
+    })
+  })
+
   it('no-ops when gtag is unavailable', () => {
     vi.stubEnv('VITE_GA_MEASUREMENT_ID', 'G-TEST123')
     expect(() => trackGaPageView('/')).not.toThrow()
