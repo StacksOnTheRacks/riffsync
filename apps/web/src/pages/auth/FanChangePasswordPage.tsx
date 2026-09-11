@@ -11,7 +11,7 @@ import {
 
 export function FanChangePasswordPage() {
   const navigate = useNavigate()
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null)
+  const accessToken = getFanAccessToken()
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -31,14 +31,10 @@ export function FanChangePasswordPage() {
   const confirmRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const token = getFanAccessToken()
-    if (!token) {
+    if (!accessToken) {
       navigate(buildFanAuthUrl('/auth/sign-in', '/account'), { replace: true })
-      setAuthenticated(false)
-      return
     }
-    setAuthenticated(true)
-  }, [navigate])
+  }, [accessToken, navigate])
 
   function focusFirstInvalid(errors: Record<string, string>) {
     if (errors.currentPassword) currentRef.current?.focus()
@@ -110,7 +106,7 @@ export function FanChangePasswordPage() {
     }
   }
 
-  if (authenticated !== true) {
+  if (!accessToken) {
     return null
   }
 

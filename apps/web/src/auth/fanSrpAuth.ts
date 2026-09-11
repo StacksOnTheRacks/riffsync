@@ -419,7 +419,7 @@ export async function changePassword(previousPassword: string, proposedPassword:
   }
 
   const client = resolveClient()
-  let accessToken = await resolveFanAccessTokenForChange()
+  const accessToken = await resolveFanAccessTokenForChange()
 
   try {
     await invokeChangePassword(client, accessToken, previousPassword, proposedPassword)
