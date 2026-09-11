@@ -208,6 +208,31 @@ describe('startCastReceiverSession', () => {
     )
   })
 
+  it('adopts a classic-script CAF start without calling start() again', () => {
+    const receiver = installReceiverFramework()
+    const queuedEvent = {
+      data: { type: 'presentation_snapshot', snapshot },
+      senderId: 'sender-classic',
+    }
+    ;(window as Window & { __riffsyncCastReceiver?: unknown }).__riffsyncCastReceiver = {
+      started: true,
+      context: receiver.context,
+      queue: [queuedEvent],
+      onMessage: null,
+    }
+
+    const onPresentationSnapshot = vi.fn()
+    startCastReceiverContext()
+    attachCastReceiverHandlers({
+      onPresentationSnapshot,
+      onChatOverlayUpdate: vi.fn(),
+    })
+
+    expect(receiver.context.start).not.toHaveBeenCalled()
+    expect(receiver.context.addCustomMessageListener).not.toHaveBeenCalled()
+    expect(onPresentationSnapshot).toHaveBeenCalledWith(snapshot)
+  })
+
   it('queues sender messages that arrive before React attaches handlers', () => {
     const receiver = installReceiverFramework()
     const onPresentationSnapshot = vi.fn()

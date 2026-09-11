@@ -7,8 +7,17 @@ import { RIFFSYNC_CAST_NAMESPACE } from '../../room/cast/castChannelProtocol'
 
 export const CAST_RECEIVER_FRAMEWORK_SRC =
   'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js'
+export const CAST_RECEIVER_BOOT_SCRIPT_SRC = '/cast-receiver-boot.js'
+
+export type CastReceiverClassicBoot = {
+  started: boolean
+  context: CastReceiverContextInstance | null
+  queue: Array<{ data?: unknown; senderId?: string }>
+  onMessage: ((event: { data?: unknown; senderId?: string }) => void) | null
+}
 
 type CastReceiverFrameworkWindow = Window & {
+  __riffsyncCastReceiver?: CastReceiverClassicBoot
   cast?: {
     framework?: {
       CastReceiverContext: {
@@ -55,6 +64,11 @@ const queuedMessages: QueuedReceiverMessage[] = []
 function readCastReceiverFramework(): NonNullable<CastReceiverFrameworkWindow['cast']>['framework'] | undefined {
   if (typeof window === 'undefined') return undefined
   return (window as CastReceiverFrameworkWindow).cast?.framework
+}
+
+function readClassicBoot(): CastReceiverClassicBoot | undefined {
+  if (typeof window === 'undefined') return undefined
+  return (window as CastReceiverFrameworkWindow).__riffsyncCastReceiver
 }
 
 function parseSenderMessage(raw: unknown): CastSenderOutboundMessage | null {
@@ -139,9 +153,22 @@ export type CastReceiverSession = {
   stop: () => void
 }
 
-/** Start CAF once. Safe to call from the dedicated receiver HTML before React mounts. */
+/** Start CAF once. Prefer the classic boot script; fall back for SPA / tests. */
 export function startCastReceiverContext(): void {
   if (receiverStarted) return
+
+  const boot = readClassicBoot()
+  if (boot?.started && boot.context) {
+    activeReceiverContext = boot.context
+    activeReceiverSenderId = undefined
+    boot.onMessage = handleReceiverMessage
+    const pending = boot.queue.splice(0, boot.queue.length)
+    for (const event of pending) {
+      handleReceiverMessage(event)
+    }
+    receiverStarted = true
+    return
+  }
 
   const framework = readCastReceiverFramework()
   if (!framework) {
@@ -238,4 +265,7 @@ export function resetCastReceiverSessionForTests(): void {
   receiverStarted = false
   attachedHandlers = null
   queuedMessages.length = 0
+  if (typeof window !== 'undefined') {
+    delete (window as CastReceiverFrameworkWindow).__riffsyncCastReceiver
+  }
 }

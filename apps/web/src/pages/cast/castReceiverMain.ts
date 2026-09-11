@@ -1,8 +1,8 @@
 import { startCastReceiverContext } from './castReceiverSession'
 
-// CAF is loaded by a blocking script in cast/receiver/index.html. Start it
-// before the React / mediasoup graph evaluates so Chromecast can accept the
-// session inside its launch window.
+// Classic /cast-receiver-boot.js already called context.start() on hardware.
+// This adopts that session (or starts CAF in desktop / test fallbacks) before
+// the React graph evaluates.
 try {
   startCastReceiverContext()
 } catch {

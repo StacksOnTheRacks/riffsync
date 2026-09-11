@@ -109,6 +109,14 @@ async function main() {
   if (!castReceiverHtml.includes('cast_receiver_framework.js')) {
     throw new Error('dist/cast/receiver/index.html is missing the Cast receiver framework script')
   }
+  if (!castReceiverHtml.includes('/cast-receiver-boot.js')) {
+    throw new Error('dist/cast/receiver/index.html is missing the classic CAF start script')
+  }
+  try {
+    await readFile(resolve(distDir, 'cast-receiver-boot.js'), 'utf8')
+  } catch {
+    throw new Error('Missing classic CAF start script: dist/cast-receiver-boot.js')
+  }
   if (!castReceiverHtml.includes('noindex')) {
     throw new Error('dist/cast/receiver/index.html is missing noindex')
   }
