@@ -1,5 +1,5 @@
 import { persistReturnTo, popReturnTo } from './fanAuthNavigation'
-import { exchangeFanAuthorizationCode, refreshFanTokensIfStale } from './fanOAuthToken'
+import { exchangeFanAuthorizationCode } from './fanOAuthToken'
 import { clearFanTokens } from './fanTokens'
 
 export { exchangeFanAuthorizationCode, refreshFanTokensIfStale } from './fanOAuthToken'

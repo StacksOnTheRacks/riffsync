@@ -49,10 +49,16 @@ async function defaultSignIn(username: string, password: string) {
   })
 }
 
+function readRefreshToken(tokens: unknown): string | undefined {
+  if (!tokens || typeof tokens !== 'object' || !('refreshToken' in tokens)) return undefined
+  const refresh = (tokens as { refreshToken?: { toString(): string } }).refreshToken
+  return refresh?.toString()
+}
+
 async function defaultFetchSession() {
   const session = await fetchAuthSession()
   const access = session.tokens?.accessToken
-  const refresh = session.tokens?.refreshToken?.toString()
+  const refresh = readRefreshToken(session.tokens)
   const exp = access?.payload?.exp
   const iat = access?.payload?.iat
   let expiresIn = 3600
