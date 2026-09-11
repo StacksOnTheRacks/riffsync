@@ -8,10 +8,12 @@ import {
   signOut,
   signUp,
 } from 'aws-amplify/auth'
-import { ensureFanCognitoConfigured } from './fanCognitoConfig'
-import { setFanTokenBundle } from './fanTokens'
+import { ensureFanCognitoConfigured, readFanCognitoEnv } from './fanCognitoConfig'
+import { refreshFanTokensIfStale } from './fanOAuthToken'
+import { getFanAccessToken, setFanTokenBundle } from './fanTokens'
 
 export type FanAuthErrorCode =
+  | 'UNAUTHENTICATED'
   | 'UNCONFIRMED'
   | 'NEW_PASSWORD_REQUIRED'
   | 'NOT_AUTHORIZED'
@@ -47,6 +49,12 @@ export interface FanConfirmPasswordResetInput {
   newPassword: string
 }
 
+export interface FanChangePasswordInput {
+  accessToken: string
+  previousPassword: string
+  proposedPassword: string
+}
+
 export interface FanSrpClient {
   signIn(username: string, password: string): Promise<{ isSignedIn: boolean; nextStep?: { signInStep?: string } }>
   fetchSession(): Promise<{
@@ -60,6 +68,7 @@ export interface FanSrpClient {
   signUp?(username: string, password: string): Promise<void>
   confirmSignUp?(username: string, confirmationCode: string): Promise<void>
   resendSignUpCode?(username: string): Promise<void>
+  changePassword?(input: FanChangePasswordInput): Promise<void>
 }
 
 const FAN_RESET_USERNAME_KEY = 'riffsync.fanResetUsername'
@@ -157,6 +166,103 @@ async function defaultConfirmSignUp(username: string, confirmationCode: string):
 
 async function defaultResendSignUpCode(username: string): Promise<void> {
   await resendSignUpCode({ username })
+}
+
+function cognitoIdpRegion(): string | null {
+  const env = readFanCognitoEnv()
+  return env?.region ?? null
+}
+
+async function defaultChangePassword(input: FanChangePasswordInput): Promise<void> {
+  const region = cognitoIdpRegion()
+  if (!region) {
+    throw new FanAuthError(
+      'CONFIG',
+      'Missing fan Cognito SRP configuration (VITE_COGNITO_USER_POOL_ID, VITE_COGNITO_CLIENT_ID, VITE_COGNITO_REGION)',
+    )
+  }
+
+  const res = await fetch(`https://cognito-idp.${region}.amazonaws.com/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'AWSCognitoIdentityProviderService.ChangePassword',
+    },
+    body: JSON.stringify({
+      AccessToken: input.accessToken,
+      PreviousPassword: input.previousPassword,
+      ProposedPassword: input.proposedPassword,
+    }),
+  })
+
+  if (res.ok) return
+
+  let errType = ''
+  let message = 'Unable to change password.'
+  try {
+    const json = (await res.json()) as { __type?: string; message?: string }
+    errType = typeof json.__type === 'string' ? json.__type : ''
+    if (typeof json.message === 'string' && json.message.length > 0) message = json.message
+  } catch {
+    /* use defaults */
+  }
+
+  throw Object.assign(new Error(message), { name: errType.split('#').pop() ?? 'UnknownException' })
+}
+
+function isTokenShapedNotAuthorized(message: string): boolean {
+  return message.toLowerCase().includes('access token')
+}
+
+function mapChangePasswordError(err: unknown): FanAuthError {
+  const name = err instanceof Error ? err.name : ''
+  const message = err instanceof Error ? err.message : 'Unable to change password.'
+
+  if (name === 'NotAuthorizedException') {
+    if (isTokenShapedNotAuthorized(message)) {
+      return new FanAuthError('UNAUTHENTICATED', message)
+    }
+    return new FanAuthError('NOT_AUTHORIZED', 'Current password is incorrect.')
+  }
+  if (name === 'InvalidPasswordException') {
+    return new FanAuthError('INVALID_PASSWORD', FAN_PASSWORD_POLICY_HINT)
+  }
+  if (name === 'InvalidParameterException') {
+    return new FanAuthError('INVALID_PARAMETER', message)
+  }
+  if (name === 'LimitExceededException' || name === 'TooManyRequestsException') {
+    return new FanAuthError('LIMIT_EXCEEDED', 'Too many attempts. Please try again later.')
+  }
+  if (message.includes('Missing fan Cognito SRP configuration')) {
+    return new FanAuthError('CONFIG', message)
+  }
+  return new FanAuthError('UNKNOWN', 'Unable to change password. Please try again.')
+}
+
+async function resolveFanAccessTokenForChange(): Promise<string> {
+  let token = getFanAccessToken()
+  if (token) return token
+
+  await refreshFanTokensIfStale()
+  token = getFanAccessToken()
+  if (!token) {
+    throw new FanAuthError('UNAUTHENTICATED', 'Sign in to change your password.')
+  }
+  return token
+}
+
+async function invokeChangePassword(
+  client: FanSrpClient,
+  accessToken: string,
+  previousPassword: string,
+  proposedPassword: string,
+): Promise<void> {
+  const change = client.changePassword ?? defaultChangePassword
+  await change({
+    accessToken,
+    previousPassword,
+    proposedPassword,
+  })
 }
 
 function isNonEnumeratingForgotError(err: unknown): boolean {
@@ -290,8 +396,52 @@ function resolveClient(): FanSrpClient {
       signUp: defaultSignUp,
       confirmSignUp: defaultConfirmSignUp,
       resendSignUpCode: defaultResendSignUpCode,
+      changePassword: defaultChangePassword,
     }
   )
+}
+
+export async function changePassword(previousPassword: string, proposedPassword: string): Promise<void> {
+  if (!previousPassword) {
+    throw new FanAuthError('INVALID_PARAMETER', 'Enter your current password.')
+  }
+  if (!proposedPassword) {
+    throw new FanAuthError('INVALID_PARAMETER', 'Enter a new password.')
+  }
+  if (!meetsFanPasswordPolicy(proposedPassword)) {
+    throw new FanAuthError('INVALID_PASSWORD', FAN_PASSWORD_POLICY_HINT)
+  }
+
+  try {
+    ensureFanCognitoConfigured()
+  } catch (err) {
+    throw mapChangePasswordError(err)
+  }
+
+  const client = resolveClient()
+  const accessToken = await resolveFanAccessTokenForChange()
+
+  try {
+    await invokeChangePassword(client, accessToken, previousPassword, proposedPassword)
+  } catch (err) {
+    if (err instanceof FanAuthError) throw err
+
+    const mapped = mapChangePasswordError(err)
+    if (mapped.code !== 'UNAUTHENTICATED') throw mapped
+
+    await refreshFanTokensIfStale()
+    const refreshedToken = getFanAccessToken()
+    if (!refreshedToken) throw mapped
+
+    try {
+      await invokeChangePassword(client, refreshedToken, previousPassword, proposedPassword)
+    } catch (retryErr) {
+      if (retryErr instanceof FanAuthError) throw retryErr
+      const retryMapped = mapChangePasswordError(retryErr)
+      if (retryMapped.code === 'UNAUTHENTICATED') throw retryMapped
+      throw retryMapped
+    }
+  }
 }
 
 export function writeFanVerifyUsername(rawEmail: string): void {

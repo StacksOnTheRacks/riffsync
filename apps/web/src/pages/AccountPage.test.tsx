@@ -141,6 +141,13 @@ describe('AccountPage', () => {
 
     await vi.waitFor(() => expect(fetchFanProfile).toHaveBeenCalled())
 
+    const changePasswordLink = container.querySelector(
+      '[data-testid="fan-account-change-password"]',
+    ) as HTMLAnchorElement
+    expect(changePasswordLink).not.toBeNull()
+    expect(changePasswordLink.getAttribute('href')).toBe('/auth/change-password')
+    expect(changePasswordLink.textContent).toBe('Change password')
+
     const buttons = Array.from(container.querySelectorAll('.riffsync-account-page__actions button'))
     act(() => {
       ;(buttons[0] as HTMLButtonElement).click()
@@ -151,5 +158,24 @@ describe('AccountPage', () => {
       ;(buttons[1] as HTMLButtonElement).click()
     })
     expect(startFanHostedUiSignOut).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows password reset success banner when query param is set', async () => {
+    useFanSession.mockReturnValue({ fanToken: 'fan-token' })
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/account?passwordReset=1']}>
+          <AccountPage />
+        </MemoryRouter>,
+      )
+    })
+
+    await vi.waitFor(() => expect(fetchFanProfile).toHaveBeenCalled())
+
+    expect(container.querySelector('.riffsync-account-page__success')?.textContent).toBe(
+      'Your password was updated successfully.',
+    )
+    expect(document.querySelectorAll('h1').length).toBe(1)
+    expect(document.querySelector('h1')?.textContent).toBe('Account')
   })
 })
