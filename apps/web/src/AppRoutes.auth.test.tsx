@@ -16,9 +16,9 @@ describe('AppRoutes fan auth shells', () => {
   })
 
   it.each([
-    ['/auth/sign-in', 'Sign in'],
-    ['/auth/sign-up', 'Create account'],
-    ['/auth/verify-email', 'Verify email'],
+    ['/auth/sign-in', 'Sign In'],
+    ['/auth/sign-up', 'Create Account'],
+    ['/auth/verify-email', 'Verify Email'],
     ['/auth/forgot-password', 'Forgot Password'],
     ['/auth/reset-password', 'Reset Password'],
     ['/auth/change-password', 'Change password'],
