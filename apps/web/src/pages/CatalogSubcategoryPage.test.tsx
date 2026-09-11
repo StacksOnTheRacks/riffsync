@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { PENDING_PARTY_EPISODE_KEY } from '../catalog/pendingPartyStorage'
 import { getFanAccessToken } from '../auth/fanTokens'
-import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
+import { navigateToFanAuth } from '../auth/fanAuthNavigation'
 import { CatalogSubcategoryPage } from './CatalogSubcategoryPage'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -22,8 +22,8 @@ vi.mock('../auth/fanTokens', () => ({
   getFanAccessToken: vi.fn(() => null),
 }))
 
-vi.mock('../auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: vi.fn(),
+vi.mock('../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: vi.fn(),
 }))
 
 vi.mock('../api/roomsApi', async (importOriginal) => {
@@ -669,7 +669,7 @@ describe('CatalogSubcategoryPage', () => {
     },
   )
 
-  it('signed-out Start Party on /catalog/movies sets pending key and starts Hosted UI sign-in', () => {
+  it('signed-out Start Party on /catalog/movies sets pending key and navigates to first-party sign-in', () => {
     renderSubcategoryPage('/catalog/movies')
 
     const startParty = Array.from(container.querySelectorAll('button.gen-button')).find(
@@ -680,7 +680,7 @@ describe('CatalogSubcategoryPage', () => {
     })
 
     expect(sessionStorage.getItem(PENDING_PARTY_EPISODE_KEY)).toBeTruthy()
-    expect(startFanHostedUiSignIn).toHaveBeenCalled()
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/catalog/movies')
     expect(createRoom).not.toHaveBeenCalled()
   })
 
@@ -790,7 +790,7 @@ describe('CatalogSubcategoryPage', () => {
     }
   })
 
-  it('signed-out Start Party sets pending key and starts Hosted UI sign-in', () => {
+  it('signed-out Start Party sets pending key and navigates to first-party sign-in', () => {
     renderSubcategoryPage('/catalog/mst3k')
 
     const startParty = Array.from(container.querySelectorAll('button.gen-button')).find(
@@ -801,7 +801,7 @@ describe('CatalogSubcategoryPage', () => {
     })
 
     expect(sessionStorage.getItem(PENDING_PARTY_EPISODE_KEY)).toBeTruthy()
-    expect(startFanHostedUiSignIn).toHaveBeenCalled()
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/catalog/mst3k')
     expect(createRoom).not.toHaveBeenCalled()
   })
 

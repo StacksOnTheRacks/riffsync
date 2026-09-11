@@ -36,8 +36,11 @@ vi.mock('./catalog/catalogQueries', () => ({
   useCatalogSpotlightQuery: () => ({ data: [], isPending: false, isError: false }),
 }))
 
+vi.mock('./auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: vi.fn(),
+}))
+
 vi.mock('./auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: vi.fn(),
   startFanHostedUiSignOut: vi.fn(),
   refreshFanTokensIfStale: vi.fn(),
 }))

@@ -1,9 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
-import {
-  startFanHostedUiForgotPassword,
-  startFanHostedUiSignIn,
-  startFanHostedUiSignOut,
-} from '../auth/fanHostedUiPkce'
+import { navigateToFanAuth } from '../auth/fanAuthNavigation'
+import { startFanHostedUiSignOut } from '../auth/fanHostedUiPkce'
 import { useFanSession } from '../auth/useFanSession'
 import { ChannelHero } from '../components/channel/ChannelHero'
 import { FAN_DISPLAY_NAME_MAX_LEN } from '../session/guestSession'
@@ -57,7 +54,7 @@ export function AccountPage() {
                   <button
                     type="button"
                     className="gen-button"
-                    onClick={() => void startFanHostedUiSignIn('/account').catch(console.error)}
+                    onClick={() => navigateToFanAuth('/auth/sign-in', '/account')}
                   >
                     Sign In
                   </button>
@@ -184,7 +181,7 @@ export function AccountPage() {
                     <button
                       type="button"
                       className="gen-button gen-button--ghost"
-                      onClick={() => void startFanHostedUiForgotPassword('/account').catch(console.error)}
+                      onClick={() => navigateToFanAuth('/auth/forgot-password', '/account')}
                     >
                       Reset password
                     </button>

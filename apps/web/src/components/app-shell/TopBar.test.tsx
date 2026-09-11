@@ -21,8 +21,11 @@ vi.mock('../../catalog/catalogQueries', () => ({
   useCatalogListQuery: () => useCatalogListQuery(),
 }))
 
+vi.mock('../../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: vi.fn(),
+}))
+
 vi.mock('../../auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: vi.fn(),
   startFanHostedUiSignOut: vi.fn(),
 }))
 

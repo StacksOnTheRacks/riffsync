@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { fetchFanProfile } from '../../api/fanProfileApi'
-import {
-  startFanHostedUiSignIn,
-  startFanHostedUiSignOut,
-} from '../../auth/fanHostedUiPkce'
+import { navigateToFanAuth } from '../../auth/fanAuthNavigation'
+import { startFanHostedUiSignOut } from '../../auth/fanHostedUiPkce'
 import { useFanSession } from '../../auth/useFanSession'
 import { FanAvatarThumb } from '../FanAvatarThumb'
 
@@ -32,7 +30,7 @@ export function ProfileMenu() {
   }, [])
 
   const onSignIn = () => {
-    void startFanHostedUiSignIn(returnPath).catch(console.error)
+    navigateToFanAuth('/auth/sign-in', returnPath)
   }
 
   const onSignOut = () => {

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { RefObject } from 'react'
-import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
+import { navigateToFanAuth } from '../auth/fanAuthNavigation'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
 import { ChatComposeMediaPicker } from './ChatComposeMediaPicker'
 import { ChatReactionsStrip } from './ChatReactionsStrip'
@@ -505,7 +505,7 @@ export function RoomPageSidebar({
                   <button
                     type="button"
                     className="gen-button"
-                    onClick={() => void startFanHostedUiSignIn(chatSignInReturnPath).catch(console.error)}
+                    onClick={() => navigateToFanAuth('/auth/sign-in', chatSignInReturnPath)}
                   >
                     Sign In to Chat
                   </button>

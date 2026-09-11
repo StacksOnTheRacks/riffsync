@@ -9,6 +9,12 @@ import type { ChatLine } from './roomPageTypes'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
+const navigateToFanAuth = vi.fn<(authPath: string, returnTo?: string) => void>()
+
+vi.mock('../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: (authPath: string, returnTo?: string) => navigateToFanAuth(authPath, returnTo),
+}))
+
 const mockRoomFriendsPane = vi.fn((props: { visible: boolean }) => {
   void props
   return null
@@ -321,5 +327,59 @@ describe('RoomPageSidebar expanded overlay friends absence (#364)', () => {
 
     expect(container.querySelector('.riffsync-room-page__tabs')).toBeNull()
     expect(mockRoomFriendsPane).not.toHaveBeenCalled()
+  })
+})
+
+describe('RoomPageSidebar signed-out chat sign-in', () => {
+  let container: HTMLDivElement
+  let root: Root
+
+  beforeEach(() => {
+    navigateToFanAuth.mockReset()
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+
+  afterEach(() => {
+    act(() => root.unmount())
+    container.remove()
+  })
+
+  function renderSidebar(overrides: Partial<Parameters<typeof RoomPageSidebar>[0]> = {}) {
+    act(() => {
+      root.render(
+        <MemoryRouter>
+          <RoomPageSidebar {...buildSidebarProps(overrides)} />
+        </MemoryRouter>,
+      )
+    })
+  }
+
+  it('shows Sign In to Chat overlay and navigates with the room return path', () => {
+    renderSidebar({ fanToken: null, roomId: 'room-test-1' })
+
+    const overlay = container.querySelector('.riffsync-room-chat-signin-overlay')
+    expect(overlay).not.toBeNull()
+
+    const signIn = overlay?.querySelector('button.gen-button') as HTMLButtonElement
+    expect(signIn.textContent).toBe('Sign In to Chat')
+
+    act(() => {
+      signIn.click()
+    })
+
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/room/room-test-1')
+  })
+
+  it('uses signInReturnPath when provided', () => {
+    renderSidebar({ fanToken: null, signInReturnPath: '/live/mst3k-forever-a-thon' })
+
+    const signIn = container.querySelector('.riffsync-room-chat-signin-overlay button.gen-button') as HTMLButtonElement
+    act(() => {
+      signIn.click()
+    })
+
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/live/mst3k-forever-a-thon')
   })
 })

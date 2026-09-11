@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { startFanHostedUiSignIn } from '../auth/fanHostedUiPkce'
+import { navigateToFanAuth } from '../auth/fanAuthNavigation'
 import { useFanSession } from '../auth/useFanSession'
 import { useRoomsMineQuery } from '../api/roomsQueries'
 import { ChannelHero } from '../components/channel/ChannelHero'
@@ -17,7 +17,7 @@ export function YourPartiesPage() {
 
   useEffect(() => {
     if (!fanToken) {
-      void startFanHostedUiSignIn('/your-parties').catch(console.error)
+      navigateToFanAuth('/auth/sign-in', '/your-parties')
     }
   }, [fanToken])
 
