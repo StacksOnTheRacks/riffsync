@@ -105,6 +105,17 @@ async function main() {
     )
   }
 
+  const castReceiverHtml = await readFile(resolve(distDir, 'cast/receiver/index.html'), 'utf8')
+  if (!castReceiverHtml.includes('cast_receiver_framework.js')) {
+    throw new Error('dist/cast/receiver/index.html is missing the Cast receiver framework script')
+  }
+  if (!castReceiverHtml.includes('noindex')) {
+    throw new Error('dist/cast/receiver/index.html is missing noindex')
+  }
+  if (castReceiverHtml.includes('/src/main.tsx')) {
+    throw new Error('dist/cast/receiver/index.html must not boot the fan SPA entry')
+  }
+
   await assertFileContains('index.html', '<title>RiffSync - Watch Parties</title>')
   await assertFileContains('index.html', 'rel="canonical" href="https://riffsync.tv/"')
   await assertFileContains(

@@ -3,8 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CastPresentationSnapshot } from '../../room/cast/castChannelProtocol'
 import { RIFFSYNC_CAST_NAMESPACE } from '../../room/cast/castChannelProtocol'
 import {
+  attachCastReceiverHandlers,
+  resetCastReceiverSessionForTests,
   sendCastReceiverRenderFailed,
   sendCastReceiverRendered,
+  startCastReceiverContext,
   startCastReceiverSession,
 } from './castReceiverSession'
 
@@ -93,8 +96,8 @@ async function startReceiver() {
 
   const script = document.querySelector(
     'script[data-riffsync-cast-receiver-framework="true"]',
-  ) as HTMLScriptElement
-  script.onload?.(new Event('load'))
+  ) as HTMLScriptElement | null
+  script?.onload?.(new Event('load'))
   await startPromise
 
   return { ...receiver, onPresentationSnapshot, onChatOverlayUpdate }
@@ -104,6 +107,7 @@ describe('startCastReceiverSession', () => {
   afterEach(() => {
     document.head.innerHTML = ''
     delete (window as CastReceiverTestWindow).cast
+    resetCastReceiverSessionForTests()
   })
 
   it('disables CAF idle timeout so custom playback is not closed after ~5 minutes', async () => {
@@ -112,6 +116,7 @@ describe('startCastReceiverSession', () => {
     expect(receiver.context.start).toHaveBeenCalledWith(
       expect.objectContaining({
         disableIdleTimeout: true,
+        skipPlayersLoad: true,
       }),
     )
   })
@@ -129,6 +134,7 @@ describe('startCastReceiverSession', () => {
           [RIFFSYNC_CAST_NAMESPACE]: 'json',
         },
         disableIdleTimeout: true,
+        skipPlayersLoad: true,
       }),
     )
     expect(receiver.context.addCustomMessageListener.mock.invocationCallOrder[0]).toBeLessThan(
@@ -181,5 +187,42 @@ describe('startCastReceiverSession', () => {
         reason: 'transport_disconnected',
       },
     )
+  })
+
+  it('starts CAF from an already-loaded framework without injecting another script', () => {
+    const receiver = installReceiverFramework()
+
+    startCastReceiverContext()
+    startCastReceiverContext()
+
+    expect(document.querySelector('script[data-riffsync-cast-receiver-framework="true"]')).toBeNull()
+    expect(receiver.context.start).toHaveBeenCalledTimes(1)
+    expect(receiver.context.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customNamespaces: {
+          [RIFFSYNC_CAST_NAMESPACE]: 'json',
+        },
+        disableIdleTimeout: true,
+        skipPlayersLoad: true,
+      }),
+    )
+  })
+
+  it('queues sender messages that arrive before React attaches handlers', () => {
+    const receiver = installReceiverFramework()
+    const onPresentationSnapshot = vi.fn()
+    const onChatOverlayUpdate = vi.fn()
+
+    startCastReceiverContext()
+    receiver.emitMessage({ type: 'presentation_snapshot', snapshot }, 'sender-early')
+
+    expect(onPresentationSnapshot).not.toHaveBeenCalled()
+
+    attachCastReceiverHandlers({
+      onPresentationSnapshot,
+      onChatOverlayUpdate,
+    })
+
+    expect(onPresentationSnapshot).toHaveBeenCalledWith(snapshot)
   })
 })

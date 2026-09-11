@@ -37,6 +37,8 @@ const CAST_RECEIVER_SOURCES = [
   'CastReceiverPresentation.tsx',
   'castReceiverSession.ts',
   'castReceiverRenderConfirmation.ts',
+  'castReceiverMain.ts',
+  'castReceiverApp.tsx',
 ]
 
 const FORBIDDEN_CAST_SIDE_EFFECTS = [

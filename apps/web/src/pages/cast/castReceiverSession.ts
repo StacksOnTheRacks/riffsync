@@ -5,7 +5,7 @@ import type {
 } from '../../room/cast/castChannelProtocol'
 import { RIFFSYNC_CAST_NAMESPACE } from '../../room/cast/castChannelProtocol'
 
-const CAST_RECEIVER_FRAMEWORK_SRC =
+export const CAST_RECEIVER_FRAMEWORK_SRC =
   'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js'
 
 type CastReceiverFrameworkWindow = Window & {
@@ -28,6 +28,8 @@ type CastReceiverOptions = {
   customNamespaces?: Record<string, string>
   /** Keep custom/non-media receivers alive past CAF's ~5 minute idle timeout. */
   disableIdleTimeout?: boolean
+  /** Skip CAF media-player load; this receiver uses custom HTML / WebRTC. */
+  skipPlayersLoad?: boolean
 }
 
 type CastReceiverContextInstance = {
@@ -39,8 +41,21 @@ type CastReceiverContextInstance = {
   sendCustomMessage: (namespace: string, senderId: string | undefined, message: unknown) => void
 }
 
+type QueuedReceiverMessage = {
+  message: CastSenderOutboundMessage
+  senderId?: string
+}
+
 let activeReceiverContext: CastReceiverContextInstance | null = null
 let activeReceiverSenderId: string | undefined
+let receiverStarted = false
+let attachedHandlers: CastReceiverPresentationHandlers | null = null
+const queuedMessages: QueuedReceiverMessage[] = []
+
+function readCastReceiverFramework(): NonNullable<CastReceiverFrameworkWindow['cast']>['framework'] | undefined {
+  if (typeof window === 'undefined') return undefined
+  return (window as CastReceiverFrameworkWindow).cast?.framework
+}
 
 function parseSenderMessage(raw: unknown): CastSenderOutboundMessage | null {
   if (!raw || typeof raw !== 'object') return null
@@ -58,6 +73,32 @@ function parseSenderMessage(raw: unknown): CastSenderOutboundMessage | null {
   return null
 }
 
+function dispatchSenderMessage(message: CastSenderOutboundMessage, senderId?: string): void {
+  if (typeof senderId === 'string') activeReceiverSenderId = senderId
+  if (!attachedHandlers) {
+    queuedMessages.push({ message, senderId })
+    return
+  }
+  if (message.type === 'presentation_snapshot') {
+    attachedHandlers.onPresentationSnapshot(message.snapshot)
+    return
+  }
+  attachedHandlers.onChatOverlayUpdate(message.messages)
+}
+
+function handleReceiverMessage(event: { data?: unknown; senderId?: string }): void {
+  if (typeof event.senderId === 'string') activeReceiverSenderId = event.senderId
+  if (!event.data) return
+  try {
+    const raw = typeof event.data === 'string' ? JSON.parse(event.data) as unknown : event.data
+    const message = parseSenderMessage(raw)
+    if (!message) return
+    dispatchSenderMessage(message, event.senderId)
+  } catch {
+    /* Ignore malformed sender messages. */
+  }
+}
+
 function ensureReceiverFrameworkScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (typeof document === 'undefined') {
@@ -65,9 +106,17 @@ function ensureReceiverFrameworkScript(): Promise<void> {
       return
     }
 
+    if (readCastReceiverFramework()) {
+      resolve()
+      return
+    }
+
     const existing = document.querySelector('script[data-riffsync-cast-receiver-framework="true"]')
     if (existing) {
-      resolve()
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('Cast receiver framework failed to load')), {
+        once: true,
+      })
       return
     }
 
@@ -90,12 +139,11 @@ export type CastReceiverSession = {
   stop: () => void
 }
 
-export async function startCastReceiverSession(
-  handlers: CastReceiverPresentationHandlers,
-): Promise<CastReceiverSession> {
-  await ensureReceiverFrameworkScript()
+/** Start CAF once. Safe to call from the dedicated receiver HTML before React mounts. */
+export function startCastReceiverContext(): void {
+  if (receiverStarted) return
 
-  const framework = (window as CastReceiverFrameworkWindow).cast?.framework
+  const framework = readCastReceiverFramework()
   if (!framework) {
     throw new Error('Cast receiver framework unavailable')
   }
@@ -104,24 +152,7 @@ export async function startCastReceiverSession(
   activeReceiverContext = context
   activeReceiverSenderId = undefined
 
-  context.addCustomMessageListener(RIFFSYNC_CAST_NAMESPACE, (event) => {
-    activeReceiverSenderId = typeof event.senderId === 'string' ? event.senderId : undefined
-    if (!event.data) return
-    try {
-      const raw = typeof event.data === 'string' ? JSON.parse(event.data) as unknown : event.data
-      const message = parseSenderMessage(raw)
-      if (!message) return
-      if (message.type === 'presentation_snapshot') {
-        handlers.onPresentationSnapshot(message.snapshot)
-        return
-      }
-      if (message.type === 'chat_overlay_update') {
-        handlers.onChatOverlayUpdate(message.messages)
-      }
-    } catch {
-      /* Ignore malformed sender messages. */
-    }
-  })
+  context.addCustomMessageListener(RIFFSYNC_CAST_NAMESPACE, handleReceiverMessage)
 
   const options = new framework.CastReceiverOptions()
   options.customNamespaces = {
@@ -130,12 +161,30 @@ export async function startCastReceiverSession(
   // Custom HTML / WebRTC playback never loads CAF media, so the default idle
   // timeout would close the receiver after ~5 minutes.
   options.disableIdleTimeout = true
+  options.skipPlayersLoad = true
 
   context.start(options)
+  receiverStarted = true
+}
+
+export function attachCastReceiverHandlers(handlers: CastReceiverPresentationHandlers): void {
+  attachedHandlers = handlers
+  const pending = queuedMessages.splice(0, queuedMessages.length)
+  for (const item of pending) {
+    dispatchSenderMessage(item.message, item.senderId)
+  }
+}
+
+export async function startCastReceiverSession(
+  handlers: CastReceiverPresentationHandlers,
+): Promise<CastReceiverSession> {
+  await ensureReceiverFrameworkScript()
+  startCastReceiverContext()
+  attachCastReceiverHandlers(handlers)
 
   return {
     stop: () => {
-      /* Receiver lifecycle teardown is owned by the Cast runtime. */
+      if (attachedHandlers === handlers) attachedHandlers = null
     },
   }
 }
@@ -177,9 +226,16 @@ export function sendCastReceiverRenderFailed(
 
 export function getActiveCastReceiverContext(): CastReceiverContextInstance | null {
   if (activeReceiverContext) return activeReceiverContext
-  const framework = (window as CastReceiverFrameworkWindow).cast?.framework
-  return framework?.CastReceiverContext.getInstance() ?? null
+  return readCastReceiverFramework()?.CastReceiverContext.getInstance() ?? null
 }
 
 /** @deprecated Use getActiveCastReceiverContext. */
 export const getCastReceiverContextForTests = getActiveCastReceiverContext
+
+export function resetCastReceiverSessionForTests(): void {
+  activeReceiverContext = null
+  activeReceiverSenderId = undefined
+  receiverStarted = false
+  attachedHandlers = null
+  queuedMessages.length = 0
+}
