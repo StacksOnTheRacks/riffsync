@@ -43,6 +43,31 @@ export function verifyQueryHasSecrets(search: string): boolean {
 
 const VERIFY_EMAIL_PATH = '/auth/verify-email'
 
+function splitPagePath(pagePath: string): { pathname: string; search: string; hash: string } {
+  const hashIndex = pagePath.indexOf('#')
+  const hash = hashIndex >= 0 ? pagePath.slice(hashIndex) : ''
+  const pathAndSearch = hashIndex >= 0 ? pagePath.slice(0, hashIndex) : pagePath
+  const queryIndex = pathAndSearch.indexOf('?')
+  if (queryIndex < 0) {
+    return { pathname: pathAndSearch, search: '', hash }
+  }
+  return {
+    pathname: pathAndSearch.slice(0, queryIndex),
+    search: pathAndSearch.slice(queryIndex),
+    hash,
+  }
+}
+
+/** Remove verify secrets from analytics page paths (SR-006). */
+export function sanitizeVerifyGaPagePath(pagePath: string): string {
+  const { pathname, search, hash } = splitPagePath(pagePath)
+  if (pathname !== VERIFY_EMAIL_PATH || !verifyQueryHasSecrets(search)) {
+    return pagePath
+  }
+  const prefill = readFanVerifyQueryPrefill(search)
+  return `${pathname}${buildStrippedVerifySearch(prefill.returnTo)}${hash}`
+}
+
 let bootstrapCodePrefill: string | null = null
 let bootstrapEmailPrefill: string | null = null
 

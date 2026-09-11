@@ -5,6 +5,7 @@ import {
   buildStrippedVerifySearch,
   consumeFanVerifyBootstrapPrefill,
   readFanVerifyQueryPrefill,
+  sanitizeVerifyGaPagePath,
   stripFanVerifyQueryFromUrl,
   verifyQueryHasSecrets,
 } from './fanVerifyQuery'
@@ -62,6 +63,13 @@ describe('fanVerifyQuery', () => {
   it('verifyQueryHasSecrets detects code params', () => {
     expect(verifyQueryHasSecrets('?code=abc')).toBe(true)
     expect(verifyQueryHasSecrets('?returnTo=/account')).toBe(false)
+  })
+
+  it('sanitizeVerifyGaPagePath strips verify secrets from analytics paths', () => {
+    expect(
+      sanitizeVerifyGaPagePath('/auth/verify-email?confirmation_code=secret-code&returnTo=/account'),
+    ).toBe('/auth/verify-email?returnTo=%2Faccount')
+    expect(sanitizeVerifyGaPagePath('/catalog?genre=sci-fi')).toBe('/catalog?genre=sci-fi')
   })
 
   it('bootstrapFanVerifyQueryStrip strips URL and exposes one-time prefill', () => {

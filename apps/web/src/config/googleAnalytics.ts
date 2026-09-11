@@ -1,5 +1,10 @@
 import type { CatalogCategory } from '../catalog/catalogTypes'
-import { sanitizeGaPagePath } from '../auth/fanResetQuery'
+import { sanitizeGaPagePath as sanitizeResetGaPagePath } from '../auth/fanResetQuery'
+import { sanitizeVerifyGaPagePath } from '../auth/fanVerifyQuery'
+
+function sanitizeGaPagePath(pagePath: string): string {
+  return sanitizeVerifyGaPagePath(sanitizeResetGaPagePath(pagePath))
+}
 
 /** Contract buckets from `docs/operations/product-metrics.md`. */
 export type GaEntrySurface =
