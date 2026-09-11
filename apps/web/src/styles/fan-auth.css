@@ -1,0 +1,35 @@
+.riffsync-fan-auth {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 24px 16px;
+  background: var(--black-color, #000);
+  color: var(--white-color, #fff);
+}
+
+.riffsync-fan-auth__logo {
+  display: inline-flex;
+  border-radius: 4px;
+}
+
+.riffsync-fan-auth__logo:focus-visible {
+  outline: 2px solid var(--white-color, #fff);
+  outline-offset: 4px;
+}
+
+.riffsync-fan-auth__card {
+  width: min(470px, 100%);
+  padding: 32px 24px;
+  border-radius: 8px;
+  background: #212121;
+  box-sizing: border-box;
+}
+
+.riffsync-fan-auth__card h1 {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+  font-weight: 600;
+}

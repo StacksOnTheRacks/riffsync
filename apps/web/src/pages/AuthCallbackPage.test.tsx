@@ -2,49 +2,61 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthCallbackPage } from './AuthCallbackPage'
 
 const completeFanAuthCallback = vi.fn()
+const navigate = vi.fn()
 
 vi.mock('../auth/fanHostedUiPkce', () => ({
   completeFanAuthCallback: (...args: unknown[]) => completeFanAuthCallback(...args),
 }))
 
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: () => navigate,
+  }
+})
+
 describe('AuthCallbackPage', () => {
   let container: HTMLDivElement
   let root: Root | null = null
+
+  beforeEach(() => {
+    completeFanAuthCallback.mockReset()
+    navigate.mockReset()
+  })
 
   afterEach(() => {
     root?.unmount()
     root = null
     container?.remove()
-    completeFanAuthCallback.mockReset()
   })
 
-  it('accepts authorization code without state for password reset', async () => {
-    completeFanAuthCallback.mockResolvedValue({ nextPath: '/account?passwordReset=1' })
+  it('completes PKCE callback and navigates to sanitized return path', async () => {
+    completeFanAuthCallback.mockResolvedValue({ nextPath: '/catalog' })
+
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
 
     act(() => {
       root!.render(
-        <MemoryRouter initialEntries={['/auth/callback?code=abc123']}>
+        <MemoryRouter initialEntries={['/auth/callback?code=abc&state=xyz']}>
           <Routes>
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
-            <Route path="/account" element={<p>Account landing</p>} />
           </Routes>
         </MemoryRouter>,
       )
     })
 
     await vi.waitFor(() => {
-      expect(completeFanAuthCallback).toHaveBeenCalledWith('abc123', null)
+      expect(completeFanAuthCallback).toHaveBeenCalledWith('abc', 'xyz')
     })
-    await vi.waitFor(() => {
-      expect(container.textContent).toContain('Account landing')
-    })
-    expect(container.textContent).not.toContain('Missing OAuth code or state')
+
+    expect(navigate).toHaveBeenCalledWith('/catalog', { replace: true })
+    expect(container.querySelector('[data-testid="fan-auth-layout"]')).toBeNull()
   })
 })

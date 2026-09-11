@@ -11,6 +11,9 @@ vi.mock('./auth/StaffSessionKeepAlive', () => ({
 
 vi.mock('./auth/staffHostedUiPkce', () => ({
   refreshStaffTokensIfStale: vi.fn().mockResolvedValue(undefined),
+  normalizeStaffReturnPath: (path: string | null | undefined) => path ?? '/admin',
+  startStaffHostedUiSignIn: vi.fn(),
+  completeStaffAuthCallback: vi.fn(),
 }))
 
 vi.mock('./auth/staffTokens', () => ({
@@ -77,6 +80,30 @@ describe('AppRoutes admin tree', () => {
     root?.unmount()
     root = null
     container?.remove()
+  })
+
+  it('admin login and auth callback do not render fan auth layout', async () => {
+    for (const path of ['/admin/login', '/admin/auth/callback']) {
+      container = document.createElement('div')
+      document.body.appendChild(container)
+      root = createRoot(container)
+
+      act(() => {
+        root!.render(
+          <MemoryRouter initialEntries={[path]}>
+            <AppRoutes />
+          </MemoryRouter>,
+        )
+      })
+
+      await vi.waitFor(() => {
+        expect(container.querySelector('[data-testid="fan-auth-layout"]')).toBeNull()
+      })
+
+      root.unmount()
+      container.remove()
+      root = null
+    }
   })
 
   it('renders catalog list inside admin shell without fan header', async () => {

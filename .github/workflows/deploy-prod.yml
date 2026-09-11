@@ -284,6 +284,9 @@ jobs:
           COGNITO_DOMAIN="${COGNITO_BASE#https://}"
           COGNITO_CLIENT="$(aws cloudformation describe-stacks --stack-name "$FAN_AUTH_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='FanUserPoolClientId'].OutputValue" --output text)"
+          COGNITO_POOL="$(aws cloudformation describe-stacks --stack-name "$FAN_AUTH_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='FanUserPoolId'].OutputValue" --output text)"
+          COGNITO_REGION="${COGNITO_POOL%%_*}"
           STAFF_COGNITO_BASE="$(aws cloudformation describe-stacks --stack-name "$STAFF_AUTH_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='StaffHostedUiBaseUrl'].OutputValue" --output text)"
           STAFF_COGNITO_DOMAIN="${STAFF_COGNITO_BASE#https://}"
@@ -304,6 +307,8 @@ jobs:
             VITE_GA_MEASUREMENT_ID="${PROD_GA_MEASUREMENT_ID:-G-VQ0ME789CS}" \
             VITE_COGNITO_HOSTED_UI_DOMAIN="${COGNITO_DOMAIN}" \
             VITE_COGNITO_CLIENT_ID="${COGNITO_CLIENT}" \
+            VITE_COGNITO_USER_POOL_ID="${COGNITO_POOL}" \
+            VITE_COGNITO_REGION="${COGNITO_REGION}" \
             VITE_STAFF_COGNITO_HOSTED_UI_DOMAIN="${STAFF_COGNITO_DOMAIN}" \
             VITE_STAFF_COGNITO_CLIENT_ID="${STAFF_COGNITO_CLIENT}" \
             npm run build

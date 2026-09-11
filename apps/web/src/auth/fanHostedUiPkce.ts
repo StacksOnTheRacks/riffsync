@@ -1,14 +1,11 @@
-import {
-  clearFanTokens,
-  getFanRefreshToken,
-  getFanTokenBundle,
-  setFanTokenBundle,
-  fanAccessExpiryEpochSec,
-} from './fanTokens'
+import { persistReturnTo, popReturnTo } from './fanAuthNavigation'
+import { exchangeFanAuthorizationCode, refreshFanTokensIfStale } from './fanOAuthToken'
+import { clearFanTokens } from './fanTokens'
+
+export { exchangeFanAuthorizationCode, refreshFanTokensIfStale } from './fanOAuthToken'
 
 const PKCE_VERIFIER = 'riffsync.pkceVerifier'
 const OAUTH_STATE = 'riffsync.oauthState'
-const RETURN = 'riffsync.returnTo'
 const PASSWORD_RESET_FLOW = 'riffsync.passwordResetFlow'
 
 function clearAuthCallbackSession(): void {
@@ -68,7 +65,7 @@ export async function startFanHostedUiSignIn(returnPath: string): Promise<void> 
   const state = randomString(32)
   sessionStorage.setItem(PKCE_VERIFIER, verifier)
   sessionStorage.setItem(OAUTH_STATE, state)
-  sessionStorage.setItem(RETURN, returnPath)
+  persistReturnTo(returnPath)
 
   const params = new URLSearchParams({
     client_id: clientId(),
@@ -87,9 +84,6 @@ export async function startFanHostedUiSignIn(returnPath: string): Promise<void> 
 /**
  * Cognito Hosted UI forgot-password flow. After reset, the user returns through
  * `/auth/callback` and is sent to `returnPath` (default `/account`).
- *
- * PKCE + state are stored like sign-in. Cognito may omit `state` on the callback even
- * when it was sent; `/auth/callback` handles code-only returns for this flow.
  */
 export async function startFanHostedUiForgotPassword(returnPath = '/account'): Promise<void> {
   const verifier = randomString(64)
@@ -97,7 +91,7 @@ export async function startFanHostedUiForgotPassword(returnPath = '/account'): P
   const state = randomString(32)
   sessionStorage.setItem(PKCE_VERIFIER, verifier)
   sessionStorage.setItem(OAUTH_STATE, state)
-  sessionStorage.setItem(RETURN, returnPath)
+  persistReturnTo(returnPath)
   sessionStorage.setItem(PASSWORD_RESET_FLOW, '1')
 
   const params = new URLSearchParams({
@@ -123,9 +117,7 @@ export function startFanHostedUiSignOut(logoutUri = defaultLogoutUri()): void {
 }
 
 export function popReturnPath(): string {
-  const p = sessionStorage.getItem(RETURN) ?? '/catalog'
-  sessionStorage.removeItem(RETURN)
-  return p
+  return popReturnTo()
 }
 
 function appendPasswordResetQuery(path: string): string {
@@ -136,7 +128,6 @@ function appendPasswordResetQuery(path: string): string {
 
 /**
  * Finish Hosted UI redirect at `/auth/callback` for sign-in or forgot-password.
- * Password reset may return `code` without `state`; exchange uses PKCE when present.
  */
 export async function completeFanAuthCallback(
   code: string,
@@ -144,19 +135,19 @@ export async function completeFanAuthCallback(
 ): Promise<{ nextPath: string }> {
   const verifier = sessionStorage.getItem(PKCE_VERIFIER)
   const passwordResetFlow = sessionStorage.getItem(PASSWORD_RESET_FLOW) === '1'
-  const storedReturn = sessionStorage.getItem(RETURN)
+  const storedReturn = sessionStorage.getItem('riffsync.returnTo')
 
   if (verifier) {
     await exchangeFanAuthorizationCode(code, state)
     clearAuthCallbackSession()
-    const nextPath = popReturnPath()
+    const nextPath = popReturnTo()
     return {
       nextPath: passwordResetFlow ? appendPasswordResetQuery(nextPath) : nextPath,
     }
   }
 
   if (passwordResetFlow || (!state && storedReturn)) {
-    const nextPath = popReturnPath()
+    const nextPath = popReturnTo()
     clearAuthCallbackSession()
     return { nextPath: appendPasswordResetQuery(nextPath) }
   }
@@ -167,126 +158,5 @@ export async function completeFanAuthCallback(
 
   await exchangeFanAuthorizationCode(code, state)
   clearAuthCallbackSession()
-  return { nextPath: popReturnPath() }
-}
-
-export async function exchangeFanAuthorizationCode(
-  code: string,
-  state?: string | null,
-): Promise<void> {
-  const expectedState = sessionStorage.getItem(OAUTH_STATE)
-  const verifier = sessionStorage.getItem(PKCE_VERIFIER)
-  if (state != null && state !== '') {
-    if (!expectedState || state !== expectedState) {
-      throw new Error('OAuth state mismatch — try signing in again.')
-    }
-  }
-  if (!verifier) {
-    throw new Error('Missing PKCE verifier — try signing in again.')
-  }
-
-  const body = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: clientId(),
-    code,
-    redirect_uri: redirectUri(),
-    code_verifier: verifier,
-  })
-
-  const res = await fetch(`https://${hostedDomain()}/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  })
-
-  if (!res.ok) {
-    const t = await res.text()
-    throw new Error(`Token exchange failed (${res.status}): ${t}`)
-  }
-
-  const json = (await res.json()) as {
-    access_token?: string
-    expires_in?: number
-    refresh_token?: string
-  }
-  if (!json.access_token || typeof json.expires_in !== 'number') {
-    throw new Error('Token response missing access_token / expires_in')
-  }
-  setFanTokenBundle(json.access_token, json.expires_in, {
-    ...(typeof json.refresh_token === 'string' && json.refresh_token.length > 0
-      ? { refreshToken: json.refresh_token }
-      : {}),
-  })
-}
-
-const REFRESH_LEEWAY_SEC = 300
-
-let refreshFanTokensInFlight: Promise<void> | null = null
-
-/**
- * Uses Cognito **`refresh_token`** (stored after sign-in) to obtain a new **`access_token`**
- * before the current one expires. No-op without env, refresh token, or when access is still fresh.
- *
- * Requires the User Pool app client to issue refresh tokens (non-zero refresh token expiry in Cognito).
- */
-export function refreshFanTokensIfStale(): Promise<void> {
-  if (refreshFanTokensInFlight) return refreshFanTokensInFlight
-  refreshFanTokensInFlight = refreshFanTokensIfStaleBody().finally(() => {
-    refreshFanTokensInFlight = null
-  })
-  return refreshFanTokensInFlight
-}
-
-async function refreshFanTokensIfStaleBody(): Promise<void> {
-  const domainRaw = import.meta.env.VITE_COGNITO_HOSTED_UI_DOMAIN?.trim()
-  const cid = import.meta.env.VITE_COGNITO_CLIENT_ID?.trim()
-  if (!domainRaw || !cid) return
-
-  const rt = getFanRefreshToken()
-  if (!rt) return
-
-  const domain = domainRaw.replace(/^https?:\/\//, '')
-  const bundle = getFanTokenBundle()
-  const now = Math.floor(Date.now() / 1000)
-  const exp = bundle ? fanAccessExpiryEpochSec(bundle) : null
-
-  const needsRefresh = exp === null || now >= exp - REFRESH_LEEWAY_SEC || now >= exp - 30
-  if (!needsRefresh) return
-
-  const body = new URLSearchParams({
-    grant_type: 'refresh_token',
-    client_id: cid,
-    refresh_token: rt,
-  })
-
-  try {
-    const res = await fetch(`https://${domain}/oauth2/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    })
-
-    if (!res.ok) {
-      if (res.status === 400 || res.status === 401) clearFanTokens()
-      return
-    }
-
-    const refreshed = (await res.json()) as {
-      access_token?: string
-      expires_in?: number
-      refresh_token?: string
-    }
-    if (!refreshed.access_token || typeof refreshed.expires_in !== 'number') {
-      clearFanTokens()
-      return
-    }
-
-    setFanTokenBundle(refreshed.access_token, refreshed.expires_in, {
-      ...(typeof refreshed.refresh_token === 'string' && refreshed.refresh_token.length > 0
-        ? { refreshToken: refreshed.refresh_token }
-        : {}),
-    })
-  } catch {
-    /* Network blip — retain tokens; interval / visibility will retry. */
-  }
+  return { nextPath: popReturnTo() }
 }
