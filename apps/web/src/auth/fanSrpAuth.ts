@@ -430,11 +430,11 @@ export async function changePassword(previousPassword: string, proposedPassword:
     if (mapped.code !== 'UNAUTHENTICATED') throw mapped
 
     await refreshFanTokensIfStale()
-    accessToken = getFanAccessToken()
-    if (!accessToken) throw mapped
+    const refreshedToken = getFanAccessToken()
+    if (!refreshedToken) throw mapped
 
     try {
-      await invokeChangePassword(client, accessToken, previousPassword, proposedPassword)
+      await invokeChangePassword(client, refreshedToken, previousPassword, proposedPassword)
     } catch (retryErr) {
       if (retryErr instanceof FanAuthError) throw retryErr
       const retryMapped = mapChangePasswordError(retryErr)
