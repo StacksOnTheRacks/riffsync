@@ -12,6 +12,10 @@ interface ImportMetaEnv {
   readonly VITE_COGNITO_HOSTED_UI_DOMAIN?: string
   /** Fan app client id (SPA / public client) for Hosted UI PKCE + token exchange. */
   readonly VITE_COGNITO_CLIENT_ID?: string
+  /** Fan Cognito user pool id (e.g. `us-east-1_XXXXX`) for browser SRP sign-in. */
+  readonly VITE_COGNITO_USER_POOL_ID?: string
+  /** AWS region for the fan user pool (prefix before `_` in pool id). */
+  readonly VITE_COGNITO_REGION?: string
   /**
    * Optional JSON array passed to **`RTCPeerConnection`** **`iceServers`** (STUN/TURN).
    * Default: `[{ urls: 'stun:stun.l.google.com:19302' }]`.

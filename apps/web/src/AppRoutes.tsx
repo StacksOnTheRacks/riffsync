@@ -14,6 +14,13 @@ import { CastReceiverPage } from './pages/cast/CastReceiverPage'
 import { TvClientPage } from './pages/tv/TvClientPage'
 import { SoloWatchPage } from './pages/SoloWatchPage'
 import { AuthCallbackPage } from './pages/AuthCallbackPage'
+import { FanAuthLayout } from './layouts/FanAuthLayout'
+import { FanSignInPage } from './pages/auth/FanSignInPage'
+import { FanSignUpPage } from './pages/auth/FanSignUpPage'
+import { FanVerifyEmailPage } from './pages/auth/FanVerifyEmailPage'
+import { FanForgotPasswordPage } from './pages/auth/FanForgotPasswordPage'
+import { FanResetPasswordPage } from './pages/auth/FanResetPasswordPage'
+import { FanChangePasswordPage } from './pages/auth/FanChangePasswordPage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { TermsOfServicePage } from './pages/TermsOfServicePage'
 import { DataRemovalRequestPage } from './pages/DataRemovalRequestPage'
@@ -33,6 +40,14 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route element={<FanAuthLayout />}>
+        <Route path="/auth/sign-in" element={<FanSignInPage />} />
+        <Route path="/auth/sign-up" element={<FanSignUpPage />} />
+        <Route path="/auth/verify-email" element={<FanVerifyEmailPage />} />
+        <Route path="/auth/forgot-password" element={<FanForgotPasswordPage />} />
+        <Route path="/auth/reset-password" element={<FanResetPasswordPage />} />
+        <Route path="/auth/change-password" element={<FanChangePasswordPage />} />
+      </Route>
       <Route path="/admin/auth/callback" element={<StaffAuthCallbackPage />} />
       <Route path="/cast/receiver" element={<CastReceiverPage />} />
       <Route path="/link" element={<TvClientPage />} />
