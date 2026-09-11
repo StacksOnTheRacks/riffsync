@@ -2,19 +2,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   confirmResetPassword,
+  confirmSignUp,
   signIn as amplifySignIn,
   fetchAuthSession,
+  resendSignUpCode,
   resetPassword,
   signOut as amplifySignOut,
+  signUp as amplifySignUp,
 } from 'aws-amplify/auth'
 import { resetFanCognitoConfigForTests } from './fanCognitoConfig'
 import {
   FanAuthError,
   confirmFanPasswordReset,
+  confirmFanSignUp,
   meetsFanPasswordPolicy,
   requestFanPasswordReset,
+  resendFanConfirmationCode,
   setFanSrpClientForTests,
   signInWithSrp,
+  signUpFan,
 } from './fanSrpAuth'
 import { setFanTokenBundle } from './fanTokens'
 
@@ -24,6 +30,9 @@ vi.mock('aws-amplify/auth', () => ({
   fetchAuthSession: vi.fn(),
   resetPassword: vi.fn(),
   confirmResetPassword: vi.fn(),
+  signUp: vi.fn(),
+  confirmSignUp: vi.fn(),
+  resendSignUpCode: vi.fn(),
 }))
 
 vi.mock('aws-amplify', () => ({
@@ -198,6 +207,97 @@ describe('fanSrpAuth', () => {
   it('meetsFanPasswordPolicy enforces Cognito default rules', () => {
     expect(meetsFanPasswordPolicy('short1!')).toBe(false)
     expect(meetsFanPasswordPolicy('NewPass1!')).toBe(true)
+  })
+
+  it('signUpFan calls signUp and does not write tokens', async () => {
+    const signUp = vi.fn().mockResolvedValue(undefined)
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      signUp,
+    })
+
+    await signUpFan('fan@example.com', 'NewPass1!')
+    expect(signUp).toHaveBeenCalledWith('fan@example.com', 'NewPass1!')
+    expect(setFanTokenBundle).not.toHaveBeenCalled()
+  })
+
+  it('maps UsernameExists on signUp', async () => {
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      signUp: vi.fn().mockRejectedValue(Object.assign(new Error('Exists'), { name: 'UsernameExistsException' })),
+    })
+
+    await expect(signUpFan('fan@example.com', 'NewPass1!')).rejects.toMatchObject({ code: 'USERNAME_EXISTS' })
+  })
+
+  it('confirmFanSignUp does not write tokens', async () => {
+    const confirmSignUpMock = vi.fn().mockResolvedValue(undefined)
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      confirmSignUp: confirmSignUpMock,
+    })
+
+    await confirmFanSignUp('fan@example.com', '123456')
+    expect(confirmSignUpMock).toHaveBeenCalledWith('fan@example.com', '123456')
+    expect(setFanTokenBundle).not.toHaveBeenCalled()
+  })
+
+  it('resendFanConfirmationCode calls resendSignUpCode', async () => {
+    const resendMock = vi.fn().mockResolvedValue(undefined)
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      resendSignUpCode: resendMock,
+    })
+
+    await resendFanConfirmationCode('fan@example.com')
+    expect(resendMock).toHaveBeenCalledWith('fan@example.com')
+  })
+
+  it('uses Amplify signUp when no test client override is set', async () => {
+    vi.mocked(amplifySignUp).mockResolvedValue({} as never)
+    await signUpFan('fan@example.com', 'NewPass1!')
+    expect(amplifySignUp).toHaveBeenCalledWith({
+      username: 'fan@example.com',
+      password: 'NewPass1!',
+      options: { userAttributes: { email: 'fan@example.com' } },
+    })
+  })
+
+  it('uses Amplify confirmSignUp when no test client override is set', async () => {
+    vi.mocked(confirmSignUp).mockResolvedValue({} as never)
+    await confirmFanSignUp('fan@example.com', '123456')
+    expect(confirmSignUp).toHaveBeenCalledWith({
+      username: 'fan@example.com',
+      confirmationCode: '123456',
+    })
+  })
+
+  it('uses Amplify resendSignUpCode when no test client override is set', async () => {
+    vi.mocked(resendSignUpCode).mockResolvedValue({} as never)
+    await resendFanConfirmationCode('fan@example.com')
+    expect(resendSignUpCode).toHaveBeenCalledWith({ username: 'fan@example.com' })
+  })
+
+  it('does not write tokens on UNCONFIRMED sign-in path', async () => {
+    setFanSrpClientForTests({
+      signIn: vi.fn().mockResolvedValue({
+        isSignedIn: false,
+        nextStep: { signInStep: 'CONFIRM_SIGN_UP' },
+      }),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+    })
+
+    await expect(signInWithSrp('fan@example.com', 'secret')).rejects.toMatchObject({ code: 'UNCONFIRMED' })
+    expect(setFanTokenBundle).not.toHaveBeenCalled()
   })
 
   it('maps NEW_PASSWORD_REQUIRED without writing tokens', async () => {

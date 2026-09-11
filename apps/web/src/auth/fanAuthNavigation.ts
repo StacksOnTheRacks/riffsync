@@ -99,3 +99,11 @@ export function readReturnToFromQuery(search: string): string | null {
   const value = new URLSearchParams(search).get('returnTo')
   return value
 }
+
+/** After confirmed sign-in or verify with an existing session: query returnTo wins, else session pop; always clears stale resume. */
+export function resolveFanAuthSuccessDestination(search: string): string {
+  const fromQuery = readReturnToFromQuery(search)
+  const destination = fromQuery != null ? normalizeFanReturnTo(fromQuery) : popReturnTo()
+  sessionStorage.removeItem(RETURN_TO_KEY)
+  return destination
+}
