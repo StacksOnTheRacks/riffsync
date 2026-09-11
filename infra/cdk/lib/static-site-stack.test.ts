@@ -14,7 +14,9 @@ describe('StaticSiteStack', () => {
       ResponseHeadersPolicyConfig: {
         SecurityHeadersConfig: {
           ContentSecurityPolicy: {
-            ContentSecurityPolicy: Match.stringLikeRegexp('script-src .*https://www\\.gstatic\\.com'),
+            ContentSecurityPolicy: Match.stringLikeRegexp(
+              "script-src .*'unsafe-eval'.*'wasm-unsafe-eval'.*blob:.*https://www\\.gstatic\\.com",
+            ),
           },
         },
       },
