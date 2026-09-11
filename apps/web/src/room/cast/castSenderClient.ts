@@ -198,6 +198,40 @@ function readCastSessionApplicationId(session: CastSessionInstance): string | nu
   return metadataApplicationId || null
 }
 
+/** Cast SDK errors stringify to just `code` (e.g. `session_error`). Pull fields Chrome hides. */
+export function describeCastRejectReason(reason: unknown): Record<string, unknown> {
+  if (reason == null) {
+    return { kind: reason === null ? 'null' : 'undefined' }
+  }
+  if (typeof reason !== 'object') {
+    return { kind: typeof reason, value: reason }
+  }
+
+  const record = reason as Record<string, unknown>
+  const described: Record<string, unknown> = {
+    kind: reason instanceof Error ? reason.name : Object.prototype.toString.call(reason),
+  }
+  if (typeof record.code === 'string' || typeof record.code === 'number') {
+    described.code = record.code
+  }
+  if (typeof record.description === 'string') {
+    described.description = record.description
+  }
+  if ('details' in record) {
+    described.details = record.details
+  }
+  if (reason instanceof Error) {
+    described.message = reason.message
+    if (reason.cause !== undefined) {
+      described.cause = describeCastRejectReason(reason.cause)
+    }
+  }
+  if (described.code === undefined && described.message === undefined) {
+    described.string = String(reason)
+  }
+  return described
+}
+
 function validateCastSessionApplicationId(
   session: CastSessionInstance,
   receiverApplicationId: string,
@@ -301,7 +335,10 @@ export function createDefaultCastSenderClient(): CastSenderClient {
             if (settled) return
             settled = true
             context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
-            console.error('[RiffSync Cast] requestSession rejected', rawReason)
+            console.error('[RiffSync Cast] requestSession rejected', {
+              receiverApplicationId,
+              reason: describeCastRejectReason(rawReason),
+            })
             reject(new Error('Cast session request failed', { cause: rawReason }))
           })
       })

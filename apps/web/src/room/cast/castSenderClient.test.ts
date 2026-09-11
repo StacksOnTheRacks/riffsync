@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDefaultCastSenderClient, prepareDefaultCastSenderClient } from './castSenderClient'
+import {
+  createDefaultCastSenderClient,
+  describeCastRejectReason,
+  prepareDefaultCastSenderClient,
+} from './castSenderClient'
 
 type CastSenderTestWindow = Window & {
   chrome?: {
@@ -266,5 +270,45 @@ describe('createDefaultCastSenderClient', () => {
       'Cast session application id unavailable after start',
     )
     expect(session.addMessageListener).not.toHaveBeenCalled()
+  })
+
+  it('logs Cast reject fields Chrome hides behind session_error', async () => {
+    vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
+    const { context } = installCastFramework()
+    const castError = {
+      code: 'session_error',
+      description: 'LAUNCH_ERROR',
+      details: { type: 'LOAD_CANCELLED' },
+      toString() {
+        return this.code
+      },
+    }
+    context.requestSession.mockRejectedValue(castError)
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await expect(createDefaultCastSenderClient().requestSession()).rejects.toThrow(
+      'Cast session request failed',
+    )
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[RiffSync Cast] requestSession rejected', {
+      receiverApplicationId: '77E78672',
+      reason: {
+        kind: '[object Object]',
+        code: 'session_error',
+        description: 'LAUNCH_ERROR',
+        details: { type: 'LOAD_CANCELLED' },
+      },
+    })
+
+    consoleErrorSpy.mockRestore()
+  })
+})
+
+describe('describeCastRejectReason', () => {
+  it('keeps a string reject instead of dropping it', () => {
+    expect(describeCastRejectReason('session_error')).toEqual({
+      kind: 'string',
+      value: 'session_error',
+    })
   })
 })
