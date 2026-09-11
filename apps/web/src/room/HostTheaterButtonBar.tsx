@@ -368,6 +368,7 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
         <WatchOnTvDialog
           onClose={closePopup}
           castDisabled={castDisabled}
+          castStartLifecycle={castStartLifecycle}
           onCastToTvClick={onCastToTvClick}
           castToTvButtonRef={castToTvButtonRef}
           onLinkTvSubmitCode={onLinkTvSubmitCode}
@@ -429,6 +430,7 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
 function WatchOnTvDialog({
   onClose,
   castDisabled,
+  castStartLifecycle,
   onCastToTvClick,
   castToTvButtonRef,
   onLinkTvSubmitCode,
@@ -438,6 +440,7 @@ function WatchOnTvDialog({
 }: {
   onClose: () => void
   castDisabled: boolean
+  castStartLifecycle: CastStartLifecycle
   onCastToTvClick: () => void
   castToTvButtonRef?: RefObject<HTMLButtonElement | null>
   onLinkTvSubmitCode: (code: string) => Promise<void>
@@ -450,6 +453,16 @@ function WatchOnTvDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const tvLinkUrl = getTvLinkUrl()
+
+  useEffect(() => {
+    if (
+      castStartLifecycle === 'session_pending_render' ||
+      castStartLifecycle === 'casting' ||
+      castStartLifecycle === 'start_failed'
+    ) {
+      onClose()
+    }
+  }, [castStartLifecycle, onClose])
 
   const submitLink = async () => {
     const trimmed = code.trim()
@@ -553,7 +566,6 @@ function WatchOnTvDialog({
               disabled={castDisabled || busy}
               onClick={() => {
                 onCastToTvClick()
-                onClose()
               }}
             >
               Chromecast

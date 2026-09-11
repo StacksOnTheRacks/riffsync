@@ -254,12 +254,7 @@ export function createDefaultCastSenderClient(): CastSenderClient {
       if (!cast?.framework) {
         throw new Error('Cast framework unavailable')
       }
-      const receiverApplicationId = getCastReceiverApplicationId()
-      if (!receiverApplicationId) {
-        throw new Error('Cast receiver application id is not configured')
-      }
-      const framework = cast.framework
-      const context = framework.CastContext.getInstance()
+      const { context, framework, receiverApplicationId } = configureCastContext(cast)
 
       return new Promise<CastSenderSessionHandle>((resolve, reject) => {
         let settled = false

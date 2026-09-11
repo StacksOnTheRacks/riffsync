@@ -151,7 +151,7 @@ describe('createDefaultCastSenderClient', () => {
     delete (window as CastSenderTestWindow).cast
   })
 
-  it('reuses the CastContext configured during availability probing without calling setOptions again', async () => {
+  it('reasserts the custom receiver id immediately before requestSession', async () => {
     vi.stubEnv('VITE_CAST_RECEIVER_APP_ID', '77E78672')
     const { context } = installCastFramework()
 
@@ -160,9 +160,16 @@ describe('createDefaultCastSenderClient', () => {
 
     await createDefaultCastSenderClient().requestSession()
 
-    expect(context.setOptions).toHaveBeenCalledTimes(1)
+    expect(context.setOptions).toHaveBeenCalledTimes(2)
+    expect(context.setOptions).toHaveBeenLastCalledWith({
+      receiverApplicationId: '77E78672',
+      autoJoinPolicy: 'origin_scoped',
+    })
     expect(context.requestSession).toHaveBeenCalled()
     expect(context.getCurrentSession).toHaveBeenCalled()
+    expect(context.setOptions.mock.invocationCallOrder[1]).toBeLessThan(
+      context.requestSession.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
+    )
   })
 
   it('requests the Cast session synchronously for the user gesture', async () => {

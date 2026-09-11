@@ -230,6 +230,24 @@ describe('HostTheaterButtonBar', () => {
     ) as HTMLButtonElement
     act(() => chromecast.click())
     expect(onCastToTvClick).toHaveBeenCalled()
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+  })
+
+  it('closes Watch on TV only after Cast has a session or fails', () => {
+    act(() => {
+      root.render(<HostTheaterButtonBar {...baseProps} />)
+    })
+    act(() => (container.querySelector('[aria-label="Cast to TV"]') as HTMLButtonElement).click())
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+
+    act(() => {
+      root.render(<HostTheaterButtonBar {...baseProps} castStartLifecycle="launching" />)
+    })
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+
+    act(() => {
+      root.render(<HostTheaterButtonBar {...baseProps} castStartLifecycle="session_pending_render" />)
+    })
     expect(container.querySelector('[role="dialog"]')).toBeNull()
   })
 })
