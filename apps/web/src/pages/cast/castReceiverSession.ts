@@ -8,6 +8,7 @@ import { RIFFSYNC_CAST_NAMESPACE } from '../../room/cast/castChannelProtocol'
 export const CAST_RECEIVER_FRAMEWORK_SRC =
   'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js'
 export const CAST_RECEIVER_BOOT_SCRIPT_SRC = '/cast-receiver-boot.js'
+export const CAST_RECEIVER_APP_SCRIPT_SRC = '/cast-receiver-app.js'
 
 export type CastReceiverClassicBoot = {
   started: boolean
@@ -37,8 +38,6 @@ type CastReceiverOptions = {
   customNamespaces?: Record<string, string>
   /** Keep custom/non-media receivers alive past CAF's ~5 minute idle timeout. */
   disableIdleTimeout?: boolean
-  /** Skip CAF media-player load; this receiver uses custom HTML / WebRTC. */
-  skipPlayersLoad?: boolean
 }
 
 type CastReceiverContextInstance = {
@@ -188,7 +187,6 @@ export function startCastReceiverContext(): void {
   // Custom HTML / WebRTC playback never loads CAF media, so the default idle
   // timeout would close the receiver after ~5 minutes.
   options.disableIdleTimeout = true
-  options.skipPlayersLoad = true
 
   context.start(options)
   receiverStarted = true

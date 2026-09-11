@@ -18,6 +18,17 @@ function rewriteCastReceiverCleanUrl(
   next()
 }
 
+function isCastReceiverHtml(filename?: string, htmlPath?: string): boolean {
+  const target = filename ?? htmlPath ?? ''
+  return target.includes('cast/receiver')
+}
+
+function stripReceiverModules(html: string): string {
+  return html
+    .replace(/<script type="module"[^>]*><\/script>\s*/g, '')
+    .replace(/<link rel="modulepreload"[^>]*>\s*/g, '')
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -29,6 +40,22 @@ export default defineConfig({
       },
       configurePreviewServer(server) {
         server.middlewares.use(rewriteCastReceiverCleanUrl)
+      },
+    },
+    {
+      name: 'riffsync-cast-receiver-classic-html',
+      transformIndexHtml: {
+        order: 'post',
+        handler(html, ctx) {
+          if (!isCastReceiverHtml(ctx.filename, ctx.path)) return html
+          if (ctx.server) {
+            return html.replace(
+              /<script src="\/cast-receiver-app\.js"[^>]*><\/script>/,
+              '<script type="module" src="/src/pages/cast/castReceiverMain.ts"></script>',
+            )
+          }
+          return stripReceiverModules(html)
+        },
       },
     },
   ],

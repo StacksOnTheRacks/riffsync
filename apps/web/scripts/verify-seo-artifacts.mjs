@@ -112,10 +112,20 @@ async function main() {
   if (!castReceiverHtml.includes('/cast-receiver-boot.js')) {
     throw new Error('dist/cast/receiver/index.html is missing the classic CAF start script')
   }
+  if (!castReceiverHtml.includes('/cast-receiver-app.js')) {
+    throw new Error('dist/cast/receiver/index.html is missing the classic receiver UI script')
+  }
+  if (castReceiverHtml.includes('type="module"') || castReceiverHtml.includes('modulepreload')) {
+    throw new Error('dist/cast/receiver/index.html must not use type=module on Chromecast')
+  }
+  const bootJs = await readFile(resolve(distDir, 'cast-receiver-boot.js'), 'utf8')
+  if (bootJs.includes('skipPlayersLoad')) {
+    throw new Error('cast-receiver-boot.js must start CAF like the last-known-good receiver (no skipPlayersLoad)')
+  }
   try {
-    await readFile(resolve(distDir, 'cast-receiver-boot.js'), 'utf8')
+    await readFile(resolve(distDir, 'cast-receiver-app.js'), 'utf8')
   } catch {
-    throw new Error('Missing classic CAF start script: dist/cast-receiver-boot.js')
+    throw new Error('Missing classic receiver UI script: dist/cast-receiver-app.js')
   }
   if (!castReceiverHtml.includes('noindex')) {
     throw new Error('dist/cast/receiver/index.html is missing noindex')

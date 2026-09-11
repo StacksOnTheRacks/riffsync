@@ -33,7 +33,6 @@
   options.customNamespaces = {}
   options.customNamespaces[NAMESPACE] = fw.system.MessageType.JSON
   options.disableIdleTimeout = true
-  options.skipPlayersLoad = true
   context.start(options)
   boot.started = true
 })()

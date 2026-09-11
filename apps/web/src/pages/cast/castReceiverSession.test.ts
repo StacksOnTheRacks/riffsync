@@ -116,9 +116,9 @@ describe('startCastReceiverSession', () => {
     expect(receiver.context.start).toHaveBeenCalledWith(
       expect.objectContaining({
         disableIdleTimeout: true,
-        skipPlayersLoad: true,
       }),
     )
+    expect(receiver.context.start.mock.calls[0]?.[0]).not.toHaveProperty('skipPlayersLoad')
   })
 
   it('accepts presentation snapshots delivered as Cast object payloads', async () => {
@@ -134,9 +134,9 @@ describe('startCastReceiverSession', () => {
           [RIFFSYNC_CAST_NAMESPACE]: 'json',
         },
         disableIdleTimeout: true,
-        skipPlayersLoad: true,
       }),
     )
+    expect(receiver.context.start.mock.calls[0]?.[0]).not.toHaveProperty('skipPlayersLoad')
     expect(receiver.context.addCustomMessageListener.mock.invocationCallOrder[0]).toBeLessThan(
       receiver.context.start.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
     )
@@ -203,9 +203,9 @@ describe('startCastReceiverSession', () => {
           [RIFFSYNC_CAST_NAMESPACE]: 'json',
         },
         disableIdleTimeout: true,
-        skipPlayersLoad: true,
       }),
     )
+    expect(receiver.context.start.mock.calls[0]?.[0]).not.toHaveProperty('skipPlayersLoad')
   })
 
   it('adopts a classic-script CAF start without calling start() again', () => {

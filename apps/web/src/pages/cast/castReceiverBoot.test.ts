@@ -29,7 +29,6 @@ type CastReceiverBootWindow = Window & {
       CastReceiverOptions: new () => {
         customNamespaces?: Record<string, string>
         disableIdleTimeout?: boolean
-        skipPlayersLoad?: boolean
       }
       system: {
         MessageType: {
@@ -58,7 +57,6 @@ function installReceiverFramework() {
       CastReceiverOptions: class {
         customNamespaces?: Record<string, string>
         disableIdleTimeout?: boolean
-        skipPlayersLoad?: boolean
       },
       system: {
         MessageType: {
@@ -101,9 +99,9 @@ describe('public/cast-receiver-boot.js', () => {
           [RIFFSYNC_CAST_NAMESPACE]: 'json',
         },
         disableIdleTimeout: true,
-        skipPlayersLoad: true,
       }),
     )
+    expect(receiver.context.start.mock.calls[0]?.[0]).not.toHaveProperty('skipPlayersLoad')
     expect(receiver.context.addCustomMessageListener.mock.invocationCallOrder[0]).toBeLessThan(
       receiver.context.start.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
     )
