@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { buildFanAuthUrl, normalizeFanReturnTo, readReturnToFromQuery } from '../../auth/fanAuthNavigation'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { buildFanAuthUrl } from '../../auth/fanAuthNavigation'
 import {
   buildStrippedResetSearch,
   readFanResetQueryPrefill,
@@ -14,16 +14,22 @@ import {
   readFanResetUsernameFromSession,
 } from '../../auth/fanSrpAuth'
 
+function readInitialResetState(search: string) {
+  const prefill = readFanResetQueryPrefill(search)
+  return {
+    returnTo: prefill.returnTo,
+    email: prefill.email ?? readFanResetUsernameFromSession() ?? '',
+    code: prefill.code ?? '',
+  }
+}
+
 export function FanResetPasswordPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
-  const [returnTo, setReturnTo] = useState(() =>
-    normalizeFanReturnTo(readReturnToFromQuery(searchParams.toString()) ?? undefined),
-  )
-  const [email, setEmail] = useState('')
-  const [code, setCode] = useState('')
+  const [returnTo] = useState(() => readInitialResetState(location.search).returnTo)
+  const [email, setEmail] = useState(() => readInitialResetState(location.search).email)
+  const [code, setCode] = useState(() => readInitialResetState(location.search).code)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showNewPassword, setShowNewPassword] = useState(false)
@@ -47,22 +53,13 @@ export function FanResetPasswordPage() {
 
   useEffect(() => {
     const search = location.search
+    if (!resetQueryHasSecrets(search)) return
+
     const prefill = readFanResetQueryPrefill(search)
-    setReturnTo(prefill.returnTo)
-
-    if (prefill.email) setEmail(prefill.email)
-    else {
-      const stored = readFanResetUsernameFromSession()
-      if (stored) setEmail(stored)
-    }
-    if (prefill.code) setCode(prefill.code)
-
-    if (resetQueryHasSecrets(search)) {
-      const strippedSearch = buildStrippedResetSearch(prefill.returnTo)
-      const nextUrl = `${location.pathname}${strippedSearch}${location.hash}`
-      window.history.replaceState(window.history.state, '', nextUrl)
-      navigate({ pathname: location.pathname, search: strippedSearch, hash: location.hash }, { replace: true })
-    }
+    const strippedSearch = buildStrippedResetSearch(prefill.returnTo)
+    const nextUrl = `${location.pathname}${strippedSearch}${location.hash}`
+    window.history.replaceState(window.history.state, '', nextUrl)
+    navigate({ pathname: location.pathname, search: strippedSearch, hash: location.hash }, { replace: true })
   }, [location.pathname, location.search, location.hash, navigate])
 
   function focusFirstInvalid(errors: Record<string, string>) {
