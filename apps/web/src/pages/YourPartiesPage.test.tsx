@@ -11,13 +11,16 @@ import { AppShell } from '../components/app-shell/AppShell'
 import { STATIC_INDEXABLE_ROUTES } from '../seo/indexableRoutes'
 import { YourPartiesPage } from './YourPartiesPage'
 
-const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
+const navigateToFanAuth = vi.fn<(authPath: string, returnTo?: string) => void>()
 const useFanSession = vi.fn()
 const fetchRoomsMine = vi.fn<(token: string) => Promise<MineRoomsResponse>>()
 const patchRoom = vi.fn()
 
+vi.mock('../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: (authPath: string, returnTo?: string) => navigateToFanAuth(authPath, returnTo),
+}))
+
 vi.mock('../auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: (returnPath: string) => startFanHostedUiSignIn(returnPath),
   startFanHostedUiSignOut: vi.fn(),
 }))
 
@@ -122,10 +125,9 @@ describe('YourPartiesPage', () => {
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
-    startFanHostedUiSignIn.mockReset()
+    navigateToFanAuth.mockReset()
     fetchRoomsMine.mockReset()
     patchRoom.mockReset()
-    startFanHostedUiSignIn.mockResolvedValue(undefined)
     mockMatchMedia(false)
     vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
     container = document.createElement('div')
@@ -165,7 +167,7 @@ describe('YourPartiesPage', () => {
     useFanSession.mockReturnValue({ fanToken: null })
     renderInAppShell()
 
-    expect(startFanHostedUiSignIn).toHaveBeenCalledWith('/your-parties')
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/your-parties')
     expect(fetchRoomsMine).not.toHaveBeenCalled()
   })
 

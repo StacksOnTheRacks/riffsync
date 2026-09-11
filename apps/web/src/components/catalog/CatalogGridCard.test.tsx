@@ -10,8 +10,8 @@ vi.mock('../../auth/fanTokens', () => ({
   getFanAccessToken: () => null,
 }))
 
-vi.mock('../../auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: vi.fn(),
+vi.mock('../../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: vi.fn(),
 }))
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true

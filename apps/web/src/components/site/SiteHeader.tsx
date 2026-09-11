@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useLocation, useMatch } from 'react-router-dom'
-import {
-  startFanHostedUiSignIn,
-} from '../../auth/fanHostedUiPkce'
+import { navigateToFanAuth } from '../../auth/fanAuthNavigation'
 import { useFanSession } from '../../auth/useFanSession'
 import { FriendsDropdown } from '../../friends/FriendsDropdown'
 import { useShowGetAppNav } from '../../pwa/useShowGetAppNav'
@@ -40,7 +38,7 @@ export function SiteHeader({ compact = false }: { compact?: boolean }) {
   const returnPath = `${location.pathname}${location.search}` || '/'
 
   const onSignIn = () => {
-    void startFanHostedUiSignIn(returnPath).catch(console.error)
+    navigateToFanAuth('/auth/sign-in', returnPath)
   }
 
   if (compact) {

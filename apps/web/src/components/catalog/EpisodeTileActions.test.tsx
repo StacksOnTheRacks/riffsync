@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CatalogEpisode } from '../../catalog/catalogTypes'
+import { PENDING_PARTY_EPISODE_KEY } from '../../catalog/pendingPartyStorage'
 import { getFanAccessToken } from '../../auth/fanTokens'
 import { EpisodeTileActions } from './EpisodeTileActions'
 
@@ -11,8 +12,10 @@ vi.mock('../../auth/fanTokens', () => ({
   getFanAccessToken: vi.fn(() => null),
 }))
 
-vi.mock('../../auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: vi.fn(),
+const navigateToFanAuth = vi.fn<(authPath: string, returnTo?: string) => void>()
+
+vi.mock('../../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: (authPath: string, returnTo?: string) => navigateToFanAuth(authPath, returnTo),
 }))
 
 const trackGaEvent = vi.fn()
@@ -67,6 +70,8 @@ describe('EpisodeTileActions', () => {
     vi.spyOn(window, 'open').mockReturnValue(null)
     trackGaEvent.mockReset()
     createRoom.mockReset()
+    navigateToFanAuth.mockReset()
+    sessionStorage.clear()
     vi.mocked(getFanAccessToken).mockReturnValue(null)
   })
 
@@ -174,6 +179,25 @@ describe('EpisodeTileActions', () => {
     const startParty = container.querySelector('button.gen-button:not(.gen-button--ghost)') as HTMLButtonElement
     expect(watchSolo.disabled).toBe(true)
     expect(startParty.disabled).toBe(true)
+  })
+
+  it('signed-out Start Party stores pending episode and navigates to first-party sign-in', () => {
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/catalog/mst3k?tab=shorts']}>
+          <EpisodeTileActions episode={episode({ embedAllows: true })} />
+        </MemoryRouter>,
+      )
+    })
+
+    const startParty = container.querySelector('button.gen-button:not(.gen-button--ghost)') as HTMLButtonElement
+    act(() => {
+      startParty.click()
+    })
+
+    expect(sessionStorage.getItem(PENDING_PARTY_EPISODE_KEY)).toBe('032-mitchell')
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/catalog/mst3k?tab=shorts')
+    expect(createRoom).not.toHaveBeenCalled()
   })
 
   it('tracks host_room_create after signed-in Start Party succeeds', async () => {

@@ -13,13 +13,13 @@ import {
 } from '../../catalog/catalogBrowseIa'
 import { SiteHeader } from './SiteHeader'
 
-const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
+const navigateToFanAuth = vi.fn<(authPath: string, returnTo?: string) => void>()
 const useFanSession = vi.fn()
 const useShowGetAppNav = vi.fn()
 const getFanAccessToken = vi.fn<() => string | null>()
 
-vi.mock('../../auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: (returnPath: string) => startFanHostedUiSignIn(returnPath),
+vi.mock('../../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: (authPath: string, returnTo?: string) => navigateToFanAuth(authPath, returnTo),
 }))
 
 vi.mock('../../auth/useFanSession', () => ({
@@ -73,8 +73,7 @@ describe('SiteHeader fan session nav', () => {
   let root: Root
 
   beforeEach(() => {
-    startFanHostedUiSignIn.mockReset()
-    startFanHostedUiSignIn.mockResolvedValue(undefined)
+    navigateToFanAuth.mockReset()
     useShowGetAppNav.mockReturnValue(true)
     getFanAccessToken.mockReturnValue(null)
     container = document.createElement('div')
@@ -109,7 +108,7 @@ describe('SiteHeader fan session nav', () => {
     expect(container.querySelector('a[href="/download"]')?.textContent).toBe('Get App')
   })
 
-  it('starts Hosted UI sign-in with the current path', () => {
+  it('navigates to first-party sign-in with the current path', () => {
     useFanSession.mockReturnValue({ fanToken: null })
     renderHeader('/live')
 
@@ -118,7 +117,7 @@ describe('SiteHeader fan session nav', () => {
       signIn.click()
     })
 
-    expect(startFanHostedUiSignIn).toHaveBeenCalledWith('/live')
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/live')
   })
 
   it('shows Account link and person-icon friends control when signed in (#363)', () => {

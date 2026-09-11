@@ -6,8 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FanProfilePayload } from '../api/fanProfileApi'
 import { AccountPage } from './AccountPage'
 
-const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
-const startFanHostedUiForgotPassword = vi.fn<(returnPath?: string) => Promise<void>>()
+const navigateToFanAuth = vi.fn<(authPath: string, returnTo?: string) => void>()
 const startFanHostedUiSignOut = vi.fn<(logoutUri?: string) => void>()
 const useFanSession = vi.fn()
 const fetchFanProfile = vi.fn<(token: string) => Promise<FanProfilePayload>>()
@@ -15,9 +14,11 @@ const patchFanProfileDisplayName =
   vi.fn<(token: string, name: string) => Promise<FanProfilePayload>>()
 const uploadFanProfileAvatar = vi.fn()
 
+vi.mock('../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: (authPath: string, returnTo?: string) => navigateToFanAuth(authPath, returnTo),
+}))
+
 vi.mock('../auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: (returnPath: string) => startFanHostedUiSignIn(returnPath),
-  startFanHostedUiForgotPassword: (returnPath?: string) => startFanHostedUiForgotPassword(returnPath),
   startFanHostedUiSignOut: (logoutUri?: string) => startFanHostedUiSignOut(logoutUri),
 }))
 
@@ -52,13 +53,10 @@ describe('AccountPage', () => {
   let root: Root
 
   beforeEach(() => {
-    startFanHostedUiSignIn.mockReset()
-    startFanHostedUiForgotPassword.mockReset()
+    navigateToFanAuth.mockReset()
     startFanHostedUiSignOut.mockReset()
     fetchFanProfile.mockReset()
     patchFanProfileDisplayName.mockReset()
-    startFanHostedUiSignIn.mockResolvedValue(undefined)
-    startFanHostedUiForgotPassword.mockResolvedValue(undefined)
     fetchFanProfile.mockResolvedValue(payload())
     patchFanProfileDisplayName.mockResolvedValue(payload({ displayName: 'New Name' }))
     container = document.createElement('div')
@@ -102,7 +100,7 @@ describe('AccountPage', () => {
       ;(container.querySelector('button.gen-button') as HTMLButtonElement).click()
     })
 
-    expect(startFanHostedUiSignIn).toHaveBeenCalledWith('/account')
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/account')
   })
 
   it('loads profile and saves display name', async () => {
@@ -152,7 +150,7 @@ describe('AccountPage', () => {
     act(() => {
       ;(buttons[0] as HTMLButtonElement).click()
     })
-    expect(startFanHostedUiForgotPassword).toHaveBeenCalledWith('/account')
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/forgot-password', '/account')
 
     act(() => {
       ;(buttons[1] as HTMLButtonElement).click()

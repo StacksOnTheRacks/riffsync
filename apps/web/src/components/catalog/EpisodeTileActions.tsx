@@ -9,7 +9,7 @@ import {
 import { catalogToRoomPlayback, createRoom } from '../../api/roomsApi'
 import { trackGaEvent } from '../../config/googleAnalytics'
 import { getFanAccessToken } from '../../auth/fanTokens'
-import { startFanHostedUiSignIn } from '../../auth/fanHostedUiPkce'
+import { navigateToFanAuth } from '../../auth/fanAuthNavigation'
 import { PENDING_PARTY_EPISODE_KEY } from '../../catalog/pendingPartyStorage'
 
 function resolveExternalSoloWatchUrl(episode: CatalogEpisode): string | null {
@@ -64,7 +64,7 @@ export function EpisodeTileActions({
     if (!playable) return
     sessionStorage.setItem(PENDING_PARTY_EPISODE_KEY, episode.id)
     onAfterAction?.()
-    void startFanHostedUiSignIn(returnPath)
+    navigateToFanAuth('/auth/sign-in', returnPath)
   }
 
   const onWatchExternal = () => {

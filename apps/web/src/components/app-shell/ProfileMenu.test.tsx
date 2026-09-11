@@ -6,12 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FanProfilePayload } from '../../api/fanProfileApi'
 import { ProfileMenu } from './ProfileMenu'
 
-const startFanHostedUiSignIn = vi.fn<(returnPath: string) => Promise<void>>()
+const navigateToFanAuth = vi.fn<(authPath: string, returnTo?: string) => void>()
 const useFanSession = vi.fn()
 const fetchFanProfile = vi.fn<(token: string) => Promise<FanProfilePayload>>()
 
+vi.mock('../../auth/fanAuthNavigation', () => ({
+  navigateToFanAuth: (authPath: string, returnTo?: string) => navigateToFanAuth(authPath, returnTo),
+}))
+
 vi.mock('../../auth/fanHostedUiPkce', () => ({
-  startFanHostedUiSignIn: (returnPath: string) => startFanHostedUiSignIn(returnPath),
   startFanHostedUiSignOut: vi.fn(),
 }))
 
@@ -30,8 +33,7 @@ describe('ProfileMenu', () => {
   let root: Root
 
   beforeEach(() => {
-    startFanHostedUiSignIn.mockReset()
-    startFanHostedUiSignIn.mockResolvedValue(undefined)
+    navigateToFanAuth.mockReset()
     fetchFanProfile.mockReset()
     fetchFanProfile.mockResolvedValue({
       displayName: 'Account',
@@ -68,16 +70,28 @@ describe('ProfileMenu', () => {
     expect(container.querySelector('a[href="/your-parties"]')).toBeNull()
   })
 
-  it('starts Hosted UI sign-in with the current path', () => {
+  it('navigates to first-party sign-in with the current path', () => {
     useFanSession.mockReturnValue({ fanToken: null })
     renderMenu('/catalog/mst3k')
 
-    const signIn = container.querySelector('.riffsync-app-shell-profile-sign-in') as HTMLButtonElement
+    const signIn = container.querySelector('[aria-label="Sign In"]') as HTMLButtonElement
     act(() => {
       signIn.click()
     })
 
-    expect(startFanHostedUiSignIn).toHaveBeenCalledWith('/catalog/mst3k')
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/catalog/mst3k')
+  })
+
+  it('includes query in returnTo when signing in from a catalog path with search', () => {
+    useFanSession.mockReturnValue({ fanToken: null })
+    renderMenu('/catalog/mst3k?tab=shorts')
+
+    const signIn = container.querySelector('[aria-label="Sign In"]') as HTMLButtonElement
+    act(() => {
+      signIn.click()
+    })
+
+    expect(navigateToFanAuth).toHaveBeenCalledWith('/auth/sign-in', '/catalog/mst3k?tab=shorts')
   })
 
   it('includes Your Parties when signed in', () => {
