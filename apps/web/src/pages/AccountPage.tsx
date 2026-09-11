@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   startFanHostedUiForgotPassword,
   startFanHostedUiSignIn,
@@ -174,6 +174,13 @@ export function AccountPage() {
                     Reset your password through email verification. You&apos;ll return here when finished.
                   </p>
                   <div className="riffsync-account-page__actions">
+                    <Link
+                      to="/auth/change-password"
+                      className="gen-button gen-button--ghost"
+                      data-testid="fan-account-change-password"
+                    >
+                      Change password
+                    </Link>
                     <button
                       type="button"
                       className="gen-button gen-button--ghost"

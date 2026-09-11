@@ -13,6 +13,7 @@ import {
 import { resetFanCognitoConfigForTests } from './fanCognitoConfig'
 import {
   FanAuthError,
+  changePassword,
   confirmFanPasswordReset,
   confirmFanSignUp,
   meetsFanPasswordPolicy,
@@ -22,7 +23,8 @@ import {
   signInWithSrp,
   signUpFan,
 } from './fanSrpAuth'
-import { setFanTokenBundle } from './fanTokens'
+import { refreshFanTokensIfStale } from './fanOAuthToken'
+import { getFanAccessToken, setFanTokenBundle } from './fanTokens'
 
 vi.mock('aws-amplify/auth', () => ({
   signIn: vi.fn(),
@@ -39,11 +41,20 @@ vi.mock('aws-amplify', () => ({
   Amplify: { configure: vi.fn() },
 }))
 
+vi.mock('./fanOAuthToken', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./fanOAuthToken')>()
+  return {
+    ...actual,
+    refreshFanTokensIfStale: vi.fn(actual.refreshFanTokensIfStale),
+  }
+})
+
 vi.mock('./fanTokens', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./fanTokens')>()
   return {
     ...actual,
     setFanTokenBundle: vi.fn(actual.setFanTokenBundle),
+    getFanAccessToken: vi.fn(actual.getFanAccessToken),
   }
 })
 
@@ -298,6 +309,81 @@ describe('fanSrpAuth', () => {
 
     await expect(signInWithSrp('fan@example.com', 'secret')).rejects.toMatchObject({ code: 'UNCONFIRMED' })
     expect(setFanTokenBundle).not.toHaveBeenCalled()
+  })
+
+  it('changePassword calls injectable client with access token and passwords', async () => {
+    vi.mocked(getFanAccessToken).mockReturnValue('access-token')
+    const changePasswordMock = vi.fn().mockResolvedValue(undefined)
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      changePassword: changePasswordMock,
+    })
+
+    await changePassword('OldPass1!', 'NewPass2!')
+
+    expect(changePasswordMock).toHaveBeenCalledWith({
+      accessToken: 'access-token',
+      previousPassword: 'OldPass1!',
+      proposedPassword: 'NewPass2!',
+    })
+    expect(setFanTokenBundle).not.toHaveBeenCalled()
+  })
+
+  it('changePassword throws UNAUTHENTICATED when no access token after refresh', async () => {
+    vi.mocked(getFanAccessToken).mockReturnValue(null)
+    vi.mocked(refreshFanTokensIfStale).mockResolvedValue(undefined)
+
+    await expect(changePassword('OldPass1!', 'NewPass2!')).rejects.toMatchObject({
+      code: 'UNAUTHENTICATED',
+    })
+  })
+
+  it('changePassword maps wrong current password to NOT_AUTHORIZED', async () => {
+    vi.mocked(getFanAccessToken).mockReturnValue('access-token')
+    setFanSrpClientForTests({
+      signIn: vi.fn(),
+      fetchSession: vi.fn(),
+      signOut: vi.fn(),
+      changePassword: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Incorrect username or password.'), { name: 'NotAuthorizedException' }),
+      ),
+    })
+
+    await expect(changePassword('Wrong1!', 'NewPass2!')).rejects.toMatchObject({
+      code: 'NOT_AUTHORIZED',
+    })
+    expect(setFanTokenBundle).not.toHaveBeenCalled()
+  })
+
+  it('changePassword default adapter posts to Cognito IdP ChangePassword', async () => {
+    vi.mocked(getFanAccessToken).mockReturnValue('access-token')
+    setFanSrpClientForTests(null)
+
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await changePassword('OldPass1!', 'NewPass2!')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://cognito-idp.us-east-1.amazonaws.com/',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Amz-Target': 'AWSCognitoIdentityProviderService.ChangePassword',
+        }),
+      }),
+    )
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(body).toEqual({
+      AccessToken: 'access-token',
+      PreviousPassword: 'OldPass1!',
+      ProposedPassword: 'NewPass2!',
+    })
+    expect(setFanTokenBundle).not.toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
   })
 
   it('maps NEW_PASSWORD_REQUIRED without writing tokens', async () => {
