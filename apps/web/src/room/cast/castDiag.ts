@@ -73,9 +73,19 @@ function sanitizeCode(value: unknown): string | undefined {
   return CODE_PATTERN.test(trimmed) ? trimmed : undefined
 }
 
+function stripControlChars(value: string): string {
+  let out = ''
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i)
+    if (code < 32 || code === 127) continue
+    out += value.charAt(i)
+  }
+  return out
+}
+
 function sanitizeText(value: unknown, max: number): string | undefined {
   if (typeof value !== 'string') return undefined
-  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, '').trim()
+  const cleaned = stripControlChars(value).trim()
   if (!cleaned) return undefined
   return cleaned.slice(0, max)
 }

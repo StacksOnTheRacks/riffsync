@@ -57,6 +57,17 @@ describe('castDiag', () => {
     expect(sendBeacon).not.toHaveBeenCalled()
   })
 
+  it('strips control characters from free-text fields', () => {
+    const sanitized = sanitizeCastDiagReport({
+      event: 'sender_start_failed',
+      hop: 'sender',
+      description: `LAUNCH${String.fromCharCode(0, 31, 127)}ERROR`,
+      details: `LOAD${String.fromCharCode(9)}CANCELLED`,
+    })
+    expect(sanitized.description).toBe('LAUNCHERROR')
+    expect(sanitized.details).toBe('LOADCANCELLED')
+  })
+
   it('reuses the current attempt id when the report omits one', () => {
     const attemptId = beginCastAttempt()
     expect(sanitizeCastDiagReport({ event: 'sender_start_requested', hop: 'sender' }).attemptId).toBe(

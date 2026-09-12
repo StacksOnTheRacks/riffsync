@@ -72,6 +72,29 @@ describe('cast-diag handler', () => {
     expect(emf.Hop).toBe('sender');
   });
 
+  it('strips control characters from description and details', async () => {
+    const result = await handler(
+      httpEvent({
+        method: 'POST',
+        body: JSON.stringify({
+          event: 'sender_start_failed',
+          hop: 'sender',
+          description: `LAUNCH${String.fromCharCode(0, 31, 127)}ERROR`,
+          details: `LOAD${String.fromCharCode(9)}CANCELLED`,
+        }),
+      }),
+    );
+
+    expect(result).toMatchObject({ statusCode: 204 });
+    const infoLine = (console.info as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(JSON.parse(infoLine)).toMatchObject({
+      riffsyncDiag: 'cast',
+      event: 'sender_start_failed',
+      description: 'LAUNCHERROR',
+      details: 'LOADCANCELLED',
+    });
+  });
+
   it('rejects unknown events and oversized bodies', async () => {
     const unknown = await handler(
       httpEvent({ method: 'POST', body: JSON.stringify({ event: 'not_a_real_event' }) }),
