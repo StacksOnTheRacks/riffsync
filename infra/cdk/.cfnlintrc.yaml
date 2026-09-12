@@ -1,4 +1,6 @@
 # cfn-lint when run from `infra/cdk` (see `.github/workflows/ci.yml`).
 # W3005: CDK often emits DependsOn that duplicate implicit ordering via GetAtt — noisy, not actionable here.
+# W3045: CloudFront standard access logs still require the S3 LogDeliveryWrite ACL.
 ignore_checks:
   - W3005
+  - W3045

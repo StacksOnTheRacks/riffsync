@@ -24,6 +24,15 @@ export type CastDiagReport = {
   event: CastDiagEvent
   hop: CastDiagHop
   attemptId?: string
+  code?: string | number
+  description?: string
+  details?: unknown
+}
+
+export type CastDiagSanitizedReport = {
+  event: CastDiagEvent
+  hop: CastDiagHop
+  attemptId?: string
   code?: string
   description?: string
   details?: string
@@ -86,7 +95,7 @@ function detailsFromUnknown(value: unknown): string | undefined {
   return sanitizeText(String(value), 120)
 }
 
-export function sanitizeCastDiagReport(input: CastDiagReport): CastDiagReport {
+export function sanitizeCastDiagReport(input: CastDiagReport): CastDiagSanitizedReport {
   return {
     event: input.event,
     hop: input.hop,
@@ -97,7 +106,7 @@ export function sanitizeCastDiagReport(input: CastDiagReport): CastDiagReport {
   }
 }
 
-function postCastDiag(report: CastDiagReport): void {
+function postCastDiag(report: CastDiagSanitizedReport): void {
   if (import.meta.env.MODE === 'test') return
   const api = getPublicApiBaseUrl()
   if (!api) return
