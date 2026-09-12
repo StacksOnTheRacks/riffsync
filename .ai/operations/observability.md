@@ -96,7 +96,24 @@ Viewer-local Cast state is not a realtime drawer and is not room authority.
 | **Drawer vocabulary** | Do not emit active Cast or Stop Cast as **`drawer: chat`**, **`drawer: signaling`**, **`drawer: connectivity`**, or **`drawer: produce_consume`**. Those labels remain reserved for room WebSocket, SFU, ICE/TURN, and mediasoup producer/consumer behavior. |
 | **Receiver render confirmation** | Tests and local support output may record that the receiver confirmed render, timed out, or reported blocked playback. This remains local Cast controller evidence and must not become room drawer status, room activity, or CloudWatch product telemetry by default. |
 | **Privacy** | App-authored logs and status copy must not include receiver device names or receiver identifiers. Browser-owned Cast UI may display device names outside RiffSync control. |
-| **Future metrics** | If later milestones add aggregate Cast counters, they must use low-cardinality dimensions only and still not imply room activity or identify receiver devices. |
+| **Launch diagnostics (ops)** | Public **`GET/POST /v1/cast/diag`** records allowlisted hop events under **`RiffSync/Cast`**. This is an ops ingest, not a product funnel and not a room drawer. Allowed fields: **`event`**, **`hop`** (`sender` \| `receiver`), optional UUID **`attemptId`**, sanitized Cast **`code`** / **`description`** / **`details`**. Forbidden: room ids, session ids, fan subs, device names, JWTs, SDP/ICE. |
+| **Future metrics** | Additional Cast counters must keep the same low-cardinality and privacy rules and still not imply room activity. |
+
+### Cast launch hop map
+
+On the next Chromecast failure, read **`RiffSyncCastDiagFn`** logs (Insights: `{ $.riffsyncDiag = "cast" }`) in the same minute as the click. Sender DevTools also prints one JSON line per hop (`[RiffSync Cast] {...}`).
+
+| Events present | Meaning |
+| --- | --- |
+| **`sender_start_requested`**, then **`sender_request_session_rejected`**, no **`receiver_html_parsed`** | Chrome called Google. The device never parsed our HTML. Check CloudFront access logs for `GET /cast/receiver` (bucket output **`WebAccessLogsBucketName`**). No GET: Google did not launch app `77E78672`. GET without the pixel: the object served was not this receiver HTML. |
+| **`receiver_html_parsed`**, no **`receiver_html_loaded`** | Chromecast fetched and parsed HTML. Classic JS did not run. |
+| **`receiver_html_loaded`**, then **`receiver_caf_missing`** or **`receiver_caf_failed`** | JS ran. CAF did not start. |
+| **`receiver_caf_started`**, no **`receiver_app_mounted`** | CAF started. React TV shell did not mount. |
+| **`receiver_app_mounted`**, no **`receiver_rendered`** | Receiver UI mounted. Render ack was never sent. |
+| **`receiver_rendered`**, no **`sender_render_confirmed`** | Receiver acked. Sender did not accept it (`sender_render_timeout` or **`sender_start_failed`**). |
+| **`sender_launch_timeout`** | `requestSession()` neither resolved nor rejected within 45s. |
+
+CloudFront access logs are the independent proof of the HTML GET. They start after the static-site stack deploy that enables logging. The diag ingest works after the API + web deploy.
 
 ### Local Cast lifecycle evidence (#305)
 

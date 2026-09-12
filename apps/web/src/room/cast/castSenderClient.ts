@@ -1,4 +1,5 @@
 import { RIFFSYNC_CAST_NAMESPACE } from './castChannelProtocol'
+import { getCastAttemptId, reportCastDiag } from './castDiag'
 
 export type CastSenderSessionHandle = {
   sendMessage: (message: unknown) => Promise<void>
@@ -325,20 +326,47 @@ export function createDefaultCastSenderClient(): CastSenderClient {
             }
             settled = true
             context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
-            console.info('[RiffSync Cast] requestSession resolved', {
-              receiverApplicationId,
-              sessionAppId: readCastSessionApplicationId(session),
+            const sessionAppId = readCastSessionApplicationId(session)
+            reportCastDiag({
+              event: 'sender_request_session_resolved',
+              hop: 'sender',
+              attemptId: getCastAttemptId() ?? undefined,
             })
+            console.info(
+              `[RiffSync Cast] ${JSON.stringify({
+                riffsyncCast: true,
+                event: 'sender_request_session_resolved',
+                receiverApplicationId,
+                sessionAppId,
+              })}`,
+            )
             resolve(wrapCastSession(session, context, framework))
           })
           .catch((rawReason: unknown) => {
             if (settled) return
             settled = true
             context.removeEventListener(framework.CastContextEventType.SESSION_STATE_CHANGED, onSessionStateChanged)
-            console.error('[RiffSync Cast] requestSession rejected', {
-              receiverApplicationId,
-              reason: describeCastRejectReason(rawReason),
+            const reason = describeCastRejectReason(rawReason)
+            reportCastDiag({
+              event: 'sender_request_session_rejected',
+              hop: 'sender',
+              attemptId: getCastAttemptId() ?? undefined,
+              code: typeof reason.code === 'string' || typeof reason.code === 'number' ? String(reason.code) : undefined,
+              description: typeof reason.description === 'string' ? reason.description : undefined,
+              details: reason.details !== undefined ? String(
+                typeof reason.details === 'object' && reason.details && 'type' in (reason.details as object)
+                  ? (reason.details as { type?: unknown }).type
+                  : reason.details ?? reason.value ?? reason.string,
+              ) : typeof reason.value === 'string' ? reason.value : undefined,
             })
+            console.error(
+              `[RiffSync Cast] ${JSON.stringify({
+                riffsyncCast: true,
+                event: 'sender_request_session_rejected',
+                receiverApplicationId,
+                reason,
+              })}`,
+            )
             reject(new Error('Cast session request failed', { cause: rawReason }))
           })
       })

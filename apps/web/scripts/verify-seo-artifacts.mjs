@@ -109,6 +109,18 @@ async function main() {
   if (!castReceiverHtml.includes('cast_receiver_framework.js')) {
     throw new Error('dist/cast/receiver/index.html is missing the Cast receiver framework script')
   }
+  if (!castReceiverHtml.includes('/cast-receiver-diag.js')) {
+    throw new Error('dist/cast/receiver/index.html is missing the Cast diag boot script')
+  }
+  if (castReceiverHtml.includes('__RIFFSYNC_PUBLIC_API_BASE_URL__')) {
+    throw new Error('dist/cast/receiver/index.html still has the Cast diag API placeholder')
+  }
+  if (
+    castReceiverHtml.indexOf('/cast-receiver-diag.js') >
+    castReceiverHtml.indexOf('cast_receiver_framework.js')
+  ) {
+    throw new Error('dist/cast/receiver/index.html must load Cast diag before CAF')
+  }
   if (!castReceiverHtml.includes('/cast-receiver-boot.js')) {
     throw new Error('dist/cast/receiver/index.html is missing the classic CAF start script')
   }
@@ -117,6 +129,10 @@ async function main() {
   }
   if (castReceiverHtml.includes('type="module"') || castReceiverHtml.includes('modulepreload')) {
     throw new Error('dist/cast/receiver/index.html must not use type=module on Chromecast')
+  }
+  const diagJs = await readFile(resolve(distDir, 'cast-receiver-diag.js'), 'utf8')
+  if (diagJs.includes('__RIFFSYNC_PUBLIC_API_BASE_URL__')) {
+    throw new Error('dist/cast-receiver-diag.js still has the Cast diag API placeholder')
   }
   const bootJs = await readFile(resolve(distDir, 'cast-receiver-boot.js'), 'utf8')
   if (bootJs.includes('skipPlayersLoad')) {

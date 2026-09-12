@@ -125,4 +125,21 @@ describe('StaticSiteStack', () => {
 
     expect(template.toJSON()).toBeTruthy();
   });
+
+  it('writes CloudFront access logs so /cast/receiver fetches are visible', () => {
+    const app = new cdk.App();
+    const stack = new StaticSiteStack(app, 'StaticSiteAccessLogsTest', {});
+    const template = Template.fromStack(stack);
+
+    template.hasResourceProperties('AWS::S3::Bucket', {
+      AccessControl: 'LogDeliveryWrite',
+    });
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: {
+        Logging: Match.objectLike({
+          Prefix: 'cloudfront/riffsync-web/',
+        }),
+      },
+    });
+  });
 });

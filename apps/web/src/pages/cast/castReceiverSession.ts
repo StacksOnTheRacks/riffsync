@@ -7,6 +7,7 @@ import { RIFFSYNC_CAST_NAMESPACE } from '../../room/cast/castChannelProtocol'
 
 export const CAST_RECEIVER_FRAMEWORK_SRC =
   'https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js'
+export const CAST_RECEIVER_DIAG_SCRIPT_SRC = '/cast-receiver-diag.js'
 export const CAST_RECEIVER_BOOT_SCRIPT_SRC = '/cast-receiver-boot.js'
 export const CAST_RECEIVER_APP_SCRIPT_SRC = '/cast-receiver-app.js'
 

@@ -49,6 +49,9 @@ describe('observability dashboard', () => {
     expect(serialized).toContain('RiffSync/Media');
     expect(serialized).toContain('RiffSync/Reconcile');
     expect(serialized).toContain('RiffSync/Product');
+    expect(serialized).toContain('RiffSync/Cast');
+    expect(serialized).toContain('sender_request_session_rejected');
+    expect(serialized).toContain('receiver_html_parsed');
     expect(serialized).toContain('RoomCreate');
     expect(serialized).toContain('GuestRoomJoin');
     expect(serialized).toContain('BroadcastStarted');

@@ -11,6 +11,7 @@ const bootSource = readFileSync(resolve(webRoot, 'public/cast-receiver-boot.js')
 type ReceiverMessageHandler = (event: { data?: unknown; senderId?: string }) => void
 
 type CastReceiverBootWindow = Window & {
+  __riffsyncCastDiag?: (event: string) => void
   __riffsyncCastReceiver?: {
     started: boolean
     context: { start: ReturnType<typeof vi.fn> } | null
@@ -78,6 +79,7 @@ describe('public/cast-receiver-boot.js', () => {
   afterEach(() => {
     delete (window as CastReceiverBootWindow).cast
     delete (window as CastReceiverBootWindow).__riffsyncCastReceiver
+    delete (window as CastReceiverBootWindow).__riffsyncCastDiag
   })
 
   it('starts CAF from a classic script before any module evaluates', () => {
@@ -127,5 +129,21 @@ describe('public/cast-receiver-boot.js', () => {
   it('stays ES5 and does not use type=module syntax', () => {
     expect(bootSource).not.toMatch(/\b(?:const|let|class|=>|import |export )\b/)
     expect(bootSource).toContain('urn:x-cast:com.riffsync.presentation')
+  })
+
+  it('reports CAF start and missing framework over the classic diag hook', () => {
+    const diag = vi.fn()
+    ;(window as CastReceiverBootWindow).__riffsyncCastDiag = diag
+    const receiver = installReceiverFramework()
+    // eslint-disable-next-line no-new-func
+    new Function(bootSource)()
+    expect(diag).toHaveBeenCalledWith('receiver_caf_started')
+    expect(receiver.context.start).toHaveBeenCalled()
+
+    delete (window as CastReceiverBootWindow).cast
+    diag.mockClear()
+    // eslint-disable-next-line no-new-func
+    new Function(bootSource)()
+    expect(diag).toHaveBeenCalledWith('receiver_caf_missing')
   })
 })

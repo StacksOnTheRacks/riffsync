@@ -9,6 +9,7 @@ import {
   type CastReceiverLiveStreamFailureReason,
   type CastReceiverLiveStreamSession,
 } from './castReceiverLiveStream'
+import { reportCastDiag } from '../../room/cast/castDiag'
 import {
   getActiveCastReceiverContext,
   sendCastReceiverRenderFailed,
@@ -34,6 +35,7 @@ export function CastReceiverPage() {
 
   useEffect(() => {
     let cancelled = false
+    reportCastDiag({ event: 'receiver_app_mounted', hop: 'receiver' })
     emitTvDebugEvent('tv_boot', {})
 
     void startCastReceiverSession({
@@ -135,6 +137,7 @@ export function CastReceiverPage() {
 
     confirmedSnapshotIdRef.current = snapshot.snapshotId
     sendCastReceiverRendered(context, snapshot.snapshotId, snapshot.tvClientSessionId)
+    reportCastDiag({ event: 'receiver_rendered', hop: 'receiver' })
     emitTvDebugEvent('tv_render_ack', {
       tvClientSessionId: snapshot.tvClientSessionId,
       snapshotId: snapshot.snapshotId,

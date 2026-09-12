@@ -392,6 +392,78 @@ export function recordApiRoute(
   logApiAction({ route, outcome, ...extras });
 }
 
+export type CastDiagHop = 'sender' | 'receiver';
+
+export const CAST_DIAG_EVENTS = [
+  'sender_start_requested',
+  'sender_request_session_resolved',
+  'sender_request_session_rejected',
+  'sender_launch_timeout',
+  'sender_render_confirmed',
+  'sender_render_timeout',
+  'sender_start_failed',
+  'receiver_html_parsed',
+  'receiver_html_loaded',
+  'receiver_caf_missing',
+  'receiver_caf_started',
+  'receiver_caf_failed',
+  'receiver_app_mounted',
+  'receiver_rendered',
+] as const;
+
+export type CastDiagEvent = (typeof CAST_DIAG_EVENTS)[number];
+
+export type CastDiagLogFields = {
+  event: CastDiagEvent;
+  hop: CastDiagHop;
+  attemptId?: string;
+  code?: string;
+  description?: string;
+  details?: string;
+};
+
+/** EMF counter for Cast launch hops. Low-cardinality Event/Hop only. */
+export function emitCastDiagEmf(event: CastDiagEvent, hop: CastDiagHop): void {
+  const env = riffsyncEnvironment();
+  console.log(
+    JSON.stringify({
+      _aws: {
+        Timestamp: Date.now(),
+        CloudWatchMetrics: [
+          {
+            Namespace: 'RiffSync/Cast',
+            Dimensions: [['Environment', 'Event', 'Hop']],
+            Metrics: [{ Name: 'Events', Unit: 'Count' }],
+          },
+        ],
+      },
+      Environment: env,
+      Event: event,
+      Hop: hop,
+      Events: 1,
+    }),
+  );
+}
+
+/** Structured INFO log for one Cast hop. No room ids, device names, or tokens. */
+export function logCastDiagAction(fields: CastDiagLogFields): void {
+  const payload: Record<string, unknown> = {
+    riffsyncDiag: 'cast',
+    event: fields.event,
+    hop: fields.hop,
+  };
+  if (fields.attemptId !== undefined) payload.attemptId = fields.attemptId;
+  if (fields.code !== undefined) payload.code = fields.code;
+  if (fields.description !== undefined) payload.description = fields.description;
+  if (fields.details !== undefined) payload.details = fields.details;
+  console.info(JSON.stringify(payload));
+}
+
+export function recordCastDiag(fields: CastDiagLogFields): void {
+  emitCastDiagEmf(fields.event, fields.hop);
+  logCastDiagAction(fields);
+}
+
 export type AdminCatalogAuditFields = {
   route: 'AdminCatalogPost' | 'AdminCatalogPatch' | 'AdminCatalogDelete';
   action: 'create' | 'update' | 'delete';

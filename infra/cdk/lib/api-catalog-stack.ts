@@ -782,6 +782,20 @@ export class ApiCatalogStack extends cdk.Stack {
     this.roomPresenceTable.grantReadData(webrtcSfuTokenFn);
     this.roomsTable.grantReadData(webrtcSfuTokenFn);
 
+    const castDiagFn = new lambdaNodejs.NodejsFunction(this, 'CastDiagFn', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      timeout: cdk.Duration.seconds(5),
+      memorySize: 128,
+      reservedConcurrentExecutions: 5,
+      bundling: sharedLambdaBundle,
+      entry: path.join(__dirname, '../lambda/cast-diag.ts'),
+      handler: 'handler',
+      environment: {
+        RIFFSYNC_ENVIRONMENT: environment,
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+    });
+
     const tvPairingFn = new lambdaNodejs.NodejsFunction(this, 'TvPairingFn', {
       runtime: lambda.Runtime.NODEJS_24_X,
       timeout: cdk.Duration.seconds(15),
@@ -1564,6 +1578,13 @@ export class ApiCatalogStack extends cdk.Stack {
       path: '/v1/webrtc/sfu-token',
       methods: [apigwv2.HttpMethod.POST],
       integration: webrtcSfuTokenIntegration,
+    });
+
+    const castDiagIntegration = new integrations.HttpLambdaIntegration('CastDiagInt', castDiagFn);
+    this.httpApi.addRoutes({
+      path: '/v1/cast/diag',
+      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+      integration: castDiagIntegration,
     });
 
     const tvPairingIntegration = new integrations.HttpLambdaIntegration('TvPairingInt', tvPairingFn);

@@ -184,6 +184,16 @@ export class StaticSiteStack extends cdk.Stack {
       },
     });
 
+    const accessLogsBucket = new s3.Bucket(this, 'WebAccessLogs', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      objectOwnership: s3.ObjectOwnership.OBJECT_WRITER,
+      accessControl: s3.BucketAccessControl.LOG_DELIVERY_WRITE,
+      lifecycleRules: [{ expiration: cdk.Duration.days(30) }],
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     this.distribution = new cloudfront.Distribution(this, 'WebDistribution', {
       comment: 'RiffSync prod fan SPA',
       defaultRootObject: 'index.html',
@@ -191,6 +201,10 @@ export class StaticSiteStack extends cdk.Stack {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       domainNames: cfDomainNames,
       certificate,
+      enableLogging: true,
+      logBucket: accessLogsBucket,
+      logFilePrefix: 'cloudfront/riffsync-web/',
+      logIncludesCookies: false,
       /**
        * SPA client routes: S3 has no object for `/lobby`, so CloudFront would otherwise
        * surface 403/404; map those to `spa-shell.html` (generic noindex) so ephemeral
@@ -275,6 +289,11 @@ export class StaticSiteStack extends cdk.Stack {
       fanWebHostedZoneId && fanWebZoneName && cfDomainNames && cfDomainNames.length > 0
         ? cfDomainNames.length
         : 0;
+    new cdk.CfnOutput(this, 'WebAccessLogsBucketName', {
+      value: accessLogsBucket.bucketName,
+      description:
+        'CloudFront access logs. Filter cs-uri-stem for /cast/receiver to see whether a Chromecast fetched the receiver.',
+    });
     new cdk.CfnOutput(this, 'FanWebRoute53AliasRecordCount', {
       value: String(route53AliasCount),
       description:

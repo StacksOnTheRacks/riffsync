@@ -6,6 +6,7 @@
     <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#08060d" />
     <title>RiffSync</title>
+    <script src="/cast-receiver-diag.js" data-riffsync-cast-receiver-diag="true"></script>
     <script
       src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"
       data-riffsync-cast-receiver-framework="true"
@@ -13,6 +14,13 @@
     <script src="/cast-receiver-boot.js" data-riffsync-cast-receiver-boot="true"></script>
   </head>
   <body>
+    <img
+      src="__RIFFSYNC_PUBLIC_API_BASE_URL__/v1/cast/diag?e=receiver_html_parsed"
+      alt=""
+      width="1"
+      height="1"
+      data-riffsync-cast-diag-pixel="true"
+    />
     <div id="root"></div>
     <link rel="stylesheet" href="/cast-receiver-app.css" />
     <script src="/cast-receiver-app.js" data-riffsync-cast-receiver-app="true"></script>

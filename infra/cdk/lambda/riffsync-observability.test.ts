@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   emitApiEmf,
+  emitCastDiagEmf,
   emitPresenceActiveFanOut,
   emitPresenceRequestRehydrated,
   emitProductEmf,
@@ -342,5 +343,18 @@ describe('riffsync-observability', () => {
     expect(fanOut.Route).toBeUndefined();
     const rehydrated = parseEmfLine((console.log as ReturnType<typeof vi.fn>).mock.calls[2][0] as string);
     expect(rehydrated.PresenceRequestRehydrated).toBe(1);
+  });
+
+  it('emits Cast hop EMF without high-cardinality keys', () => {
+    process.env.RIFFSYNC_ENVIRONMENT = 'prod';
+    emitCastDiagEmf('sender_request_session_rejected', 'sender');
+
+    const parsed = parseEmfLine((console.log as ReturnType<typeof vi.fn>).mock.calls[0][0] as string);
+    assertLowCardinalityEmf(parsed);
+    const aws = parsed._aws as { CloudWatchMetrics: Array<{ Namespace: string }> };
+    expect(aws.CloudWatchMetrics[0].Namespace).toBe('RiffSync/Cast');
+    expect(parsed.Event).toBe('sender_request_session_rejected');
+    expect(parsed.Hop).toBe('sender');
+    expect(parsed.Events).toBe(1);
   });
 });

@@ -377,6 +377,47 @@ export function buildRiffSyncOperationsDashboard(
       ],
     }),
     new cloudwatch.TextWidget({
+      markdown:
+        '**Cast launch** - `RiffSync/Cast` hop events from `POST/GET /v1/cast/diag`. Logs Insights: `{ $.riffsyncDiag = "cast" }`.',
+      width: 24,
+      height: 2,
+    }),
+    new cloudwatch.GraphWidget({
+      title: 'Cast launch — RiffSync/Cast events',
+      width: 24,
+      height: 6,
+      left: [
+        emfSearchNamedMetric(
+          'RiffSync/Cast',
+          'Environment,Event,Hop',
+          'Events',
+          `Environment="${env}"`,
+          'Cast events',
+        ),
+        emfSearchNamedMetric(
+          'RiffSync/Cast',
+          'Environment,Event,Hop',
+          'Events',
+          `Environment="${env}" Event="sender_request_session_rejected"`,
+          'sender_request_session_rejected',
+        ),
+        emfSearchNamedMetric(
+          'RiffSync/Cast',
+          'Environment,Event,Hop',
+          'Events',
+          `Environment="${env}" Event="receiver_html_parsed"`,
+          'receiver_html_parsed',
+        ),
+        emfSearchNamedMetric(
+          'RiffSync/Cast',
+          'Environment,Event,Hop',
+          'Events',
+          `Environment="${env}" Event="receiver_caf_started"`,
+          'receiver_caf_started',
+        ),
+      ],
+    }),
+    new cloudwatch.TextWidget({
       markdown: '**Product funnels** — success counters from **`RiffSync/Product`** EMF (room create, guest join, broadcast start, Live channel view).',
       width: 24,
       height: 2,

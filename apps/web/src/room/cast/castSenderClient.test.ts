@@ -290,15 +290,11 @@ describe('createDefaultCastSenderClient', () => {
       'Cast session request failed',
     )
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('[RiffSync Cast] requestSession rejected', {
-      receiverApplicationId: '77E78672',
-      reason: {
-        kind: '[object Object]',
-        code: 'session_error',
-        description: 'LAUNCH_ERROR',
-        details: { type: 'LOAD_CANCELLED' },
-      },
-    })
+    const rejectLines = consoleErrorSpy.mock.calls.map((call) => String(call[0]))
+    expect(rejectLines.some((line) => line.includes('"code":"session_error"'))).toBe(true)
+    expect(rejectLines.some((line) => line.includes('"description":"LAUNCH_ERROR"'))).toBe(true)
+    expect(rejectLines.some((line) => line.includes('"details":"LOAD_CANCELLED"'))).toBe(true)
+    expect(rejectLines.some((line) => line.includes('"receiverApplicationId":"77E78672"'))).toBe(true)
 
     consoleErrorSpy.mockRestore()
   })

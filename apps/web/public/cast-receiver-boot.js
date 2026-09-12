@@ -13,26 +13,38 @@
   }
   window.__riffsyncCastReceiver = boot
 
+  function diag(event) {
+    if (typeof window.__riffsyncCastDiag === 'function') {
+      window.__riffsyncCastDiag(event)
+    }
+  }
+
   var fw = window.cast && window.cast.framework
   if (!fw || !fw.CastReceiverContext || !fw.CastReceiverOptions) {
+    diag('receiver_caf_missing')
     return
   }
 
-  var context = fw.CastReceiverContext.getInstance()
-  boot.context = context
+  try {
+    var context = fw.CastReceiverContext.getInstance()
+    boot.context = context
 
-  context.addCustomMessageListener(NAMESPACE, function (event) {
-    if (typeof boot.onMessage === 'function') {
-      boot.onMessage(event)
-      return
-    }
-    boot.queue.push(event)
-  })
+    context.addCustomMessageListener(NAMESPACE, function (event) {
+      if (typeof boot.onMessage === 'function') {
+        boot.onMessage(event)
+        return
+      }
+      boot.queue.push(event)
+    })
 
-  var options = new fw.CastReceiverOptions()
-  options.customNamespaces = {}
-  options.customNamespaces[NAMESPACE] = fw.system.MessageType.JSON
-  options.disableIdleTimeout = true
-  context.start(options)
-  boot.started = true
+    var options = new fw.CastReceiverOptions()
+    options.customNamespaces = {}
+    options.customNamespaces[NAMESPACE] = fw.system.MessageType.JSON
+    options.disableIdleTimeout = true
+    context.start(options)
+    boot.started = true
+    diag('receiver_caf_started')
+  } catch (err) {
+    diag('receiver_caf_failed')
+  }
 })()

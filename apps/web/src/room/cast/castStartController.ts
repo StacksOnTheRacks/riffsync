@@ -4,6 +4,7 @@ import {
   parseCastReceiverOutboundMessage,
 } from './castChannelProtocol'
 import type { CastSenderClient, CastSenderSessionHandle } from './castSenderClient'
+import { beginCastAttempt, reportCastDiag } from './castDiag'
 
 export const CAST_LAUNCH_TIMEOUT_MS = 45_000
 export const CAST_RENDER_CONFIRMATION_TIMEOUT_MS = 30_000
@@ -99,6 +100,7 @@ export function createCastStartController({
     clearConfirmationTimer()
     pendingSnapshotId = null
     lifecycle = 'casting'
+    reportCastDiag({ event: 'sender_render_confirmed', hop: 'sender' })
     emit()
   }
 
@@ -192,6 +194,8 @@ export function createCastStartController({
       }
 
       lifecycle = 'launching'
+      beginCastAttempt()
+      reportCastDiag({ event: 'sender_start_requested', hop: 'sender' })
       emit()
 
       let launchAbortReject: ((error: Error) => void) | undefined
@@ -201,6 +205,7 @@ export function createCastStartController({
 
       launchTimer = setTimeout(() => {
         const timeoutError = new Error('Cast launch timed out')
+        reportCastDiag({ event: 'sender_launch_timeout', hop: 'sender' })
         console.error('[RiffSync Cast] startCast launch timed out waiting for requestSession', timeoutError)
         launchAbortReject?.(timeoutError)
       }, launchTimeoutMs)
@@ -217,6 +222,7 @@ export function createCastStartController({
         attachSession(nextSession)
 
         confirmationTimer = setTimeout(() => {
+          reportCastDiag({ event: 'sender_render_timeout', hop: 'sender' })
           console.error('[RiffSync Cast] receiver render confirmation timed out', {
             snapshotId: pendingSnapshotId,
             lifecycle,
@@ -230,6 +236,7 @@ export function createCastStartController({
         })
       } catch (error) {
         clearLaunchTimer()
+        reportCastDiag({ event: 'sender_start_failed', hop: 'sender' })
         console.error('[RiffSync Cast] startCast failed', error)
         if (lifecycle !== 'launching') return
         await failStart()
