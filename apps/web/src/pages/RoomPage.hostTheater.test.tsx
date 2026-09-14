@@ -34,7 +34,7 @@ vi.mock('../hostBridge/hostExtensionBridge', () => ({
 
 const fetchRoom = vi.fn()
 const fetchRtcIceServers = vi.fn()
-const fanTokenState = vi.hoisted(() => ({ value: mockFanJwt('host-sub') }))
+const fanTokenState = vi.hoisted(() => ({ value: mockFanJwt('host-sub') as string | null }))
 
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
@@ -60,6 +60,15 @@ vi.mock('../auth/fanTokens', async (importOriginal) => {
     getFanAccessToken: () => fanTokenState.value,
   }
 })
+
+vi.mock('../api/fanProfileApi', () => ({
+  fetchFanProfile: vi.fn().mockResolvedValue({
+    displayName: 'Account',
+    updatedAt: 1,
+    avatarUrl: null,
+    avatarUpdatedAt: null,
+  }),
+}))
 
 vi.mock('../config/wsUrl', () => ({ getPublicWsUrl: () => 'wss://ws.test.example' }))
 vi.mock('../config/apiBaseUrl', () => ({ getPublicApiBaseUrl: () => 'https://api.test.example' }))
@@ -166,6 +175,37 @@ describe('RoomPage host theater chrome', () => {
     expect(container.textContent).not.toContain('Disable room A/V')
     expect(container.textContent).not.toMatch(/\bTHEATER\b/)
     expect(container.textContent).not.toContain('VIDEO CHAT')
+
+    const logo = container.querySelector('.riffsync-navigation-slim__logo') as HTMLAnchorElement
+    expect(logo.getAttribute('href')).toBe('/')
+    expect(container.textContent).not.toContain('Leave party')
+    expect(container.querySelector('.riffsync-navigation-slim__leave')).toBeNull()
+    const headings = container.querySelectorAll('h1.sr-only')
+    expect(headings).toHaveLength(1)
+    expect(headings[0]?.textContent).toBe('Party')
+  })
+
+  it('renders Sign in on the slim header when signed out', async () => {
+    fanTokenState.value = null
+
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/room/room-test-1']}>
+          <RoomChromeProvider>
+            <Routes>
+              <Route path="/room/:roomId" element={<RoomPage />} />
+            </Routes>
+          </RoomChromeProvider>
+        </MemoryRouter>,
+      )
+    })
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-navigation-slim__sign-in')).not.toBeNull()
+    })
+
+    expect(container.querySelector('.riffsync-navigation-slim__sign-in')?.textContent).toBe('Sign in')
+    expect(container.querySelector('.riffsync-navigation-slim__profile-trigger')).toBeNull()
   })
 
   it('hides the host theater bar in expanded view', async () => {
@@ -208,6 +248,7 @@ describe('RoomPage host theater chrome', () => {
       expect(container.querySelector('.riffsync-room-page__theater--expanded')).not.toBeNull()
     })
     expect(container.querySelector('.riffsync-host-theater-bar')).toBeNull()
+    expect(container.querySelector('.riffsync-navigation-slim')).not.toBeNull()
     expect(container.querySelector('.riffsync-room-page__chat--overlay')).not.toBeNull()
     expect(
       [...container.querySelectorAll('button')].some((button) => button.textContent === 'Exit expanded view'),
