@@ -190,7 +190,7 @@ describe('RoomPage Cast start', () => {
     vi.clearAllMocks()
   })
 
-  async function openRoomTab() {
+  async function renderRoomPage() {
     act(() => {
       root.render(
         <MemoryRouter initialEntries={['/room/room-test-1']}>
@@ -206,18 +206,11 @@ describe('RoomPage Cast start', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('.riffsync-room-page__tab')).not.toBeNull()
     })
-
-    const roomTab = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).find(
-      (node) => node.textContent?.trim() === 'Room',
-    )
-    act(() => {
-      ;(roomTab as HTMLButtonElement).click()
-    })
   }
 
   it('shows local starting status when Cast start is in progress', async () => {
     castStartLifecycle.value = 'launching'
-    await openRoomTab()
+    await renderRoomPage()
 
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
     expect(status?.textContent).toBe(CAST_CHOOSING_DEVICE_MESSAGE)
@@ -225,7 +218,7 @@ describe('RoomPage Cast start', () => {
 
   it('shows local starting status while session render is pending', async () => {
     castStartLifecycle.value = 'session_pending_render'
-    await openRoomTab()
+    await renderRoomPage()
 
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
     expect(status?.textContent).toBe(CAST_CONNECTING_TO_TV_MESSAGE)
@@ -233,7 +226,7 @@ describe('RoomPage Cast start', () => {
 
   it('shows rejected status after failed Cast start', async () => {
     castStartLifecycle.value = 'start_failed'
-    await openRoomTab()
+    await renderRoomPage()
 
     const status = container.querySelector(`#${RIFFSYNC_CAST_START_STATUS_ID}`)
     expect(status?.textContent).toBe(CAST_START_REJECTED_MESSAGE)

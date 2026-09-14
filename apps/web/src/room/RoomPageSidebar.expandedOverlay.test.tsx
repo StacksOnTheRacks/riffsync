@@ -81,13 +81,6 @@ function buildSidebarProps(overrides: Partial<Parameters<typeof RoomPageSidebar>
     participantProducerBySessionId: new Map(),
     speakingBySessionId: new Map(),
     isPublisher: false,
-    shareHint: null,
-    onCopyShare: vi.fn(),
-    onOpenRenameModal: vi.fn(),
-    roomVisibility: 'public' as const,
-    visibilityBusy: false,
-    visibilityErr: null,
-    onSelectRoomVisibility: vi.fn(),
     avDisabled: false,
     participantAvController: createParticipantAvControllerStub(),
     announceRoomA11y: vi.fn(),
@@ -102,8 +95,6 @@ function buildSidebarProps(overrides: Partial<Parameters<typeof RoomPageSidebar>
     onLinkTvSubmitCode: async () => {},
     onStopLinkTv: vi.fn(),
     linkTvButtonRef: { current: null },
-    theaterShareQuality: 'balanced' as const,
-    onTheaterShareQualityChange: vi.fn(),
     ...overrides,
   }
 }
@@ -139,6 +130,7 @@ describe('RoomPageSidebar expanded overlay chat (#318)', () => {
     const overlay = container.querySelector('.riffsync-room-page__chat--overlay')
     expect(overlay).not.toBeNull()
     expect(container.querySelector('.riffsync-room-page__tabs')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
     expect(overlay?.querySelector('.riffsync-room-chat-compose')).not.toBeNull()
     expect(overlay?.querySelector('.riffsync-room-chat-reaction-add')).not.toBeNull()
     expect(overlay?.querySelector('.riffsync-room-chat-jump-latest')?.textContent).toBe('New messages (2)')

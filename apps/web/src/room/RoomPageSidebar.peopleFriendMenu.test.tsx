@@ -112,13 +112,6 @@ function buildSidebarProps(peopleShown: PresenceMember[]) {
     participantProducerBySessionId: new Map(),
     speakingBySessionId: new Map(),
     isPublisher: false,
-    shareHint: null,
-    onCopyShare: vi.fn(),
-    onOpenRenameModal: vi.fn(),
-    roomVisibility: 'public' as const,
-    visibilityBusy: false,
-    visibilityErr: null,
-    onSelectRoomVisibility: vi.fn(),
     avDisabled: false,
     participantAvController: createParticipantAvControllerStub(),
     announceRoomA11y: vi.fn(),
@@ -133,8 +126,6 @@ function buildSidebarProps(peopleShown: PresenceMember[]) {
     onLinkTvSubmitCode: async () => {},
     onStopLinkTv: vi.fn(),
     linkTvButtonRef: { current: null },
-    theaterShareQuality: 'balanced' as const,
-    onTheaterShareQualityChange: vi.fn(),
   }
 }
 

@@ -47,6 +47,14 @@ describe('chat drawer UX wiring (#207)', () => {
     expect(src).toContain("dmPushStatus === 'open'")
   })
 
+  it('RoomPageSidebar omits Room panel chrome (#473)', () => {
+    const src = readSrc('RoomPageSidebar.tsx')
+    expect(src).not.toContain('riffsync-room-page__aux-tabs')
+    expect(src).not.toContain('HostRoomConsole')
+    expect(src).not.toContain('RoomHostIconRow')
+    expect(src).not.toContain('Leave Party')
+  })
+
   it('anchors sparse chat history to the compose edge', () => {
     const css = readSrc('../styles/riffsync-app.css')
     expect(css).toMatch(

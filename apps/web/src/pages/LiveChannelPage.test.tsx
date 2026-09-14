@@ -158,7 +158,10 @@ describe('LiveChannelPage', () => {
     })
     expect(container.textContent).toContain('MST3K Forever-A-Thon')
     expect(container.textContent).toContain('People (2)')
-    expect(container.textContent).not.toContain('Room')
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
+    expect(
+      [...container.querySelectorAll('.riffsync-room-page__tab')].some((tab) => tab.textContent?.trim() === 'Room'),
+    ).toBe(false)
     expect(container.textContent).toContain('Sign In to Chat')
     expect(container.querySelector('.riffsync-live-page__chat .riffsync-room-page__chat')).not.toBeNull()
   })

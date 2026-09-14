@@ -44,8 +44,6 @@ import { useLinkTvSession } from '../room/useLinkTvSession'
 import type { BuildCastPresentationSnapshotInput } from '../room/cast/buildCastPresentationSnapshot'
 import type { TheaterShareQualityPreset } from '../room/theaterShareQuality'
 import { useHostExtensionPresence } from '../room/useHostExtensionPresence'
-import { useHostNextUpQueue } from '../room/useHostNextUpQueue'
-import { useCatalogListQuery } from '../catalog/catalogQueries'
 import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { NavigationSlim } from '../room/NavigationSlim'
 import { HostTheaterButtonBar } from '../room/HostTheaterButtonBar'
@@ -237,7 +235,6 @@ export function RoomPage() {
   const [theaterShareQuality, setTheaterShareQuality] =
     useState<TheaterShareQualityPreset>('balanced')
   const [hostConsoleBusy, setHostConsoleBusy] = useState(false)
-  const [hostConsoleErr, setHostConsoleErr] = useState<string | null>(null)
   const { captureErr, startCapture, stopCapture } = useHostScreenCapture({
     roomId,
     sendJson,
@@ -249,15 +246,6 @@ export function RoomPage() {
   })
 
   const hostExtension = useHostExtensionPresence(Boolean(isPublisher))
-  const nextUp = useHostNextUpQueue(isPublisher ? roomId : undefined)
-  const catalogListQuery = useCatalogListQuery()
-  const catalogById = useMemo(() => {
-    const map = new Map<string, CatalogEpisode>()
-    for (const ep of catalogListQuery.data ?? []) {
-      map.set(ep.id, ep)
-    }
-    return map
-  }, [catalogListQuery.data])
 
   useEffect(() => {
     captureStreamRef.current = captureStream
@@ -315,7 +303,9 @@ export function RoomPage() {
   }, [isPublisher, roomMode, setRoom, stopCapture])
 
   const activeSidebarTab =
-    roomSidebarTab === 'profile' || (!fanToken && roomSidebarTab === 'friends')
+    roomSidebarTab === 'profile' ||
+    roomSidebarTab === 'room' ||
+    (!fanToken && roomSidebarTab === 'friends')
       ? 'chat'
       : roomSidebarTab
   const viewportWide = useViewportWide()
@@ -491,13 +481,6 @@ export function RoomPage() {
     showSettingsStatus,
   ])
 
-  const openRenameModal = () => {
-    if (!room) return
-    setPatchErr(null)
-    setRenameModalDraft(room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId ?? '')
-    setRenameModalOpen(true)
-  }
-
   const partyUrl = `${getPublicOrigin()}/room/${encodeURIComponent(roomId)}`
 
   const copyShare = async () => {
@@ -522,7 +505,6 @@ export function RoomPage() {
       if (!room || !fanToken || !isPublisher || hostConsoleBusy) return
       setHostConsoleBusy(true)
       setLoadMediaApplyErr(null)
-      setHostConsoleErr(null)
       const result = await applyLoadMediaSelection({
         fanToken,
         roomId,
@@ -536,7 +518,6 @@ export function RoomPage() {
       setHostConsoleBusy(false)
       if (!result.ok) {
         setLoadMediaApplyErr(result.error)
-        setHostConsoleErr(result.error)
         return
       }
       setRoom(result.room)
@@ -567,113 +548,11 @@ export function RoomPage() {
       origin: getPublicOrigin(),
     })
     if (hostExtension.present) {
-      void openHostMediaTab(url).then((state) => {
-        if (!state?.ok && state && !state.mediaTabOpen) {
-          setHostConsoleErr('Could not open the media tab. Stay on the room tab and try again.')
-        } else {
-          setHostConsoleErr(null)
-        }
-      })
+      void openHostMediaTab(url)
       return
     }
     openOrNavigateHostSourceTab(url)
   }
-
-  const openHostMediaViaExtension = useCallback(async (url: string): Promise<boolean> => {
-    setHostConsoleBusy(true)
-    setHostConsoleErr(null)
-    try {
-      const state = await openHostMediaTab(url)
-      if (!state?.mediaTabOpen) {
-        setHostConsoleErr('Could not open the media tab. Stay on the room tab and try again.')
-        return false
-      }
-      return true
-    } finally {
-      setHostConsoleBusy(false)
-    }
-  }, [openHostMediaTab])
-
-  const peekNextUp = nextUp.peekNext
-  const removeNextUp = nextUp.removeItem
-
-  const skipNextUpItem = useCallback(async () => {
-    if (!room || !fanToken || !isPublisher) return
-    // Peek only — prune after PATCH + media navigate succeed so failures leave the queue intact.
-    const item = peekNextUp()
-    if (!item) return
-    setHostConsoleErr(null)
-    try {
-      if (item.kind === 'url') {
-        const opened = await openHostMediaViaExtension(item.url)
-        if (opened) removeNextUp(item.id)
-        return
-      }
-      setHostConsoleBusy(true)
-      const ep = catalogById.get(item.catalogEpisodeId)
-      const res = await patchRoom(fanToken, roomId, { catalogEpisodeId: item.catalogEpisodeId })
-      setRoom(mergeRoomPatchResult(room, res))
-      const url = resolveHostSourceTabUrl({
-        catalogEp: ep ?? catalogEp,
-        catalogEpisodeId: item.catalogEpisodeId,
-        origin: getPublicOrigin(),
-      })
-      setHostConsoleBusy(false)
-      const opened = await openHostMediaViaExtension(url)
-      if (opened) removeNextUp(item.id)
-    } catch (e) {
-      setHostConsoleErr(e instanceof Error ? e.message : 'Could not play next title.')
-      setHostConsoleBusy(false)
-    }
-  }, [
-    room,
-    fanToken,
-    isPublisher,
-    peekNextUp,
-    removeNextUp,
-    catalogById,
-    catalogEp,
-    roomId,
-    setRoom,
-    openHostMediaViaExtension,
-  ])
-
-  const hostConsoleProps = isPublisher
-    ? {
-        extensionPresent: hostExtension.present,
-        mediaTabOpen: hostExtension.mediaState.mediaTabOpen,
-        mediaPlaybackControllable: hostExtension.mediaState.mediaPlaybackControllable,
-        captureActive: Boolean(captureStream),
-        nowPlayingTitle:
-          catalogEp?.title?.trim() ||
-          room?.displayTitle?.trim() ||
-          room?.catalogEpisodeId ||
-          'Untitled',
-        nextUpItems: nextUp.items,
-        onAddCatalog: (episode: CatalogEpisode) => nextUp.addCatalogEpisode(episode),
-        onAddUrl: (url: string) => nextUp.addUrl(url),
-        onRemoveNextUp: (id: string) => nextUp.removeItem(id),
-        onOpenLoadMedia: () => openLoadMediaModal(),
-        loadMediaOpenerRef,
-        onStartBroadcast: () => {
-          void startCapture()
-        },
-        onStopBroadcast: () => {
-          stopCapture()
-        },
-        onPlay: () => {
-          void hostExtension.play()
-        },
-        onPause: () => {
-          void hostExtension.pause()
-        },
-        onFastForward: () => {
-          void skipNextUpItem()
-        },
-        transportBusy: hostConsoleBusy,
-        consoleError: hostConsoleErr ?? captureErr,
-      }
-    : null
 
   if (!roomId) {
     return (
@@ -741,13 +620,6 @@ export function RoomPage() {
     participantProducerBySessionId,
     speakingBySessionId,
     isPublisher,
-    shareHint,
-    onCopyShare: () => void copyShare(),
-    onOpenRenameModal: openRenameModal,
-    roomVisibility: room.visibility,
-    visibilityBusy,
-    visibilityErr,
-    onSelectRoomVisibility: (visibility: RoomVisibility) => void patchRoomVisibility(visibility),
     avDisabled,
     participantAvController,
     announceRoomA11y,
@@ -762,9 +634,6 @@ export function RoomPage() {
     onLinkTvSubmitCode: claimCode,
     onStopLinkTv: stopLink,
     linkTvButtonRef,
-    theaterShareQuality,
-    onTheaterShareQualityChange: setTheaterShareQuality,
-    hostConsole: hostConsoleProps,
   }
 
   return (
