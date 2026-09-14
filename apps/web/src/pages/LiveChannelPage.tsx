@@ -214,13 +214,6 @@ function LiveChannelReady(props: {
         participantProducerBySessionId={LIVE_EMPTY_MAP}
         speakingBySessionId={LIVE_EMPTY_MAP}
         isPublisher={false}
-        shareHint={null}
-        onCopyShare={() => {}}
-        onOpenRenameModal={() => {}}
-        roomVisibility="private"
-        visibilityBusy={false}
-        visibilityErr={null}
-        onSelectRoomVisibility={() => {}}
         avDisabled
         participantAvController={LIVE_PARTICIPANT_AV_CONTROLLER}
         announceRoomA11y={() => {}}

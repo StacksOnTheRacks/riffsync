@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import type { RefObject } from 'react'
 import { navigateToFanAuth } from '../auth/fanAuthNavigation'
 import { FanAvatarThumb } from '../components/FanAvatarThumb'
@@ -27,13 +26,6 @@ import {
 import type { CastAvailabilityState } from './cast/castAvailabilityTypes'
 import type { CastStartLifecycle } from './cast/castChannelProtocol'
 import { LinkTvPanel } from './LinkTvPanel'
-import type { RoomVisibility } from './hostRoomControls'
-import { TheaterShareQualityControls } from './TheaterShareQualityControls'
-import type { TheaterShareQualityPreset } from './theaterShareQuality'
-import { RoomHostIconRow } from './RoomHostIconRow'
-import { HostRoomConsole } from './HostRoomConsole'
-import type { HostNextUpItem } from './hostNextUpQueue'
-import type { CatalogEpisode } from '../catalog/catalogTypes'
 import { Chatbox, ChatboxPanel, ChatboxTabList, type ChatboxTabConfig } from './Chatbox'
 
 type RoomPageSidebarProps = {
@@ -70,13 +62,6 @@ type RoomPageSidebarProps = {
   participantProducerBySessionId: Map<string, ParticipantProducerSnapshot>
   speakingBySessionId: Map<string, boolean>
   isPublisher: boolean
-  shareHint: string | null
-  onCopyShare: () => void
-  onOpenRenameModal: () => void
-  roomVisibility: RoomVisibility
-  visibilityBusy: boolean
-  visibilityErr: string | null
-  onSelectRoomVisibility: (visibility: RoomVisibility) => void
   avDisabled: boolean
   participantAvController: ParticipantAvController
   announceRoomA11y: (message: string) => void
@@ -91,29 +76,6 @@ type RoomPageSidebarProps = {
   onLinkTvSubmitCode: (code: string) => Promise<void>
   onStopLinkTv: () => void
   linkTvButtonRef: RefObject<HTMLButtonElement | null>
-  theaterShareQuality?: TheaterShareQualityPreset
-  onTheaterShareQualityChange?: (preset: TheaterShareQualityPreset) => void
-  /** Host Room-tab console (extension-aware). Optional so Live / tests stay light. */
-  hostConsole?: {
-    extensionPresent: boolean
-    mediaTabOpen: boolean
-    mediaPlaybackControllable: boolean
-    captureActive: boolean
-    nowPlayingTitle: string
-    nextUpItems: HostNextUpItem[]
-    onAddCatalog: (episode: CatalogEpisode) => void
-    onAddUrl: (url: string) => boolean
-    onRemoveNextUp: (id: string) => void
-    onOpenLoadMedia: () => void
-    loadMediaOpenerRef?: RefObject<HTMLButtonElement | null>
-    onStartBroadcast: () => void
-    onStopBroadcast: () => void
-    onPlay: () => void
-    onPause: () => void
-    onFastForward: () => void
-    transportBusy?: boolean
-    consoleError?: string | null
-  } | null
 }
 
 export function RoomPageSidebar({
@@ -150,13 +112,6 @@ export function RoomPageSidebar({
   participantProducerBySessionId,
   speakingBySessionId,
   isPublisher,
-  shareHint,
-  onCopyShare,
-  onOpenRenameModal,
-  roomVisibility,
-  visibilityBusy,
-  visibilityErr,
-  onSelectRoomVisibility,
   avDisabled,
   participantAvController,
   announceRoomA11y,
@@ -171,15 +126,12 @@ export function RoomPageSidebar({
   onLinkTvSubmitCode,
   onStopLinkTv,
   linkTvButtonRef,
-  theaterShareQuality = 'balanced',
-  onTheaterShareQualityChange,
-  hostConsole = null,
 }: RoomPageSidebarProps) {
-  const peopleFriends = usePeopleRosterFriends(fanToken, activeSidebarTab)
-  const roomFriends = useRoomFriendsPane(activeSidebarTab === 'friends', Boolean(fanToken))
+  const effectiveActiveTab = activeSidebarTab === 'room' ? 'chat' : activeSidebarTab
+  const peopleFriends = usePeopleRosterFriends(fanToken, effectiveActiveTab)
+  const roomFriends = useRoomFriendsPane(effectiveActiveTab === 'friends', Boolean(fanToken))
   const friendsAnyUnread = roomFriends.anyUnread
   const isLiveVariant = variant === 'live'
-  const showRoomTab = presentation === 'sidebar' && !isLiveVariant
   const showParticipantAvControls = !isLiveVariant
   const chatSignInReturnPath = signInReturnPath ?? `/room/${encodeURIComponent(roomId)}`
   const sidebarClassName = ['riffsync-room-page__chat-column', className].filter(Boolean).join(' ')
@@ -246,23 +198,10 @@ export function RoomPageSidebar({
         ) : null}
 
         {presentation === 'sidebar' ? (
-          <ChatboxTabList activeTab={activeSidebarTab} tabs={chatboxTabs} onSelectTab={setRoomSidebarTab} />
+          <ChatboxTabList activeTab={effectiveActiveTab} tabs={chatboxTabs} onSelectTab={setRoomSidebarTab} />
         ) : null}
 
-        {showRoomTab ? (
-          <div className="riffsync-room-page__aux-tabs" role="group" aria-label="Room settings">
-            <button
-              type="button"
-              className={`riffsync-room-page__tab${activeSidebarTab === 'room' ? ' riffsync-room-page__tab--on' : ''}`}
-              aria-pressed={activeSidebarTab === 'room'}
-              onClick={() => setRoomSidebarTab('room')}
-            >
-              Room
-            </button>
-          </div>
-        ) : null}
-
-        <ChatboxPanel tabId="chat" activeTab={activeSidebarTab} className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
+        <ChatboxPanel tabId="chat" activeTab={effectiveActiveTab} className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--chat">
               <ul ref={chatLogRef} className="riffsync-room-chat-log">
                 {chat.map((m, index) => {
                   if (m.kind === 'system') {
@@ -356,7 +295,7 @@ export function RoomPageSidebar({
         </ChatboxPanel>
 
         {presentation === 'sidebar' ? (
-          <ChatboxPanel tabId="people" activeTab={activeSidebarTab} className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
+          <ChatboxPanel tabId="people" activeTab={effectiveActiveTab} className="riffsync-room-page__tab-panel riffsync-room-page__tab-panel--people">
             <ul className="riffsync-room-page__people-list" aria-label="People currently connected">
               {(peopleShown ?? []).map((p) => {
                 const peopleAvatarUrl = resolveMemberAvatarUrl(
@@ -402,41 +341,11 @@ export function RoomPageSidebar({
         ) : null}
 
         {presentation === 'sidebar' && fanToken ? (
-          <RoomFriendsPane pane={roomFriends} visible={activeSidebarTab === 'friends'} />
-        ) : null}
-
-        {showRoomTab && activeSidebarTab === 'room' ? (
-          <div className="riffsync-room-page__tab-panel riffsync-room-page__room-panel">
-            <RoomHostIconRow
-              isPublisher={isPublisher}
-              onCopyShare={onCopyShare}
-              onOpenRenameModal={onOpenRenameModal}
-              roomVisibility={roomVisibility}
-              visibilityBusy={visibilityBusy}
-              visibilityErr={visibilityErr}
-              onSelectRoomVisibility={onSelectRoomVisibility}
-            />
-            {shareHint ? <span className="riffsync-room-page__hint">{shareHint}</span> : null}
-            {isPublisher && onTheaterShareQualityChange ? (
-              <div className="riffsync-room-page__profile-share-quality">
-                <TheaterShareQualityControls
-                  value={theaterShareQuality}
-                  onChange={onTheaterShareQualityChange}
-                />
-              </div>
-            ) : null}
-            {isPublisher && hostConsole ? (
-              <HostRoomConsole {...hostConsole} />
-            ) : (
-              <Link className="gen-button gen-button-wide" to="/">
-                Leave Party
-              </Link>
-            )}
-          </div>
+          <RoomFriendsPane pane={roomFriends} visible={effectiveActiveTab === 'friends'} />
         ) : null}
 
         <div className="riffsync-room-page__sidebar-footer">
-          {activeSidebarTab === 'chat' ? (
+          {effectiveActiveTab === 'chat' ? (
             <div className="riffsync-room-chat-compose-holder">
               {showJumpToLatest ? (
                 <button

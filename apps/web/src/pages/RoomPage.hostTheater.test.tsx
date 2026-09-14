@@ -429,6 +429,23 @@ describe('RoomPage host theater chrome', () => {
     expect(container.querySelector('.riffsync-host-theater-bar')).toBeNull()
   })
 
+  function sidebarChatColumn() {
+    return container.querySelector('.riffsync-room-page__chat')
+  }
+
+  it('party rail has no Room tab, host console, or sidebar Leave Party (#473)', async () => {
+    await renderHostRoom()
+
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
+    expect(
+      [...container.querySelectorAll('.riffsync-room-page__tab')].some((tab) => tab.textContent?.trim() === 'Room'),
+    ).toBe(false)
+    const column = sidebarChatColumn()
+    expect(column?.textContent).not.toContain('Leave Party')
+    expect(column?.textContent).not.toContain('Next Up')
+    expect(column?.textContent).not.toContain('Install Host Extension')
+  })
+
   it('hides the host theater bar in expanded view', async () => {
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -471,8 +488,12 @@ describe('RoomPage host theater chrome', () => {
     expect(container.querySelector('.riffsync-host-theater-bar')).toBeNull()
     expect(container.querySelector('.riffsync-navigation-slim')).not.toBeNull()
     expect(container.querySelector('.riffsync-room-page__chat--overlay')).not.toBeNull()
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
     expect(
       [...container.querySelectorAll('button')].some((button) => button.textContent === 'Exit expanded view'),
     ).toBe(true)
+    const overlay = container.querySelector('.riffsync-room-page__chat--overlay')
+    expect(overlay?.textContent).not.toContain('Leave Party')
+    expect(overlay?.textContent).not.toContain('Next Up')
   })
 })

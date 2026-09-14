@@ -140,13 +140,6 @@ function buildSidebarProps(overrides: Partial<Parameters<typeof RoomPageSidebar>
     participantProducerBySessionId: new Map(),
     speakingBySessionId: new Map(),
     isPublisher: false,
-    shareHint: null,
-    onCopyShare: vi.fn(),
-    onOpenRenameModal: vi.fn(),
-    roomVisibility: 'public' as const,
-    visibilityBusy: false,
-    visibilityErr: null,
-    onSelectRoomVisibility: vi.fn(),
     avDisabled: false,
     participantAvController: createParticipantAvControllerStub(),
     announceRoomA11y: vi.fn(),
@@ -161,10 +154,12 @@ function buildSidebarProps(overrides: Partial<Parameters<typeof RoomPageSidebar>
     onLinkTvSubmitCode: async () => {},
     onStopLinkTv: vi.fn(),
     linkTvButtonRef: { current: null },
-    theaterShareQuality: 'balanced' as const,
-    onTheaterShareQualityChange: vi.fn(),
     ...overrides,
   }
+}
+
+function chatColumn(container: ParentNode) {
+  return container.querySelector('.riffsync-room-page__chat') ?? container
 }
 
 describe('RoomPageSidebar friends tab (#364)', () => {
@@ -200,21 +195,21 @@ describe('RoomPageSidebar friends tab (#364)', () => {
     const labels = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).map(
       (node) => node.textContent?.trim(),
     )
-    expect(labels).toEqual(['Chat', 'People (2)', 'Room'])
+    expect(labels).toEqual(['Chat', 'People (2)'])
     expect(container.querySelector('.riffsync-room-page__tab-unread-dot')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
   })
 
-  it('shows Friends tab in order Chat, People, Friends, Room for signed-in fans', () => {
+  it('shows Friends tab in order Chat, People, Friends for signed-in fans', () => {
     renderSidebar()
 
     const labels = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).map((node) =>
       node.textContent?.replace(/\s+/g, ' ').trim(),
     )
-    expect(labels[0]).toBe('Chat')
-    expect(labels[1]).toBe('People (2)')
-    expect(labels[2]).toMatch(/^Friends/)
-    expect(labels[3]).toBe('Room')
+    expect(labels).toEqual(['Chat', 'People (2)', 'Friends'])
     expect(labels).not.toContain('Profile')
+    expect(labels).not.toContain('Room')
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
   })
 
   it('shows aggregate unread dot on Friends tab when anyUnread', () => {
@@ -296,7 +291,68 @@ describe('RoomPageSidebar friends tab (#364)', () => {
     expect(labels[2]).toMatch(/^Friends/)
     expect(labels).not.toContain('Profile')
     expect(labels).not.toContain('Room')
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
     expect(container.querySelector('.riffsync-room-av-toggle')).toBeNull()
+  })
+})
+
+describe('RoomPageSidebar party rail without Room chrome (#473)', () => {
+  let container: HTMLDivElement
+  let root: Root
+
+  beforeEach(() => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+
+  afterEach(() => {
+    act(() => root.unmount())
+    container.remove()
+  })
+
+  function renderSidebar(overrides: Partial<Parameters<typeof RoomPageSidebar>[0]> = {}) {
+    act(() => {
+      root.render(
+        <MemoryRouter>
+          <RoomPageSidebar {...buildSidebarProps(overrides)} />
+        </MemoryRouter>,
+      )
+    })
+  }
+
+  it('guest party rail has no Room button, room panel, or Leave Party in the chat column', () => {
+    renderSidebar({ fanToken: null, isPublisher: false })
+
+    const column = chatColumn(container)
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
+    expect(column.querySelector('.riffsync-room-page__room-panel')).toBeNull()
+    expect(column.textContent).not.toContain('Leave Party')
+    expect(column.textContent).not.toContain('Next Up')
+    expect(column.textContent).not.toContain('Install Host Extension')
+    expect(column.textContent).not.toContain('Hosting Guide')
+    expect(column.textContent).not.toContain('Paste URL')
+    expect(column.textContent).not.toContain('Search catalog')
+  })
+
+  it('host party rail has no Room chrome in the chat column', () => {
+    renderSidebar({ isPublisher: true })
+
+    const column = chatColumn(container)
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
+    expect(column.querySelector('.riffsync-room-page__room-panel')).toBeNull()
+    expect(column.textContent).not.toContain('Leave Party')
+    expect(column.textContent).not.toContain('Next Up')
+    expect(column.textContent).not.toContain('Install Host Extension')
+    expect(column.textContent).not.toContain('Hosting Guide')
+  })
+
+  it('remaps dead activeSidebarTab room to Chat', () => {
+    renderSidebar({ activeSidebarTab: 'room' })
+
+    const chatTab = container.querySelector('.riffsync-room-page__tab--on')
+    expect(chatTab?.textContent?.trim()).toBe('Chat')
+    expect(container.querySelector('.riffsync-room-page__room-panel')).toBeNull()
   })
 })
 
@@ -326,6 +382,7 @@ describe('RoomPageSidebar expanded overlay friends absence (#364)', () => {
     })
 
     expect(container.querySelector('.riffsync-room-page__tabs')).toBeNull()
+    expect(container.querySelector('.riffsync-room-page__aux-tabs')).toBeNull()
     expect(mockRoomFriendsPane).not.toHaveBeenCalled()
   })
 })
