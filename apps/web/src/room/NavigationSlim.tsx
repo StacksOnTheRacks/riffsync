@@ -1,49 +1,166 @@
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { fetchFanProfile } from '../api/fanProfileApi'
+import { navigateToFanAuth } from '../auth/fanAuthNavigation'
+import { startFanHostedUiSignOut } from '../auth/fanHostedUiPkce'
+import { useFanSession } from '../auth/useFanSession'
+import { FanAvatarThumb } from '../components/FanAvatarThumb'
 
 export type NavigationSlimProps = {
   title: string
-  subtitle?: string | null
-  leaveHref?: string
-  leaveLabel?: string
 }
 
-export function NavigationSlim({
-  title,
-  subtitle,
-  leaveHref = '/live',
-  leaveLabel = 'Leave party',
-}: NavigationSlimProps) {
+const LOGO_SRC = '/app-shell/topbar/logo.svg'
+
+export function NavigationSlim({ title }: NavigationSlimProps) {
   return (
     <header className="riffsync-navigation-slim" role="banner">
+      <h1 className="sr-only">{title}</h1>
       <div className="riffsync-navigation-slim__inner">
-        <Link
-          to={leaveHref}
-          className="riffsync-navigation-slim__leave gen-button"
-          aria-label={leaveLabel}
-        >
-          <LeaveIcon />
-          <span className="riffsync-navigation-slim__leave-text">{leaveLabel}</span>
+        <Link to="/" className="riffsync-navigation-slim__logo" aria-label="RiffSync home">
+          <img src={LOGO_SRC} alt="" width={99} height={39} />
         </Link>
-        <div className="riffsync-navigation-slim__titles">
-          <h1 className="riffsync-navigation-slim__title">{title}</h1>
-          {subtitle ? (
-            <p className="riffsync-navigation-slim__subtitle" aria-live="polite">
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
+        <NavigationSlimAuth />
       </div>
     </header>
   )
 }
 
-function LeaveIcon() {
+function NavigationSlimAuth() {
+  const { fanToken } = useFanSession()
+  const location = useLocation()
+  const returnPath = `${location.pathname}${location.search}` || '/'
+  const [open, setOpen] = useState(false)
+  const [profile, setProfile] = useState<{
+    token: string
+    displayName: string
+    avatarUrl: string | null
+  } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelId = useId()
+  const displayName = profile?.token === fanToken ? profile.displayName : 'Account'
+  const avatarUrl = profile?.token === fanToken ? profile.avatarUrl : null
+
+  const closeMenu = useCallback(() => {
+    setOpen(false)
+  }, [])
+
+  const toggleMenu = useCallback(() => {
+    setOpen((current) => !current)
+  }, [])
+
+  const onSignIn = () => {
+    navigateToFanAuth('/auth/sign-in', returnPath)
+  }
+
+  const onSignOut = () => {
+    startFanHostedUiSignOut()
+  }
+
+  const onTriggerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      toggleMenu()
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeMenu()
+      triggerRef.current?.focus()
+    }
+  }
+
+  useEffect(() => {
+    if (!fanToken) {
+      return
+    }
+
+    let cancelled = false
+    void fetchFanProfile(fanToken)
+      .then((next) => {
+        if (cancelled) return
+        setProfile({
+          token: fanToken,
+          displayName: next.displayName?.trim() || 'Account',
+          avatarUrl: next.avatarUrl,
+        })
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [fanToken])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) {
+        return
+      }
+      const root = triggerRef.current?.closest('.riffsync-navigation-slim__profile')
+      if (root && !root.contains(target)) {
+        closeMenu()
+      }
+    }
+
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeMenu()
+        triggerRef.current?.focus()
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [closeMenu, open])
+
+  if (!fanToken) {
+    return (
+      <button type="button" className="riffsync-navigation-slim__sign-in gen-button" onClick={onSignIn}>
+        Sign in
+      </button>
+    )
+  }
+
   return (
-    <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden="true" focusable="false">
-      <path
-        fill="currentColor"
-        d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"
-      />
-    </svg>
+    <div className="riffsync-navigation-slim__profile">
+      <button
+        ref={triggerRef}
+        type="button"
+        className="riffsync-navigation-slim__profile-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label="Account menu"
+        onClick={toggleMenu}
+        onKeyDown={onTriggerKeyDown}
+      >
+        <FanAvatarThumb displayName={displayName} avatarUrl={avatarUrl} sizePx={32} />
+      </button>
+      {open ? (
+        <ul id={panelId} className="riffsync-navigation-slim__profile-menu" role="menu">
+          <li role="none">
+            <Link to="/account" role="menuitem" onClick={closeMenu}>
+              Account
+            </Link>
+          </li>
+          <li role="none">
+            <button type="button" role="menuitem" onClick={onSignOut}>
+              Sign out
+            </button>
+          </li>
+        </ul>
+      ) : null}
+    </div>
   )
 }

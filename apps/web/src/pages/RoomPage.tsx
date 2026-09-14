@@ -723,11 +723,7 @@ export function RoomPage() {
         />
       ) : null}
 
-      <NavigationSlim
-        title={roomDisplayTitle}
-        subtitle={isPublisher ? 'Host' : undefined}
-        leaveHref="/live"
-      />
+      <NavigationSlim title={roomDisplayTitle} />
 
       <div className="container riffsync-room-page">
         {sfuConfigAlert ? (
