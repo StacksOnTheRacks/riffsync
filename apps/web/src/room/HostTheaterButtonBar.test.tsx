@@ -29,11 +29,19 @@ const baseProps = {
   onPause: vi.fn(),
   onCopyShare: vi.fn(),
   shareHint: null,
-  onOpenRenameModal: vi.fn(),
+  partyNameDraft: 'Test Party',
+  onPartyNameDraftChange: vi.fn(),
+  onOpenSettings: vi.fn(),
+  onSavePartyName: vi.fn(),
+  partyNameBusy: false,
+  partyNameErr: null,
+  partyUrl: 'https://www.test.example/room/room-test-1',
   roomVisibility: 'public' as const,
   visibilityBusy: false,
   visibilityErr: null,
   onSelectRoomVisibility: vi.fn(),
+  theaterShareQuality: 'balanced' as const,
+  onTheaterShareQualityChange: vi.fn(),
   roomMode: 'theater' as const,
   hostBarBusy: false,
   hostBarErr: null,
@@ -231,6 +239,82 @@ describe('HostTheaterButtonBar', () => {
     act(() => chromecast.click())
     expect(onCastToTvClick).toHaveBeenCalled()
     expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+  })
+
+  it('renders Settings instead of Share and opens Watch Party Settings', async () => {
+    const onOpenSettings = vi.fn()
+    act(() => {
+      root.render(<HostTheaterButtonBar {...baseProps} onOpenSettings={onOpenSettings} />)
+    })
+
+    expect(container.querySelector('[aria-label="Share watch party"]')).toBeNull()
+    expect(container.textContent).not.toContain('Share Watch Party')
+
+    const settings = container.querySelector('[aria-label="Settings"]') as HTMLButtonElement
+    expect(settings).not.toBeNull()
+    expect(settings.getAttribute('aria-haspopup')).toBe('dialog')
+    expect(settings.getAttribute('aria-expanded')).toBe('false')
+
+    act(() => settings.click())
+    expect(onOpenSettings).toHaveBeenCalled()
+    expect(settings.getAttribute('aria-expanded')).toBe('true')
+    expect(settings.getAttribute('aria-pressed')).toBe('true')
+    expect(settings.classList.contains('riffsync-host-theater-bar__segment--on')).toBe(true)
+
+    const dialog = container.querySelector('[role="dialog"][aria-labelledby="riffsync-watch-party-settings-title"]')
+    expect(dialog).not.toBeNull()
+    expect(container.textContent).toContain('Watch Party Settings')
+    expect(container.textContent).toContain('Party Name')
+    expect(container.textContent).toContain('Party URL')
+    expect(container.textContent).toContain('Visibility')
+    expect(container.textContent).toContain('Private')
+    expect(container.textContent).toContain('Public')
+    expect(container.textContent).toContain('Share quality')
+    expect(container.textContent).toContain('Balanced (24 fps)')
+
+    const save = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Save')
+    const copy = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Copy')
+    const close = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Close')
+    expect(save).toBeTruthy()
+    expect(copy).toBeTruthy()
+    expect(close).toBeTruthy()
+  })
+
+  it('dismisses Watch Party Settings with Close and Escape and returns focus to Settings', async () => {
+    act(() => {
+      root.render(<HostTheaterButtonBar {...baseProps} />)
+    })
+    const settings = container.querySelector('[aria-label="Settings"]') as HTMLButtonElement
+    act(() => settings.click())
+    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+
+    const close = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Close')!
+    act(() => close.click())
+    await vi.waitFor(() => {
+      expect(container.querySelector('[role="dialog"]')).toBeNull()
+    })
+    expect(settings.getAttribute('aria-expanded')).toBe('false')
+    await vi.waitFor(() => {
+      expect(document.activeElement).toBe(settings)
+    })
+
+    act(() => settings.click())
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    await vi.waitFor(() => {
+      expect(container.querySelector('[role="dialog"]')).toBeNull()
+    })
+    expect(settings.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('keeps the Help popup titled Host settings', () => {
+    act(() => {
+      root.render(<HostTheaterButtonBar {...baseProps} />)
+    })
+    const help = container.querySelector('[aria-label="Host help and room settings"]') as HTMLButtonElement
+    act(() => help.click())
+    expect(container.querySelector('[role="dialog"] h2')?.textContent).toBe('Host settings')
   })
 
   it('closes Watch on TV only after Cast has a session or fails', () => {
