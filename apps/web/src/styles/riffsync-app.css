@@ -5787,6 +5787,84 @@ header#gen-header .gen-bottom-header .navbar .navbar-nav li.riffsync-catalog-nav
   gap: 0.5rem;
 }
 
+.riffsync-host-theater-bar__dialog--watch-party-settings {
+  width: min(37.75rem, 100%);
+  max-height: min(90vh, 28rem);
+  overflow: auto;
+}
+
+.riffsync-host-theater-bar__dialog--watch-party-settings .riffsync-host-theater-bar__dialog-title {
+  font-size: 1.25rem;
+  font-weight: 500;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.16);
+}
+
+.riffsync-watch-party-settings__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.riffsync-watch-party-settings__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.riffsync-watch-party-settings__field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.riffsync-watch-party-settings__input {
+  flex: 1 1 12rem;
+  min-height: 2.25rem;
+  box-sizing: border-box;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 0.25rem;
+  background: rgb(0 0 0 / 0.25);
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.95rem;
+}
+
+.riffsync-watch-party-settings__input:focus-visible {
+  outline: 2px solid var(--primary-color, #e50916);
+  outline-offset: 1px;
+}
+
+.riffsync-watch-party-settings__action {
+  flex: 0 0 auto;
+  min-width: 4.5rem;
+}
+
+.riffsync-watch-party-settings__err {
+  margin: 0;
+  color: #ffb4b4;
+  font-size: 0.85rem;
+}
+
+.riffsync-watch-party-settings-status {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 40;
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  background: var(--surface-primary, #161b22);
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.9rem;
+  box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+
 .riffsync-host-theater-bar__dialog--watch-tv {
   width: min(37.75rem, 100%);
   background: var(--black, #221f1f);

@@ -35,25 +35,25 @@ describe('RoomVisibilityControl', () => {
     return { onSelectVisibility }
   }
 
-  it('renders Live Now visibility options for the room host', () => {
+  it('renders Private and Public visibility options for the room host', () => {
     renderControl()
-    expect(container.textContent).toContain('Show on Live Now')
-    expect(container.textContent).toContain('Link only')
+    expect(container.textContent).toContain('Private')
+    expect(container.textContent).toContain('Public')
     expect(container.querySelector('[role="radiogroup"]')).not.toBeNull()
   })
 
   it('marks the active visibility option for assistive tech', () => {
     renderControl({ visibility: 'private' })
     const options = container.querySelectorAll('button.riffsync-room-page__visibility-option')
-    expect(options[0]?.getAttribute('aria-checked')).toBe('false')
-    expect(options[1]?.getAttribute('aria-checked')).toBe('true')
+    expect(options[0]?.getAttribute('aria-checked')).toBe('true')
+    expect(options[1]?.getAttribute('aria-checked')).toBe('false')
   })
 
   it('calls onSelectVisibility when the host picks a different option', () => {
     const { onSelectVisibility } = renderControl({ visibility: 'public' })
     const options = container.querySelectorAll('button.riffsync-room-page__visibility-option')
     act(() => {
-      ;(options[1] as HTMLButtonElement).click()
+      ;(options[0] as HTMLButtonElement).click()
     })
     expect(onSelectVisibility).toHaveBeenCalledWith('private')
   })
@@ -62,7 +62,7 @@ describe('RoomVisibilityControl', () => {
     const { onSelectVisibility } = renderControl({ visibility: 'private' })
     const options = container.querySelectorAll('button.riffsync-room-page__visibility-option')
     act(() => {
-      ;(options[1] as HTMLButtonElement).click()
+      ;(options[0] as HTMLButtonElement).click()
     })
     expect(onSelectVisibility).not.toHaveBeenCalled()
   })

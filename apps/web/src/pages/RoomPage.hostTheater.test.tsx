@@ -33,6 +33,7 @@ vi.mock('../hostBridge/hostExtensionBridge', () => ({
 }))
 
 const fetchRoom = vi.fn()
+const patchRoom = vi.fn()
 const fetchRtcIceServers = vi.fn()
 const fanTokenState = vi.hoisted(() => ({ value: mockFanJwt('host-sub') as string | null }))
 
@@ -41,6 +42,7 @@ vi.mock('../api/roomsApi', async (importOriginal) => {
   return {
     ...actual,
     fetchRoom: (...args: unknown[]) => fetchRoom(...args),
+    patchRoom: (...args: unknown[]) => patchRoom(...args),
   }
 })
 
@@ -120,7 +122,20 @@ describe('RoomPage host theater chrome', () => {
     MockWebSocket.instances = []
     vi.stubGlobal('WebSocket', MockWebSocket)
     fanTokenState.value = mockFanJwt('host-sub')
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    })
     fetchRtcIceServers.mockResolvedValue([{ urls: 'stun:stun.test' }])
+    patchRoom.mockResolvedValue({
+      roomId: 'room-test-1',
+      version: 2,
+      visibility: 'public',
+      displayTitle: 'Saved Party',
+      catalogEpisodeId: 'ep-1',
+      youtubeVideoId: 'yt-1',
+      lastActivityAt: '2026-01-01T00:00:00.000Z',
+    })
     fetchRoom.mockResolvedValue({
       roomId: 'room-test-1',
       hostSub: 'host-sub',
@@ -206,6 +221,212 @@ describe('RoomPage host theater chrome', () => {
 
     expect(container.querySelector('.riffsync-navigation-slim__sign-in')?.textContent).toBe('Sign in')
     expect(container.querySelector('.riffsync-navigation-slim__profile-trigger')).toBeNull()
+  })
+
+  async function renderHostRoom() {
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/room/room-test-1']}>
+          <RoomChromeProvider>
+            <Routes>
+              <Route path="/room/:roomId" element={<RoomPage />} />
+            </Routes>
+          </RoomChromeProvider>
+        </MemoryRouter>,
+      )
+    })
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-host-theater-bar')).not.toBeNull()
+    })
+  }
+
+  it('opens Watch Party Settings from Settings and saves party name with a status toast', async () => {
+    await renderHostRoom()
+
+    const settings = container.querySelector('[aria-label="Settings"]') as HTMLButtonElement
+    act(() => settings.click())
+
+    const nameInput = container.querySelector('#riffsync-watch-party-settings-title')
+      ?.closest('[role="dialog"]')
+      ?.querySelector('input:not([readonly])') as HTMLInputElement
+    expect(nameInput).toBeTruthy()
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
+      setter.call(nameInput, 'Saved Party')
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+
+    const save = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Save')!
+    act(() => save.click())
+
+    await vi.waitFor(() => {
+      expect(patchRoom).toHaveBeenCalledWith(
+        expect.any(String),
+        'room-test-1',
+        { displayTitle: 'Saved Party' },
+      )
+    })
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-watch-party-settings-status[role="status"]')?.textContent).toBe(
+        'Party name saved.',
+      )
+    })
+  })
+
+  it('patches visibility and shows a status toast on success', async () => {
+    patchRoom.mockResolvedValueOnce({
+      roomId: 'room-test-1',
+      version: 3,
+      visibility: 'private',
+      displayTitle: 'Party',
+      catalogEpisodeId: 'ep-1',
+      youtubeVideoId: 'yt-1',
+      lastActivityAt: '2026-01-01T00:00:00.000Z',
+    })
+    await renderHostRoom()
+
+    act(() => (container.querySelector('[aria-label="Settings"]') as HTMLButtonElement).click())
+    const privateOption = [...container.querySelectorAll('button[role="radio"]')].find(
+      (button) => button.textContent === 'Private',
+    ) as HTMLButtonElement
+    act(() => privateOption.click())
+
+    await vi.waitFor(() => {
+      expect(patchRoom).toHaveBeenCalledWith(expect.any(String), 'room-test-1', { visibility: 'private' })
+    })
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-watch-party-settings-status[role="status"]')?.textContent).toContain(
+        'Live Now',
+      )
+    })
+  })
+
+  it('does not toast or keep optimistic visibility on failed PATCH', async () => {
+    patchRoom.mockRejectedValueOnce(new Error('403 forbidden'))
+    await renderHostRoom()
+
+    act(() => (container.querySelector('[aria-label="Settings"]') as HTMLButtonElement).click())
+    const privateOption = [...container.querySelectorAll('button[role="radio"]')].find(
+      (button) => button.textContent === 'Private',
+    ) as HTMLButtonElement
+    act(() => privateOption.click())
+
+    await vi.waitFor(() => {
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain('403')
+    })
+    expect(container.querySelector('.riffsync-watch-party-settings-status')).toBeNull()
+    const publicOption = container.querySelector('button[role="radio"][aria-checked="true"]')
+    expect(publicOption?.textContent).toBe('Public')
+  })
+
+  it('does not PATCH or toast for empty party name', async () => {
+    await renderHostRoom()
+    act(() => (container.querySelector('[aria-label="Settings"]') as HTMLButtonElement).click())
+
+    const nameInput = container
+      .querySelector('[role="dialog"]')
+      ?.querySelector('input:not([readonly])') as HTMLInputElement
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
+      setter.call(nameInput, '   ')
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    act(() => {
+      ;[...container.querySelectorAll('button')].find((button) => button.textContent === 'Save')?.click()
+    })
+
+    expect(patchRoom).not.toHaveBeenCalled()
+    expect(container.querySelector('.riffsync-watch-party-settings-status')).toBeNull()
+  })
+
+  it('does not PATCH visibility when re-selecting the current option', async () => {
+    await renderHostRoom()
+    act(() => (container.querySelector('[aria-label="Settings"]') as HTMLButtonElement).click())
+    const publicOption = [...container.querySelectorAll('button[role="radio"]')].find(
+      (button) => button.textContent === 'Public',
+    ) as HTMLButtonElement
+    act(() => publicOption.click())
+    expect(patchRoom).not.toHaveBeenCalled()
+    expect(container.querySelector('.riffsync-watch-party-settings-status')).toBeNull()
+  })
+
+  it('copies the constructed party URL without query or hash', async () => {
+    await renderHostRoom()
+    act(() => (container.querySelector('[aria-label="Settings"]') as HTMLButtonElement).click())
+    act(() => {
+      ;[...container.querySelectorAll('button')].find((button) => button.textContent === 'Copy')?.click()
+    })
+    await vi.waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'https://www.test.example/room/room-test-1',
+      )
+    })
+  })
+
+  it('does not render Settings for guest JWT or signed-out viewers', async () => {
+    fanTokenState.value = mockFanJwt('guest-sub')
+    fetchRoom.mockResolvedValueOnce({
+      roomId: 'room-test-1',
+      hostSub: 'host-sub',
+      catalogEpisodeId: 'ep-1',
+      youtubeVideoId: 'yt-1',
+      version: 1,
+      visibility: 'public',
+      lastActivityAt: '2026-01-01T00:00:00.000Z',
+      roomMode: 'theater',
+      avDisabled: false,
+      broadcastCaptureActive: false,
+      displayTitle: 'Party',
+    })
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/room/room-test-1']}>
+          <RoomChromeProvider>
+            <Routes>
+              <Route path="/room/:roomId" element={<RoomPage />} />
+            </Routes>
+          </RoomChromeProvider>
+        </MemoryRouter>,
+      )
+    })
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-navigation-slim')).not.toBeNull()
+    })
+    expect(container.querySelector('[aria-label="Settings"]')).toBeNull()
+    expect(container.querySelector('.riffsync-host-theater-bar')).toBeNull()
+    expect(patchRoom).not.toHaveBeenCalled()
+
+    fanTokenState.value = null
+    fetchRoom.mockResolvedValueOnce({
+      roomId: 'room-test-1',
+      hostSub: 'host-sub',
+      catalogEpisodeId: 'ep-1',
+      youtubeVideoId: 'yt-1',
+      version: 1,
+      visibility: 'public',
+      lastActivityAt: '2026-01-01T00:00:00.000Z',
+      roomMode: 'theater',
+      avDisabled: false,
+      broadcastCaptureActive: false,
+      displayTitle: 'Party',
+    })
+    act(() => {
+      root.render(
+        <MemoryRouter initialEntries={['/room/room-test-1']}>
+          <RoomChromeProvider>
+            <Routes>
+              <Route path="/room/:roomId" element={<RoomPage />} />
+            </Routes>
+          </RoomChromeProvider>
+        </MemoryRouter>,
+      )
+    })
+    await vi.waitFor(() => {
+      expect(container.querySelector('.riffsync-navigation-slim')).not.toBeNull()
+    })
+    expect(container.querySelector('[aria-label="Settings"]')).toBeNull()
+    expect(container.querySelector('.riffsync-host-theater-bar')).toBeNull()
   })
 
   it('hides the host theater bar in expanded view', async () => {
