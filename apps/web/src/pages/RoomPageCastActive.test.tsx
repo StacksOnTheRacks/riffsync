@@ -196,7 +196,7 @@ describe('RoomPage Cast active stage', () => {
     vi.clearAllMocks()
   })
 
-  async function openRoomTab() {
+  async function renderRoomPage() {
     act(() => {
       root.render(
         <MemoryRouter initialEntries={['/room/room-test-1']}>
@@ -212,18 +212,11 @@ describe('RoomPage Cast active stage', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('.riffsync-room-page__tab')).not.toBeNull()
     })
-
-    const roomTab = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).find(
-      (node) => node.textContent?.trim() === 'Room',
-    )
-    act(() => {
-      ;(roomTab as HTMLButtonElement).click()
-    })
   }
 
   it('replaces the playback surface with Now Casting while casting', async () => {
     castStartLifecycle.value = 'casting'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).not.toBeNull()
     expect(container.textContent).toContain(CAST_ACTIVE_HEADING)
@@ -235,7 +228,7 @@ describe('RoomPage Cast active stage', () => {
 
   it('keeps the regular playback surface visible while Cast is starting', async () => {
     castStartLifecycle.value = 'launching'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
@@ -243,14 +236,14 @@ describe('RoomPage Cast active stage', () => {
 
   it('hides expanded view controls while casting', async () => {
     castStartLifecycle.value = 'casting'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('.riffsync-room-page__expand-toggle')).toBeNull()
   })
 
   it('invokes stopCast when Stop Cast is clicked', async () => {
     castStartLifecycle.value = 'casting'
-    await openRoomTab()
+    await renderRoomPage()
 
     const stopButton = container.querySelector('.riffsync-room-page__cast-stop-button') as HTMLButtonElement
     act(() => {
@@ -262,7 +255,7 @@ describe('RoomPage Cast active stage', () => {
 
   it('shows Stop Cast on the A/V bar while casting', async () => {
     castStartLifecycle.value = 'casting'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('[data-testid="room-av-cast-button"]')?.getAttribute('aria-label')).toBe(
       'Stop Cast',
@@ -271,7 +264,7 @@ describe('RoomPage Cast active stage', () => {
 
   it('keeps Stop Cast retryable while stop failure is local and active', async () => {
     castStartLifecycle.value = 'stop_failed'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).not.toBeNull()
     expect(container.textContent).toContain(CAST_STOP_FAILED_SUBCOPY)

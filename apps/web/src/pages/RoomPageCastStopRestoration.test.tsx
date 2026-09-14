@@ -200,7 +200,7 @@ describe('RoomPage Cast stop restoration', () => {
     vi.clearAllMocks()
   })
 
-  async function openRoomTab() {
+  async function renderRoomPage() {
     act(() => {
       root.render(
         <MemoryRouter initialEntries={['/room/room-test-1']}>
@@ -216,18 +216,11 @@ describe('RoomPage Cast stop restoration', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('.riffsync-room-page__tab')).not.toBeNull()
     })
-
-    const roomTab = Array.from(container.querySelectorAll('.riffsync-room-page__tab')).find(
-      (node) => node.textContent?.trim() === 'Room',
-    )
-    act(() => {
-      ;(roomTab as HTMLButtonElement).click()
-    })
   }
 
   it('keeps the Cast stage panel visible while stopping', async () => {
     castStartLifecycle.value = 'stopping'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).not.toBeNull()
     expect(container.textContent).toContain(CAST_ACTIVE_HEADING)
@@ -237,7 +230,7 @@ describe('RoomPage Cast stop restoration', () => {
 
   it('restores the normal playback surface after stop completes to idle', async () => {
     castStartLifecycle.value = 'idle'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
@@ -245,14 +238,14 @@ describe('RoomPage Cast stop restoration', () => {
 
   it('shows the expand toggle again after stop restoration to idle', async () => {
     castStartLifecycle.value = 'idle'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('.riffsync-room-page__expand-toggle')).not.toBeNull()
   })
 
   it('restores playback and local status after an active Cast session ends externally', async () => {
     castStartLifecycle.value = 'session_ended'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
@@ -262,7 +255,7 @@ describe('RoomPage Cast stop restoration', () => {
 
   it('restores playback and local status after receiver playback is blocked', async () => {
     castStartLifecycle.value = 'playback_blocked'
-    await openRoomTab()
+    await renderRoomPage()
 
     expect(container.querySelector('[data-testid="cast-active-stage-panel"]')).toBeNull()
     expect(container.querySelector('.riffsync-room-page__playback')).not.toBeNull()
