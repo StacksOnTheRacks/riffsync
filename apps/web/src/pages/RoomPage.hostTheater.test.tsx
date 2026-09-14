@@ -34,7 +34,7 @@ vi.mock('../hostBridge/hostExtensionBridge', () => ({
 
 const fetchRoom = vi.fn()
 const fetchRtcIceServers = vi.fn()
-const fanTokenState = vi.hoisted(() => ({ value: mockFanJwt('host-sub') }))
+const fanTokenState = vi.hoisted(() => ({ value: mockFanJwt('host-sub') as string | null }))
 
 vi.mock('../api/roomsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/roomsApi')>()
