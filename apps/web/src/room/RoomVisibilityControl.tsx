@@ -10,8 +10,8 @@ export type RoomVisibilityControlProps = {
 }
 
 const VISIBILITY_OPTIONS: Array<{ value: RoomVisibility; label: string }> = [
-  { value: 'public', label: 'Show on Live Now' },
-  { value: 'private', label: 'Link only' },
+  { value: 'private', label: 'Private' },
+  { value: 'public', label: 'Public' },
 ]
 
 export const ROOM_VISIBILITY_HINT =
@@ -26,9 +26,9 @@ export function RoomVisibilityControl({
   const hintId = useId()
 
   return (
-    <div className="riffsync-room-page__visibility" role="region" aria-label="Live Now visibility">
+    <div className="riffsync-room-page__visibility" role="region" aria-label="Visibility">
       <span className="riffsync-room-page__visibility-label" id={hintId}>
-        Live Now visibility
+        Visibility
       </span>
       <div
         className="riffsync-room-page__visibility-options"

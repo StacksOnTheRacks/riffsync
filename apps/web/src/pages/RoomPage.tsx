@@ -64,6 +64,10 @@ export function RoomPage() {
   const [visibilityBusy, setVisibilityBusy] = useState(false)
   const [visibilityErr, setVisibilityErr] = useState<string | null>(null)
   const [shareHint, setShareHint] = useState<string | null>(null)
+  const [settingsStatusMessage, setSettingsStatusMessage] = useState<string | null>(null)
+  const [settingsNameDraft, setSettingsNameDraft] = useState('')
+  const [settingsNameBusy, setSettingsNameBusy] = useState(false)
+  const [settingsNameErr, setSettingsNameErr] = useState<string | null>(null)
   const [roomSidebarTab, setRoomSidebarTab] = useState<RoomSidebarTab>('chat')
   const [expandedView, setExpandedView] = useState(false)
   const [renameModalOpen, setRenameModalOpen] = useState(false)
@@ -153,6 +157,11 @@ export function RoomPage() {
     [room, fanToken, isPublisher, hostBarBusy, roomId, announceRoomA11y, setRoom],
   )
 
+  const showSettingsStatus = useCallback((message: string) => {
+    setSettingsStatusMessage(message)
+    window.setTimeout(() => setSettingsStatusMessage(null), 4000)
+  }, [])
+
   const patchRoomVisibility = useCallback(
     async (visibility: RoomVisibility) => {
       if (!room || !fanToken || !isPublisher || visibilityBusy || room.visibility === visibility) return
@@ -163,7 +172,9 @@ export function RoomPage() {
       try {
         const res = await patchRoom(fanToken, roomId, { visibility })
         setRoom((prev) => (prev ? mergeRoomPatchResult(prev, res) : prev))
-        announceRoomA11y(visibilityAnnounceCopy(visibility))
+        const announce = visibilityAnnounceCopy(visibility)
+        announceRoomA11y(announce)
+        showSettingsStatus(announce)
       } catch (e) {
         setRoom(snapshot)
         setVisibilityErr(formatHostRoomPatchError(e))
@@ -171,7 +182,7 @@ export function RoomPage() {
         setVisibilityBusy(false)
       }
     },
-    [room, fanToken, isPublisher, visibilityBusy, roomId, announceRoomA11y, setRoom],
+    [room, fanToken, isPublisher, visibilityBusy, roomId, announceRoomA11y, setRoom, showSettingsStatus],
   )
 
   const {
@@ -399,6 +410,8 @@ export function RoomPage() {
 
   const avSurfacesEnabled = !avDisabled
 
+  const DISPLAY_TITLE_MAX_LEN = 120
+
   const saveRenameFromModal = async (): Promise<boolean> => {
     if (!room || !fanToken || !isPublisher) return false
     const t = renameModalDraft.trim()
@@ -426,12 +439,66 @@ export function RoomPage() {
     }
   }
 
+  const openSettings = useCallback(() => {
+    if (!room) return
+    setSettingsNameErr(null)
+    setSettingsNameDraft(room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId ?? '')
+  }, [room, catalogEp?.title])
+
+  const savePartyNameFromSettings = useCallback(async () => {
+    if (!room || !fanToken || !isPublisher || settingsNameBusy) return
+    const t = settingsNameDraft.trim()
+    if (!t) {
+      setSettingsNameErr('Room name cannot be empty.')
+      return
+    }
+    if (t.length > DISPLAY_TITLE_MAX_LEN) {
+      setSettingsNameErr(`Room name must be ${DISPLAY_TITLE_MAX_LEN} characters or fewer.`)
+      return
+    }
+    setSettingsNameBusy(true)
+    setSettingsNameErr(null)
+    try {
+      const res = await patchRoom(fanToken, roomId, { displayTitle: t })
+      const nextTitle = res.displayTitle ?? t
+      setRoom((prev) =>
+        prev
+          ? {
+              ...prev,
+              version: res.version,
+              catalogEpisodeId: res.catalogEpisodeId,
+              youtubeVideoId: res.youtubeVideoId,
+              visibility: res.visibility,
+              lastActivityAt: res.lastActivityAt,
+              displayTitle: nextTitle,
+            }
+          : prev,
+      )
+      showSettingsStatus('Party name saved.')
+    } catch (e) {
+      setSettingsNameErr(e instanceof Error ? e.message : 'Could not save title')
+    } finally {
+      setSettingsNameBusy(false)
+    }
+  }, [
+    room,
+    fanToken,
+    isPublisher,
+    settingsNameBusy,
+    settingsNameDraft,
+    roomId,
+    setRoom,
+    showSettingsStatus,
+  ])
+
   const openRenameModal = () => {
     if (!room) return
     setPatchErr(null)
     setRenameModalDraft(room.displayTitle ?? catalogEp?.title ?? room.catalogEpisodeId ?? '')
     setRenameModalOpen(true)
   }
+
+  const partyUrl = `${getPublicOrigin()}/room/${encodeURIComponent(roomId)}`
 
   const copyShare = async () => {
     const url = `${getPublicOrigin()}/room/${encodeURIComponent(roomId)}`
@@ -707,6 +774,11 @@ export function RoomPage() {
       }
     >
       <div id="riffsync-a11y-announcer" ref={a11yAnnouncerRef} aria-live="polite" className="sr-only" />
+      {settingsStatusMessage ? (
+        <p className="riffsync-watch-party-settings-status" role="status">
+          {settingsStatusMessage}
+        </p>
+      ) : null}
       {backdropImageUrl ? (
         <div
           className="riffsync-room-shell__backdrop"
@@ -785,11 +857,19 @@ export function RoomPage() {
                     }}
                     onCopyShare={() => void copyShare()}
                     shareHint={shareHint}
-                    onOpenRenameModal={openRenameModal}
+                    partyNameDraft={settingsNameDraft}
+                    onPartyNameDraftChange={setSettingsNameDraft}
+                    onOpenSettings={openSettings}
+                    onSavePartyName={() => void savePartyNameFromSettings()}
+                    partyNameBusy={settingsNameBusy}
+                    partyNameErr={settingsNameErr}
+                    partyUrl={partyUrl}
                     roomVisibility={room.visibility}
                     visibilityBusy={visibilityBusy}
                     visibilityErr={visibilityErr}
                     onSelectRoomVisibility={(visibility) => void patchRoomVisibility(visibility)}
+                    theaterShareQuality={theaterShareQuality}
+                    onTheaterShareQualityChange={setTheaterShareQuality}
                     roomMode={roomMode}
                     hostBarBusy={hostBarBusy}
                     hostBarErr={hostBarErr}

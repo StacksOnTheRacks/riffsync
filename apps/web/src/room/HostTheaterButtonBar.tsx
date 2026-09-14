@@ -13,6 +13,10 @@ import type { ParticipantAvController } from './sfu/participantAvSession'
 import type { RoomVisibility } from './hostRoomControls'
 import { RoomVisibilityControl } from './RoomVisibilityControl'
 import {
+  TheaterShareQualityControls,
+} from './TheaterShareQualityControls'
+import type { TheaterShareQualityPreset } from './theaterShareQuality'
+import {
   PARTICIPANT_AV_DISABLED_COPY,
 } from './participantAvErrorCopy'
 import { messageForParticipantAvError } from './drawerErrorPresentation'
@@ -46,18 +50,31 @@ export type HostTheaterButtonBarProps = {
   onPause: () => void
   onCopyShare: () => void
   shareHint: string | null
-  onOpenRenameModal: () => void
+  partyNameDraft: string
+  onPartyNameDraftChange: (draft: string) => void
+  onOpenSettings: () => void
+  onSavePartyName: () => void
+  partyNameBusy: boolean
+  partyNameErr: string | null
+  partyUrl: string
   roomVisibility: RoomVisibility
   visibilityBusy: boolean
   visibilityErr: string | null
   onSelectRoomVisibility: (visibility: RoomVisibility) => void
+  theaterShareQuality: TheaterShareQualityPreset
+  onTheaterShareQualityChange: (preset: TheaterShareQualityPreset) => void
   roomMode: RoomMode
   hostBarBusy: boolean
   hostBarErr: string | null
   onSelectRoomMode: (mode: RoomMode) => void
 }
 
-type PopupKind = 'mode' | 'cast' | 'share' | 'help' | null
+type PopupKind = 'mode' | 'cast' | 'settings' | 'help' | null
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+const PARTY_NAME_MAX_LEN = 120
 type HostTheaterModeOption = 'theater' | 'videoChat' | 'games'
 
 const MODE_OPTIONS: Array<{
@@ -108,11 +125,19 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
     onPause,
     onCopyShare,
     shareHint,
-    onOpenRenameModal,
+    partyNameDraft,
+    onPartyNameDraftChange,
+    onOpenSettings,
+    onSavePartyName,
+    partyNameBusy,
+    partyNameErr,
+    partyUrl,
     roomVisibility,
     visibilityBusy,
     visibilityErr,
     onSelectRoomVisibility,
+    theaterShareQuality,
+    onTheaterShareQualityChange,
     roomMode,
     hostBarBusy,
     hostBarErr,
@@ -157,7 +182,11 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
 
   const openPopupFrom = (kind: PopupKind, opener: HTMLButtonElement | null) => {
     popupOpenerRef.current = opener
-    setOpenPopup((current) => (current === kind ? null : kind))
+    setOpenPopup((current) => {
+      const next = current === kind ? null : kind
+      if (next === 'settings') onOpenSettings()
+      return next
+    })
   }
 
   const avControlsDisabled =
@@ -309,13 +338,14 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
 
         <button
           type="button"
-          className={`riffsync-host-theater-bar__segment${openPopup === 'share' ? ' riffsync-host-theater-bar__segment--on' : ''}`}
-          aria-label="Share watch party"
+          className={`riffsync-host-theater-bar__segment${openPopup === 'settings' ? ' riffsync-host-theater-bar__segment--on' : ''}`}
+          aria-label="Settings"
           aria-haspopup="dialog"
-          aria-expanded={openPopup === 'share'}
-          onClick={(event) => openPopupFrom('share', event.currentTarget)}
+          aria-expanded={openPopup === 'settings'}
+          aria-pressed={openPopup === 'settings'}
+          onClick={(event) => openPopupFrom('settings', event.currentTarget)}
         >
-          <TheaterBarIcon src="/host-theater/share.svg" />
+          <TheaterBarIcon src="/host-theater/settings.svg" />
         </button>
 
         {extensionPresent && mediaTabOpen ? (
@@ -378,32 +408,24 @@ export function HostTheaterButtonBar(props: HostTheaterButtonBarProps) {
         />
       ) : null}
 
-      {openPopup === 'share' ? (
-        <HostTheaterDialog title="Share Watch Party" onClose={closePopup}>
-          <button
-            type="button"
-            className="gen-button gen-button-wide"
-            onClick={() => {
-              onCopyShare()
-            }}
-          >
-            Copy party link
-          </button>
-          <button type="button" className="gen-button gen-button-wide" onClick={onOpenRenameModal}>
-            Rename party
-          </button>
-          {shareHint ? (
-            <p className="riffsync-host-theater-bar__hint" role="status">
-              {shareHint}
-            </p>
-          ) : null}
-          <RoomVisibilityControl
-            visibility={roomVisibility}
-            busy={visibilityBusy}
-            error={visibilityErr}
-            onSelectVisibility={onSelectRoomVisibility}
-          />
-        </HostTheaterDialog>
+      {openPopup === 'settings' ? (
+        <WatchPartySettingsDialog
+          onClose={closePopup}
+          partyNameDraft={partyNameDraft}
+          onPartyNameDraftChange={onPartyNameDraftChange}
+          onSavePartyName={onSavePartyName}
+          partyNameBusy={partyNameBusy}
+          partyNameErr={partyNameErr}
+          partyUrl={partyUrl}
+          onCopyShare={onCopyShare}
+          shareHint={shareHint}
+          roomVisibility={roomVisibility}
+          visibilityBusy={visibilityBusy}
+          visibilityErr={visibilityErr}
+          onSelectRoomVisibility={onSelectRoomVisibility}
+          theaterShareQuality={theaterShareQuality}
+          onTheaterShareQualityChange={onTheaterShareQualityChange}
+        />
       ) : null}
 
       {openPopup === 'help' ? (
@@ -574,6 +596,166 @@ function WatchOnTvDialog({
         </form>
       )}
     </HostTheaterDialog>
+  )
+}
+
+function WatchPartySettingsDialog({
+  onClose,
+  partyNameDraft,
+  onPartyNameDraftChange,
+  onSavePartyName,
+  partyNameBusy,
+  partyNameErr,
+  partyUrl,
+  onCopyShare,
+  shareHint,
+  roomVisibility,
+  visibilityBusy,
+  visibilityErr,
+  onSelectRoomVisibility,
+  theaterShareQuality,
+  onTheaterShareQualityChange,
+}: {
+  onClose: () => void
+  partyNameDraft: string
+  onPartyNameDraftChange: (draft: string) => void
+  onSavePartyName: () => void
+  partyNameBusy: boolean
+  partyNameErr: string | null
+  partyUrl: string
+  onCopyShare: () => void
+  shareHint: string | null
+  roomVisibility: RoomVisibility
+  visibilityBusy: boolean
+  visibilityErr: string | null
+  onSelectRoomVisibility: (visibility: RoomVisibility) => void
+  theaterShareQuality: TheaterShareQualityPreset
+  onTheaterShareQualityChange: (preset: TheaterShareQualityPreset) => void
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const partyNameId = useId()
+  const partyUrlId = useId()
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    const focusables = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+      (el) => !el.hasAttribute('disabled') && el.offsetParent !== null,
+    )
+    focusables[0]?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const items = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+        (el) => !el.hasAttribute('disabled') && el.offsetParent !== null,
+      )
+      if (items.length === 0) return
+      const first = items[0]!
+      const last = items[items.length - 1]!
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  return (
+    <div className="riffsync-host-theater-bar__dialog-backdrop" onClick={onClose}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="riffsync-watch-party-settings-title"
+        className="riffsync-host-theater-bar__dialog riffsync-host-theater-bar__dialog--watch-party-settings"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="riffsync-watch-party-settings-title" className="riffsync-host-theater-bar__dialog-title">
+          Watch Party Settings
+        </h2>
+        <div className="riffsync-host-theater-bar__dialog-body">
+          <div className="riffsync-watch-party-settings__row">
+            <label className="riffsync-watch-party-settings__label" htmlFor={partyNameId}>
+              Party Name
+            </label>
+            <div className="riffsync-watch-party-settings__field-row">
+              <input
+                id={partyNameId}
+                className="riffsync-watch-party-settings__input"
+                value={partyNameDraft}
+                maxLength={PARTY_NAME_MAX_LEN}
+                onChange={(event) => onPartyNameDraftChange(event.target.value)}
+                disabled={partyNameBusy}
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                className="gen-button riffsync-watch-party-settings__action"
+                disabled={partyNameBusy}
+                onClick={onSavePartyName}
+              >
+                Save
+              </button>
+            </div>
+            {partyNameErr ? (
+              <p className="riffsync-watch-party-settings__err" role="alert">
+                {partyNameErr}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="riffsync-watch-party-settings__row">
+            <label className="riffsync-watch-party-settings__label" htmlFor={partyUrlId}>
+              Party URL
+            </label>
+            <div className="riffsync-watch-party-settings__field-row">
+              <input
+                id={partyUrlId}
+                className="riffsync-watch-party-settings__input"
+                value={partyUrl}
+                readOnly
+              />
+              <button
+                type="button"
+                className="gen-button riffsync-watch-party-settings__action"
+                onClick={onCopyShare}
+              >
+                Copy
+              </button>
+            </div>
+            {shareHint ? (
+              <p className="riffsync-host-theater-bar__hint" role="status">
+                {shareHint}
+              </p>
+            ) : null}
+          </div>
+
+          <RoomVisibilityControl
+            visibility={roomVisibility}
+            busy={visibilityBusy}
+            error={visibilityErr}
+            onSelectVisibility={onSelectRoomVisibility}
+          />
+
+          <TheaterShareQualityControls
+            value={theaterShareQuality}
+            onChange={onTheaterShareQualityChange}
+          />
+        </div>
+        <button type="button" className="gen-button" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
   )
 }
 
