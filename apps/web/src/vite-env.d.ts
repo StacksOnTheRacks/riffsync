@@ -30,6 +30,11 @@ interface ImportMetaEnv {
   readonly VITE_CAST_RECEIVER_APP_ID?: string
   /** GA4 measurement id (public). Injected into index.html at build time when set. */
   readonly VITE_GA_MEASUREMENT_ID?: string
+  /**
+   * Optional Chrome Web Store listing URL for the RiffSync Host extension (https store hosts only).
+   * Baked in at **`npm run build`** only.
+   */
+  readonly VITE_PUBLIC_CHROME_WEB_STORE_EXTENSION_URL?: string
 }
 
 interface ImportMeta {
