@@ -188,6 +188,16 @@ footer#gen-footer .widget .riffsync-footer-wordmark {
   color: var(--white-color);
 }
 
+.riffsync-legal a.gen-button {
+  color: var(--white-color);
+  text-decoration: none;
+}
+
+.riffsync-legal a.gen-button:hover,
+.riffsync-legal a.gen-button:focus {
+  color: var(--white-color);
+}
+
 .riffsync-legal-form label {
   display: block;
   margin-top: 1rem;
