@@ -1,9 +1,10 @@
 {
   "name": "@riffsync/host-extension",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "package:store": "node scripts/package-store-zip.mjs",
     "test": "node --test"
   }
 }
