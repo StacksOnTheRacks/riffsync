@@ -156,7 +156,7 @@ Full port map, cross-device LAN notes, and ICE overrides: **[`infra/local-media/
 - [Operator admin — users, reporting, catalog & lists (draft)](docs/architecture.admin.md)
 - [Frontend architecture (draft)](docs/architecture.frontend.md)
 - [Local watch-party media — disposable SFU + coturn (`infra/local-media/`)](infra/local-media/README.md)
-- [Host extension — unpacked install + Room-tab media helper (`apps/host-extension/`)](apps/host-extension/README.md)
+- [Host extension — Chrome Web Store install + Room-tab media helper (`apps/host-extension/`)](apps/host-extension/README.md)
 
 ## Naming
 

@@ -4,11 +4,23 @@
 
 | Artifact | Source | Publish target |
 | --- | --- | --- |
+| **RiffSync Host (Chrome MV3)** | **`apps/host-extension`** — **`npm run package:store`** → **`dist/riffsync-host-{manifestVersion}.zip`** (production-only packaged manifest; source tree may keep localhost content-script match for unpacked dev) | **Chrome Web Store** — manual operator upload from Developer Dashboard (not CI) |
 | **Fan + staff SPA** | **`apps/web`** — single Vite build (**`npm run build`** → **`dist/`**) | **`RiffSyncStatic-prod`** S3 bucket + CloudFront invalidation |
 | **Lambda handlers** | **`infra/cdk/lambda/`** — bundled by CDK | **`RiffSyncApi-prod`** (and other stacks as defined in IaC) |
 | **CDK templates** | **`infra/cdk`** — **`cdk synth`** | CloudFormation deploy via GitHub Actions or operator **`cdk deploy`** |
 
 The **admin UI** is **gated routes** under **`/admin/*`** in the **same** SPA as the fan catalog and rooms — **one** build, **one** CloudFront origin. Staff OAuth uses path **`/admin/auth/callback`** on the same **`FanWebSiteUrl`** origin as fan **`/auth/callback`**.
+
+### Host extension store zip (manual publish)
+
+| Step | Contract |
+| --- | --- |
+| **Build** | From repo root: **`npm run package:store --prefix apps/host-extension`**. Writes **`apps/host-extension/dist/riffsync-host-{version}.zip`** where **`{version}`** is **`manifest.json`** **`version`** (source of truth). |
+| **Zip contents** | Runtime MV3 assets only: manifest (store copy strips **`http://localhost:5173/*`** from **`content_scripts.matches`**), service worker, content script, popup HTML, **`config.js`**, icons **16/48/128**. Excludes **`*.test.js`**, **`node_modules`**, nested **`dist`**, and packaging scripts. |
+| **Permissions** | Packaged manifest keeps **`permissions`: `["tabs"]`** and prod API **`host_permissions`** only — no capture or Side Panel permissions (**ADR-001**). |
+| **Upload** | Operator uploads the zip in the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole), completes listing/review, and records the public listing URL for downstream SPA env wiring (**#479** / **#480**). **Not** automated in GitHub Actions. |
+
+Public install docs treat the Chrome Web Store as the default path; **Load unpacked** from **`apps/host-extension/`** remains contributor/local-dev only (**[`apps/host-extension/README.md`](../../apps/host-extension/README.md)**).
 
 ## SPA build-time configuration
 

@@ -1,16 +1,20 @@
 # RiffSync Host extension
 
-Unpacked Chrome MV3 package that helps room hosts open and control a **media
-tab in the background** without leaving the watch-party tab. The **host
-control panel UI lives in the party Room tab** (SPA). This package does not
-ship a Chrome Side Panel.
+Chrome MV3 package that helps room hosts open and control a **media tab in the
+background** without leaving the watch-party tab. The **host control panel UI
+lives in the party Room tab** (SPA). This package does not ship a Chrome Side
+Panel.
 
 This extension **does not capture** media and does **not** supply `host_screen`.
 Page `getDisplayMedia` remains the share / capture source of truth (SPA to
 RoomMediaEngine to SFU). The extension does not use `tabCapture`,
 desktopCapture, or offscreen capture.
 
-There is no Chrome Web Store listing for this MVP. Use unpacked load only.
+## Install (Chrome Web Store)
+
+Install **RiffSync Host** from the Chrome Web Store once the listing is
+published (public URL recorded at publish time — see repo issues **#479** /
+**#480**). That is the default install path for hosts on `https://riffsync.tv`.
 
 ## What this package does
 
@@ -39,40 +43,20 @@ package.
   Icebox.
 - **No SFU / control-plane media.**
 - **No Firefox, Safari, or mobile Chrome.**
-- **No Web Store** listing.
 
 ## Prerequisites
 
-- Chrome desktop (Chromium-based Chrome with Developer mode).
-- A signed-in **host** account on an allowed SPA origin.
+- Chrome desktop (Chromium-based Chrome).
+- A signed-in **host** account on `https://riffsync.tv`.
 - The public HTTP API origin for that environment (same meaning as SPA
   `VITE_PUBLIC_API_BASE_URL`) when using any SW API helpers.
 
-No build step. Load the package root `apps/host-extension/` (this directory).
-
-## Configure the public API origin
-
-Set `PUBLIC_API_BASE_URL` in `config.js` to the same HTTPS origin as the SPA
-env `VITE_PUBLIC_API_BASE_URL`. Update `manifest.json` `host_permissions` to
-that same origin with path `/*`. Keep them in sync across environments.
-
-## Load unpacked in Chrome
-
-1. Open `chrome://extensions`.
-2. Turn on **Developer mode**.
-3. Click **Load unpacked**.
-4. Select this directory: `apps/host-extension/` (the folder that contains
-   `manifest.json`).
-
-The toolbar action opens a short popup that points hosts to the party **Room**
-tab. Pin the extension if you want the icon visible.
-
 ## Hosting with the Room tab
 
-1. Sign in as the room host on `https://riffsync.tv` (or local
-   `http://localhost:5173`) — normal tab or installed PWA.
+1. Sign in as the room host on `https://riffsync.tv` — normal tab or installed
+   PWA.
 2. Open `/room/:roomId` and open the **Room** sidebar tab.
-3. With this extension loaded, use **Open Media Source Tab**, then **Start
+3. With this extension installed, use **Open Media Source Tab**, then **Start
    Broadcasting**. Use Next Up / Catalog to queue titles; fast-forward plays
    the next queued item.
 4. Without the extension, Room tab shows **Install Host Extension** and the
@@ -86,8 +70,48 @@ See also `/how-to-host-a-watchparty#host-extension`.
   play/pause on party-capture tabs.
 - Page→extension: `HOST_EXTENSION_PING` / `HOST_EXTENSION_PONG`, media-tab
   get-state / open, and playback commands (content script ↔ service worker).
-- Allowed SPA origins: `https://riffsync.tv/*`, `http://localhost:5173/*`.
+- Store build content scripts: `https://riffsync.tv/*` only. Unpacked dev load
+  may also include `http://localhost:5173/*`.
 - No `externally_connectable`.
+
+## Chrome Web Store packaging (operators)
+
+Release operators produce a deterministic upload zip from this package (no
+runtime behavior change vs the shipped MV3 sources):
+
+```bash
+npm run package:store --prefix apps/host-extension
+```
+
+Output: `apps/host-extension/dist/riffsync-host-{manifestVersion}.zip` (version
+from `manifest.json`, currently `0.2.0`). The zip includes manifest, service
+worker, content script, popup HTML, `config.js`, and toolbar/listing icons
+(16/48/128). It excludes `*.test.js`, `node_modules`, `dist`, and other
+non-runtime files. The packaged `manifest.json` uses production-only
+`content_scripts.matches` (`https://riffsync.tv/*`).
+
+**Manual upload (not automated in CI):**
+
+1. Open the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
+2. Create or select the **RiffSync Host** item.
+3. Upload `dist/riffsync-host-{version}.zip` as a new package version.
+4. Complete listing fields, privacy disclosures, and submit for review per
+   Google policy. Record the published listing URL for downstream env wiring
+   (see repo issue #479).
+
+## Developer: load unpacked
+
+For local SPA development on `http://localhost:5173`, use an unpacked load of
+**this source tree** (not the store zip):
+
+1. Set `PUBLIC_API_BASE_URL` in `config.js` and matching `host_permissions` in
+   `manifest.json` for your target API environment.
+2. Open `chrome://extensions`, enable **Developer mode**, click **Load
+   unpacked**, and select `apps/host-extension/` (the folder containing
+   `manifest.json`).
+
+The toolbar action opens a short popup that points hosts to the party **Room**
+tab.
 
 ## Layout
 
@@ -98,6 +122,9 @@ apps/host-extension/
   action-popup.html          # points hosts to the Room tab
   host-bridge-content.js     # page↔SW relay + presence ping
   config.js                  # PUBLIC_API_BASE_URL
+  icons/                     # 16/48/128 store + toolbar icons
+  scripts/package-store-zip.mjs
+  dist/                      # generated store zip (gitignored)
   ... helpers / tests ...
   README.md
 ```
