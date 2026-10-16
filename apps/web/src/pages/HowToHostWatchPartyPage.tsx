@@ -1,7 +1,10 @@
 import { useEffect } from 'react'
+import { getChromeWebStoreExtensionUrl } from '../config/chromeWebStoreExtensionUrl'
 import { SITE_DOCUMENT_TITLE } from '../config/documentTitle'
 
 export function HowToHostWatchPartyPage() {
+  const chromeWebStoreExtensionUrl = getChromeWebStoreExtensionUrl()
+
   useEffect(() => {
     const previous = document.title
     document.title = `How to Host a Watch Party - ${SITE_DOCUMENT_TITLE}`
@@ -77,31 +80,55 @@ export function HowToHostWatchPartyPage() {
         <section>
           <h2 id="host-extension">Install the Host extension</h2>
           <p>
-            The <strong>Room</strong> tab is the host control panel. Opening and retargeting the media
-            tab in the background (without leaving the party) needs the unpacked{' '}
-            <strong>RiffSync Host</strong> Chrome extension. Without it, the Room tab still works for
-            copy link, rename, visibility, and the stage Open / Share Source Tab flow.
+            The <strong>Room</strong> tab is the host control panel. Opening and retargeting the media tab
+            in the background (without leaving the party) uses the <strong>RiffSync Host</strong> Chrome
+            extension on desktop. Without it, the Room tab still works for copy link, rename, visibility,
+            and the stage Open / Share Source Tab flow above — extension install is separate from{' '}
+            <strong>Share Source Tab</strong> screen capture.
           </p>
-          <ol>
-            <li>
-              Use <strong>Chrome</strong> on desktop (Developer mode).
-            </li>
-            <li>
-              Open <code>chrome://extensions</code>, turn on <strong>Developer mode</strong>, then{' '}
-              <strong>Load unpacked</strong>.
-            </li>
-            <li>
-              Select the <code>apps/host-extension/</code> folder from the RiffSync repo (the folder that
-              contains <code>manifest.json</code>).
-            </li>
-            <li>
-              Reload your party page. Open the <strong>Room</strong> tab — you should see Open Media
-              Source Tab, Next Up, and Catalog instead of Install Host Extension.
-            </li>
-          </ol>
+          {chromeWebStoreExtensionUrl ? (
+            <>
+              <p>
+                On <strong>Chrome</strong> desktop, install <strong>RiffSync Host</strong> from the Chrome
+                Web Store.
+              </p>
+              <ol>
+                <li>
+                  Choose <strong>Add to Chrome</strong> below to open the official listing.
+                </li>
+                <li>
+                  Confirm the install in the Chrome Web Store.
+                </li>
+                <li>
+                  Reload your party page. Open the <strong>Room</strong> tab — you should see Open Media
+                  Source Tab, Next Up, and Catalog instead of Install Host Extension.
+                </li>
+              </ol>
+              <p>
+                <a
+                  className="gen-button"
+                  href={chromeWebStoreExtensionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Add to Chrome
+                </a>
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                Chrome Web Store install for <strong>RiffSync Host</strong> on Chrome desktop is being
+                prepared. This section will link to the official listing when it is ready.
+              </p>
+              <p>
+                After install is available, add the extension from the store, reload your party page, and
+                open the <strong>Room</strong> tab for Open Media Source Tab, Next Up, and Catalog.
+              </p>
+            </>
+          )}
           <p>
-            There is no Chrome Web Store listing yet. Installed PWAs work: host UI lives in the page, not
-            in a Chrome side panel.
+            Installed PWAs work: host UI lives in the page, not in a Chrome side panel.
           </p>
         </section>
 
